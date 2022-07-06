@@ -1,0 +1,9 @@
+{%  extends 'base/layout.twig' %}
+
+{# Prevent right sidebar from showing. #}
+{#% block body_aside_right %}{% endblock %#}
+{% block body %}
+    <block-editor id="page-wrapper">
+        <components class="grid grid-cols-3">{% include 'base/default-block-editor-content.twig' %}</components>
+    </block-editor>
+{% endblock %}

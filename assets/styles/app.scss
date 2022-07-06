@@ -1,0 +1,49 @@
+@import '~tailwindcss/base';
+@import '~tailwindcss/components';
+@import '~tailwindcss/utilities';
+
+@import "./app-dark.scss";
+
+body {
+    background-color: lightgray;
+}
+
+.site-margin-top {
+    margin-top: 0;
+}
+
+.site-margin-bottom {
+    margin-bottom: 0;
+}
+
+.site-margin-left:not(.full-width) {
+    margin-left: 10%;
+}
+
+.site-margin-right:not(.full-width) {
+    margin-right: 10%;
+}
+
+*:not(.aside-pinned) {
+
+    > main {
+        grid-column: 1 / -1;
+    }
+
+    > aside.relative > section {
+        position: absolute;
+    }
+
+    > aside:is(.relative, .fixed) {
+
+        &.right {
+            transform: translateX(100%);
+        }
+
+        &.left {
+            transform: translateX(-100%);
+        }
+
+    }
+
+}

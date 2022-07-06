@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html class="logged-in">
+<head>
+    {% block head %}
+        {% block head_meta %}
+            {% block meta_charset %}<meta charset="{{ (doc.meta.charset ?? 'UTF-8')|escape('html_attr') }}">{% endblock %}
+            {% block meta_viewport %}<meta name="viewport" content="{{ (doc.meta.viewport ?? 'width=device-width, initial-scale=1')|escape('html_attr') }}">{% endblock %}
+            {% block meta_favicon %}<link rel="shortcut icon" href="{{ asset('build/images/favicon.png') }}">{% endblock %}
+        {% endblock %}
+        {% block head_styles %}
+            {{ encore_entry_link_tags('tailwind') }}
+            {{ encore_entry_link_tags('main') }}
+            {#{ encore_entry_link_tags('admin') }#}
+        {% endblock %}
+        <title>{{ (doc.title ?? 'iikiti')|escape('html') }}</title>
+        {% block head_js %}
+            {{ encore_entry_script_tags('main',
+                attributes={
+                    defer: true
+                }
+            ) }}
+            {#{ encore_entry_script_tags('admin',
+                attributes={
+                    defer: true
+                }
+            ) }#}
+        {% endblock %}
+    {% endblock %}
+</head>
+<body class="text-black bg-white dark:text-white dark:bg-gray-900">
+    {% block body_before %}{% endblock %}
+    {% block body %}{% endblock %}
+    {% block body_after %}{% endblock %}
+</body>
+</html>

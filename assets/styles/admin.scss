@@ -1,0 +1,44 @@
+
+
+block-editor, *[data-type="component"] {
+
+    position: relative;
+    transition-delay: 70ms;
+    transition: all 300ms;
+
+    & > button {
+        pointer-events: none;
+        left: 0;
+        opacity: 0;
+    }
+
+    &.hover {
+
+        & > button {
+            opacity: 1;
+            transition: opacity 600ms;
+        }
+
+        & > button.top-left {
+
+            top: -100%;
+            pointer-events: all;
+    
+        }
+
+        & > button.bottom-right {
+
+            top: 100%;
+            pointer-events: all;
+    
+        }
+
+    }
+
+    *[data-type="component"] {
+
+        
+
+    }
+
+}

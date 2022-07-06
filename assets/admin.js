@@ -1,0 +1,2 @@
+
+import './styles/admin.scss';
