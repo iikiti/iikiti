@@ -17,4 +17,6 @@ class Kernel extends BaseKernel
         parent::boot();
     }
 
+    /* TODO: Connect to database early and load active extensions */
+
 }
