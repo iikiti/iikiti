@@ -13,29 +13,17 @@ abstract class Extensions {
     const PREFIX = 'iikiti\\extension\\';
 
     public static function load(ContainerInterface $container) {
-
         $site = SiteRegistry::getCurrentSite();
 
-        //$loader = require BASE_DIR . DS . 'vendor' . DS . 'autoload.php';
-
         $extAry = $site->getEnabledExtensions();
-
-        spl_autoload_register([self::class, 'autoloadClass'], true, false);
 
         foreach($extAry as $ext) {
             $prefix = self::PREFIX .
                 str_replace('/', '\\', dirname($ext)) . '\\';
             $path = BASE_DIR . DS . 'cms' . DS . 'extensions' . DS .
                 dirname($ext) . DS;
-            dump($prefix, $path);
-            //$loader->addPsr4($prefix,$path);
-            //$loader->register();
-            $extClass = str_replace('\\', '/', self::PREFIX) . $ext;
-            dump($extClass);
-            dump(new $extClass());
+            $extClass = self::PREFIX . str_replace('/', '\\', $ext);
         }
-
-        spl_autoload_unregister([self::class, 'autoloadClass']);
 
     }
 
@@ -72,12 +60,7 @@ abstract class Extensions {
         $extPrefix = self::PREFIX . $vendor . '\\' . $extName . '\\';
         $extPath = $entry->getPathname() . DS;
         $loader->addPsr4($extPrefix, $extPath);
-        var_dump($extPrefix);
-        var_dump($extPath);
-    }
-
-    public static function autoloadClass($class) {
-        dump($class);
+        $class = $extPrefix . 'ComponentsBundle';
     }
 
 }
