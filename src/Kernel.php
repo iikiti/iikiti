@@ -10,13 +10,19 @@ use Symfony\Component\HttpKernel\Kernel as BaseKernel;
  */
 class Kernel extends BaseKernel
 {
-    use MicroKernelTrait;
+    use MicroKernelTrait {
+        registerBundles as kernelRegisterBundles;
+    }
 
     public function boot(): void
     {
         parent::boot();
     }
 
-    /* TODO: Connect to database early and load active extensions */
+    public function registerBundles(): iterable
+    {
+        yield from $this->kernelRegisterBundles();
+        /* TODO: Connect to database early and load active extensions */
+    }
 
 }
