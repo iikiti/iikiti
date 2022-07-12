@@ -91,7 +91,7 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface
         // Enable Site filter
         $em->getFilters()->enable('SiteFilter');
 
-        //Extensions::load($this->container);
+        Extensions::load($this->container);
 
         static::$hasInitialized = true;
     }
