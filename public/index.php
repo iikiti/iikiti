@@ -1,7 +1,6 @@
 <?php
 
 use iikiti\CMS\Kernel;
-use iikiti\CMS\Loader\Extensions;
 use Symfony\Component\Dotenv\Dotenv;
 use Symfony\Component\ErrorHandler\Debug;
 use Symfony\Component\HttpFoundation\Request;
@@ -14,9 +13,7 @@ if(!defined('DS')) {
     define('DS', DIRECTORY_SEPARATOR);
 }
 
-$loader = require dirname(__DIR__).'/vendor/autoload.php';
-
-Extensions::registerAll($loader);
+define('PSR4LOADER', require dirname(__DIR__).'/vendor/autoload.php');
 
 (new Dotenv())->bootEnv(dirname(__DIR__).'/.env');
 
