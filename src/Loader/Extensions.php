@@ -36,12 +36,13 @@ abstract class Extensions {
         $vendor = basename($path->getPath());
         $extPrefix = self::PREFIX . $vendor . '\\' . $extName . '\\';
         $extPath = $path->getPathname() . DS;
-        //$class = $extPrefix . 'ComponentsBundle';
+        $class = $extPrefix . ucfirst($extName) . 'Bundle';
 
         $composerFile = $extPath . 'composer.json';
 
+        $loader->addPsr4($extPrefix, $extPath);
+
         if(!file_exists($composerFile)) {
-            $loader->addPsr4($extPrefix, $extPath);
             return;
         }
 
@@ -58,6 +59,7 @@ abstract class Extensions {
             $psr4_path = $extPath . $psr4_path;
             $loader->addPsr4($psr4_prefix, $psr4_path);
         }
+
     }
 
 }
