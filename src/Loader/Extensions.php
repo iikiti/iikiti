@@ -30,30 +30,6 @@ abstract class Extensions {
 
     }
 
-    public static function registerAll(ClassLoader $loader)
-    {
-        foreach(self::_loadExtensionClasses($loader) as $entry) {
-            self::_loadExtensionPsr4($loader, $entry);
-        }
-    }
-
-    protected static function _loadExtensionClasses()
-    {
-        static $GLOB = BASE_DIR . DS . 'cms' . DS . 'extensions' .
-            DS . '*' . DS . '*';
-        foreach(new GlobIterator($GLOB) as $entry) {
-            // Must be a directory or symbolic link
-            if(
-                !($entry->isDir() ||
-                $entry->isLink()) ||
-                !($entry instanceof SplFileInfo)
-            ) {
-                continue;
-            }
-            yield $entry;
-        }
-    }
-
     protected static function _loadExtensionPsr4(SplFileInfo $path): void {
         static $loader = PSR4LOADER;
         $extName = basename($path->getPathname());
