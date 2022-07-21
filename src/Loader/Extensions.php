@@ -24,27 +24,25 @@ abstract class Extensions {
                 dirname($ext) . DS;
             $extClass = self::PREFIX . str_replace('/', '\\', $ext);
             if(is_dir($path) && file_exists($path)) {
-                self::_loadExtensionPsr4(new SplFileInfo($path));
+                $class = self::_loadExtensionPsr4(new SplFileInfo($path));
             }
         }
     }
 
-    protected static function _loadExtensionPsr4(SplFileInfo $path): void {
-        static $loader = PSR4LOADER;
+    protected static function _loadExtensionPsr4(SplFileInfo $path): string {
         $extName = basename($path->getPathname());
         $vendor = basename($path->getPath());
         $extPrefix = self::PREFIX . $vendor . '\\' . $extName . '\\';
         $extPath = $path->getPathname() . DS;
-        $class = $extPrefix . ucfirst($extName) . 'Bundle';
-        $loader->addPsr4($extPrefix, $extPath);
+        PSR4LOADER->addPsr4($extPrefix, $extPath);
         self::_loadExtensionPsr4_composer($extPrefix, $extPath);
+        return $extPrefix . ucfirst($extName) . 'Bundle';
     }
 
     protected static function _loadExtensionPsr4_composer(
         string $extPrefix,
         string $extPath
     ): void {
-        static $loader = PSR4LOADER;
         $composerFile = $extPath . 'composer.json';
 
         if(!file_exists($composerFile)) {
@@ -62,7 +60,7 @@ abstract class Extensions {
                 $psr4_prefix = $extPrefix . $psr4_prefix;
             }
             $psr4_path = $extPath . $psr4_path;
-            $loader->addPsr4($psr4_prefix, $psr4_path);
+            PSR4LOADER->addPsr4($psr4_prefix, $psr4_path);
         }
     }
 
