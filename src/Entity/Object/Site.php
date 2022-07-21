@@ -26,10 +26,11 @@ class Site extends DbObject
     }
 
     public function getEnabledExtensions() {
+        $requiredExtensions = [
+            'iikiti/components/ComponentsBundle'
+        ];
         return array_merge(
-            [
-                'iikiti/components/ComponentsBundle'
-            ],
+            $requiredExtensions,
             $this->getConfiguration()['extensions'] ?? []
         );
     }
