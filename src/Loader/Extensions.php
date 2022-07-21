@@ -2,8 +2,6 @@
 
 namespace iikiti\CMS\Loader;
 
-use Composer\Autoload\ClassLoader;
-use GlobIterator;
 use iikiti\CMS\Registry\SiteRegistry;
 use SplFileInfo;
 use Symfony\Component\DependencyInjection\ContainerInterface;
