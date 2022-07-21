@@ -4,6 +4,7 @@ namespace iikiti\CMS\Entity\Object;
 use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Repository\Object\SiteRepository;
+use iikiti\CMS\Service\Configuration;
 
 /**
  * @ORM\Entity(repositoryClass=SiteRepository::class)
@@ -21,8 +22,8 @@ class Site extends DbObject
 
     }
 
-    public function getConfiguration() {
-        return $this->getContent();
+    public function getConfiguration(): Configuration {
+        return new Configuration((object) $this->getContent());
     }
 
     public function getEnabledExtensions() {
@@ -31,7 +32,7 @@ class Site extends DbObject
         ];
         return array_merge(
             $requiredExtensions,
-            $this->getConfiguration()['extensions'] ?? []
+            $this->getConfiguration()->getActiveExtensions()
         );
     }
 
