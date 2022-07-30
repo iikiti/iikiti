@@ -5,8 +5,7 @@ namespace iikiti\CMS\Service;
 class Configuration {
 
 
-
-    public function __construct(protected object $json) {
+    public function __construct(protected readonly object $json) {
         
     }
 
