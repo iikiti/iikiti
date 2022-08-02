@@ -20,8 +20,9 @@ abstract class Extensions {
             $path = BASE_DIR . DS . 'cms' . DS . 'extensions' . DS .
                 dirname($ext) . DS;
             $extClass = self::PREFIX . str_replace('/', '\\', $ext);
+            // TODO: Check for cms extension instance
             if(is_dir($path) && file_exists($path)) {
-                $class = self::_loadExtensionPsr4(new \SplFileInfo($path));
+                new (self::_loadExtensionPsr4(new \SplFileInfo($path)))();
             }
         }
     }
