@@ -15,11 +15,13 @@ abstract class Extensions {
         $extAry = $site->getEnabledExtensions();
 
         foreach($extAry as $ext) {
-            $prefix = self::PREFIX .
-                str_replace('/', '\\', dirname($ext)) . '\\';
+            /* TODO: Needed?
+             * $prefix = self::PREFIX .
+             *   str_replace('/', '\\', dirname($ext)) . '\\';
+             * $extClass = self::PREFIX . str_replace('/', '\\', $ext);
+             */
             $path = BASE_DIR . DS . 'cms' . DS . 'extensions' . DS .
                 dirname($ext) . DS;
-            $extClass = self::PREFIX . str_replace('/', '\\', $ext);
             // TODO: Check for cms extension instance
             if(is_dir($path) && file_exists($path)) {
                 new (self::_loadExtensionPsr4(new \SplFileInfo($path)))();
