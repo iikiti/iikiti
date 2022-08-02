@@ -7,7 +7,6 @@
 /public/bundles/
 /var/
 /vendor/
-/cms/extensions/
 ###< symfony/framework-bundle ###
 
 ###> phpunit/phpunit ###
@@ -26,3 +25,7 @@
 npm-debug.log
 yarn-error.log
 ###< symfony/webpack-encore-bundle ###
+
+###> iikiti ###
+/cms/extensions/
+###< iikiti ###
