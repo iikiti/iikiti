@@ -3,7 +3,6 @@
 namespace iikiti\CMS\Loader;
 
 use iikiti\CMS\Registry\SiteRegistry;
-use SplFileInfo;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 abstract class Extensions {
@@ -22,19 +21,19 @@ abstract class Extensions {
                 dirname($ext) . DS;
             $extClass = self::PREFIX . str_replace('/', '\\', $ext);
             if(is_dir($path) && file_exists($path)) {
-                $class = self::_loadExtensionPsr4(new SplFileInfo($path));
+                $class = self::_loadExtensionPsr4(new \SplFileInfo($path));
             }
         }
     }
 
-    protected static function _loadExtensionPsr4(SplFileInfo $path): string {
+    protected static function _loadExtensionPsr4(\SplFileInfo $path): string {
         $extName = basename($path->getPathname());
         $vendor = basename($path->getPath());
         $extPrefix = self::PREFIX . $vendor . '\\' . $extName . '\\';
         $extPath = $path->getPathname() . DS;
         PSR4LOADER->addPsr4($extPrefix, $extPath);
         self::_loadExtensionPsr4_composer($extPrefix, $extPath);
-        return $extPrefix . ucfirst($extName) . 'Bundle';
+        return $extPrefix . ucfirst($extName) . 'Extension';
     }
 
     protected static function _loadExtensionPsr4_composer(
