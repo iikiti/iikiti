@@ -13,9 +13,6 @@ use Symfony\Component\Routing\Annotation\Route;
  */
 #[AsController]
 class TestController extends AppController {
-    /**
-     * @return \Symfony\Component\HttpFoundation\Response
-     */
     #[Route('/test', name: "test", priority: 0)]
     function index(): Response
     {

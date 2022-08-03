@@ -17,9 +17,7 @@ use Symfony\Component\Routing\Annotation\Route;
  */
 #[AsController]
 class ObjectController extends AppController {
-    /**
-     * @return \Symfony\Component\HttpFoundation\Response
-     */
+
     #[Route('/{slug}', name: 'page', requirements: ['slug' => '[\w\d\_]+', 'page' => '\d+'], priority: 0)]
     function page(Request $request, APIController $api): Response
     {
