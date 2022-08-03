@@ -4,44 +4,30 @@ namespace iikiti\CMS\Entity;
 use iikiti\CMS\Entity\Object\Site;
 use Doctrine\ORM\Mapping as ORM;
 
-/**
- * @ORM\Entity(repositoryClass=ObjectRepository::class)
- * @ORM\Table(name="objects", schema="iikiti_iikiti")
- * @ORM\MappedSuperclass()
-*/
+#[ORM\Entity(repositoryClass: ObjectRepository::class)]
+#[ORM\Table(name: "objects", schema: "iikiti_iikiti")]
+#[ORM\MappedSuperclass()]
 class DbObject
 {
 
-    /**
-    * @ORM\Id()
-    * @ORM\GeneratedValue()
-    * @ORM\Column(type="bigint")
-    */
+    #[ORM\Id()]
+    #[ORM\GeneratedValue()]
+    #[ORM\Column(type: "bigint")]
     protected $id;
 
-    /**
-     * @ORM\Column(type="datetime")
-     */
+    #[ORM\Column(type: "datetime")]
     private $created_date;
 
-    /**
-     * @ORM\Column(type="string")
-     */
+    #[ORM\Column(type: "string")]
     private $type;
 
-    /**
-    * @ORM\Column(type="bigint")
-    */
+    #[ORM\Column(type: "bigint")]
     private $creator_id;
 
-    /**
-     * @ORM\Column(type="bigint")
-     */
+    #[ORM\Column(type: "bigint")]
     private $site_id;
 
-    /**
-     * @ORM\Column(type="jsonb")
-     */
+    #[ORM\Column(type: "jsonb")]
     private $content_json;
 
     public function __construct() {

@@ -7,18 +7,13 @@ use iikiti\CMS\Repository\Object\UserRepository;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
-/**
- * @ORM\Entity(repositoryClass=UserRepository::class)
- * @ORM\Table(name="objects", schema="iikiti_iikiti")
- */
+#[ORM\Entity(repositoryClass: UserRepository::class)]
+#[ORM\Table(name: "objects", schema: "iikiti_iikiti")]
 class User extends DbObject implements UserInterface, PasswordAuthenticatedUserInterface
 {
     const DEFAULT_TYPE = 'user';
 
-    /*
-     * @var array
-     */
-    private $roles = [];
+    private array $roles = [];
 
     function getEmails(): array|\ArrayAccess {
         return $this->getMeta()->first()->emails;
