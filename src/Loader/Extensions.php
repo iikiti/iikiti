@@ -3,6 +3,8 @@
 namespace iikiti\CMS\Loader;
 
 use iikiti\CMS\Registry\SiteRegistry;
+use iikiti\ExtensionUtilities\ExtensionInterface;
+use Symfony\Component\Config\Definition\Exception\InvalidTypeException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 abstract class Extensions {
@@ -22,9 +24,14 @@ abstract class Extensions {
         foreach($extAry as $ext) {
             $path = BASE_DIR . DS . 'cms' . DS . 'extensions' . DS .
                 dirname($ext) . DS;
-            // TODO: Check for cms extension instance
             if(is_dir($path) && file_exists($path)) {
-                new (self::_loadExtensionPsr4(new \SplFileInfo($path)))();
+                $class = self::_loadExtensionPsr4(new \SplFileInfo($path));
+                if(false === ((new $class()) instanceof ExtensionInterface)) {
+                    throw new InvalidTypeException(
+                        'Extension "' . $class . '" does not implement ' .
+                        ExtensionInterface::class . '.'
+                    );
+                }
             }
         }
     }
