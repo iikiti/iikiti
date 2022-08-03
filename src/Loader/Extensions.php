@@ -11,15 +11,8 @@ abstract class Extensions {
 
     public static function load(ContainerInterface $container) {
         $site = SiteRegistry::getCurrentSite();
-
         $extAry = $site->getEnabledExtensions();
-
         foreach($extAry as $ext) {
-            /* TODO: Needed?
-             * $prefix = self::PREFIX .
-             *   str_replace('/', '\\', dirname($ext)) . '\\';
-             * $extClass = self::PREFIX . str_replace('/', '\\', $ext);
-             */
             $path = BASE_DIR . DS . 'cms' . DS . 'extensions' . DS .
                 dirname($ext) . DS;
             // TODO: Check for cms extension instance
@@ -48,13 +41,10 @@ abstract class Extensions {
         if(!file_exists($composerFile)) {
             return;
         }
-
         $composer = json_decode(file_get_contents($composerFile));
-
         if(!isset($composer->autoload->{'psr-4'})) {
             return;
         }
-
         foreach($composer->autoload->{'psr-4'} as $psr4_prefix => $psr4_path) {
             if(!str_starts_with($psr4_prefix, $extPrefix)) {
                 $psr4_prefix = $extPrefix . $psr4_prefix;
