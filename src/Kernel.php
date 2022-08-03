@@ -2,12 +2,8 @@
 
 namespace iikiti\CMS;
 
-use Doctrine\DBAL\DriverManager;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
-use Symfony\Component\Config\FileLocator;
 use Symfony\Component\HttpKernel\Kernel as BaseKernel;
-use Symfony\Component\Yaml\Parser;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  *
