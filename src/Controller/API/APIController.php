@@ -60,7 +60,7 @@ class APIController {
         string $typeClass = DbObject::class,
         string|\stdClass $criteria = '',
         array $options = []
-    ): array|ArrayCollection|DbObject|false {
+    ): array|ArrayCollection|DbObject|bool {
         if(!class_exists($typeClass)) {
             throw new \Exception(
                 'Class type "' . $typeClass . '" does not exist.'
