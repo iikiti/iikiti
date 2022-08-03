@@ -5,10 +5,8 @@ use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Repository\Object\SiteUserLinkRepository;
 
-/**
- * @ORM\Entity(repositoryClass=SiteUserLinkRepository::class)
- * @ORM\Table(name="objects", schema="iikiti_iikiti")
- */
+#[ORM\Entity(repositoryClass: SiteUserLinkRepository::class)]
+#[ORM\Table(name: "objects", schema: "iikiti_iikiti")]
 class SiteUserLink extends DbObject
 {
 
