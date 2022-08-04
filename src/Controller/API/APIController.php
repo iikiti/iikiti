@@ -75,7 +75,8 @@ class APIController {
                 DbObject::class
             );
         }
-        return $this->doctrine->getRepository($typeClass)->findByMeta(
+        // TODO: Change findByMeta to findByContent and implement.
+        return $this->doctrine->getRepository($typeClass)->findByContent(
             criteria: $criteria,
             options: $options
         );
