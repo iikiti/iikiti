@@ -56,7 +56,7 @@ class APIController {
      * @return array|\Doctrine\Common\Collections\ArrayCollection|\iikiti\CMS\Entity\DbObject|false
      * @throws \Exception
      */
-    public function getObjectsByMeta(
+    public function getObjectsByContent(
         string $typeClass = DbObject::class,
         string|\stdClass $criteria = '',
         array $options = []
