@@ -21,7 +21,7 @@ class ObjectController extends AppController {
     #[Route('/{slug}', name: 'page', requirements: ['slug' => '[\w\d\_]+', 'page' => '\d+'], priority: 0)]
     function page(Request $request, APIController $api): Response
     {
-        $page = $api->getObjectsByMeta(
+        $page = $api->getObjectsByContent(
             typeClass: Page::class,
             criteria: 'CONTAINS(JSON_GET_FIELD(o.content_json, \'slug\'), :slug) = true',
             options: [
