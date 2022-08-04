@@ -23,10 +23,10 @@ class ObjectController extends AppController {
     {
         $page = $api->getObjectsByMeta(
             typeClass: Page::class,
-            criteria: 'CONTAINS(meta.json_content->slug, :slug) = true',
+            criteria: 'CONTAINS(JSON_GET_FIELD(o.content_json, \'slug\'), :slug) = true',
             options: [
-                'parameters' => ['slug' => $request->get('slug')],
-                'orderBy' => ['meta.created_date_utc' => 'DESC'],
+                'parameters' => ['slug' => json_encode($request->get('slug'))],
+                'orderBy' => ['o.created_date' => 'DESC'],
                 'limit' => 1,
                 'singleResult' => true
             ]
