@@ -1524,7 +1524,7 @@
             "dist": {
                 "type": "path",
                 "url": "C:/srv/lib/iikiti/extension-utilities",
-                "reference": "f42c913771b84ce5ef978a359411ef1a4da40909"
+                "reference": "d965025a053ec45ebb7c02e464b79920adc9a04d"
             },
             "require": {
                 "php": ">=8.1",
