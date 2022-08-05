@@ -17,6 +17,7 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Class OutputParser
@@ -25,13 +26,12 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 class Initializer implements EventSubscriberInterface, ContainerAwareInterface
 {
-    protected ManagerRegistry $registry;
     protected static $hasInitialized = false;
     protected ContainerInterface $container;
 
-    public function __construct(ManagerRegistry $registry) {
-        $this->registry = $registry;
-    }
+    public function __construct(
+        protected ManagerRegistry $registry
+    ) {}
 
     public function setContainer(?ContainerInterface $container = null)
     {
@@ -57,6 +57,7 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface
      *         When current host does not match a site in the database.
      */
     public function onKernelRequest(RequestEvent $event) {
+        // Skip if already initialized or not the main route.
         if(
             static::$hasInitialized ||
             str_starts_with($event->getRequest()->get('_route'), '_')
@@ -81,14 +82,7 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface
          * Get and add possible site(s) to registry based on the current
          * domain/host.
          */
-        $sites = $em->getRepository(Site::class)
-            ->findByDomain($request->getHost());
-        if(empty($sites)) {
-            throw new NotFoundHttpException('Site does not exist for current domain.');
-        }
-        foreach($sites as $site) {
-            SiteRegistry::pushSite($site);
-        }
+        $this->matchDomain($request);
 
         // Enable Site filter
         $em->getFilters()->enable('SiteFilter');
@@ -108,6 +102,19 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface
         $dispatcher->dispatch($requestEvent);
 
         static::$hasInitialized = true;
+    }
+
+    private function matchDomain(Request $request) {
+        $sites = $this->registry->getManager()->getRepository(Site::class)
+            ->findByDomain($request->getHost());
+        if(empty($sites)) {
+            throw new NotFoundHttpException(
+                'Site does not exist for current domain.'
+            );
+        }
+        foreach($sites as $site) {
+            SiteRegistry::pushSite($site);
+        }
     }
 
 }
