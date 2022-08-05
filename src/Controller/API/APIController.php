@@ -3,8 +3,7 @@
 namespace iikiti\CMS\Controller\API;
 
 use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\ORM\Query\Expr\OrderBy;
-use Doctrine\Persistence\ManagerRegistry;
+use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\DbObject;
 
 /**
@@ -14,13 +13,7 @@ use iikiti\CMS\Entity\DbObject;
  */
 class APIController {
 
-    /**
-     * @var \Doctrine\Persistence\ManagerRegistry
-     */
-    private $doctrine;
-
-    public function __construct(ManagerRegistry $doctrine) {
-        $this->doctrine = $doctrine;
+    public function __construct(private EntityManagerInterface $emi) {
     }
 
     public function getObject(
@@ -42,7 +35,7 @@ class APIController {
                 DbObject::class
             );
         }
-        $objRep = $this->doctrine->getRepository($typeClass);
+        $objRep = $this->emi->getRepository($typeClass);
         return $objRep->findBy($criteria, $orderBy, $limit, $offset);
     }
 
@@ -76,7 +69,7 @@ class APIController {
             );
         }
         // TODO: Change findByMeta to findByContent and implement.
-        return $this->doctrine->getRepository($typeClass)->findByContent(
+        return $this->emi->getRepository($typeClass)->findByContent(
             criteria: $criteria,
             options: $options
         );
