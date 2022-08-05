@@ -76,10 +76,6 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface
         // Enable Object Type Filter
         $em->getFilters()->enable('ObjectTypeFilter');
 
-        /*
-         * Get and add possible site(s) to registry based on the current
-         * domain/host.
-         */
         $this->matchDomain($request);
 
         // Enable Site filter
@@ -89,8 +85,16 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface
 
         static::$hasInitialized = true;
     }
-
-    private function matchDomain(Request $request) {
+    
+    /**
+     * matchDomain
+     * 
+     * Get and add possible site(s) to registry based on the current
+     * domain/host.
+     *
+     * @param  Request $request
+     */
+    private function matchDomain(Request $request): void {
         $sites = $this->registry->getManager()->getRepository(Site::class)
             ->findByDomain($request->getHost());
         if(empty($sites)) {
