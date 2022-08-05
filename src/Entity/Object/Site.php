@@ -7,7 +7,7 @@ use iikiti\CMS\Repository\Object\SiteRepository;
 use iikiti\CMS\Service\Configuration;
 
 #[ORM\Entity(repositoryClass: SiteRepository::class)]
-#[ORM\Table(name: "objects", schema: "iikiti_iikiti")]
+#[ORM\Table(name: "objects")]
 class Site extends DbObject
 {
     const DEFAULT_TYPE = 'site';

@@ -14,7 +14,7 @@ services:
     # makes classes in src/ available to be used as services
     # this creates a service per class whose id is the fully-qualified class name
     iikiti\CMS\:
-        resource: '../src/'
+        resource: '../src/*'
         exclude:
             - '../src/DependencyInjection/'
             - '../src/Filters/'
@@ -29,10 +29,19 @@ services:
             - [ setContainer, [ '@service_container' ]]
         tags:
             - { name: kernel.event_listener, event: kernel.request, method: onKernelRequest, priority: 10 }
+
     # HTML minifier middleware
     html_minifier:
         class: iikiti\CMS\EventListeners\OutputParser
         tags:
             - { name: kernel.event_listener, event: kernel.response, method: onKernelResponse, priority: 100 }
+
+    iikiti\CMS\Doctrine\SetSchema:
+        tags:
+            - {
+                name: doctrine.event_listener,
+                event: postConnect,
+                connection: 'default'
+            }
 
 

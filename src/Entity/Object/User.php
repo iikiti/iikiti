@@ -8,7 +8,7 @@ use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
-#[ORM\Table(name: "objects", schema: "iikiti_iikiti")]
+#[ORM\Table(name: "objects")]
 class User extends DbObject implements UserInterface, PasswordAuthenticatedUserInterface
 {
     const DEFAULT_TYPE = 'user';
