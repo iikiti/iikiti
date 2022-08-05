@@ -5,7 +5,7 @@ use iikiti\CMS\Entity\Object\Site;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ObjectRepository::class)]
-#[ORM\Table(name: "objects", schema: "iikiti_iikiti")]
+#[ORM\Table(name: "objects")]
 #[ORM\MappedSuperclass()]
 class DbObject
 {

@@ -6,7 +6,7 @@ use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Repository\Object\SiteUserLinkRepository;
 
 #[ORM\Entity(repositoryClass: SiteUserLinkRepository::class)]
-#[ORM\Table(name: "objects", schema: "iikiti_iikiti")]
+#[ORM\Table(name: "objects")]
 class SiteUserLink extends DbObject
 {
 
