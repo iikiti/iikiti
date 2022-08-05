@@ -15,22 +15,23 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
 
     private array $roles = [];
 
-    function getEmails(): array|\ArrayAccess {
-        return $this->getMeta()->first()->emails;
+    function getEmails() {
+        //TODO: Fix: return $this->getMeta()->first()->emails;
     }
 
-    function getUserIdentifier(): string
+    function getUserIdentifier()
     {
         return $this->getEmail();
     }
 
-    function getEmail(): string {
-        return (string) array_slice($this->getMeta()->first()->json_content['emails'], 0, 1)[0];
+    function getEmail() {
+        //TODO: Fix: return (string) array_slice($this->getMeta()->first()->json_content['emails'], 0, 1)[0];
     }
 
-    public function __toString(): string
+    public function __toString()
     {
-        return $this->getEmail();
+        //TODO: Fix: return $this->getEmail();
+        return '';
     }
 
     public function getRoles(): array
@@ -41,7 +42,7 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
 
     public function getPassword(): null|string
     {
-        return $this->getMeta()->first()->getContent()->password;
+        //TODO: Fix: return $this->getMeta()->first()->getContent()->password;
     }
 
     public function getSalt()
@@ -51,7 +52,7 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
 
     public function getUsername()
     {
-        return $this->getMeta()->first()->getContent()->username;
+        //TODO: Fix: return $this->getMeta()->first()->getContent()->username;
     }
 
     public function eraseCredentials()
@@ -79,10 +80,10 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
     }
 
     public function registeredToSite(string $siteId) {
-        return isset($this->getMeta()->get(0)->json_content['roles'][$siteId]);
+        //TODO: Fix: return isset($this->getMeta()->get(0)->json_content['roles'][$siteId]);
     }
 
     public function getSiteRoles(string $siteId) {
-        return $this->getMeta()->get(0)->json_content['roles'][$siteId] ?? [];
+        //TODO: Fix: return $this->getMeta()->get(0)->json_content['roles'][$siteId] ?? [];
     }
 }

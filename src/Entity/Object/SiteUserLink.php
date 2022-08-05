@@ -18,7 +18,7 @@ class SiteUserLink extends DbObject
 
     public function getUserId()
     {
-        return $this->getMeta()->first()->getContent()->userId;
+        //TODO: Fix: return $this->getMeta()->first()->getContent()->userId;
     }
 
     public function __serialize(): array
