@@ -15,7 +15,13 @@ class APIController {
 
     public function __construct(private EntityManagerInterface $emi) {
     }
-
+    
+    /**
+     * getObject
+     *
+     * @param EntityManagerInterface $registry 
+     * @return array|null
+     */
     public function getObject(
         string $typeClass = DbObject::class,
         array $criteria = [],
@@ -46,7 +52,7 @@ class APIController {
      * @param array            $options     Associative array of options.
      *          See ObjectRepository for full details of options array.
      *
-     * @return array|\Doctrine\Common\Collections\ArrayCollection|\iikiti\CMS\Entity\DbObject|false
+     * @return array|ArrayCollection|DbObject|false
      * @throws \Exception
      */
     public function getObjectsByContent(
