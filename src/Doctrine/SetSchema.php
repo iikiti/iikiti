@@ -9,8 +9,19 @@ class SetSchema {
     public function __construct(protected readonly ContainerBagInterface $args)
     {
     }
-
-    public function postConnect(ConnectionEventArgs $connArgs) {
+    
+    /**
+     * postConnect
+     * 
+     * Doctrine event subscriber that checks for the presence of
+     * DATABASE_SCHEMA in the server environement variables and filters it for
+     * valid characters to prevent SQL injection attacks. If valid, will set
+     * the search_path as the connection's default schema. This environment
+     * variable can optionally be removed and set on a per-user basis.
+     *
+     * @param  ConnectionEventArgs $connArgs
+     */
+    public function postConnect(ConnectionEventArgs $connArgs): void {
         $conn = $connArgs->getConnection();
         $schema = filter_var(
             $_SERVER['DATABASE_SCHEMA'] ?? '',
