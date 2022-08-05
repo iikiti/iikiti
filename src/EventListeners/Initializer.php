@@ -5,14 +5,12 @@ namespace iikiti\CMS\EventListeners;
 use Doctrine\ORM\EntityManager;
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\Object\Site;
-use iikiti\CMS\Events\InitializeEvent;
 use iikiti\CMS\Filters\HtmlFilter;
 use iikiti\CMS\Loader\Extensions;
 use iikiti\CMS\Registry\SiteRegistry;
 use JetBrains\PhpStorm\ArrayShape;
 use Symfony\Component\DependencyInjection\ContainerAwareInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
@@ -88,18 +86,6 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface
         $em->getFilters()->enable('SiteFilter');
 
         Extensions::load($this->container);
-
-        $dispatcher = new EventDispatcher();
-
-        $initializeEvent = new InitializeEvent();
-        $requestEvent = new RequestEvent(
-            $event->getKernel(),
-            $event->getRequest(),
-            $event->getRequestType()
-        );
-
-        $dispatcher->dispatch($initializeEvent);
-        $dispatcher->dispatch($requestEvent);
 
         static::$hasInitialized = true;
     }
