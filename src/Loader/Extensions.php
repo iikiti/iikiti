@@ -2,10 +2,9 @@
 
 namespace iikiti\CMS\Loader;
 
-use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\ExtensionUtilities\ExtensionInterface;
 use Symfony\Component\Config\Definition\Exception\InvalidTypeException;
-use Symfony\Component\DependencyInjection\ContainerInterface;
+use iikiti\CMS\BASE_DIR;
 
 abstract class Extensions {
 
@@ -18,10 +17,8 @@ abstract class Extensions {
      * @param  ContainerInterface $container
      * @return void
      */
-    public static function load(ContainerInterface $container): void {
-        $site = SiteRegistry::getCurrentSite();
-        $extAry = $site->getEnabledExtensions();
-        foreach($extAry as $ext) {
+    public static function load(): void {
+        foreach(self::_loadFromDirectory() as $ext) {
             $path = BASE_DIR . DS . 'cms' . DS . 'extensions' . DS .
                 dirname($ext) . DS;
             if(is_dir($path) && file_exists($path)) {
@@ -34,6 +31,12 @@ abstract class Extensions {
                 }
             }
         }
+    }
+
+    protected static function _loadFromDirectory(): array {
+        $path = BASE_DIR . DS . 'cms' . DS . 'extensions' . DS .
+            'active' . DS;
+        return [];
     }
     
     /**

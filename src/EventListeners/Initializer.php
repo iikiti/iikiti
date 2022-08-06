@@ -2,11 +2,9 @@
 
 namespace iikiti\CMS\EventListeners;
 
-use Doctrine\ORM\EntityManager;
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Filters\HtmlFilter;
-use iikiti\CMS\Loader\Extensions;
 use iikiti\CMS\Registry\SiteRegistry;
 use JetBrains\PhpStorm\ArrayShape;
 use Symfony\Component\DependencyInjection\ContainerAwareInterface;
@@ -70,7 +68,7 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface
 
         $request = $event->getRequest();
         $registry = $this->registry;
-        /** @var EntityManager $em */
+        /** @var \Doctrine\ORM\EntityManager $em */
         $em = $registry->getManager();
 
         // Enable Object Type Filter
@@ -80,8 +78,6 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface
 
         // Enable Site filter
         $em->getFilters()->enable('SiteFilter');
-
-        Extensions::load($this->container);
 
         static::$hasInitialized = true;
     }
