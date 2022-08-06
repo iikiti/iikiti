@@ -19,13 +19,14 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
         //TODO: Fix: return $this->getMeta()->first()->emails;
     }
 
-    function getUserIdentifier()
+    function getUserIdentifier(): string
     {
         return $this->getEmail();
     }
 
-    function getEmail() {
+    function getEmail(): string {
         //TODO: Fix: return (string) array_slice($this->getMeta()->first()->json_content['emails'], 0, 1)[0];
+        return '';
     }
 
     public function __toString()
