@@ -14,7 +14,6 @@ abstract class Extensions {
      * Acquires list of enabled extensions and loads them via PSR-4 then
      * creates a new instance.
      *
-     * @param  ContainerInterface $container
      * @return void
      */
     public static function load(): void {
