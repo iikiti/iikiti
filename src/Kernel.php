@@ -4,6 +4,17 @@ namespace iikiti\CMS;
 
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\HttpKernel\Kernel as BaseKernel;
+use iikiti\CMS\Loader\Extensions;
+
+if(!defined('BASE_DIR')) {
+    define('BASE_DIR', dirname(__DIR__));
+}
+
+if(!defined('DS')) {
+    define('DS', DIRECTORY_SEPARATOR);
+}
+
+define('PSR4LOADER', require BASE_DIR . '/vendor/autoload.php');
 
 /**
  *
@@ -22,6 +33,7 @@ class Kernel extends BaseKernel
     public function registerBundles(): iterable
     {
         yield from $this->kernelRegisterBundles();
+        Extensions::load();
     }
 
 }
