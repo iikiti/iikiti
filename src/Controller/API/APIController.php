@@ -3,8 +3,8 @@
 namespace iikiti\CMS\Controller\API;
 
 use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\DbObject;
+use Doctrine\Persistence\ManagerRegistry;
 
 /**
  * Class APIController
@@ -13,13 +13,13 @@ use iikiti\CMS\Entity\DbObject;
  */
 class APIController {
 
-    public function __construct(private EntityManagerInterface $emi) {
+    public function __construct(private ManagerRegistry $emi) {
     }
     
     /**
      * getObject
      *
-     * @param EntityManagerInterface $registry 
+     * @param ManagerRegistry $registry 
      * @return array|null
      */
     public function getObject(
