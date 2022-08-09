@@ -16,72 +16,44 @@ abstract class Extensions {
      *
      * @return void
      */
-    public static function load(): void {
-        foreach(self::_loadFromDirectory() as $ext) {
-            $path = BASE_DIR . DS . 'cms' . DS . 'extensions' . DS .
-                dirname($ext) . DS;
-            if(is_dir($path) && file_exists($path)) {
-                $class = self::_loadExtensionPsr4(new \SplFileInfo($path));
-                if(false === ((new $class()) instanceof ExtensionInterface)) {
-                    throw new InvalidTypeException(
-                        'Extension "' . $class . '" does not implement ' .
-                        ExtensionInterface::class . '.'
-                    );
-                }
-            }
-        }
+    public static function load(): \Generator {
+        yield from self::_loadFromDirectory();
     }
 
-    protected static function _loadFromDirectory(): array {
-        $path = BASE_DIR . DS . 'cms' . DS . 'extensions' . DS .
+    protected static function _loadFromDirectory(): \Generator {
+        static $PATH = BASE_DIR . DS . 'cms' . DS . 'extensions' . DS .
             'active' . DS;
-        return [];
+        foreach(
+            new \CallbackFilterIterator(
+                new \DirectoryIterator($PATH),
+                [__CLASS__, '_directoryFilter']
+            )
+                as $entry
+        ) {
+            /** @var \DirectoryIterator $entry */
+            $bundleNS = json_decode(file_get_contents(
+                $entry->getPath() . DS . $entry->getFilename() .
+                DS . 'composer.json'
+            ))->name;
+            $bundleName = ucwords(
+                implode('', array_slice(explode('/', $bundleNS), -1))
+            );
+            require_once(
+                $entry->getPath() . DS . $entry->getFilename() . DS . 
+                $bundleName . 'Bundle.php'
+            );
+            $bundleClass = str_replace('/', '\\', $bundleNS) . '\\' .
+                $bundleName . 'Bundle';
+            yield new $bundleClass();
+        }
     }
-    
-    /**
-     * Adds the path to the extension to the PSR-4 loader.
-     *
-     * @param  \SplFileInfo $path
-     * @return string FQDN of class.
-     */
-    protected static function _loadExtensionPsr4(\SplFileInfo $path): string {
-        $extName = basename($path->getPathname());
-        $vendor = basename($path->getPath());
-        $extPrefix = self::PREFIX . $vendor . '\\' . $extName . '\\';
-        $extPath = $path->getPathname() . DS;
-        PSR4LOADER->addPsr4($extPrefix, $extPath);
-        self::_loadExtensionPsr4_composer($extPrefix, $extPath);
-        return $extPrefix . ucfirst($extName) . 'Extension';
-    }
-    
-    /**
-     * Attempts to load any composer file PSR-4 paths as long as they have the
-     * proper extension namespace prefix.
-     *
-     * @param string $extPrefix Prefix of extension class.
-     * @param string $extPath Full path to extension.
-     * @return void
-     */
-    protected static function _loadExtensionPsr4_composer(
-        string $extPrefix,
-        string $extPath
-    ): void {
-        $composerFile = $extPath . 'composer.json';
 
-        if(!file_exists($composerFile)) {
-            return;
-        }
-        $composer = json_decode(file_get_contents($composerFile));
-        if(!isset($composer->autoload->{'psr-4'})) {
-            return;
-        }
-        foreach($composer->autoload->{'psr-4'} as $psr4_prefix => $psr4_path) {
-            if(!str_starts_with($psr4_prefix, $extPrefix)) {
-                $psr4_prefix = $extPrefix . $psr4_prefix;
-            }
-            $psr4_path = $extPath . $psr4_path;
-            PSR4LOADER->addPsr4($psr4_prefix, $psr4_path);
-        }
+    protected static function _directoryFilter(
+        \DirectoryIterator $current,
+        int $key,
+        \Iterator $iterator
+    ): bool {
+        return false === $current->isDot() && $current->isDir() && $current->isLink();
     }
 
 }
