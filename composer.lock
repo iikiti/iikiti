@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "96a449e7dfd18e5ffb8730e50cfebe04",
+    "content-hash": "877ddbbfd75241bdf52a08c04aff2e3e",
     "packages": [
         {
             "name": "doctrine/annotations",
@@ -1517,6 +1517,66 @@
                 }
             ],
             "time": "2022-05-05T09:31:05+00:00"
+        },
+        {
+            "name": "iikiti/components",
+            "version": "0.1",
+            "dist": {
+                "type": "path",
+                "url": "C:/srv/lib/iikiti/components",
+                "reference": "2133843685c87ff82be41f2a75fa5b76b95d82b2"
+            },
+            "require": {
+                "ext-ctype": "*",
+                "ext-iconv": "*",
+                "iikiti/extension-utilities": "^0.0.1",
+                "php": ">=8.1",
+                "symfony/console": "^6.1",
+                "symfony/dotenv": "^6.1",
+                "symfony/flex": "^2",
+                "symfony/framework-bundle": "^6.1",
+                "symfony/runtime": "^6.1",
+                "symfony/yaml": "^6.1"
+            },
+            "conflict": {
+                "symfony/symfony": "*"
+            },
+            "type": "project",
+            "extra": {
+                "symfony": {
+                    "allow-contrib": false,
+                    "require": "6.1.*"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "iikiti\\components\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "iikiti\\components\\tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "auto-scripts": {
+                    "cache:clear": "symfony-cmd",
+                    "assets:install %PUBLIC_DIR%": "symfony-cmd"
+                },
+                "post-install-cmd": [
+                    "@auto-scripts"
+                ],
+                "post-update-cmd": [
+                    "@auto-scripts"
+                ]
+            },
+            "license": [
+                "Apache"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": false
+            }
         },
         {
             "name": "iikiti/extension-utilities",

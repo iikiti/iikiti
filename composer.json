@@ -13,6 +13,13 @@
             "options": {
                 "symlink": true
             }
+        },
+        {
+            "type": "path",
+            "url": "C:/srv/lib/iikiti/components",
+            "options": {
+                "symlink": true
+            }
         }
     ],
     "require": {
@@ -26,6 +33,7 @@
         "doctrine/doctrine-bundle": "^2.5",
         "doctrine/doctrine-migrations-bundle": "^3.2",
         "doctrine/orm": "^2.10",
+        "iikiti/components": "^0.1.0",
         "iikiti/extension-utilities": "^0.0.1",
         "martin-georgiev/postgresql-for-doctrine": "^1.6",
         "masterminds/html5": "^2.7",
