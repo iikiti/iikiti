@@ -14,8 +14,6 @@ if(!defined('DS')) {
     define('DS', DIRECTORY_SEPARATOR);
 }
 
-define('PSR4LOADER', require BASE_DIR . '/vendor/autoload.php');
-
 /**
  *
  */
