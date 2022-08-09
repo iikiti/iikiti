@@ -31,7 +31,7 @@ class Kernel extends BaseKernel
     public function registerBundles(): iterable
     {
         yield from $this->kernelRegisterBundles();
-        Extensions::load();
+        yield from Extensions::load();
     }
 
 }
