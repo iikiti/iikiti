@@ -27,7 +27,7 @@ class Kernel extends BaseKernel
 
     protected function configureRoutes(RoutingConfigurator $routes): void
     {
-        $this->kernelRegisterBundles($routes);
+        $this->kernelConfigureRoutes($routes);
     }
 
     public function boot(): void
