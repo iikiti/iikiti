@@ -10,6 +10,8 @@ abstract class Extensions {
 
     const PREFIX = 'iikiti\\extension\\';
     
+    static $EXTENSIONS = [];
+    
     /**
      * Acquires list of enabled extensions and loads them via PSR-4 then
      * creates a new instance.
@@ -17,7 +19,9 @@ abstract class Extensions {
      * @return void
      */
     public static function load(): \Generator {
-        yield from self::_loadFromDirectory();
+        $gen = self::_loadFromDirectory();
+        self::$EXTENSIONS[] = $gen->current();
+        yield from $gen;
     }
 
     protected static function _loadFromDirectory(): \Generator {
@@ -54,6 +58,10 @@ abstract class Extensions {
         \Iterator $iterator
     ): bool {
         return false === $current->isDot() && $current->isDir() && $current->isLink();
+    }
+
+    public static function getExtensions() {
+        return self::$EXTENSIONS; 
     }
 
 }
