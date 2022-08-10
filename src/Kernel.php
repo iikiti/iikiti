@@ -7,7 +7,6 @@ use Symfony\Component\HttpKernel\Kernel as BaseKernel;
 use iikiti\CMS\Loader\Extensions;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 use ReflectionClass;
-use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
 
 if(!defined('BASE_DIR')) {
     define('BASE_DIR', dirname(__DIR__));
@@ -35,7 +34,7 @@ class Kernel extends BaseKernel
 
     protected function _configureExtensionRoutes(RoutingConfigurator $routes): void {
         foreach(Extensions::getExtensions() as $ext) {
-            /** @var AbstractBundle $ext */
+            /** @var \Symfony\Component\HttpKernel\Bundle\AbstractBundle $ext */
             $configDir = dirname(
                 (new ReflectionClass($ext::class))->getFileName()
             ) . DS . 'config';
