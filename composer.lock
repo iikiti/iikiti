@@ -1524,12 +1524,11 @@
             "dist": {
                 "type": "path",
                 "url": "C:/srv/lib/iikiti/components",
-                "reference": "2133843685c87ff82be41f2a75fa5b76b95d82b2"
+                "reference": "084f01c3eda1d05c59a010f7a6f0bcd7eb83a571"
             },
             "require": {
                 "ext-ctype": "*",
                 "ext-iconv": "*",
-                "iikiti/extension-utilities": "^0.0.1",
                 "php": ">=8.1",
                 "symfony/console": "^6.1",
                 "symfony/dotenv": "^6.1",
@@ -1573,39 +1572,6 @@
             "license": [
                 "Apache"
             ],
-            "transport-options": {
-                "symlink": true,
-                "relative": false
-            }
-        },
-        {
-            "name": "iikiti/extension-utilities",
-            "version": "0.0.1",
-            "dist": {
-                "type": "path",
-                "url": "C:/srv/lib/iikiti/extension-utilities",
-                "reference": "d965025a053ec45ebb7c02e464b79920adc9a04d"
-            },
-            "require": {
-                "php": ">=8.1",
-                "symfony/event-dispatcher": "^6.1"
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "iikiti\\ExtensionUtilities\\": "src/"
-                }
-            },
-            "license": [
-                "Apache"
-            ],
-            "authors": [
-                {
-                    "name": "Jim Robinson",
-                    "email": "jimbo2150@gmail.com"
-                }
-            ],
-            "description": "Utilities for iikiti extensions.",
             "transport-options": {
                 "symlink": true,
                 "relative": false
