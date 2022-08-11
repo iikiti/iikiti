@@ -48,6 +48,10 @@ class Kernel extends BaseKernel
                     glob(
                         $configDir . DS . '{routes}' . DS . '*.{php,yaml}',
                         GLOB_BRACE
+                    ),
+                    glob(
+                        $configDir . DS . 'routes.{php,yaml}',
+                        GLOB_BRACE
                     )
                 ) as $filename
             ) {
