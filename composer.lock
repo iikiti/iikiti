@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "fc5f4e8d7309e0f9f38406b867b643b9",
+    "content-hash": "877ddbbfd75241bdf52a08c04aff2e3e",
     "packages": [
         {
             "name": "doctrine/annotations",
@@ -1525,11 +1525,12 @@
             "dist": {
                 "type": "path",
                 "url": "C:/srv/lib/iikiti/components",
-                "reference": "cfeaf1c200ee4fcc97a3bcbf3607c734b4c7af37"
+                "reference": "72bae9b96faae9be09c9818bd42d25f251a04897"
             },
             "require": {
                 "ext-ctype": "*",
                 "ext-iconv": "*",
+                "iikiti/extension-utilities": "^0.0.1",
                 "php": ">=8.1",
                 "symfony/console": "^6.1",
                 "symfony/dotenv": "^6.1",
@@ -1541,7 +1542,7 @@
             "conflict": {
                 "symfony/symfony": "*"
             },
-            "type": "iikiti-extension",
+            "type": "symfony-bundle",
             "extra": {
                 "symfony": {
                     "allow-contrib": false,
@@ -1573,6 +1574,40 @@
             "license": [
                 "Apache"
             ],
+            "transport-options": {
+                "symlink": true,
+                "relative": false
+            }
+        },
+        {
+            "name": "iikiti/extension-utilities",
+            "version": "0.0.1",
+            "dist": {
+                "type": "path",
+                "url": "C:/srv/lib/iikiti/extension-utilities",
+                "reference": "1028fff0d49b8999b943ff5a1e34b869dc3db5bb"
+            },
+            "require": {
+                "php": ">=8.1",
+                "symfony/event-dispatcher": "^6.1",
+                "symfony/http-kernel": "^6.1"
+            },
+            "type": "symfony-bundle",
+            "autoload": {
+                "psr-4": {
+                    "iikiti\\ExtensionUtilities\\": "src/"
+                }
+            },
+            "license": [
+                "Apache"
+            ],
+            "authors": [
+                {
+                    "name": "Jim Robinson",
+                    "email": "jimbo2150@gmail.com"
+                }
+            ],
+            "description": "Utilities for iikiti extensions.",
             "transport-options": {
                 "symlink": true,
                 "relative": false
