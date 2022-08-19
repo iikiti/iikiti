@@ -14,6 +14,7 @@ use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpFoundation\Request;
+use iikiti\CMS\Loader\Extensions;
 
 /**
  * Class OutputParser
@@ -75,6 +76,12 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface
         $em->getFilters()->enable('ObjectTypeFilter');
 
         $this->matchDomain($request);
+        
+        if(SiteRegistry::getCurrentSite() instanceof Site) {
+            Extensions::setInitialSiteId(
+                SiteRegistry::getCurrentSite()->getId()
+            );
+        }
 
         // Enable Site filter
         $em->getFilters()->enable('SiteFilter');
