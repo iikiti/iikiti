@@ -66,7 +66,7 @@ abstract class Extensions {
         return false === $current->isDot() && $current->isDir() && $current->isLink();
     }
 
-    public static function getExtensions() {
+    public static function getExtensions(): array {
         return self::$EXTENSIONS[
             SiteRegistry::getCurrentSite()?->getId() ?? self::INITIAL_KEY
         ] ?? []; 
