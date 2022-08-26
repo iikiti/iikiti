@@ -32,7 +32,7 @@ abstract class Extensions {
     }
 
     protected static function _loadFromDirectory(Kernel $kernel): \Generator {
-        static $PATH = $kernel->getProjectDir() . '/cms/extensions/active/';
+        $PATH = $kernel->getProjectDir() . '/cms/extensions/active/';
         foreach(
             new \CallbackFilterIterator(
                 new \DirectoryIterator($PATH),
