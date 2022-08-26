@@ -2,9 +2,7 @@
 
 namespace iikiti\CMS\Loader;
 
-use iikiti\ExtensionUtilities\ExtensionInterface;
-use Symfony\Component\Config\Definition\Exception\InvalidTypeException;
-use iikiti\CMS\BASE_DIR;
+use iikiti\CMS\Kernel;
 use iikiti\CMS\Registry\SiteRegistry;
 
 abstract class Extensions {
@@ -20,8 +18,8 @@ abstract class Extensions {
      *
      * @return void
      */
-    public static function load(): \Generator {
-        $gen = self::_loadFromDirectory();
+    public static function load(Kernel $kernel): \Generator {
+        $gen = self::_loadFromDirectory($kernel);
         self::$EXTENSIONS[
             SiteRegistry::getCurrentSite()?->getId() ?? self::INITIAL_KEY
         ][] = $gen->current();
@@ -33,9 +31,8 @@ abstract class Extensions {
         unset(self::$EXTENSIONS[self::INITIAL_KEY]);
     }
 
-    protected static function _loadFromDirectory(): \Generator {
-        static $PATH = BASE_DIR . DS . 'cms' . DS . 'extensions' . DS .
-            'active' . DS;
+    protected static function _loadFromDirectory(Kernel $kernel): \Generator {
+        static $PATH = $kernel->getProjectDir() . '/cms/extensions/active/';
         foreach(
             new \CallbackFilterIterator(
                 new \DirectoryIterator($PATH),
@@ -45,14 +42,14 @@ abstract class Extensions {
         ) {
             /** @var \DirectoryIterator $entry */
             $bundleNS = json_decode(file_get_contents(
-                $entry->getPath() . DS . $entry->getFilename() .
+                $entry->getPath() . '/' . $entry->getFilename() .
                 DS . 'composer.json'
             ))->name;
             $bundleName = ucwords(
                 implode('', array_slice(explode('/', $bundleNS), -1))
             );
             require_once(
-                $entry->getPath() . DS . $entry->getFilename() . DS . 
+                $entry->getPath() . '/' . $entry->getFilename() . '/' . 
                 $bundleName . 'Bundle.php'
             );
             $bundleClass = str_replace('/', '\\', $bundleNS) . '\\' .
