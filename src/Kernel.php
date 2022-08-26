@@ -11,14 +11,6 @@ use Symfony\Component\HttpKernel\Kernel as BaseKernel;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 use Symfony\Component\Yaml\Yaml;
 
-if(!defined('BASE_DIR')) {
-    define('BASE_DIR', dirname(__DIR__));
-}
-
-if(!defined('DS')) {
-    define('DS', DIRECTORY_SEPARATOR);
-}
-
 /**
  *
  */
