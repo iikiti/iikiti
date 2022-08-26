@@ -43,7 +43,7 @@ abstract class Extensions {
             /** @var \DirectoryIterator $entry */
             $bundleNS = json_decode(file_get_contents(
                 $entry->getPath() . '/' . $entry->getFilename() .
-                DS . 'composer.json'
+                '/composer.json'
             ))->name;
             $bundleName = ucwords(
                 implode('', array_slice(explode('/', $bundleNS), -1))
