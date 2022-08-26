@@ -42,20 +42,20 @@ class Kernel extends BaseKernel implements CompilerPassInterface
             /** @var \Symfony\Component\HttpKernel\Bundle\AbstractBundle $ext */
             $configDir = dirname(
                 (new ReflectionClass($ext::class))->getFileName()
-            ) . DS . 'config';
+            ) . '/config';
             foreach(
                 array_merge(
                     glob(
-                        $configDir . DS . '{routes}' . DS . $this->environment  . DS .
-                        '*.{php,yaml}',
+                        $configDir . '/{routes}/' . $this->environment .
+                        '/*.{php,yaml}',
                         GLOB_BRACE
                     ),
                     glob(
-                        $configDir . DS . '{routes}' . DS . '*.{php,yaml}',
+                        $configDir . '/{routes}/*.{php,yaml}',
                         GLOB_BRACE
                     ),
                     glob(
-                        $configDir . DS . 'routes.{php,yaml}',
+                        $configDir . '/routes.{php,yaml}',
                         GLOB_BRACE
                     )
                 ) as $filename
