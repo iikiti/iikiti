@@ -1526,7 +1526,7 @@
             "dist": {
                 "type": "path",
                 "url": "C:/srv/lib/iikiti/components",
-                "reference": "72bae9b96faae9be09c9818bd42d25f251a04897"
+                "reference": "780f4fa44db4f561c5ba59d9a968c3fa341d648b"
             },
             "require": {
                 "ext-ctype": "*",
@@ -1586,12 +1586,14 @@
             "dist": {
                 "type": "path",
                 "url": "C:/srv/lib/iikiti/extension-utilities",
-                "reference": "b7fef1ddb095783a0fdbb30f8805e1e52b4cde43"
+                "reference": "5f43b70af3e7a31ee3fb6cd794be7d8a0ebf1e91"
             },
             "require": {
                 "php": ">=8.1",
+                "symfony/dependency-injection": "^6.1",
                 "symfony/event-dispatcher": "^6.1",
-                "symfony/http-kernel": "^6.1"
+                "symfony/http-kernel": "^6.1",
+                "symfony/yaml": "^6.1"
             },
             "type": "symfony-bundle",
             "autoload": {
