@@ -46,10 +46,6 @@ class DbObject
         return $this->type;
     }
 
-    public function getRevisionId(): int {
-        return $this->revision_id;
-    }
-
     public function getCreatedDate(): \DateTime {
         return $this->created_date;
     }
