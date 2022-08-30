@@ -13,7 +13,7 @@ class SiteUserLink extends DbObject
     public function getRoles(): array|\ArrayAccess
     {
         // TODO: Implement getRoles() method.
-        return array_merge($this->roles, ['ROLE_USER']);
+        return array_merge($this->getContent()->roles, ['ROLE_USER']);
     }
 
     public function getUserId()
