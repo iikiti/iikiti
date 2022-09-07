@@ -54,7 +54,11 @@ abstract class Extensions {
             );
             $bundleClass = str_replace('/', '\\', $bundleNS) . '\\' .
                 $bundleName . 'Bundle';
-            yield new $bundleClass();
+            /*
+             TODO Find a better way to get extension list
+                  (or any required arguments) to the extension bundles.
+             */
+            yield new $bundleClass(self::getExtensions());
         }
     }
 
