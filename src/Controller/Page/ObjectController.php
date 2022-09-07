@@ -1,8 +1,9 @@
 <?php
 
-namespace iikiti\CMS\Controller;
+namespace iikiti\CMS\Controller\Page;
 
 use iikiti\CMS\Controller\API\APIController;
+use iikiti\CMS\Controller\AppController;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Entity\Object\Page;
 use Symfony\Component\HttpFoundation\Request;
