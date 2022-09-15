@@ -44,6 +44,7 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
     public function getPassword(): null|string
     {
         //TODO: Fix: return $this->getMeta()->first()->getContent()->password;
+        return null;
     }
 
     public function getSalt()
