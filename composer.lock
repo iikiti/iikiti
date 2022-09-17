@@ -1526,7 +1526,7 @@
             "dist": {
                 "type": "path",
                 "url": "C:/srv/lib/iikiti/components",
-                "reference": "780f4fa44db4f561c5ba59d9a968c3fa341d648b"
+                "reference": "851f0d59960266fcbf16cc6e46446a376e3bbf4d"
             },
             "require": {
                 "ext-ctype": "*",
