@@ -6,7 +6,7 @@ use Symfony\Component\DependencyInjection\ParameterBag\ContainerBagInterface;
 
 class SetSchema {
 
-    public function __construct(protected readonly ContainerBagInterface $args)
+    public function __construct(protected ContainerBagInterface $args)
     {
     }
     
