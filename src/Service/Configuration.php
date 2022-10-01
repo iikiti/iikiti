@@ -8,7 +8,7 @@ class Configuration {
 
     use Config\ExtensionConfigurationTrait;
 
-    public function __construct(protected readonly object $json) {
+    public function __construct(protected object $json) {
         
     }
 
