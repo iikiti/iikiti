@@ -1526,7 +1526,7 @@
             "dist": {
                 "type": "path",
                 "url": "C:/srv/lib/iikiti/components",
-                "reference": "cb0ab578eb98cf61d0f033f3e914b6fd6e05c27d"
+                "reference": "75a590085f8cb51a6427a3eaac58aa8ce9cf0add"
             },
             "require": {
                 "ext-ctype": "*",
@@ -1586,7 +1586,7 @@
             "dist": {
                 "type": "path",
                 "url": "C:/srv/lib/iikiti/extension-utilities",
-                "reference": "8c9497e3c296c54a39990889645a56149336c3ce"
+                "reference": "05fd6d26edb1ef5342179e089e099cfed7901e3f"
             },
             "require": {
                 "php": ">=8.1",
