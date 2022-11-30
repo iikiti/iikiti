@@ -9,14 +9,14 @@
     "repositories": [
         {
             "type": "path",
-            "url": "C:/srv/lib/iikiti/extension-utilities",
+            "url": "/home/jimbo/dev/vhosts/lib/iikiti/extension-utilities",
             "options": {
                 "symlink": true
             }
         },
         {
             "type": "path",
-            "url": "C:/srv/lib/iikiti/components",
+            "url": "/home/jimbo/dev/vhosts/lib/iikiti/components",
             "options": {
                 "symlink": true
             }
