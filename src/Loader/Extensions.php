@@ -20,10 +20,13 @@ abstract class Extensions {
      */
     public static function load(Kernel $kernel): \Generator {
         $gen = self::_loadFromDirectory($kernel);
-        self::$EXTENSIONS[
-            SiteRegistry::getCurrentSite()?->getId() ?? self::INITIAL_KEY
-        ][] = $gen->current();
-        yield from $gen;
+        $cur = $gen->current();
+        if($cur !== null) {
+            self::$EXTENSIONS[
+                SiteRegistry::getCurrentSite()?->getId() ?? self::INITIAL_KEY
+            ][] = $gen->current();
+        }
+        yield from $cur !== null ? $gen : [];
     }
 
     public static function setInitialSiteId($siteId) {
@@ -33,13 +36,11 @@ abstract class Extensions {
 
     protected static function _loadFromDirectory(Kernel $kernel): \Generator {
         $PATH = $kernel->getProjectDir() . '/cms/extensions/active/';
-        foreach(
-            new \CallbackFilterIterator(
-                new \DirectoryIterator($PATH),
-                [__CLASS__, '_directoryFilter']
-            )
-                as $entry
-        ) {
+        $fileLoop = new \CallbackFilterIterator(
+            new \DirectoryIterator($PATH),
+            [__CLASS__, '_directoryFilter']
+        );
+        foreach($fileLoop as $entry) {
             /** @var \DirectoryIterator $entry */
             $bundleNS = json_decode(file_get_contents(
                 $entry->getPath() . '/' . $entry->getFilename() .
