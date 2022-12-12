@@ -1535,7 +1535,7 @@
             "dist": {
                 "type": "path",
                 "url": "/home/jimbo/dev/vhosts/lib/iikiti/components",
-                "reference": "0740256fbc45da261b3a60535502b200eb9aac60"
+                "reference": "96de9b02010a14bf4139a5bf08d5f5c24055ce6d"
             },
             "require": {
                 "ext-ctype": "*",
@@ -1595,10 +1595,10 @@
             "dist": {
                 "type": "path",
                 "url": "/home/jimbo/dev/vhosts/lib/iikiti/extension-utilities",
-                "reference": "ceeaa66a768f8a866796e84accaef38572061965"
+                "reference": "28c941a699702668a34c05f16eb90df947b0a73a"
             },
             "require": {
-                "php": ">=8.1",
+                "php": ">=8.2",
                 "symfony/dependency-injection": "^6.2",
                 "symfony/event-dispatcher": "^6.2",
                 "symfony/http-kernel": "^6.2",
