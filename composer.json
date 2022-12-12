@@ -39,7 +39,6 @@
         "masterminds/html5": "^2.7",
         "phpdocumentor/reflection-docblock": "^5.3",
         "scienta/doctrine-json-functions": "~4.4",
-        "sensio/framework-extra-bundle": "^6.1",
         "symfony/apache-pack": "^1.0",
         "symfony/asset": "^6.2",
         "symfony/console": "^6.2",
