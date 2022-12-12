@@ -30,7 +30,7 @@ abstract class Extensions {
     }
 
     public static function setInitialSiteId($siteId) {
-        self::$EXTENSIONS[$siteId] = self::$EXTENSIONS[self::INITIAL_KEY];
+        self::$EXTENSIONS[$siteId] = self::$EXTENSIONS[self::INITIAL_KEY] ?? [];
         unset(self::$EXTENSIONS[self::INITIAL_KEY]);
     }
 
