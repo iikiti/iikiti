@@ -113,9 +113,6 @@
     "laminas/laminas-code": {
         "version": "4.5.1"
     },
-    "martin-georgiev/postgresql-for-doctrine": {
-        "version": "v1.7.0"
-    },
     "masterminds/html5": {
         "version": "2.7.5"
     },
