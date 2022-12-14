@@ -27,7 +27,7 @@ class DbObject
     #[ORM\Column(type: "bigint")]
     private $site_id;
 
-    #[ORM\Column(type: "jsonb")]
+    #[ORM\Column(type: "json")]
     private $content_json;
 
     public function __construct() {

@@ -22,8 +22,8 @@ class SiteRepository extends ObjectRepository
     {
         return $this->createQueryBuilder('o')
             ->andWhere(
-                'JSON_GET_FIELD_AS_TEXT(o.content_json, \'domain\') = :domain'
-            )->setParameter('domain', $domain)->getQuery()->getResult();
+                'JSON_CONTAINS(o.content_json, :domain, \'$.domain\') = 1'
+            )->setParameter('domain', json_encode($domain))->getQuery()->getResult();
     }
 
 }
