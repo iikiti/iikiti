@@ -35,7 +35,6 @@
         "doctrine/orm": "^2.13",
         "iikiti/components": "^0.1.0",
         "iikiti/extension-utilities": "^0.0.1",
-        "martin-georgiev/postgresql-for-doctrine": "^1.8",
         "masterminds/html5": "^2.7",
         "phpdocumentor/reflection-docblock": "^5.3",
         "scienta/doctrine-json-functions": "~4.4",

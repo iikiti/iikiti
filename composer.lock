@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "791ac2e3c1b10505f3bc8510bf9f58c7",
+    "content-hash": "24d1bf4604a317c3a8ea7c684a63bc5c",
     "packages": [
         {
             "name": "doctrine/annotations",
@@ -1229,16 +1229,16 @@
         },
         {
             "name": "doctrine/persistence",
-            "version": "3.1.0",
+            "version": "3.1.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/doctrine/persistence.git",
-                "reference": "2a9c70a5e21f8968c5a46b79f819ea52f322080b"
+                "reference": "d87426f07dd66f97cfdcf5210925e483b6c993b5"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/doctrine/persistence/zipball/2a9c70a5e21f8968c5a46b79f819ea52f322080b",
-                "reference": "2a9c70a5e21f8968c5a46b79f819ea52f322080b",
+                "url": "https://api.github.com/repos/doctrine/persistence/zipball/d87426f07dd66f97cfdcf5210925e483b6c993b5",
+                "reference": "d87426f07dd66f97cfdcf5210925e483b6c993b5",
                 "shasum": ""
             },
             "require": {
@@ -1309,7 +1309,7 @@
             ],
             "support": {
                 "issues": "https://github.com/doctrine/persistence/issues",
-                "source": "https://github.com/doctrine/persistence/tree/3.1.0"
+                "source": "https://github.com/doctrine/persistence/tree/3.1.1"
             },
             "funding": [
                 {
@@ -1325,7 +1325,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2022-11-18T14:10:19+00:00"
+            "time": "2022-12-13T21:21:05+00:00"
         },
         {
             "name": "doctrine/sql-formatter",
@@ -1687,83 +1687,6 @@
                 }
             ],
             "time": "2022-12-08T02:08:23+00:00"
-        },
-        {
-            "name": "martin-georgiev/postgresql-for-doctrine",
-            "version": "v1.8.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/martin-georgiev/postgresql-for-doctrine.git",
-                "reference": "826d1df0d5db6cdd8a3e99bc4b5957dc7122c5d2"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/martin-georgiev/postgresql-for-doctrine/zipball/826d1df0d5db6cdd8a3e99bc4b5957dc7122c5d2",
-                "reference": "826d1df0d5db6cdd8a3e99bc4b5957dc7122c5d2",
-                "shasum": ""
-            },
-            "require": {
-                "doctrine/dbal": "~2.5||~3.0",
-                "ext-ctype": "*",
-                "ext-json": "*",
-                "ext-mbstring": "*",
-                "php": "^7.2||^8.0"
-            },
-            "require-dev": {
-                "doctrine/orm": "~2.5||~3.0",
-                "friendsofphp/php-cs-fixer": "^3.8",
-                "php-coveralls/php-coveralls": "^2.5",
-                "phpstan/phpstan": "^1.7",
-                "phpstan/phpstan-phpunit": "^1.1",
-                "phpunit/phpunit": "^9.5",
-                "qossmic/deptrac-shim": "^0.23 || ^0.24",
-                "symfony/cache": "^4.0||^5.0||^6.0"
-            },
-            "suggest": {
-                "doctrine/orm": "~2.5||~3.0",
-                "php": "^8.1"
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "MartinGeorgiev\\": "src/MartinGeorgiev/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Martin Georgiev",
-                    "email": "martin.georgiev@gmail.com",
-                    "role": "author"
-                }
-            ],
-            "description": "Adds PostgreSQL enhancements to Doctrine. Provides support for JSON, JSONB and some array data types. Provides functions, operators and common expressions used when working with JSON data, arrays and features related to text search.",
-            "keywords": [
-                "array data types",
-                "dbal",
-                "doctrine",
-                "json",
-                "jsonb",
-                "martin georgiev",
-                "postgres",
-                "postgresql",
-                "text search",
-                "tsvector"
-            ],
-            "support": {
-                "issues": "https://github.com/martin-georgiev/postgresql-for-doctrine/issues",
-                "source": "https://github.com/martin-georgiev/postgresql-for-doctrine/tree/v1.8.0"
-            },
-            "funding": [
-                {
-                    "url": "https://github.com/martin-georgiev",
-                    "type": "github"
-                }
-            ],
-            "time": "2022-08-21T11:56:27+00:00"
         },
         {
             "name": "masterminds/html5",
@@ -8795,16 +8718,16 @@
         },
         {
             "name": "phpunit/php-code-coverage",
-            "version": "9.2.20",
+            "version": "9.2.21",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sebastianbergmann/php-code-coverage.git",
-                "reference": "af7463c955007de36db0c5e26d03e2f933c2e980"
+                "reference": "3f893e19712bb0c8bc86665d1562e9fd509c4ef0"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sebastianbergmann/php-code-coverage/zipball/af7463c955007de36db0c5e26d03e2f933c2e980",
-                "reference": "af7463c955007de36db0c5e26d03e2f933c2e980",
+                "url": "https://api.github.com/repos/sebastianbergmann/php-code-coverage/zipball/3f893e19712bb0c8bc86665d1562e9fd509c4ef0",
+                "reference": "3f893e19712bb0c8bc86665d1562e9fd509c4ef0",
                 "shasum": ""
             },
             "require": {
@@ -8860,7 +8783,7 @@
             ],
             "support": {
                 "issues": "https://github.com/sebastianbergmann/php-code-coverage/issues",
-                "source": "https://github.com/sebastianbergmann/php-code-coverage/tree/9.2.20"
+                "source": "https://github.com/sebastianbergmann/php-code-coverage/tree/9.2.21"
             },
             "funding": [
                 {
@@ -8868,7 +8791,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2022-12-13T07:49:28+00:00"
+            "time": "2022-12-14T13:26:54+00:00"
         },
         {
             "name": "phpunit/php-file-iterator",
