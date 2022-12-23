@@ -71,6 +71,8 @@
         "twig/twig": "^2.12|^3.0"
     },
     "require-dev": {
+        "doctrine/doctrine-fixtures-bundle": "^3.4",
+        "doctrine/persistence": "^3.1",
         "phpstan/phpstan": "^1.9",
         "phpunit/phpunit": "^9.5",
         "symfony/browser-kit": "^6.2",
