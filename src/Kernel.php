@@ -21,7 +21,8 @@ class Kernel extends BaseKernel implements CompilerPassInterface
         configureRoutes as kernelConfigureRoutes;
     }
 
-    public function process(ContainerBuilder $builder): void {
+    public function process(ContainerBuilder $builder): void
+    {
         $encoreConfig = Yaml::parseFile(
             $this->getProjectDir() . '/config/packages/webpack_encore.yaml'
         );
@@ -37,29 +38,25 @@ class Kernel extends BaseKernel implements CompilerPassInterface
         $this->_configureExtensionRoutes($routes);
     }
 
-    protected function _configureExtensionRoutes(RoutingConfigurator $routes): void {
-        foreach(Extensions::getExtensions() as $ext) {
+    protected function _configureExtensionRoutes(
+        RoutingConfigurator $routes
+    ): void
+    {
+        foreach (Extensions::getExtensions() as $ext) {
             /** @var \Symfony\Component\HttpKernel\Bundle\AbstractBundle $ext */
             $configDir = dirname(
                 (new ReflectionClass($ext::class))->getFileName()
             ) . '/config';
-            foreach(
-                array_merge(
-                    glob(
-                        $configDir . '/{routes}/' . $this->environment .
-                        '/*.{php,yaml}',
-                        GLOB_BRACE
-                    ),
-                    glob(
-                        $configDir . '/{routes}/*.{php,yaml}',
-                        GLOB_BRACE
-                    ),
-                    glob(
-                        $configDir . '/routes.{php,yaml}',
-                        GLOB_BRACE
-                    )
-                ) as $filename
-            ) {
+            $files = array_merge(
+                glob(
+                    $configDir . '/{routes}/' . $this->environment .
+                    '/*.{php,yaml}',
+                    GLOB_BRACE
+                ),
+                glob($configDir . '/{routes}/*.{php,yaml}', GLOB_BRACE),
+                glob($configDir . '/routes.{php,yaml}', GLOB_BRACE)
+            );
+            foreach ($files as $filename) {
                 $routes->import($filename);
             }
         }
@@ -72,8 +69,8 @@ class Kernel extends BaseKernel implements CompilerPassInterface
 
     public function registerBundles(): iterable
     {
-        yield from $this->kernelRegisterBundles();
-        yield from Extensions::load($this);
+        yield from$this->kernelRegisterBundles();
+        yield fromExtensions::load($this);
     }
 
 }
