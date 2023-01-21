@@ -69,8 +69,8 @@ class Kernel extends BaseKernel implements CompilerPassInterface
 
     public function registerBundles(): iterable
     {
-        yield from$this->kernelRegisterBundles();
-        yield fromExtensions::load($this);
+        yield from $this->kernelRegisterBundles();
+        yield from Extensions::load($this);
     }
 
 }
