@@ -1544,7 +1544,7 @@
             "dist": {
                 "type": "path",
                 "url": "/home/jimbo/dev/vhosts/lib/iikiti/components",
-                "reference": "37250a3c89c10a210cdbd95f29c1ba913d02a35a"
+                "reference": "4f04cc9015a0332874848a2a555965d681475d9d"
             },
             "require": {
                 "ext-ctype": "*",
