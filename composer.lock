@@ -1544,7 +1544,7 @@
             "dist": {
                 "type": "path",
                 "url": "/home/jimbo/dev/vhosts/lib/iikiti/components",
-                "reference": "4f04cc9015a0332874848a2a555965d681475d9d"
+                "reference": "920405639a547ac8a294c308ec045221102faf5d"
             },
             "require": {
                 "ext-ctype": "*",
@@ -1604,7 +1604,7 @@
             "dist": {
                 "type": "path",
                 "url": "/home/jimbo/dev/vhosts/lib/iikiti/extension-utilities",
-                "reference": "d52853a5e62a18da93ae40308c7e6f4f0f633bc9"
+                "reference": "3a0af97a1b2c510da971139d5547d9859b8364e0"
             },
             "require": {
                 "php": ">=8.2",
