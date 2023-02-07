@@ -4,7 +4,6 @@ namespace iikiti\CMS\Repository;
 use iikiti\CMS\Entity\DbObject;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
-use Doctrine\Common\Collections\Criteria;
 
 /**
  * Class ObjectRepository
