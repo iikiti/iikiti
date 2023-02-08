@@ -4,6 +4,7 @@ namespace iikiti\CMS\Repository;
 use iikiti\CMS\Entity\DbObject;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use iikiti\CMS\Traits\SearchableRespository;
 
 /**
  * Class ObjectRepository
@@ -12,6 +13,8 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 abstract class ObjectRepository extends ServiceEntityRepository
 {
+    use SearchableRespository;
+
     public function __construct(ManagerRegistry $registry, string $entityClass = DbObject::class)
     {
         parent::__construct($registry, $entityClass);
