@@ -4,19 +4,20 @@ namespace iikiti\CMS\Repository;
 use iikiti\CMS\Entity\DbObject;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
-use iikiti\CMS\Traits\SearchableRespository;
+use iikiti\CMS\Interfaces\SearchableRepositoryInterface;
 
 /**
  * Class ObjectRepository
  *
  * @package iikiti\CMS\Repository
  */
-abstract class ObjectRepository extends ServiceEntityRepository
-{
-    use SearchableRespository;
+abstract class ObjectRepository extends ServiceEntityRepository implements
+    SearchableRepositoryInterface {
 
-    public function __construct(ManagerRegistry $registry, string $entityClass = DbObject::class)
-    {
+    public function __construct(
+        ManagerRegistry $registry,
+        string $entityClass = DbObject::class
+    ) {
         parent::__construct($registry, $entityClass);
     }
 
@@ -36,6 +37,10 @@ abstract class ObjectRepository extends ServiceEntityRepository
             return $qb->getQuery()->getOneOrNullResult() ?? false;
         }
         return $qb->getQuery()->getResult();
+    }
+
+    public function search(string $query) {
+
     }
 
 }
