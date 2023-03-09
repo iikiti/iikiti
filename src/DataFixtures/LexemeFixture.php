@@ -1,5 +1,7 @@
 <?php
 
+namespace iikiti\CMS\DataFixtures;
+
 use iikiti\CMS\Entity\Object\Lexeme;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
