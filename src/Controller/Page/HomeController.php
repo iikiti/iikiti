@@ -22,7 +22,12 @@ class HomeController extends AppController {
             'index.twig',
             [
                 'doc' => ['title' => 'iikiti']
-            ]
+            ],
+            new Response(
+                '',
+                Response::HTTP_OK,
+                ['content-type' => 'text/html']
+            )
         );
     }
 }
