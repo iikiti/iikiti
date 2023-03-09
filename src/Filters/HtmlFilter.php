@@ -4,6 +4,7 @@ namespace iikiti\CMS\Filters;
 
 use DOMDocument;
 use DOMXPath;
+use IvoPetkov\HTML5DOMDocument;
 use Masterminds\HTML5;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
@@ -22,7 +23,10 @@ abstract class HtmlFilter {
      */
     public static function filterHtml(ResponseEvent $event) {
         if(
-            ($_ENV['APP_ENV'] ?? 'prod') === 'dev' ||
+            (
+                ($_ENV['APP_ENV'] ?? 'prod') === 'dev' &&
+                ($_ENV['HTML_FILTER'] ?? true) == false
+            ) ||
             ($_ENV['HTML_FILTER'] ?? true) == false ||
             HttpKernelInterface::MAIN_REQUEST !== $event->getRequestType() ||
             !str_starts_with(
@@ -36,10 +40,10 @@ abstract class HtmlFilter {
         ) {
             return;
         }
-        $html = new HTML5(['disable_html_ns' => true]);
-        $dom = $html->loadHTML((string) $event->getResponse()->getContent());
+        $dom = new HTML5DOMDocument();
+        $dom->loadHTML((string) $event->getResponse()->getContent());
         self::minifyHtml($dom);
-        $event->getResponse()->setContent($html->saveHTML($dom));
+        $event->getResponse()->setContent($dom->saveHTML($dom));
     }
 
     /**
