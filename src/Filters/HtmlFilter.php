@@ -4,8 +4,8 @@ namespace iikiti\CMS\Filters;
 
 use DOMDocument;
 use DOMXPath;
+use iikiti\CMS\Utility\Variable as V;
 use IvoPetkov\HTML5DOMDocument;
-use Masterminds\HTML5;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 
@@ -25,9 +25,9 @@ abstract class HtmlFilter {
         if(
             (
                 ($_ENV['APP_ENV'] ?? 'prod') === 'dev' &&
-                ($_ENV['HTML_FILTER'] ?? true) == false
+                !V::is_true($_ENV['HTML_FILTER'])
             ) ||
-            ($_ENV['HTML_FILTER'] ?? true) == false ||
+            !V::is_true($_ENV['HTML_FILTER']) ||
             HttpKernelInterface::MAIN_REQUEST !== $event->getRequestType() ||
             !str_starts_with(
                 (string) $event->getResponse()->headers->get('content-type'),
