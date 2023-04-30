@@ -33,6 +33,7 @@
         "doctrine/doctrine-bundle": "^2.7",
         "doctrine/doctrine-migrations-bundle": "^3.2",
         "doctrine/orm": "^2.13",
+        "framed-utilities/cavalcade": "^1.0",
         "iikiti/components": "^0.1.0",
         "iikiti/extension-utilities": "^0.0.1",
         "ivopetkov/html5-dom-document-php": "^2.5",
