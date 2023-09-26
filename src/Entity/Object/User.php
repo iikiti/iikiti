@@ -57,7 +57,7 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
         //TODO: Fix: return $this->getMeta()->first()->getContent()->username;
     }
 
-    public function eraseCredentials()
+    public function eraseCredentials(): void
     {
         // TODO: Implement eraseCredentials() method.
     }

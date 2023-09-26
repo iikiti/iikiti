@@ -5,16 +5,16 @@ namespace iikiti\CMS\EventListeners;
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Filters\HtmlFilter;
+use iikiti\CMS\Loader\Extensions;
 use iikiti\CMS\Registry\SiteRegistry;
 use JetBrains\PhpStorm\ArrayShape;
 use Symfony\Component\DependencyInjection\ContainerAwareInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-use Symfony\Component\HttpFoundation\Request;
-use iikiti\CMS\Loader\Extensions;
 
 /**
  * Class OutputParser
@@ -30,7 +30,7 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface
         protected ManagerRegistry $registry
     ) {}
 
-    public function setContainer(?ContainerInterface $container = null)
+    public function setContainer(?ContainerInterface $container = null): void
     {
         $this->container = $container;
     }
@@ -71,9 +71,6 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface
         $registry = $this->registry;
         /** @var \Doctrine\ORM\EntityManager $em */
         $em = $registry->getManager();
-
-        // Enable Object Type Filter
-        $em->getFilters()->enable('ObjectTypeFilter');
 
         $this->matchDomain($request);
         
