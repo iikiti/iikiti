@@ -2,7 +2,6 @@
 namespace iikiti\CMS\Entity\Object;
 
 use Doctrine\ORM\Mapping as ORM;
-use iikiti\CMS\Doctrine\DiscriminatorValue;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Repository\Object\UserRepository;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
@@ -10,7 +9,6 @@ use Symfony\Component\Security\Core\User\UserInterface;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: "objects")]
-#[DiscriminatorValue('user')]
 class User extends DbObject implements UserInterface, PasswordAuthenticatedUserInterface
 {
 
