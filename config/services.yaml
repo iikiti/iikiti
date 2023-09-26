@@ -36,12 +36,4 @@ services:
         tags:
             - { name: kernel.event_listener, event: kernel.response, method: onKernelResponse, priority: 100 }
 
-    iikiti\CMS\Doctrine\SetSchema:
-        tags:
-            - {
-                name: doctrine.event_listener,
-                event: postConnect,
-                connection: 'default'
-            }
-
 
