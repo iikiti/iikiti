@@ -24,8 +24,9 @@ class SiteFilter extends SQLFilter {
 
         $site = SiteRegistry::getCurrentSite();
 
-        return $targetTableAlias . '.site_id = ' .
-            ($site instanceof Site ? $site->getId() : 0);
+		$this->setParameter('_siteId', $site instanceof Site ? $site->getId() : 0);
+
+        return $targetTableAlias . '.site_id = ' . $this->getParameter('_siteId');
     }
 
 }

@@ -16,10 +16,6 @@ class Site extends DbObject
         return null;
     }
 
-    public function getByDomain(string $domain) {
-
-    }
-
     public function getConfiguration(): Configuration {
         return new Configuration((object) $this->getContent());
     }
