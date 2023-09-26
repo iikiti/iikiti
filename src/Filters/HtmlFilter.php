@@ -22,12 +22,11 @@ abstract class HtmlFilter {
      * @return void
      */
     public static function filterHtml(ResponseEvent $event) {
+		$useHtmlFilter = V::is_true($_ENV['HTML_FILTER'] ?? true);
+		$appEnv = $_ENV['APP_ENV'] ?? 'prod';
         if(
-            (
-                ($_ENV['APP_ENV'] ?? 'prod') === 'dev' &&
-                !V::is_true($_ENV['HTML_FILTER'] ?? true)
-            ) ||
-            !V::is_true($_ENV['HTML_FILTER'] ?? true) ||
+            ($appEnv === 'dev' && !$useHtmlFilter) ||
+            !$useHtmlFilter ||
             HttpKernelInterface::MAIN_REQUEST !== $event->getRequestType() ||
             !str_starts_with(
                 (string) $event->getResponse()->headers->get('content-type'),
