@@ -1,12 +1,15 @@
 <?php
 namespace iikiti\CMS\Entity;
 
-use iikiti\CMS\Entity\Object\Site;
 use Doctrine\ORM\Mapping as ORM;
+use Doctrine\ORM\Mapping\InheritanceType;
+use iikiti\CMS\Entity\Object\Site;
 
 #[ORM\Entity(repositoryClass: ObjectRepository::class)]
 #[ORM\Table(name: "objects")]
 #[ORM\MappedSuperclass()]
+#[InheritanceType('SINGLE_TABLE')]
+#[DiscriminatorColumn(name: 'type', type: 'string')]
 class DbObject
 {
 
@@ -17,9 +20,6 @@ class DbObject
 
     #[ORM\Column(type: "datetime")]
     private $created_date;
-
-    #[ORM\Column(type: "string")]
-    private $type;
 
     #[ORM\Column(type: "bigint")]
     private $creator_id;
