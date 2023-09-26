@@ -25,9 +25,9 @@ abstract class HtmlFilter {
         if(
             (
                 ($_ENV['APP_ENV'] ?? 'prod') === 'dev' &&
-                !V::is_true($_ENV['HTML_FILTER'])
+                !V::is_true($_ENV['HTML_FILTER'] ?? true)
             ) ||
-            !V::is_true($_ENV['HTML_FILTER']) ||
+            !V::is_true($_ENV['HTML_FILTER'] ?? true) ||
             HttpKernelInterface::MAIN_REQUEST !== $event->getRequestType() ||
             !str_starts_with(
                 (string) $event->getResponse()->headers->get('content-type'),
