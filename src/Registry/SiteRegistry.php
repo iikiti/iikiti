@@ -16,8 +16,8 @@ abstract class SiteRegistry {
         }
     }
 
-    public static function getCurrentSite(): ?Site {
-        return static::count() < 1 ? null : static::$siteStack->top();
+    public static function getCurrentSite(): Site {
+        return static::count() < 1 ? new Site() : static::$siteStack->top();
     }
 
     public static function pushSite(Site $site): void {
