@@ -84,7 +84,8 @@
         "symfony/stopwatch": "^6.3",
         "symfony/var-dumper": "^6.3",
         "symfony/web-profiler-bundle": "^6.3",
-        "vimeo/psalm": "^5.2"
+        "vimeo/psalm": "^5.2",
+        "weirdan/doctrine-psalm-plugin": "^2.9"
     },
     "config": {
         "optimize-autoloader": true,
