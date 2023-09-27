@@ -1,9 +1,11 @@
 <?php
 namespace iikiti\CMS\Entity;
 
+use DateTimeInterface;
 use Doctrine\ORM\Mapping as ORM;
+use Doctrine\ORM\Mapping\DiscriminatorColumn;
 use Doctrine\ORM\Mapping\InheritanceType;
-use iikiti\CMS\Entity\Object\Site;
+use iikiti\CMS\Repository\ObjectRepository;
 
 #[ORM\Entity(repositoryClass: ObjectRepository::class)]
 #[ORM\Table(name: "objects")]
@@ -16,45 +18,48 @@ class DbObject
     #[ORM\Id()]
     #[ORM\GeneratedValue()]
     #[ORM\Column(type: "bigint")]
-    protected $id;
+    protected ?int $id = null;
 
     #[ORM\Column(type: "datetime")]
-    private $created_date;
+    private ?DateTimeInterface $created_date = null;
 
     #[ORM\Column(type: "bigint")]
-    private $creator_id;
+    private ?int $creator_id = null;
 
     #[ORM\Column(type: "bigint")]
-    private $site_id;
+    private ?int $site_id = null;
 
     #[ORM\Column(type: "json")]
-    private $content_json;
+    private null|array $content_json = null;
+
+	#[ORM\Column(type: "string")]
+	private ?string $dtype = null;
 
     public function __construct() {
         
     }
 
-    public function getId(): int {
+    public function getId(): ?int {
         return $this->id;
     }
 
-    public function getSiteId(): ?Site {
+    public function getSiteId(): ?int {
         return $this->site_id;
     }
 
-    public function getType(): string {
-        return $this->type;
+    public function getType(): ?string {
+        return $this->dtype;
     }
 
-    public function getCreatedDate(): \DateTime {
+    public function getCreatedDate(): ?DateTimeInterface {
         return $this->created_date;
     }
 
-    public function getCreatorId(): int {
+    public function getCreatorId(): ?int {
         return $this->creator_id;
     }
 
-    public function getContent(): object|array {
+    public function getContent(): null|array {
         return $this->content_json;
     }
 
