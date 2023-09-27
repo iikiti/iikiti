@@ -7,9 +7,12 @@
     xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
 >
     <projectFiles>
-        <directory name="." />
+        <directory name="."/>
         <ignoreFiles>
-            <directory name="vendor" />
+            <directory name="vendor"/>
         </ignoreFiles>
     </projectFiles>
+	<plugins>
+		<pluginClass class="Weirdan\DoctrinePsalmPlugin\Plugin"/>
+	</plugins>
 </psalm>
