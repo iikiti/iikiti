@@ -14,7 +14,7 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
 
     private array $roles = [];
 
-    function getEmails() {
+    function getEmails(): array {
         //TODO: Fix: return $this->getMeta()->first()->emails;
     }
 
@@ -28,7 +28,7 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
         return '';
     }
 
-    public function __toString()
+    public function __toString(): string
     {
         //TODO: Fix: return $this->getEmail();
         return '';
@@ -46,12 +46,12 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
         return null;
     }
 
-    public function getSalt()
+    public function getSalt(): string
     {
         return '';
     }
 
-    public function getUsername()
+    public function getUsername(): ?string
     {
         //TODO: Fix: return $this->getMeta()->first()->getContent()->username;
     }
@@ -61,11 +61,11 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
         // TODO: Implement eraseCredentials() method.
     }
 
-    public function serialize() {
+    public function serialize(): void {
 
     }
 
-    public function unserialize() {
+    public function unserialize(): void {
         
     }
 
@@ -80,11 +80,11 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
         // TODO: Implement unserialize() method.
     }
 
-    public function registeredToSite(string $siteId) {
+    public function registeredToSite(string $siteId): bool {
         //TODO: Fix: return isset($this->getMeta()->get(0)->json_content['roles'][$siteId]);
     }
 
-    public function getSiteRoles(string $siteId) {
+    public function getSiteRoles(string $siteId): array {
         //TODO: Fix: return $this->getMeta()->get(0)->json_content['roles'][$siteId] ?? [];
     }
 }
