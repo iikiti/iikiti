@@ -24,7 +24,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 class Initializer implements EventSubscriberInterface, ContainerAwareInterface
 {
 	protected static bool $hasInitialized = false;
-	protected ?ContainerInterface $container;
+	protected ?ContainerInterface $container = null;
 
 	public function __construct(
 		protected ManagerRegistry $registry
