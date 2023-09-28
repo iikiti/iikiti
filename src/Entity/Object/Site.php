@@ -19,7 +19,10 @@ class Site extends DbObject
         return new Configuration((object) $this->getContent());
     }
 
-    public function getEnabledExtensions() {
+	/**
+	 * @return string[]
+	 */
+    public function getEnabledExtensions(): array {
         $requiredExtensions = [
             'iikiti/components/ComponentsBundle'
         ];
