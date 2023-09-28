@@ -14,6 +14,14 @@ Encore
     .setPublicPath('/build')
     // only needed for CDN's or sub-directory deploy
     //.setManifestKeyPrefix('build/')
+	.enableSvelte()
+	.configureLoaderRule('svelte', svelte => {
+		svelte.options = {
+			compilerOptions: {
+				customElement: true
+			}
+		}
+	})
 
     .copyFiles([
         {
@@ -69,8 +77,6 @@ Encore
 
     // Enable PostCSS loader
     .enablePostCssLoader()
-
-    .splitEntryChunks()
 
     // uncomment if you use TypeScript
     //.enableTypeScriptLoader()
