@@ -12,29 +12,29 @@ use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 use Symfony\Component\Yaml\Yaml;
 
 /**
- *
+ * @uses MicroKernelTrait
  */
 class Kernel extends BaseKernel implements CompilerPassInterface
 {
     use MicroKernelTrait {
-        registerBundles as kernelRegisterBundles;
-        configureRoutes as kernelConfigureRoutes;
+        MicroKernelTrait::registerBundles as private __kernelRegisterBundles;
+        MicroKernelTrait::configureRoutes as private __kernelConfigureRoutes;
     }
 
-    public function process(ContainerBuilder $builder): void
+    public function process(ContainerBuilder $container): void
     {
         $encoreConfig = Yaml::parseFile(
             $this->getProjectDir() . '/config/packages/webpack_encore.yaml'
         );
-        $builder->setParameter(
+        $container->setParameter(
             'webpack_encore.output_path',
             $encoreConfig['webpack_encore']['output_path']
         );
     }
 
-    protected function configureRoutes(RoutingConfigurator $routes): void
+    private function configureRoutes(RoutingConfigurator $routes): void
     {
-        $this->kernelConfigureRoutes($routes);
+        $this->__kernelConfigureRoutes($routes);
         $this->_configureExtensionRoutes($routes);
     }
 
@@ -69,7 +69,7 @@ class Kernel extends BaseKernel implements CompilerPassInterface
 
     public function registerBundles(): iterable
     {
-        yield from $this->kernelRegisterBundles();
+        yield from $this->__kernelRegisterBundles();
         yield from Extensions::load($this);
     }
 

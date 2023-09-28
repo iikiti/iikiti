@@ -45,7 +45,7 @@ class AuthenticationController extends AppController
     }
 
     #[Route('/logout', name: "html_logout")]
-    public function logout()
+    public function logout(): void
     {
         return;
     }

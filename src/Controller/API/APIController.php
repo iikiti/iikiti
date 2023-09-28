@@ -3,8 +3,9 @@
 namespace iikiti\CMS\Controller\API;
 
 use Doctrine\Common\Collections\ArrayCollection;
-use iikiti\CMS\Entity\DbObject;
 use Doctrine\Persistence\ManagerRegistry;
+use iikiti\CMS\Entity\DbObject;
+use iikiti\CMS\Repository\ObjectRepository;
 
 /**
  * Class APIController
@@ -19,7 +20,6 @@ class APIController {
     /**
      * getObject
      *
-     * @param ManagerRegistry $registry 
      * @return array|null
      */
     public function getObject(
@@ -48,7 +48,7 @@ class APIController {
     /**
      * @param string           $typeClass   Object class. Must be subclass of
      *                                      DbObject.
-     * @param string|\stdClass $criteria    Criteria for query (where clause).
+     * @param string $criteria    Criteria for query (where clause).
      * @param array            $options     Associative array of options.
      *          See ObjectRepository for full details of options array.
      *
@@ -57,7 +57,7 @@ class APIController {
      */
     public function getObjectsByContent(
         string $typeClass = DbObject::class,
-        string|\stdClass $criteria = '',
+        string $criteria = '',
         array $options = []
     ): array|ArrayCollection|DbObject|bool {
         if(!class_exists($typeClass)) {
@@ -74,8 +74,10 @@ class APIController {
                 DbObject::class
             );
         }
+		/** @var ObjectRepository $rep */
+		$rep = $this->emi->getRepository($typeClass);
         // TODO: Change findByMeta to findByContent and implement.
-        return $this->emi->getRepository($typeClass)->findByContent(
+        return $rep->findByContent(
             criteria: $criteria,
             options: $options
         );

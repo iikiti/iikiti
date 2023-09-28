@@ -5,7 +5,6 @@ namespace iikiti\CMS\Doctrine;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Query\Filter\SQLFilter;
 use iikiti\CMS\Entity\DbObject;
-use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Registry\SiteRegistry;
 
@@ -24,7 +23,7 @@ class SiteFilter extends SQLFilter {
 
         $site = SiteRegistry::getCurrentSite();
 
-		$this->setParameter('_siteId', $site instanceof Site ? $site->getId() : 0);
+		$this->setParameter('_siteId', $site->getId());
 
         return $targetTableAlias . '.site_id = ' . $this->getParameter('_siteId');
     }

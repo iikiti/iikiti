@@ -3,7 +3,6 @@
 namespace iikiti\CMS\EventListeners;
 
 use Closure;
-use JetBrains\PhpStorm\ArrayShape;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 
@@ -19,7 +18,6 @@ class OutputParser implements EventSubscriberInterface
     /**
      * @inheritDoc
      */
-    #[ArrayShape(['kernel.response' => "string"])]
     public static function getSubscribedEvents(): array
     {
         return [
