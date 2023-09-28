@@ -21,7 +21,7 @@ abstract class HtmlFilter {
      *
      * @return void
      */
-    public static function filterHtml(ResponseEvent $event) {
+    public static function filterHtml(ResponseEvent $event): void {
 		$useHtmlFilter = V::is_true($_ENV['HTML_FILTER'] ?? true);
 		$appEnv = $_ENV['APP_ENV'] ?? 'prod';
         if(
@@ -50,7 +50,7 @@ abstract class HtmlFilter {
      *
      * @return void
      */
-    protected static function minifyHtml(DOMDocument $dom) {
+    protected static function minifyHtml(DOMDocument $dom): void {
         $xpath = new DOMXPath($dom);
         $nodes = $xpath->query(
             '//text()[not(parent::script or parent::style or ancestor::pre)]'
