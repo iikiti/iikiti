@@ -1,9 +1,7 @@
-import { LitElement, css, html } from 'lit';
+import { html } from 'lit';
 import '../utilities/String.capitalize';
-import { shadowless } from '../mixins/shadowless';
-import { slotless } from '../mixins/slotless';
 
-export class BlockEditorComponent extends slotless(shadowless(LitElement)) {
+export class BlockEditorComponent {
 
     static properties = {
 
