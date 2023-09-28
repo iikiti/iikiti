@@ -29,4 +29,10 @@ yarn-error.log
 ###> iikiti ###
 /cms/extensions/
 ###< iikiti ###
+
+### VS CODE ###
 .vscode
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
