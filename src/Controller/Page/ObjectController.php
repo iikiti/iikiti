@@ -26,7 +26,7 @@ class ObjectController extends AppController {
             typeClass: Page::class,
             criteria: 'CONTAINS(JSON_GET_FIELD(o.content_json, \'slug\'), :slug) = true',
             options: [
-                'parameters' => ['slug' => json_encode($request->get('slug'))],
+                'parameters' => ['slug' => json_encode($request->attributes->get('slug'))],
                 'orderBy' => ['o.created_date' => 'DESC'],
                 'limit' => 1,
                 'singleResult' => true

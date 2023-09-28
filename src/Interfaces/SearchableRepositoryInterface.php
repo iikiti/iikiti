@@ -4,6 +4,6 @@ namespace iikiti\CMS\Interfaces;
 
 interface SearchableRepositoryInterface {
 
-    public function search(string $query);
+    public function search(string $query): mixed;
 
 }

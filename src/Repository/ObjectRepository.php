@@ -39,7 +39,7 @@ abstract class ObjectRepository extends ServiceEntityRepository implements
         return $qb->getQuery()->getResult();
     }
 
-    public function search(string $query) {
+    public function search(string $query): mixed {
 
     }
 

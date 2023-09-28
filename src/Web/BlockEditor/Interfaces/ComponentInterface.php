@@ -1,7 +1,7 @@
 <?php
 namespace iikiti\CMS\Web\BlockEditor\Interfaces;
 
-use Doctrine\Persistence\ManagerRegistry;
+
 
 interface ComponentInterface {
 

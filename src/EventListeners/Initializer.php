@@ -75,7 +75,7 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface
 		
 		if(SiteRegistry::getCurrentSite() instanceof Site) {
 			Extensions::setInitialSiteId(
-				SiteRegistry::getCurrentSite()->getId()
+				SiteRegistry::getCurrentSite()->getId() ?? 0
 			);
 		}
 

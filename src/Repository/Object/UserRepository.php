@@ -2,7 +2,6 @@
 namespace iikiti\CMS\Repository\Object;
 
 use Doctrine\Persistence\ManagerRegistry;
-use iikiti\CMS\Entity\Object\SiteUserLink;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\ObjectRepository;

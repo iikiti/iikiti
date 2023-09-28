@@ -32,8 +32,7 @@ class DbObject
     #[ORM\Column(type: "json")]
     private null|array $content_json = null;
 
-	#[ORM\Column(type: "string")]
-	private ?string $dtype = null;
+	private ?string $type = null;
 
     public function __construct() {
         
@@ -48,7 +47,7 @@ class DbObject
     }
 
     public function getType(): ?string {
-        return $this->dtype;
+        return $this->type;
     }
 
     public function getCreatedDate(): ?DateTimeInterface {

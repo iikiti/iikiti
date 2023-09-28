@@ -10,26 +10,25 @@ abstract class Extensions {
     const PREFIX = 'iikiti\\extension\\';
     const INITIAL_KEY = 'initial';
     
-    static $EXTENSIONS = [];
+    static array $EXTENSIONS = [];
     
     /**
      * Acquires list of enabled extensions and loads them via PSR-4 then
      * creates a new instance.
      *
-     * @return void
      */
     public static function load(Kernel $kernel): \Generator {
         $gen = self::_loadFromDirectory($kernel);
         $cur = $gen->current();
         if($cur !== null) {
             self::$EXTENSIONS[
-                SiteRegistry::getCurrentSite()?->getId() ?? self::INITIAL_KEY
+                SiteRegistry::getCurrentSite()->getId() ?? self::INITIAL_KEY
             ][] = $gen->current();
         }
         yield from $cur !== null ? $gen : [];
     }
 
-    public static function setInitialSiteId($siteId) {
+    public static function setInitialSiteId(int|string $siteId): void {
         self::$EXTENSIONS[$siteId] = self::$EXTENSIONS[self::INITIAL_KEY] ?? [];
         unset(self::$EXTENSIONS[self::INITIAL_KEY]);
     }
@@ -42,13 +41,14 @@ abstract class Extensions {
         );
         foreach($fileLoop as $entry) {
             /** @var \DirectoryIterator $entry */
-            $bundleNS = json_decode(file_get_contents(
+            $bundleNS = (string) json_decode(file_get_contents(
                 $entry->getPath() . '/' . $entry->getFilename() .
                 '/composer.json'
             ))->name;
             $bundleName = ucwords(
                 implode('', array_slice(explode('/', $bundleNS), -1))
             );
+            /** @psalm-suppress UnresolvableInclude */
             require_once(
                 $entry->getPath() . '/' . $entry->getFilename() . '/' . 
                 $bundleName . 'Bundle.php'
@@ -73,7 +73,7 @@ abstract class Extensions {
 
     public static function getExtensions(): array {
         return self::$EXTENSIONS[
-            SiteRegistry::getCurrentSite()?->getId() ?? self::INITIAL_KEY
+            SiteRegistry::getCurrentSite()->getId() ?? self::INITIAL_KEY
         ] ?? []; 
     }
 
