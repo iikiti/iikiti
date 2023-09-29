@@ -92,4 +92,11 @@ Encore
     //.autoProvidejQuery()
 ;
 
-module.exports = Encore.getWebpackConfig();
+const config = Encore.getWebpackConfig();
+
+if(config.resolve.conditionNames == undefined) {
+	config.resolve.conditionNames = [];
+}
+config.resolve.conditionNames.push('svelte');
+
+module.exports = config;

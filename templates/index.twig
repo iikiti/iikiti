@@ -3,7 +3,7 @@
 {# Prevent right sidebar from showing. #}
 {#% block body_aside_right %}{% endblock %#}
 {% block body %}
-    <block-editor id="page-wrapper">
+    <section data-svelte-component="BlockEditor" id="page-wrapper">
         <components class="grid grid-cols-3">{% include 'base/default-block-editor-content.twig' %}</components>
-    </block-editor>
+    </section>
 {% endblock %}
