@@ -1,9 +1,9 @@
 <?php
 namespace iikiti\CMS\Repository;
 
-use iikiti\CMS\Entity\DbObject;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Interfaces\SearchableRepositoryInterface;
 
 /**
