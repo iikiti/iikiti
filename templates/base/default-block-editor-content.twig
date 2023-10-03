@@ -1,32 +1,32 @@
 {% block body_header %}
-    <section data-svelte-component="BlockEditorComponent" id="site-header" is="header" class="col-span-full sticky full-width site-margin-left site-margin-right">
+    <section data-vue-component='{"name": "BlockEditorComponent"}' id="site-header" is="header" class="col-span-full sticky full-width site-margin-left site-margin-right">
         Header
         {% block body_header_content %}
             {% block body_header_nav %}
-                <section data-svelte-component="BlockEditorComponent" is="nav">
+                <section data-vue-component='{"name": "BlockEditorComponent"}' is="nav">
                     {% block body_header_nav_content %}{% endblock %}
                 </section>
             {% endblock %}
         {% endblock %}
     </section>
 {% endblock %}
-<section data-svelte-component="BlockEditorComponent" is="section" id="site-content-wrapper" class="col-span-full grid grid-cols-1 lg:grid-cols-12 gap-4 gap-y-0 overflow-hidden site-margin-left site-margin-right">
+<section data-vue-component='{"name": "BlockEditorComponent"}' is="section" id="site-content-wrapper" class="col-span-full grid grid-cols-1 lg:grid-cols-12 gap-4 gap-y-0 overflow-hidden site-margin-left site-margin-right">
     {% block body_main %}
-        <section data-svelte-component="BlockEditorComponent" is="section" id="content" class="order-2 lg:col-start-3 col-span-full grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <section data-vue-component='{"name": "BlockEditorComponent"}' is="section" id="content" class="order-2 lg:col-start-3 col-span-full grid grid-cols-1 lg:grid-cols-12 gap-4">
             {% block body_main_content %}Main{% endblock %}
         </section>
     {% endblock %}
     {% block body_asides %}
         {% block body_aside_left %}
-            <section data-svelte-component="BlockEditorComponent" is="aside" class="order-1 left relative col-span-2 lg:col-span-auto">
-                <section data-svelte-component="BlockEditorComponent" is="section">
+            <section data-vue-component='{"name": "BlockEditorComponent"}' is="aside" class="order-1 left relative col-span-2 lg:col-span-auto">
+                <section data-vue-component='{"name": "BlockEditorComponent"}' is="section">
                     {% block body_aside_left_content %}Left{% endblock %}
                 </section>
             </section>
         {% endblock %}
         {% block body_aside_right %}
-            <section data-svelte-component="BlockEditorComponent" is="aside" class="order-3 right relative col-span-2 lg:col-span-auto">
-                <section data-svelte-component="BlockEditorComponent" is="section">
+            <section data-vue-component='{"name": "BlockEditorComponent"}' is="aside" class="order-3 right relative col-span-2 lg:col-span-auto">
+                <section data-vue-component='{"name": "BlockEditorComponent"}' is="section">
                     {% block body_aside_right_content %}Right{% endblock %}
                 </section>
             </section>
@@ -34,7 +34,7 @@
     {% endblock %}
 </section>
 {% block body_footer %}
-    <section data-svelte-component="BlockEditorComponent" is="footer" id="site-footer" class="col-span-full site-margin-left site-margin-right">
+    <section data-vue-component='{"name": "BlockEditorComponent"}' is="footer" id="site-footer" class="col-span-full site-margin-left site-margin-right">
         {% block body_footer_content %}Footer{% endblock %}
     </section>
 {% endblock %}

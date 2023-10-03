@@ -3,7 +3,6 @@
         "@babel/plugin-proposal-class-properties": "^7.18",
         "@hotwired/stimulus": "^3.0.0",
         "@symfony/stimulus-bridge": "^3.2.0",
-        "@symfony/ux-vue": "file:vendor/symfony/ux-vue/assets",
         "@symfony/webpack-encore": "^4.4",
         "autoprefixer": "^10.4",
         "cash-dom": "^8.1",
