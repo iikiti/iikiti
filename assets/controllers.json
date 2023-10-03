@@ -1,11 +1,4 @@
 {
-    "controllers": {
-        "@symfony/ux-vue": {
-            "vue": {
-                "enabled": true,
-                "fetch": "eager"
-            }
-        }
-    },
+    "controllers": [],
     "entrypoints": []
 }

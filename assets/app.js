@@ -1,5 +1,4 @@
-import { registerVueControllerComponents } from '@symfony/ux-vue';
-import './bootstrap.js';
+const { createApp } = await import('vue');
 /*
  * Welcome to your app's main JavaScript file!
  *
@@ -13,4 +12,10 @@ import './styles/app.css';
 // start the Stimulus application
 import './bootstrap';
 
-registerVueControllerComponents(require.context('./vue/controllers', true, /\.vue$/));
+for(let vc of document.querySelectorAll("[data-vue-component]")) {
+	let config = JSON.parse(vc.dataset.vueComponent);
+	import("./vue/controllers/" + config.name + ".vue").then(((config, vc, component) => {
+		let app = createApp(component.default);
+		app.mount(vc);
+	}).bind(null, config, vc));
+}

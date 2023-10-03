@@ -30,17 +30,14 @@ Encore
      */
     .addStyleEntry('tailwind', './assets/styles/app.scss')
 
-    .addEntry('main', './assets/main.js')
-
+	.addEntry('main', './assets/app.js')
+    //.addEntry('main', './assets/main.js')
     //.addEntry('admin', './assets/admin.js')
 
     // When enabled, Webpack "splits" your files into smaller pieces for greater optimization.
     .splitEntryChunks()
 
-    .enableVueLoader()
-
-    // enables the Symfony UX Stimulus bridge (used in assets/bootstrap.js)
-    .enableStimulusBridge('./assets/controllers.json')
+    .enableVueLoader(() => {}, { runtimeCompilerBuild: false })
 
     // will require an extra script tag for runtime.js
     // but, you probably want this, unless you're building a single-page app
@@ -87,6 +84,10 @@ Encore
 
     // uncomment if you're having problems with a jQuery plugin
     //.autoProvidejQuery()
+
+	.addAliases({
+		'vue': "vue/dist/vue.esm-browser"
+	})
 ;
 
-module.exports = config;
+module.exports = Encore.getWebpackConfig();
