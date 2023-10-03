@@ -14,14 +14,6 @@ Encore
     .setPublicPath('/build')
     // only needed for CDNs or sub-directory deploy
     //.setManifestKeyPrefix('build/')
-	.enableSvelte()
-	.configureLoaderRule('svelte', svelte => {
-		svelte.options = {
-			compilerOptions: {
-				customElement: true
-			}
-		}
-	})
 
     .copyFiles([
         {
@@ -44,6 +36,11 @@ Encore
 
     // When enabled, Webpack "splits" your files into smaller pieces for greater optimization.
     .splitEntryChunks()
+
+    .enableVueLoader()
+
+    // enables the Symfony UX Stimulus bridge (used in assets/bootstrap.js)
+    .enableStimulusBridge('./assets/controllers.json')
 
     // will require an extra script tag for runtime.js
     // but, you probably want this, unless you're building a single-page app
@@ -91,12 +88,5 @@ Encore
     // uncomment if you're having problems with a jQuery plugin
     //.autoProvidejQuery()
 ;
-
-const config = Encore.getWebpackConfig();
-
-if(config.resolve.conditionNames == undefined) {
-	config.resolve.conditionNames = [];
-}
-config.resolve.conditionNames.push('svelte');
 
 module.exports = config;

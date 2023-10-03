@@ -1,6 +1,9 @@
 {
     "devDependencies": {
         "@babel/plugin-proposal-class-properties": "^7.18",
+        "@hotwired/stimulus": "^3.0.0",
+        "@symfony/stimulus-bridge": "^3.2.0",
+        "@symfony/ux-vue": "file:vendor/symfony/ux-vue/assets",
         "@symfony/webpack-encore": "^4.4",
         "autoprefixer": "^10.4",
         "cash-dom": "^8.1",
@@ -12,10 +15,10 @@
         "purgecss-webpack-plugin": "^5.0",
         "sass": "^1.68.0",
         "sass-loader": "^13.3.2",
-        "svelte": "^4.2.1",
-        "svelte-loader": "^3.1.9",
         "svelte-routing": "^2.4.0",
         "tailwindcss": "^3.3.3",
+        "vue": "^3.0",
+        "vue-loader": "^17.2.2",
         "webpack-notifier": "^1.15"
     },
     "license": "Apache-2.0",
