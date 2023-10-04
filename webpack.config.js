@@ -86,7 +86,7 @@ Encore
     //.autoProvidejQuery()
 
 	.addAliases({
-		'vue': "vue/dist/vue.esm-browser"
+		'vue': "vue/dist/vue.esm-browser" + (Encore.isProduction() ? '.prod' : '')
 	})
 ;
 
