@@ -1,3 +1,5 @@
+import './js/utilities/Element.furthest';
+
 const { createApp } = await import('vue');
 /*
  * Welcome to your app's main JavaScript file!
@@ -12,10 +14,20 @@ import './styles/app.css';
 // start the Stimulus application
 import './bootstrap';
 
-for(let vc of document.querySelectorAll("[data-vue-component]")) {
+var compSelector = "[data-vue-component]";
+
+for(let vc of document.querySelectorAll(compSelector)) {
 	let config = JSON.parse(vc.dataset.vueComponent);
-	import("./vue/controllers/" + config.name + ".vue").then(((config, vc, component) => {
-		let app = createApp(component.default);
+	import(
+		/* webpackInclude: /\.vue$/ */
+		/* webpackChunkName: "vue-component-[request]" */
+		/* webpackMode: "lazy" */
+		/* webpackPrefetch: true */
+		/* webpackPreload: true */
+		`./vue/controllers/${config.name}.vue`
+	).then(((config, vc, component) => {
+		const app = createApp(component.default);
+		app.component(component.default.__name, component.default);
 		app.mount(vc);
 	}).bind(null, config, vc));
 }

@@ -1,9 +1,7 @@
 <script setup>
-import { onMounted, ref } from 'vue';
-
-const root = ref(null);
+import { onMounted } from 'vue';
 
 onMounted(function() {
-	
+	console.log('Mounted editor component.');
 });
 </script>
