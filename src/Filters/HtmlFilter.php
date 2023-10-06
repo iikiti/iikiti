@@ -2,7 +2,10 @@
 
 namespace iikiti\CMS\Filters;
 
+use Closure;
+use DOMComment;
 use DOMDocument;
+use DOMText;
 use DOMXPath;
 use iikiti\CMS\Utility\Variable as V;
 use IvoPetkov\HTML5DOMDocument;
@@ -39,8 +42,8 @@ abstract class HtmlFilter {
         ) {
             return;
         }
-        $dom = new HTML5DOMDocument();
-        $dom->loadHTML((string) $event->getResponse()->getContent());
+        $dom = new HTML5DOMDocument('1.0', 'UTF-8');
+        $dom->loadHTML((string) $event->getResponse()->getContent(), LIBXML_NOBLANKS);
         self::minifyHtml($dom);
         $event->getResponse()->setContent($dom->saveHTML($dom));
     }
@@ -57,17 +60,25 @@ abstract class HtmlFilter {
         );
         /** @var \DOMText|\DOMComment $node */
         foreach ($nodes as $node) {
-            if ($node->parentNode && static::isEmptyString($node->textContent)) {
-                $node->parentNode->removeChild($node);
+			if($node instanceof DOMComment) {
+				$node->parentNode?->removeChild($node);
                 continue;
-            }
-            $node->textContent = preg_replace(
-                '/^\s{2,}|\s{2,}$/',
-                ' ',
+			}
+            $node->textContent = preg_replace_callback(
+                '/(?:[\h]{2,}|\v+)/u',
+                Closure::fromCallable([self::class, '__collapseWhitespace_cb']),
                 $node->textContent
             );
         }
     }
+
+	/**
+	 * @param array<int,string> $text
+	 */
+	protected static function __collapseWhitespace_cb(array $text): string {
+		if(!isset($text[0])) return '';
+		return preg_replace('/(?:\v+|(\h)\h+)/u', '$1', $text[0]);
+	}
 
     /**
      * @param string $str
