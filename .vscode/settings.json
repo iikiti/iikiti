@@ -1,7 +1,8 @@
 {
 	"cSpell.words": [
 		"corejs",
-		"dtype"
+		"dtype",
+		"NOBLANKS"
 	],
 	"cSpell.ignoreWords": [
 		"IvoPetkov",
