@@ -11,6 +11,8 @@ use iikiti\CMS\Service\Configuration;
 class Site extends DbObject
 {
 
+	const SITE_SPECIFIC = false;
+
     public function getConfiguration(): Configuration {
         return new Configuration((object) $this->getContent());
     }
