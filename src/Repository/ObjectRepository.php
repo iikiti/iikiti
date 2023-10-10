@@ -5,6 +5,7 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Interfaces\SearchableRepositoryInterface;
+use iikiti\CMS\Registry\SiteRegistry;
 
 /**
  * Class ObjectRepository
@@ -39,9 +40,10 @@ abstract class ObjectRepository extends ServiceEntityRepository implements
         return $qb->getQuery()->getResult();
     }
 
-	public function find($id)
+	public function find($id, $lockMode = null, $lockVersion = null)
     {
-        return $this->findOneBy([ 'id' => $id ]);
+		// TODO: Locking
+		return $this->findOneBy([ $this->getClassMetadata()->getIdentifier()[0] => $id ]);
     }
 
     public function findAll()
@@ -51,13 +53,22 @@ abstract class ObjectRepository extends ServiceEntityRepository implements
 
     public function findBy(array $criteria, ?array $orderBy = null, $limit = null, $offset = null)
     {
-        return parent::findBy($criteria, $orderBy, $limit, $offset);
+        return parent::findBy($this->__filterBySite($criteria), $orderBy, $limit, $offset);
     }
 
     public function findOneBy(array $criteria, ?array $orderBy = null)
     {
-        return parent::findOneBy($criteria, $orderBy);
+        return parent::findOneBy($this->__filterBySite($criteria), $orderBy);
     }
+
+	protected function __filterBySite(array $criteria): array {
+		$siteCriteria = [
+			'site_id' => $this->getClassMetadata()->getReflectionClass()->getConstant('SITE_SPECIFIC') ?
+				SiteRegistry::getCurrentSite()->getId() :
+				0
+		];
+		return array_merge($siteCriteria, $criteria);
+	}
 
     public function search(string $query): mixed {
 
