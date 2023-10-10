@@ -1,9 +1,10 @@
 security:
     # https://symfony.com/doc/current/security.html#where-do-users-come-from-user-providers
     providers:
-        users:
+        app_user_provider:
             entity:
                 class: iikiti\CMS\Entity\Object\User
+                property: username
     password_hashers:
         iikiti\CMS\Entity\Object\User:
             algorithm: auto

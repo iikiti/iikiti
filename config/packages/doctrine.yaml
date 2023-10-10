@@ -26,4 +26,3 @@ doctrine:
                 
 
         filters:
-            SiteFilter: iikiti\CMS\Doctrine\SiteFilter

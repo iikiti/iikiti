@@ -67,9 +67,6 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface
 		});
 
 		$request = $event->getRequest();
-		$registry = $this->registry;
-		/** @var \Doctrine\ORM\EntityManager $em */
-		$em = $registry->getManager();
 
 		$this->matchDomain($request);
 		
@@ -78,9 +75,6 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface
 				SiteRegistry::getCurrentSite()->getId() ?? 0
 			);
 		}
-
-		// Enable Site filter
-		$em->getFilters()->enable('SiteFilter');
 
 		static::$hasInitialized = true;
 	}

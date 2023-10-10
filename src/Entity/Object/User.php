@@ -12,6 +12,8 @@ use Symfony\Component\Security\Core\User\UserInterface;
 class User extends DbObject implements UserInterface, PasswordAuthenticatedUserInterface
 {
 
+	const SITE_SPECIFIC = false;
+
     private array $roles = [];
 
     function getEmails(): array {
@@ -53,6 +55,7 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
 
     public function getUsername(): ?string
     {
+		//return $this->getContent()->
         //TODO: Fix: return $this->getMeta()->first()->getContent()->username;
     }
 

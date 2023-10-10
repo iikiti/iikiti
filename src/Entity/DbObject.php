@@ -15,6 +15,9 @@ use iikiti\CMS\Repository\ObjectRepository;
 class DbObject
 {
 
+	/** @var bool SITE_SPECIFIC */
+	const SITE_SPECIFIC = true;
+
     #[ORM\Id()]
     #[ORM\GeneratedValue()]
     #[ORM\Column(type: "bigint")]

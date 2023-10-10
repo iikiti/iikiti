@@ -39,8 +39,32 @@ abstract class ObjectRepository extends ServiceEntityRepository implements
         return $qb->getQuery()->getResult();
     }
 
+	public function find($id)
+    {
+        return $this->findOneBy([ 'id' => $id ]);
+    }
+
+    public function findAll()
+    {
+        return parent::findBy([]);
+    }
+
+    public function findBy(array $criteria, ?array $orderBy = null, $limit = null, $offset = null)
+    {
+        return parent::findBy($criteria, $orderBy, $limit, $offset);
+    }
+
+    public function findOneBy(array $criteria, ?array $orderBy = null)
+    {
+        return parent::findOneBy($criteria, $orderBy);
+    }
+
     public function search(string $query): mixed {
 
     }
+
+    public function __call($method, $arguments) {
+		return parent::__call($method, $arguments);
+	}
 
 }
