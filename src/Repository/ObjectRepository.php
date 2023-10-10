@@ -22,7 +22,7 @@ abstract class ObjectRepository extends ServiceEntityRepository implements
         parent::__construct($registry, $entityClass);
     }
 
-    public function findByContent(string $criteria, array $options) {
+    public function findByContent(string $criteria, array $options): array {
         $qb = $this->createQueryBuilder('o');
         $qb->where($criteria);
         if(!empty($options['orderBy'])) {
@@ -40,23 +40,23 @@ abstract class ObjectRepository extends ServiceEntityRepository implements
         return $qb->getQuery()->getResult();
     }
 
-	public function find($id, $lockMode = null, $lockVersion = null)
+	public function find($id, $lockMode = null, $lockVersion = null): ?DbObject
     {
 		// TODO: Locking
 		return $this->findOneBy([ $this->getClassMetadata()->getIdentifier()[0] => $id ]);
     }
 
-    public function findAll()
+    public function findAll(): array
     {
         return parent::findBy([]);
     }
 
-    public function findBy(array $criteria, ?array $orderBy = null, $limit = null, $offset = null)
+    public function findBy(array $criteria, ?array $orderBy = null, $limit = null, $offset = null): array
     {
         return parent::findBy($this->__filterBySite($criteria), $orderBy, $limit, $offset);
     }
 
-    public function findOneBy(array $criteria, ?array $orderBy = null)
+    public function findOneBy(array $criteria, ?array $orderBy = null): ?DbObject
     {
         return parent::findOneBy($this->__filterBySite($criteria), $orderBy);
     }
@@ -74,7 +74,7 @@ abstract class ObjectRepository extends ServiceEntityRepository implements
 
     }
 
-    public function __call($method, $arguments) {
+    public function __call($method, $arguments): mixed {
 		return parent::__call($method, $arguments);
 	}
 
