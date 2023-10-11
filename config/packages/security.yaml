@@ -15,13 +15,15 @@ security:
         main:
             lazy: true
             form_login:
-                check_path: html_login
-
+                check_path: /login
+                failure_path: /login
+                login_path: /login
             # configure the form authentication as the entry point for unauthenticated users
             entry_point: form_login
             logout:
-                path: html_logout
-                target: home
+                path: /logout
+                target: /
+                enable_csrf: true
 
             # activate different ways to authenticate
             # https://symfony.com/doc/current/security.html#firewalls-authentication
