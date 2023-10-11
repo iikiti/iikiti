@@ -21,9 +21,10 @@ class SiteRepository extends ObjectRepository
     public function findByDomain(string $domain): array
     {
         return $this->createQueryBuilder('o')
-            ->andWhere(
-                'JSON_CONTAINS(o.content_json, :domain, \'$.domain\') = 1'
-            )->setParameter('domain', json_encode($domain))->getQuery()->getResult();
+            ->andWhere('JSON_CONTAINS(o.content_json, :domain, :domainPath) = 1')
+			->setParameter('domain', json_encode($domain))
+			->setParameter('domainPath', '$.domain')
+			->getQuery()->getResult();
     }
 
 }
