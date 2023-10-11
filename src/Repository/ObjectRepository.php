@@ -47,9 +47,9 @@ abstract class ObjectRepository extends ServiceEntityRepository implements
         return $this->__filterBySite(parent::createQueryBuilder($alias, $indexBy));
     }
 
-	public function find($id, int $lockMode = LockMode::NONE, $lockVersion = null): ?DbObject {
+	public function find($id, $lockMode = null, $lockVersion = null): ?DbObject {
 		$entity = $this->findOneBy([ $this->getClassMetadata()->getIdentifier()[0] => $id ]);
-		if($entity !== null && $lockMode !== LockMode::NONE) {
+		if($entity !== null && $lockMode !== null && $lockMode !== LockMode::NONE) {
 			$this->getEntityManager()->lock($entity, $lockMode, $lockVersion);
 		}
 		return $entity;
