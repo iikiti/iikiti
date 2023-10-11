@@ -6,10 +6,10 @@ use SplStack;
 
 abstract class SiteRegistry {
 
-    protected static SplStack $siteStack;
+    protected static ?SplStack $siteStack = null;
 
     public static function init(): void {
-        if(!static::$siteStack instanceof SplStack) {
+        if(!(static::$siteStack instanceof SplStack)) {
             static::$siteStack = new SplStack();
         }
     }
