@@ -1,7 +1,7 @@
 {%  extends 'base/layout.twig' %}
 
-{% block body_main_content %}
-    <form method="post">
+{% block body %}
+    <form method="post" action="{{ path('html_login') }}">
         {% if error %}
             <div class="alert alert-danger">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
         {% endif %}

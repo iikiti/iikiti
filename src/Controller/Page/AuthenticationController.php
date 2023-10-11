@@ -36,7 +36,7 @@ class AuthenticationController extends AppController
         return $this->render(
             'login.twig',
             [
-                'doc' => ['title' => 'iikiti'],
+                'doc' => ['title' => 'iikiti login'],
                 'last_username' => $lastUsername,
                 'error'         => $error,
             ],
