@@ -2,6 +2,7 @@
 namespace iikiti\CMS\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\DbObject;
@@ -46,9 +47,12 @@ abstract class ObjectRepository extends ServiceEntityRepository implements
         return $this->__filterBySite(parent::createQueryBuilder($alias, $indexBy));
     }
 
-	public function find($id, $lockMode = null, $lockVersion = null): ?DbObject {
-		// TODO: Locking
-		return $this->findOneBy([ $this->getClassMetadata()->getIdentifier()[0] => $id ]);
+	public function find($id, int $lockMode = LockMode::NONE, $lockVersion = null): ?DbObject {
+		$entity = $this->findOneBy([ $this->getClassMetadata()->getIdentifier()[0] => $id ]);
+		if($entity !== null && $lockMode !== LockMode::NONE) {
+			$this->getEntityManager()->lock($entity, $lockMode, $lockVersion);
+		}
+		return $entity;
 	}
 
 	public function findAll(): array {
