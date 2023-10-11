@@ -2,17 +2,15 @@
 namespace iikiti\CMS\Registry;
 
 use iikiti\CMS\Entity\Object\Site;
+use SplStack;
 
 abstract class SiteRegistry {
 
-    /**
-     * @var $siteStack \SplStack
-     */
-    protected static $siteStack;
+    protected static SplStack $siteStack;
 
-    public static function init() {
-        if(!static::$siteStack instanceof \SplStack) {
-            static::$siteStack = new \SplStack();
+    public static function init(): void {
+        if(!static::$siteStack instanceof SplStack) {
+            static::$siteStack = new SplStack();
         }
     }
 
