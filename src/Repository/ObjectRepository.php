@@ -2,6 +2,7 @@
 namespace iikiti\CMS\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Interfaces\SearchableRepositoryInterface;
@@ -40,6 +41,11 @@ abstract class ObjectRepository extends ServiceEntityRepository implements
 		return $qb->getQuery()->getResult();
 	}
 
+	public function createQueryBuilder($alias, $indexBy = null): QueryBuilder
+    {
+        return $this->__filterBySite(parent::createQueryBuilder($alias, $indexBy));
+    }
+
 	public function find($id, $lockMode = null, $lockVersion = null): ?DbObject {
 		// TODO: Locking
 		return $this->findOneBy([ $this->getClassMetadata()->getIdentifier()[0] => $id ]);
@@ -57,13 +63,15 @@ abstract class ObjectRepository extends ServiceEntityRepository implements
 		return parent::findOneBy($this->__filterBySite($criteria), $orderBy);
 	}
 
-	protected function __filterBySite(array $criteria): array {
-		$siteCriteria = [
-			'site_id' => $this->getClassMetadata()->getReflectionClass()->getConstant('SITE_SPECIFIC') ?
-				SiteRegistry::getCurrentSite()->getId() :
-				0
-		];
-		return array_merge($siteCriteria, $criteria);
+	protected function __filterBySite(array|QueryBuilder $criteriaOrBuilder = []): array|QueryBuilder {
+		$siteId = $this->getClassMetadata()->getReflectionClass()->getConstant('SITE_SPECIFIC') ?
+			SiteRegistry::getCurrentSite()->getId() :
+			0;
+		if($criteriaOrBuilder instanceof QueryBuilder) {
+			return $criteriaOrBuilder->setParameter('siteId', $siteId)
+				->andWhere($criteriaOrBuilder->getAllAliases()[0] . '.site_id = :siteId');
+		}
+		return array_merge(['site_id' => $siteId], $criteriaOrBuilder);
 	}
 
 	public function search(string $query): mixed {
@@ -71,6 +79,7 @@ abstract class ObjectRepository extends ServiceEntityRepository implements
 	}
 
 	public function __call($method, $arguments): mixed {
+		// TODO: Add site filter
 		return parent::__call($method, $arguments);
 	}
 
