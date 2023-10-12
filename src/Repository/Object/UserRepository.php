@@ -12,13 +12,11 @@ use Symfony\Bridge\Doctrine\Security\User\UserLoaderInterface;
  */
 class UserRepository extends ObjectRepository implements UserLoaderInterface
 {
-    public function __construct(ManagerRegistry $registry, string $entityClass = User::class)
-    {
+    public function __construct(ManagerRegistry $registry, string $entityClass = User::class) {
         parent::__construct($registry, $entityClass);
     }
 
-    public function loadUserByIdentifier(string $identifier): ?User
-    {
+    public function loadUserByIdentifier(string $identifier): ?User {
         return $this->loadUserByUsername($identifier);
     }
 
@@ -29,8 +27,7 @@ class UserRepository extends ObjectRepository implements UserLoaderInterface
      *
      * @return User|null
      */
-    public function loadUserByUsername(string $username): ?User
-    {
+    public function loadUserByUsername(string $username): ?User {
         /* @var null|\iikiti\CMS\Entity\Object\User $user */
         $user = $this->findByMetaValue(
             'JSON_CONTAINS(' .
