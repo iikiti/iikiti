@@ -10,8 +10,8 @@ use Symfony\Bridge\Doctrine\Security\User\UserLoaderInterface;
 /**
  *
  */
-class UserRepository extends ObjectRepository implements UserLoaderInterface
-{
+class UserRepository extends ObjectRepository implements UserLoaderInterface {
+
     public function __construct(ManagerRegistry $registry, string $entityClass = User::class) {
         parent::__construct($registry, $entityClass);
     }
