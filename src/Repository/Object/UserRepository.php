@@ -6,7 +6,6 @@ use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\ObjectRepository;
 use Symfony\Bridge\Doctrine\Security\User\UserLoaderInterface;
-use Symfony\Component\Security\Core\User\UserInterface;
 
 /**
  *
@@ -18,7 +17,7 @@ class UserRepository extends ObjectRepository implements UserLoaderInterface
         parent::__construct($registry, $entityClass);
     }
 
-    public function loadUserByIdentifier(string $identifier): ?UserInterface
+    public function loadUserByIdentifier(string $identifier): ?User
     {
         return $this->loadUserByUsername($identifier);
     }
@@ -28,9 +27,9 @@ class UserRepository extends ObjectRepository implements UserLoaderInterface
      *
      * This method must return null if the user is not found.
      *
-     * @return UserInterface|null
+     * @return User|null
      */
-    public function loadUserByUsername(string $username): ?UserInterface
+    public function loadUserByUsername(string $username): ?User
     {
         /* @var null|\iikiti\CMS\Entity\Object\User $user */
         $user = $this->findByMetaValue(
