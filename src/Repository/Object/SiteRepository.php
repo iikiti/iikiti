@@ -3,6 +3,7 @@ namespace iikiti\CMS\Repository\Object;
 
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\Object\Site;
+use iikiti\CMS\Entity\ObjectProperty;
 use iikiti\CMS\Repository\ObjectRepository;
 
 /**
@@ -20,11 +21,16 @@ class SiteRepository extends ObjectRepository
 
     public function findByDomain(string $domain): array
     {
-        return $this->createQueryBuilder('o')
-            ->andWhere('JSON_CONTAINS(o.content_json, :domain, :domainPath) = 1')
-			->setParameter('domain', json_encode($domain))
-			->setParameter('domainPath', '$.domain')
-			->getQuery()->getResult();
+		/** @var ObjectRepository $propRep */
+		$propQ = $this->getEntityManager()
+			->getRepository(ObjectProperty::class)
+			->createQueryBuilder('p')
+			->setParameter(':name', 'domain')
+			->setParameter(':domain', $domain)
+			->andWhere('p.name = :name')
+			->andWhere('JSON_CONTAINS(p.value, :domain, "$")');
+		var_dump($propQ->getQuery()->getResult());
+        return [$this->find(1)];
     }
 
 }

@@ -2,6 +2,7 @@
 namespace iikiti\CMS\Entity;
 
 use DateTimeInterface;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\ORM\Mapping\DiscriminatorColumn;
 use Doctrine\ORM\Mapping\InheritanceType;
@@ -32,10 +33,10 @@ class DbObject
     #[ORM\Column(type: "bigint")]
     private ?int $site_id = null;
 
-    #[ORM\Column(type: "json")]
-    private null|array $content_json = null;
-
 	private ?string $type = null;
+
+	#[ORM\OneToMany(targetEntity: ObjectProperty::class, mappedBy: 'object_id')]
+	private Collection $properties;
 
     public function __construct() {
         
@@ -62,7 +63,11 @@ class DbObject
     }
 
     public function getContent(): null|array {
-        return $this->content_json;
+        return [];
     }
+
+	public function getProperties(): Collection {
+		return $this->properties;
+	}
 
 }

@@ -3,6 +3,7 @@ namespace iikiti\CMS\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
+use Doctrine\ORM\Query\Expr\Comparison;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\DbObject;
@@ -76,6 +77,15 @@ abstract class ObjectRepository extends ServiceEntityRepository implements
 				->andWhere($criteriaOrBuilder->getAllAliases()[0] . '.site_id = :siteId');
 		}
 		return array_merge(['site_id' => $siteId], $criteriaOrBuilder);
+	}
+
+	public function findByProperty(string $name, Comparison $comparison): array {
+		return $this->getEntityManager()
+			->getRepository(ObjectRepository::class)
+			->findBy([
+				'name' => $name,
+				'value' => $comparison
+			]);
 	}
 
 	public function search(string $query): mixed {
