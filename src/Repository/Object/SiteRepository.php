@@ -29,7 +29,6 @@ class SiteRepository extends ObjectRepository
 			->setParameter(':domain', $domain)
 			->andWhere('p.name = :name')
 			->andWhere('JSON_CONTAINS(p.value, :domain, "$")');
-		var_dump($propQ->getQuery()->getResult());
         return [$this->find(1)];
     }
 
