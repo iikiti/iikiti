@@ -4,6 +4,7 @@ namespace iikiti\CMS\Repository\Object;
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\ObjectProperty;
+use iikiti\CMS\Repository\ObjectPropertyRepository;
 use iikiti\CMS\Repository\ObjectRepository;
 
 /**
@@ -21,6 +22,10 @@ class SiteRepository extends ObjectRepository
 
     public function findByDomain(string $domain): array
     {
+		/** @var ObjectPropertyRepository $opr */
+		$opr = $this->getEntityManager()
+			->getRepository(ObjectProperty::class);
+		$lp = $opr->createQueryBuilderWithLatest('prop');
 		/** @var ObjectRepository $propRep */
 		$propQ = $this->getEntityManager()
 			->getRepository(ObjectProperty::class)
@@ -32,16 +37,17 @@ class SiteRepository extends ObjectRepository
 			->andWhere("JSON_CONTAINS(p2.value, :domain) = 1")
 			->orderBy('p2.created')
 			->setMaxResults(1);
+		var_dump($lp->getResult());
 		$siteQ = $this->getEntityManager()
 			->createQuery(
 				'SELECT s ' .
 				'FROM ' . $this->getClassName() . ' s ' .
-					'JOIN s.properties p ' .
+					'JOIN (' . $lp->getDQL() . ') ld ON ld.object_id = s.id ' .
 				'WHERE p.name = \'domain\' AND JSON_CONTAINS(p.value, :domain) = 1 AND s.id IN (' .
 					$propQ->getDQL() . ')'
 			)
 			->setParameter(':name', 'domain')
-			->setParameter('domain', json_encode($domain));
+			->setParameter(':domain', json_encode($domain));
         return $siteQ->getResult();
     }
 

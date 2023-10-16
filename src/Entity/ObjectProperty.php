@@ -7,7 +7,7 @@ use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Repository\ObjectPropertyRepository;
 
 #[ORM\Entity(repositoryClass: ObjectPropertyRepository::class)]
-#[ORM\Table(name: "object_properties")]
+#[ORM\Table(name: "object_properties", options: ["where" => "(1 = 1)"])]
 class ObjectProperty
 {
 
