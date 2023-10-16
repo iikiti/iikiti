@@ -37,7 +37,7 @@
         "iikiti/extension-utilities": "^0.0.1",
         "ivopetkov/html5-dom-document-php": "^2.5",
         "phpdocumentor/reflection-docblock": "^5.3",
-        "scienta/doctrine-json-functions": "~4.4",
+        "scienta/doctrine-json-functions": "^5.3",
         "symfony/apache-pack": "^1.0",
         "symfony/asset": "^6.3",
         "symfony/console": "^6.3",
