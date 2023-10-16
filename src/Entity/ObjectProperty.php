@@ -11,7 +11,7 @@ use iikiti\CMS\Repository\ObjectPropertyRepository;
 class ObjectProperty
 {
 
-	#[ORM\ManyToOne(targetEntity: DbObject::class, inversedBy: 'id')]
+	#[ORM\ManyToOne(targetEntity: DbObject::class, inversedBy: 'properties')]
 	private ?DbObject $object;
 
 	#[ORM\Id()]
