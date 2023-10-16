@@ -35,7 +35,7 @@ class DbObject
 
 	private ?string $type = null;
 
-	#[ORM\OneToMany(targetEntity: ObjectProperty::class, mappedBy: 'object_id')]
+	#[ORM\OneToMany(targetEntity: ObjectProperty::class, mappedBy: 'object')]
 	private Collection $properties;
 
     public function __construct() {
