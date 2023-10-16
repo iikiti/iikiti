@@ -26,3 +26,5 @@ doctrine:
                 
 
         filters:
+          PropertySqlFilter:
+            class: iikiti\CMS\Filters\PropertySqlFilter
