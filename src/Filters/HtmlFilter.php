@@ -11,6 +11,7 @@ use iikiti\CMS\Utility\Variable as V;
 use IvoPetkov\HTML5DOMDocument;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
+use Symfony\Component\Stopwatch\Stopwatch;
 
 /**
  * Class HtmlFilter
@@ -24,7 +25,7 @@ abstract class HtmlFilter {
      *
      * @return void
      */
-    public static function filterHtml(ResponseEvent $event): void {
+    public static function filterHtml(ResponseEvent $event, Stopwatch $stopwatch): void {
 		$useHtmlFilter = V::is_true($_ENV['HTML_FILTER'] ?? true);
 		$appEnv = $_ENV['APP_ENV'] ?? 'prod';
         if(
@@ -42,10 +43,18 @@ abstract class HtmlFilter {
         ) {
             return;
         }
-        $dom = new HTML5DOMDocument('1.0', 'UTF-8');
+		$stopwatch->start('html_load');
+        $dom = class_exists('\DOM\HTML5Document') ?
+			new \DOM\HTML5Document() :
+			new HTML5DOMDocument('1.0', 'UTF-8');
         $dom->loadHTML((string) $event->getResponse()->getContent(), LIBXML_NOBLANKS);
+		$stopwatch->stop('html_load');
+		$stopwatch->start('html_minify');
         self::minifyHtml($dom);
+		$stopwatch->stop('html_minify');
+		$stopwatch->start('html_save');
         $event->getResponse()->setContent($dom->saveHTML($dom));
+		$stopwatch->stop('html_save');
     }
 
     /**

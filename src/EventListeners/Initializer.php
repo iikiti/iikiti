@@ -15,6 +15,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\Stopwatch\Stopwatch;
 
 /**
  * Class OutputParser
@@ -27,7 +28,8 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface
 	protected ?ContainerInterface $container = null;
 
 	public function __construct(
-		protected ManagerRegistry $registry
+		protected ManagerRegistry $registry,
+		private Stopwatch $stopwatch
 	) {}
 
 	public function setContainer(?ContainerInterface $container = null): void
@@ -63,7 +65,7 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface
 
 		// Add HTML Output Filter
 		OutputParser::appendFilter(function(ResponseEvent $event) {
-			HtmlFilter::filterHtml($event);
+			HtmlFilter::filterHtml($event, $this->stopwatch);
 		});
 
 		$request = $event->getRequest();
