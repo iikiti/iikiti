@@ -1,6 +1,7 @@
 <?php
 namespace iikiti\CMS\Repository\Object;
 
+use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\ObjectProperty;
@@ -25,30 +26,20 @@ class SiteRepository extends ObjectRepository
 		/** @var ObjectPropertyRepository $opr */
 		$opr = $this->getEntityManager()
 			->getRepository(ObjectProperty::class);
-		$lp = $opr->createQueryBuilderWithLatest('prop');
-		/** @var ObjectRepository $propRep */
-		$propQ = $this->getEntityManager()
-			->getRepository(ObjectProperty::class)
-			->createQueryBuilder('p2')
-			->select('p2.object_id')
-			->setParameter(':name', 'domain')
-			->setParameter(':domain', json_encode($domain))
-			->andWhere('p2.name = :name')
-			->andWhere("JSON_CONTAINS(p2.value, :domain) = 1")
-			->orderBy('p2.created')
-			->setMaxResults(1);
-		var_dump($lp->getResult());
-		$siteQ = $this->getEntityManager()
-			->createQuery(
-				'SELECT s ' .
-				'FROM ' . $this->getClassName() . ' s ' .
-					'JOIN (' . $lp->getDQL() . ') ld ON ld.object_id = s.id ' .
-				'WHERE p.name = \'domain\' AND JSON_CONTAINS(p.value, :domain) = 1 AND s.id IN (' .
-					$propQ->getDQL() . ')'
+		$lp = $opr->getLatestQuery();
+		$qb = $this->createQueryBuilder('s');
+		$siteQ = $qb->select('s')
+			->join(
+				$this->getEntityManager()->getRepository(ObjectProperty::class)->getEntityName(),
+				'd',
+				Join::ON,
+				'd.object_id = s.id AND d.name = :name AND JSON_CONTAINS(d.value, :domain) = 1'
 			)
-			->setParameter(':name', 'domain')
-			->setParameter(':domain', json_encode($domain));
-        return $siteQ->getResult();
+			->setParameter('name', 'domain')
+			->setParameter('domain', json_encode($domain))
+			->andWhere($qb->expr()->in('(d.id, d.object_id)', $lp->getSQL()));
+		var_dump($siteQ->getQuery()->getSQL());
+        return $siteQ->getQuery()->getResult();
     }
 
 }
