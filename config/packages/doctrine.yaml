@@ -26,5 +26,5 @@ doctrine:
                 
 
         filters:
-          PropertySqlFilter:
-            class: iikiti\CMS\Filters\PropertySqlFilter
+          ObjectPropertyFilter:
+            class: iikiti\CMS\Filters\LatestObjectPropertyFilter
