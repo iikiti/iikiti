@@ -27,8 +27,8 @@ class ObjectPropertyRepository extends ServiceEntityRepository {
 	public function getLatestQuery(): NativeQuery {
 		$rsm = new ResultSetMapping();
 		return $this->getEntityManager()->createNativeQuery(
-			'SELECT MAX(lp.id) as id, lp.object_id ' .
-			'FROM ' . $this->getClassMetadata()->getTableName() . ' ' .
+			'SELECT MAX(lp.id) as id ' .
+			'FROM ' . $this->getEntityName() . ' lp ' .
 			'GROUP BY lp.object_id, lp.name ',
 			$rsm
 		);
