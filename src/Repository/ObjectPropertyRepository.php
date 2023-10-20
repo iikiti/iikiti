@@ -2,8 +2,6 @@
 namespace iikiti\CMS\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
-use Doctrine\ORM\NativeQuery;
-use Doctrine\ORM\Query\ResultSetMapping;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\ObjectProperty;
@@ -23,16 +21,5 @@ class ObjectPropertyRepository extends ServiceEntityRepository {
     {
         return parent::createQueryBuilder($alias, $indexBy);
     }
-
-	public function getLatestQuery(): NativeQuery {
-		$rsm = new ResultSetMapping();
-		return $this->getEntityManager()->createNativeQuery(
-			'SELECT MAX(lp.id) as id ' .
-			'FROM ' . $this->getEntityName() . ' lp ' .
-			'GROUP BY lp.object_id, lp.name ',
-			$rsm
-		);
-
-	}
 
 }
