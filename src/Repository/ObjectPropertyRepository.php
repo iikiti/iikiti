@@ -20,8 +20,7 @@ class ObjectPropertyRepository extends ServiceEntityRepository {
 		parent::__construct($registry, $entityClass);
 	}
 
-	public function createQueryBuilder($alias, $indexBy = null): QueryBuilder
-    {
+	public function createQueryBuilder($alias, $indexBy = null): QueryBuilder {
         return parent::createQueryBuilder($alias, $indexBy);
     }
 
