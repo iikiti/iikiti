@@ -13,7 +13,10 @@ use iikiti\CMS\Entity\ObjectProperty;
  */
 class ObjectPropertyRepository extends ServiceEntityRepository {
 
-	public function __construct(ManagerRegistry $registry, string $entityClass = ObjectProperty::class) {
+	public function __construct(
+		ManagerRegistry $registry,
+		string $entityClass = ObjectProperty::class
+	) {
 		parent::__construct($registry, $entityClass);
 	}
 
