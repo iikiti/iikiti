@@ -44,9 +44,7 @@ abstract class HtmlFilter {
             return;
         }
 		$stopwatch->start('html_load');
-        $dom = class_exists('\DOM\HTML5Document') ?
-			new \DOM\HTML5Document() :
-			new HTML5DOMDocument('1.0', 'UTF-8');
+        $dom = new HTML5DOMDocument('1.0', 'UTF-8');
         $dom->loadHTML((string) $event->getResponse()->getContent(), LIBXML_NOBLANKS);
 		$stopwatch->stop('html_load');
 		$stopwatch->start('html_minify');
