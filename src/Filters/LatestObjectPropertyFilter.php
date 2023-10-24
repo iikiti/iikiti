@@ -4,7 +4,7 @@ namespace iikiti\CMS\Filters;
 
 use Doctrine\ORM\Mapping\ClassMetadata;
 use \Doctrine\ORM\Query\Filter\SQLFilter;
-use iikiti\CMS\Entity\Object\HintManager;
+use iikiti\CMS\Doctrine\HintManager;
 use iikiti\CMS\Entity\ObjectProperty;
 
 /**

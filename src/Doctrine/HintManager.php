@@ -1,7 +1,6 @@
 <?php
-namespace iikiti\CMS\Entity\Object;
 
-
+namespace iikiti\CMS\Doctrine;
 
 class HintManager {
 
