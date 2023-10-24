@@ -35,6 +35,7 @@ class DbObject
 
 	private ?string $type = null;
 
+	/** @psalm-suppress PropertyNotSetInConstructor */
 	#[ORM\OneToMany(targetEntity: ObjectProperty::class, mappedBy: 'object')]
 	private Collection $properties;
 
