@@ -11,8 +11,7 @@ use iikiti\CMS\Repository\ObjectRepository;
  *
  * @package iikiti\CMS\Repository
  */
-class SiteRepository extends ObjectRepository
-{
+class SiteRepository extends ObjectRepository {
 
     public function __construct(ManagerRegistry $registry, string $entityClass = Site::class) {
         parent::__construct($registry, $entityClass);
