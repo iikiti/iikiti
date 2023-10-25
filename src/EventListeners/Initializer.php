@@ -76,7 +76,6 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface
 
 		$em->getFilters()->enable('ObjectPropertyFilter');
 
-
 		$this->matchDomain($request);
 		
 		if(SiteRegistry::getCurrentSite() instanceof Site) {
