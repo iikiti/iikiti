@@ -14,13 +14,11 @@ use iikiti\CMS\Repository\ObjectRepository;
 class SiteRepository extends ObjectRepository
 {
 
-    public function __construct(ManagerRegistry $registry, string $entityClass = Site::class)
-    {
+    public function __construct(ManagerRegistry $registry, string $entityClass = Site::class) {
         parent::__construct($registry, $entityClass);
     }
 
-    public function findByDomain(string $domain): array
-    {
+    public function findByDomain(string $domain): array {
 		$qb = $this->createQueryBuilder('s');
 		$siteQ = $qb->select('s')
 			->join(
