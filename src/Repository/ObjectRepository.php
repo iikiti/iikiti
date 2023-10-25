@@ -43,8 +43,7 @@ abstract class ObjectRepository extends ServiceEntityRepository implements
 		return $qb->getQuery()->getResult();
 	}
 
-	public function createQueryBuilder($alias, $indexBy = null): QueryBuilder
-    {
+	public function createQueryBuilder($alias, $indexBy = null): QueryBuilder {
         return $this->__filterBySite(parent::createQueryBuilder($alias, $indexBy));
     }
 
