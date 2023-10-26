@@ -33,17 +33,13 @@ class UserRepository extends ObjectRepository implements UserLoaderInterface {
 			'username',
 			new Comparison('username', Comparison::EQ, $username)
 		);
-        var_dump($users);
-        if($user === null) {
-            return null;
-        }
         /*
          * Find site user link (if exists).
          * E.g. The found user is a user of the current site.
          */
         $registeredToSite = $user->registeredToSite(
-                SiteRegistry::getCurrentSite()->getId()
-            );
+			SiteRegistry::getCurrentSite()->getId()
+		);
         return $registeredToSite ? $user : null;
     }
 }
