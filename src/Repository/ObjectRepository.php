@@ -65,8 +65,9 @@ abstract class ObjectRepository extends ServiceEntityRepository implements
 	/**
 	 * @param string|array<string> $name
 	 * @param Comparison|array<Comparison> $comparison
+	 * @return array<DbObject>
 	 */
-	public function findByProperty(string|array $name, Comparison|array $comparison): mixed {
+	public function findByProperty(string|array $name, Comparison|array $comparison): array {
 		$qb = $this->createQueryBuilder('o');
 		if(is_array($name)) {
 			if(!is_array($comparison)) {
