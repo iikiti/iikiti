@@ -68,6 +68,27 @@ abstract class ObjectRepository extends ServiceEntityRepository implements
 	 * @return array<DbObject>
 	 */
 	public function findByProperty(string|array $name, Comparison|array $comparison): array {
+		return $this->__findByProperty($name, $comparison)->getQuery()->getResult();
+	}
+
+	/**
+	 * @param string|array<string> $name
+	 * @param Comparison|array<Comparison> $comparison
+	 * @return ?DbObject
+	 */
+	public function findOneByProperty(string|array $name, Comparison|array $comparison): ?DbObject {
+		return $this->__findByProperty($name, $comparison)->getQuery()->getOneOrNullResult();
+	}
+
+	/**
+	 * @param string|array<string> $name
+	 * @param Comparison|array<Comparison> $comparison
+	 * @return QueryBuilder
+	 */
+	private function __findByProperty(
+		string|array $name,
+		Comparison|array $comparison
+	): QueryBuilder {
 		$qb = $this->createQueryBuilder('o');
 		if(is_array($name)) {
 			if(!is_array($comparison)) {
@@ -86,7 +107,7 @@ abstract class ObjectRepository extends ServiceEntityRepository implements
 				$qb->andWhere(Criteria::expr()->andX(Criteria::expr()->eq('name', $n), $comp));
 			}
 		}
-		return $qb->getQuery()->getResult();
+		return $qb;
 	}
 
 	public function search(string $query): mixed {
