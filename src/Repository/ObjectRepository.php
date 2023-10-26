@@ -2,13 +2,15 @@
 namespace iikiti\CMS\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\Common\Collections\Criteria;
+use Doctrine\Common\Collections\Expr\Comparison;
 use Doctrine\DBAL\LockMode;
-use Doctrine\ORM\Query\Expr\Comparison;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Interfaces\SearchableRepositoryInterface;
 use iikiti\CMS\Registry\SiteRegistry;
+use InvalidArgumentException;
 
 /**
  * Class ObjectRepository
@@ -23,24 +25,6 @@ abstract class ObjectRepository extends ServiceEntityRepository implements
 		string $entityClass = DbObject::class
 	) {
 		parent::__construct($registry, $entityClass);
-	}
-
-	public function findByContent(string $criteria, array $options): array {
-		$qb = $this->createQueryBuilder('o');
-		$qb->where($criteria);
-		if(!empty($options['orderBy'])) {
-			foreach($options['orderBy'] as $field => $order) {
-				$qb->addOrderBy($field, $order);
-			}
-		}
-		if(!empty($options['limit'])) {
-			$qb->setMaxResults($options['limit']);
-		}
-		$qb->setParameters($options['parameters']);
-		if($options['singleResult']) {
-			return $qb->getQuery()->getOneOrNullResult() ?? false;
-		}
-		return $qb->getQuery()->getResult();
 	}
 
 	public function createQueryBuilder($alias, $indexBy = null): QueryBuilder {
@@ -78,13 +62,31 @@ abstract class ObjectRepository extends ServiceEntityRepository implements
 		return array_merge(['site_id' => $siteId], $criteriaOrBuilder);
 	}
 
-	public function findByProperty(string $name, Comparison $comparison): array {
-		return $this->getEntityManager()
-			->getRepository(ObjectRepository::class)
-			->findBy([
-				'name' => $name,
-				'value' => $comparison
-			]);
+	/**
+	 * @param string|array<string> $name
+	 * @param Comparison|array<Comparison> $comparison
+	 */
+	public function findByProperty(string|array $name, Comparison|array $comparison): mixed {
+		$qb = $this->createQueryBuilder('o');
+		if(is_array($name)) {
+			if(!is_array($comparison)) {
+				throw new InvalidArgumentException(
+					'$comparison is expected to be an array. ' . gettype($comparison) . ' provided.' 
+				);
+			}
+			if(count($name) < 1) {
+				throw new InvalidArgumentException('Must be at least 1 criteria.');
+			}else if(count($name) != count($comparison)) {
+				throw new InvalidArgumentException('Size of $name must match size of $comparison');
+			}
+			$expBuilder = Criteria::expr();
+			foreach($name as $n) {
+				/** @var Comparison $comp */
+				$comp = next($comparison);
+				$qb->andWhere($expBuilder->andX($expBuilder->eq('name', $n), $comp));
+			}
+		}
+		return $qb->getQuery()->getResult();
 	}
 
 	public function search(string $query): mixed {

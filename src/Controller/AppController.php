@@ -2,13 +2,19 @@
 
 namespace iikiti\CMS\Controller;
 
-use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Psr\Container\ContainerInterface;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Bundle\SecurityBundle\Security;
 
 /**
  * Class AppController
  */
+/** @psalm-suppress PropertyNotSetInConstructor */
 abstract class AppController extends AbstractController {
+
+	public function __construct(protected Security $security) {
+
+	}
 
     public function setContainer(ContainerInterface $container): ?ContainerInterface
     {
