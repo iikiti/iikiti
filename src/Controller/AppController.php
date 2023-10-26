@@ -12,8 +12,8 @@ use Symfony\Bundle\SecurityBundle\Security;
 /** @psalm-suppress PropertyNotSetInConstructor */
 abstract class AppController extends AbstractController {
 
-	public function __construct(protected Security $security) {
-
+	public function __construct(protected Security $security, ContainerInterface $container) {
+		$this->container = $container;
 	}
 
     public function setContainer(ContainerInterface $container): ?ContainerInterface
