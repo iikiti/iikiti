@@ -1,6 +1,7 @@
 <?php
 namespace iikiti\CMS\Repository\Object;
 
+use Doctrine\Common\Collections\Expr\Comparison;
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Registry\SiteRegistry;
@@ -28,17 +29,11 @@ class UserRepository extends ObjectRepository implements UserLoaderInterface {
      * @return User|null
      */
     public function loadUserByUsername(string $username): ?User {
-        /* @var null|\iikiti\CMS\Entity\Object\User $user */
-        $user = $this->findByMetaValue(
-            'JSON_CONTAINS(' .
-                'meta.json_content, ' .
-                'JSON_QUOTE(:json_value), ' .
-                '\'$.emails\'' .
-            ')',
-            1,
-            true,
-            [ 'json_value' => $username ]
-        )->getSingleResult();
+		$users = $this->findByProperty(
+			'username',
+			new Comparison('username', Comparison::EQ, $username)
+		);
+        var_dump($users);
         if($user === null) {
             return null;
         }

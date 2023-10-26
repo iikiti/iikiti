@@ -13,6 +13,7 @@ use Symfony\Component\Routing\Annotation\Route;
  */
 #[AsController]
 class HomeController extends AppController {
+
     /**
      * @return \Symfony\Component\HttpFoundation\Response
      */
@@ -31,4 +32,5 @@ class HomeController extends AppController {
             )
         );
     }
+
 }
