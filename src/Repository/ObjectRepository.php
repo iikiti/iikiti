@@ -79,11 +79,10 @@ abstract class ObjectRepository extends ServiceEntityRepository implements
 			}else if(count($name) != count($comparison)) {
 				throw new InvalidArgumentException('Size of $name must match size of $comparison');
 			}
-			$expBuilder = Criteria::expr();
 			foreach($name as $n) {
 				/** @var Comparison $comp */
 				$comp = next($comparison);
-				$qb->andWhere($expBuilder->andX($expBuilder->eq('name', $n), $comp));
+				$qb->andWhere(Criteria::expr()->andX(Criteria::expr()->eq('name', $n), $comp));
 			}
 		}
 		return $qb->getQuery()->getResult();
