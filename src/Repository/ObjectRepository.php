@@ -2,9 +2,8 @@
 namespace iikiti\CMS\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
-use Doctrine\Common\Collections\Criteria;
-use Doctrine\Common\Collections\Expr\Comparison;
 use Doctrine\DBAL\LockMode;
+use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\DbObject;
@@ -64,48 +63,68 @@ abstract class ObjectRepository extends ServiceEntityRepository implements
 
 	/**
 	 * @param string|array<string> $name
-	 * @param Comparison|array<Comparison> $comparison
+	 * @param string|int|float|array<string|int|float> $comparison
 	 * @return array<DbObject>
 	 */
-	public function findByProperty(string|array $name, Comparison|array $comparison): array {
-		return $this->__findByProperty($name, $comparison)->getQuery()->getResult();
+	public function findByProperty(string|array $name, string|int|float|array $value): array {
+		return $this->__findByProperty($name, $value)->getQuery()->getResult();
 	}
 
 	/**
 	 * @param string|array<string> $name
-	 * @param Comparison|array<Comparison> $comparison
+	 * @param string|int|float|array<string|int|float> $comparison
 	 * @return ?DbObject
 	 */
-	public function findOneByProperty(string|array $name, Comparison|array $comparison): ?DbObject {
-		return $this->__findByProperty($name, $comparison)->getQuery()->getOneOrNullResult();
+	public function findOneByProperty(string|array $name, string|int|float|array $value): ?DbObject {
+		return $this->__findByProperty($name, $value)->getQuery()->getOneOrNullResult();
 	}
 
 	/**
 	 * @param string|array<string> $name
-	 * @param Comparison|array<Comparison> $comparison
+	 * @param string|int|float|array<string|int|float> $comparison
 	 * @return QueryBuilder
 	 */
 	private function __findByProperty(
 		string|array $name,
-		Comparison|array $comparison
+		string|int|float|array $value
 	): QueryBuilder {
 		$qb = $this->createQueryBuilder('o');
 		if(is_array($name)) {
-			if(!is_array($comparison)) {
+			if(!is_array($value)) {
 				throw new InvalidArgumentException(
-					'$comparison is expected to be an array. ' . gettype($comparison) . ' provided.' 
+					'$value is expected to be an array. ' . gettype($value) . ' provided.' 
 				);
 			}
 			if(count($name) < 1) {
 				throw new InvalidArgumentException('Must be at least 1 criteria.');
-			}else if(count($name) != count($comparison)) {
+			}else if(count($name) != count($value)) {
 				throw new InvalidArgumentException('Size of $name must match size of $comparison');
 			}
 			foreach($name as $n) {
-				/** @var Comparison $comp */
-				$comp = next($comparison);
-				$qb->andWhere(Criteria::expr()->andX(Criteria::expr()->eq('name', $n), $comp));
+				/** @var string|int|float $comp */
+				$nextValue = next($comparison);
+				$qb
+					->join(
+						'o.properties',
+						'p',
+						Join::WITH,
+						'p.name = :name AND ' .
+							'JSON_CONTAINS(p.value, :value) = 1'
+					)
+					->setParameter(':name', $n)
+					->setParameter(':value', json_encode($nextValue));
 			}
+		} else {
+			$qb
+				->join(
+					'o.properties',
+					'p',
+					Join::WITH,
+					'p.name = :name AND ' .
+						'JSON_CONTAINS(p.value, :value) = 1'
+				)
+				->setParameter(':name', $name)
+				->setParameter(':value', json_encode($value));
 		}
 		return $qb;
 	}

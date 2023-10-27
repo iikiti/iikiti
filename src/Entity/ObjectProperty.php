@@ -31,4 +31,24 @@ class ObjectProperty
 	#[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
 	private DateTimeInterface $created;
 
+	public function getName(): string {
+		return $this->name;
+	}
+
+	public function getValue(): int|float|string|array {
+		return $this->value;
+	}
+
+	public function getCreationDate(): DateTimeInterface {
+		return $this->created;
+	}
+
+	public function getId(): int {
+		return $this->id;
+	}
+
+	public function getObject(): ?DbObject {
+		return $this->object;
+	}
+
 }
