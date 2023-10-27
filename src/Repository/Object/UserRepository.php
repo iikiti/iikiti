@@ -1,7 +1,6 @@
 <?php
 namespace iikiti\CMS\Repository\Object;
 
-use Doctrine\Common\Collections\Expr\Comparison;
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Registry\SiteRegistry;
@@ -29,10 +28,7 @@ class UserRepository extends ObjectRepository implements UserLoaderInterface {
      * @return User|null
      */
     public function loadUserByUsername(string $username): ?User {
-		$users = $this->findByProperty(
-			'username',
-			new Comparison('username', Comparison::EQ, $username)
-		);
+		$user = $this->findOneByProperty('username', $username);
         /*
          * Find site user link (if exists).
          * E.g. The found user is a user of the current site.
