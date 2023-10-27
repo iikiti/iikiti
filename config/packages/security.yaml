@@ -17,6 +17,7 @@ security:
                 check_path: /login
                 failure_path: /login
                 login_path: /login
+                enable_csrf: true
             # configure the form authentication as the entry point for unauthenticated users
             entry_point: form_login
             logout:
