@@ -28,7 +28,7 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
     }
 
     public function __toString(): string {
-        return $this->getUserIdentifier() ?? '{null}';
+        return $this->getUserIdentifier();
     }
 
     public function getRoles(): array {
