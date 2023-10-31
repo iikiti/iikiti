@@ -3,6 +3,8 @@ namespace iikiti\CMS\Entity\Object;
 
 use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\DbObject;
+use iikiti\CMS\Enum\EnumCase;
+use iikiti\CMS\Enum\UserRoleEnum;
 use iikiti\CMS\Repository\Object\UserRepository;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -32,8 +34,7 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
     }
 
     public function getRoles(): array {
-        // TODO: Implement getRoles() method.
-        return array_merge($this->roles, ['ROLE_USER']);
+        return array_map(fn(EnumCase $case) => (string) $case, UserRoleEnum::cases());
     }
 
     public function getPassword(): null|string {
