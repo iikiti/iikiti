@@ -25,6 +25,10 @@ abstract class DynamicBackedEnumerator
 	public static function register(string $name, int|string|null $value = null): EnumCase {
 		if($value === null)
 		   throw new InvalidArgumentException('Value must be int or string, null given');
+		if(isset(self::$cases[$value]))
+			throw new RuntimeException('Case with value "' . $value . '" already exists');
+		else if(isset(self::$casesByName[$name]))
+			throw new RuntimeException('Case with name "'. $name . '" already exists');
 
 		return (self::$cases[$value] = self::$casesByName[$name] = new EnumCase($name, $value));
    }
