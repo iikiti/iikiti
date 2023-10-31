@@ -3,6 +3,7 @@
 namespace iikiti\CMS\Enum;
 
 use InvalidArgumentException;
+use RuntimeException;
 
 abstract class DynamicEnumerator implements DynamicEnumInterface {
 
@@ -21,6 +22,9 @@ abstract class DynamicEnumerator implements DynamicEnumInterface {
 	public static function register(string $name, int|string|null $value = null): EnumCase {
  		if($value !== null)
 			throw new InvalidArgumentException('Value must be null: It is not used');
+
+		if(isset(self::$casesByName[$name]))
+			throw new RuntimeException('Case with name "'. $name . '" already exists');
 
 		return (
 			self::$cases[] =
