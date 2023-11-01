@@ -49,7 +49,7 @@ class DbObject
         return $this->id;
     }
 
-    public function getSiteId(): ?int {
+    public function getLinkedSiteId(): ?int {
         return $this->site_id;
     }
 
