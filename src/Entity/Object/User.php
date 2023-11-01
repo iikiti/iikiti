@@ -39,8 +39,8 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
 	 */
 	/** @psalm-suppress ImplementedReturnTypeMismatch */
     public function getRoles(bool $asEnum = false): array {
-		$siteId = SiteRegistry::getCurrentSite()->getId();
-		if($siteId === null) throw new InvalidArgumentException('Site cannot be null');
+		$siteId = SiteRegistry::getCurrentSite()->getId() ??
+			throw new InvalidArgumentException('Site cannot be null');
 		$defaultRoles = UserRoleManager::getDefaultRoles();
 		$roles = array_merge($defaultRoles, $this->getGlobalRoles(), $this->getSiteRoles($siteId));
         return $asEnum ? $roles : array_values(UserRoleManager::convertEnumsToStrings($roles));
