@@ -6,6 +6,7 @@ use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Manager\UserRoleManager;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\Object\UserRepository;
+use InvalidArgumentException;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
@@ -39,13 +40,9 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
 	/** @psalm-suppress ImplementedReturnTypeMismatch */
     public function getRoles(bool $asEnum = false): array {
 		$siteId = SiteRegistry::getCurrentSite()->getId();
-		$roles = array_intersect_assoc(
-			UserRoleManager::getDefaultRoles(),
-			UserRoleManager::convertStringsToEnums(array_merge(
-				$this->getProperties()->get('roles')?->getValue()[0] ?? [],
-				$this->getProperties()->get('roles')?->getValue()[$siteId] ?? []
-			))
-		);
+		if($siteId === null) throw new InvalidArgumentException('Site cannot be null');
+		$defaultRoles = UserRoleManager::getDefaultRoles();
+		$roles = array_merge($defaultRoles, $this->getGlobalRoles(), $this->getSiteRoles($siteId));
         return $asEnum ? $roles : array_values(UserRoleManager::convertEnumsToStrings($roles));
     }
 
@@ -70,7 +67,16 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
 		return true;
     }
 
-    public function getSiteRoles(string $siteId): array {
-        //TODO: Fix: return $this->getMeta()->get(0)->json_content['roles'][$siteId] ?? [];
+    public function getSiteRoles(string|int $siteId): array {
+        return UserRoleManager::convertStringsToEnums(
+			$this->getProperties()->get('roles')?->getValue()[$siteId] ?? []
+		);
     }
+
+	public function getGlobalRoles(): array {
+        return UserRoleManager::convertStringsToEnums(
+			$this->getProperties()->get('roles')?->getValue()[0] ?? []
+		);
+    }
+
 }
