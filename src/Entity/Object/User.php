@@ -4,6 +4,7 @@ namespace iikiti\CMS\Entity\Object;
 use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Manager\UserRoleManager;
+use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\Object\UserRepository;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -32,12 +33,20 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
         return $this->getUserIdentifier();
     }
 
-    public function getRoles(bool $asObject = false): array {
-		$roles = array_merge(
-			((array) $this->getProperties()->get('roles')) ?? [],
-			UserRoleManager::getDefaultRoles()
+	/**
+	 * @return array<int,string>|array<string,EnumCase>
+	 */
+	/** @psalm-suppress ImplementedReturnTypeMismatch */
+    public function getRoles(bool $asEnum = false): array {
+		$siteId = SiteRegistry::getCurrentSite()->getId();
+		$roles = array_intersect_assoc(
+			UserRoleManager::getDefaultRoles(),
+			UserRoleManager::convertStringsToEnums(array_merge(
+				$this->getProperties()->get('roles')?->getValue()[0] ?? [],
+				$this->getProperties()->get('roles')?->getValue()[$siteId] ?? []
+			))
 		);
-        return $roles;
+        return $asEnum ? $roles : array_values(UserRoleManager::convertEnumsToStrings($roles));
     }
 
     public function getPassword(): null|string {
