@@ -42,16 +42,12 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
 		$siteId = SiteRegistry::getCurrentSite()->getId() ??
 			throw new InvalidArgumentException('Site cannot be null');
 		$defaultRoles = UserRoleManager::getDefaultRoles();
-		$roles = array_merge($defaultRoles, $this->getGlobalRoles(), $this->getSiteRoles($siteId));
+		$roles = array_merge($defaultRoles, $this->getRegistrationRoles($siteId));
         return $asEnum ? $roles : array_values(UserRoleManager::convertEnumsToStrings($roles));
     }
 
     public function getPassword(): null|string {
         return $this->getProperties()->get('password')?->getValue();
-    }
-
-    public function getSalt(): string {
-        return '';
     }
 
     public function getUsername(): ?string {
@@ -62,9 +58,13 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
         // TODO: Implement eraseCredentials() method.
     }
 
-    public function registeredToSite(string $siteId): bool {
-        //TODO: Fix: return isset($this->getMeta()->get(0)->json_content['roles'][$siteId]);
-		return true;
+    public function registeredToSite(string|int $siteId): bool {
+		return count(
+			array_intersect_assoc(
+				UserRoleManager::getDefaultRoles(),
+				$this->getRegistrationRoles($siteId)
+			)
+		) > 0;
     }
 
     public function getSiteRoles(string|int $siteId): array {
@@ -78,5 +78,9 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
 			$this->getProperties()->get('roles')?->getValue()[0] ?? []
 		);
     }
+
+	public function getRegistrationRoles(string|int $siteId): array {
+		return array_merge($this->getGlobalRoles(), $this->getSiteRoles($siteId));
+	}
 
 }
