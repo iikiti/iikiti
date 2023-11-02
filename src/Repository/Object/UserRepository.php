@@ -3,7 +3,6 @@ namespace iikiti\CMS\Repository\Object;
 
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\Object\User;
-use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\ObjectRepository;
 use Symfony\Bridge\Doctrine\Security\User\UserLoaderInterface;
 
@@ -28,14 +27,16 @@ class UserRepository extends ObjectRepository implements UserLoaderInterface {
      * @return User|null
      */
     public function loadUserByUsername(string $username): ?User {
-		$user = $this->findOneByProperty('username', $username);
         /*
          * Find site user link (if exists).
          * E.g. The found user is a user of the current site.
+		 * TODO: Needs to be made into an authenticator
          */
+		/*
         $registeredToSite = $user->registeredToSite(
 			SiteRegistry::getCurrentSite()->getId()
 		);
-        return $registeredToSite ? $user : null;
+		*/
+        return $this->findOneByProperty('username', $username);
     }
 }
