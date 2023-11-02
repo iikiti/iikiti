@@ -4,17 +4,21 @@ namespace iikiti\CMS\EventListeners;
 
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\Object\Site;
+use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Filters\HtmlFilter;
 use iikiti\CMS\Loader\Extensions;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\Object\SiteRepository;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\ContainerAwareInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Event\ControllerEvent;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Stopwatch\Stopwatch;
 
 /**
@@ -29,7 +33,8 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface
 
 	public function __construct(
 		protected ManagerRegistry $registry,
-		private Stopwatch $stopwatch
+		private Stopwatch $stopwatch,
+		private Security $security
 	) {}
 
 	public function setContainer(?ContainerInterface $container = null): void
@@ -43,7 +48,8 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface
 	public static function getSubscribedEvents(): array
 	{
 		return [
-			'kernel.request' => 'onKernelRequest'
+			'kernel.request' => 'onKernelRequest',
+			'kernel.controller' => 'onKernelController'
 		];
 	}
 
@@ -85,6 +91,19 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface
 		}
 
 		static::$hasInitialized = true;
+	}
+
+	public function onKernelController(ControllerEvent $event): void {
+		$this->_verifyUserHasSiteAccess();
+	}
+
+	protected function _verifyUserHasSiteAccess(): void {
+		$user = $this->security->getUser();
+		if(!($user instanceof User)) return; // Not logged in
+
+		if(!$user->registeredToSite(SiteRegistry::getCurrentSite()->getId())) {
+			throw new AuthenticationException('User not registered to current site');
+		}
 	}
 
 	/**

@@ -58,13 +58,15 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
         // TODO: Implement eraseCredentials() method.
     }
 
-    public function registeredToSite(string|int $siteId): bool {
-		return count(
-			array_intersect_assoc(
-				UserRoleManager::getDefaultRoles(),
-				$this->getRegistrationRoles($siteId)
-			)
-		) > 0;
+    public function registeredToSite(string|int|null $siteId): bool {
+		return $siteId === null ?
+			false :
+			count(
+				array_intersect_assoc(
+					UserRoleManager::getAllRoles(),
+					$this->getRegistrationRoles($siteId)
+				)
+			) > 0;
     }
 
     public function getSiteRoles(string|int $siteId): array {
