@@ -9,7 +9,7 @@ class UserRoleManager {
     private function __construct() {}
 
 	public static function getDefaultRoles(): array {
-		return UserRoleEnum::cases();
+		return UserRoleEnum::getDefaultRoles();
 	}
 
 	/**
