@@ -130,7 +130,7 @@ abstract class ObjectRepository extends ServiceEntityRepository implements
 	}
 
 	public function search(string $query): mixed {
-
+		// TODO: Implement search
 	}
 
 	public function __call($method, $arguments): mixed {
