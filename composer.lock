@@ -1643,21 +1643,21 @@
         },
         {
             "name": "ivopetkov/html5-dom-document-php",
-            "version": "v2.5.0",
+            "version": "v2.6.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/ivopetkov/html5-dom-document-php.git",
-                "reference": "d26ef81739ee04e9a7f7eb0763b635869bbc5bc1"
+                "reference": "2d0e3b67f0622c536a78137808c786c42330d577"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ivopetkov/html5-dom-document-php/zipball/d26ef81739ee04e9a7f7eb0763b635869bbc5bc1",
-                "reference": "d26ef81739ee04e9a7f7eb0763b635869bbc5bc1",
+                "url": "https://api.github.com/repos/ivopetkov/html5-dom-document-php/zipball/2d0e3b67f0622c536a78137808c786c42330d577",
+                "reference": "2d0e3b67f0622c536a78137808c786c42330d577",
                 "shasum": ""
             },
             "require": {
                 "ext-dom": "*",
-                "php": "7.0.*|7.1.*|7.2.*|7.3.*|7.4.*|8.0.*|8.1.*|8.2.*"
+                "php": "7.0.*|7.1.*|7.2.*|7.3.*|7.4.*|8.0.*|8.1.*|8.2.*|8.3.*"
             },
             "require-dev": {
                 "ivopetkov/docs-generator": "1.*"
@@ -1682,9 +1682,9 @@
             "description": "HTML5 DOMDocument PHP library (extends DOMDocument)",
             "support": {
                 "issues": "https://github.com/ivopetkov/html5-dom-document-php/issues",
-                "source": "https://github.com/ivopetkov/html5-dom-document-php/tree/v2.5.0"
+                "source": "https://github.com/ivopetkov/html5-dom-document-php/tree/v2.6.0"
             },
-            "time": "2023-02-05T12:42:33+00:00"
+            "time": "2023-11-02T13:45:46+00:00"
         },
         {
             "name": "laminas/laminas-code",
