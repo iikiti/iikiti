@@ -12,6 +12,10 @@ class UserRoleManager {
 		return UserRoleEnum::getDefaultRoles();
 	}
 
+	public static function getAllRoles(): array {
+		return UserRoleEnum::cases();
+	}
+
 	/**
 	 * @return array<string,EnumCase>
 	 */
