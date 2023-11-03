@@ -21,8 +21,7 @@ class Kernel extends BaseKernel implements CompilerPassInterface
         MicroKernelTrait::configureRoutes as private __kernelConfigureRoutes;
     }
 
-    public function process(ContainerBuilder $container): void
-    {
+    public function process(ContainerBuilder $container): void {
         $encoreConfig = Yaml::parseFile(
             $this->getProjectDir() . '/config/packages/webpack_encore.yaml'
         );
@@ -32,16 +31,12 @@ class Kernel extends BaseKernel implements CompilerPassInterface
         );
     }
 
-    private function configureRoutes(RoutingConfigurator $routes): void
-    {
+    private function configureRoutes(RoutingConfigurator $routes): void {
         $this->__kernelConfigureRoutes($routes);
         $this->_configureExtensionRoutes($routes);
     }
 
-    protected function _configureExtensionRoutes(
-        RoutingConfigurator $routes
-    ): void
-    {
+    protected function _configureExtensionRoutes(RoutingConfigurator $routes): void {
         foreach (Extensions::getExtensions() as $ext) {
             /** @var \Symfony\Component\HttpKernel\Bundle\AbstractBundle $ext */
             $configDir = dirname(
@@ -62,13 +57,11 @@ class Kernel extends BaseKernel implements CompilerPassInterface
         }
     }
 
-    public function boot(): void
-    {
+    public function boot(): void {
         parent::boot();
     }
 
-    public function registerBundles(): iterable
-    {
+    public function registerBundles(): iterable {
         yield from $this->__kernelRegisterBundles();
         yield from Extensions::load($this);
     }
