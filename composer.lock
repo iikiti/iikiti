@@ -2646,20 +2646,20 @@
         },
         {
             "name": "scheb/2fa-backup-code",
-            "version": "v6.9.0",
+            "version": "v6.10.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/scheb/2fa-backup-code.git",
-                "reference": "b01965cd221cda280526e48e7f56966154b9ba2f"
+                "reference": "d258a5af83b32f88484cd345b4784004766b2fe3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/scheb/2fa-backup-code/zipball/b01965cd221cda280526e48e7f56966154b9ba2f",
-                "reference": "b01965cd221cda280526e48e7f56966154b9ba2f",
+                "url": "https://api.github.com/repos/scheb/2fa-backup-code/zipball/d258a5af83b32f88484cd345b4784004766b2fe3",
+                "reference": "d258a5af83b32f88484cd345b4784004766b2fe3",
                 "shasum": ""
             },
             "require": {
-                "php": "~8.0.0 || ~8.1.0 || ~8.2.0",
+                "php": "~8.0.0 || ~8.1.0 || ~8.2.0 || ~8.3.0",
                 "scheb/2fa-bundle": "self.version"
             },
             "type": "library",
@@ -2689,27 +2689,27 @@
                 "two-step"
             ],
             "support": {
-                "source": "https://github.com/scheb/2fa-backup-code/tree/v6.9.0"
+                "source": "https://github.com/scheb/2fa-backup-code/tree/v6.10.0"
             },
-            "time": "2022-12-10T15:20:09+00:00"
+            "time": "2023-11-04T12:54:57+00:00"
         },
         {
             "name": "scheb/2fa-bundle",
-            "version": "v6.9.0",
+            "version": "v6.10.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/scheb/2fa-bundle.git",
-                "reference": "98fee6bf6ce17514d8f3772d4c7f86e6f7595a85"
+                "reference": "493a8712be5461ca90f4ac0eb819cfcf6cf8d009"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/scheb/2fa-bundle/zipball/98fee6bf6ce17514d8f3772d4c7f86e6f7595a85",
-                "reference": "98fee6bf6ce17514d8f3772d4c7f86e6f7595a85",
+                "url": "https://api.github.com/repos/scheb/2fa-bundle/zipball/493a8712be5461ca90f4ac0eb819cfcf6cf8d009",
+                "reference": "493a8712be5461ca90f4ac0eb819cfcf6cf8d009",
                 "shasum": ""
             },
             "require": {
                 "ext-json": "*",
-                "php": "~8.0.0 || ~8.1.0 || ~8.2.0",
+                "php": "~8.0.0 || ~8.1.0 || ~8.2.0 || ~8.3.0",
                 "symfony/config": "^5.4 || ^6.0",
                 "symfony/dependency-injection": "^5.4 || ^6.0",
                 "symfony/event-dispatcher": "^5.4 || ^6.0",
@@ -2756,26 +2756,26 @@
                 "two-step"
             ],
             "support": {
-                "source": "https://github.com/scheb/2fa-bundle/tree/v6.9.0"
+                "source": "https://github.com/scheb/2fa-bundle/tree/v6.10.0"
             },
-            "time": "2023-08-05T11:13:58+00:00"
+            "time": "2023-11-04T12:54:57+00:00"
         },
         {
             "name": "scheb/2fa-email",
-            "version": "v6.9.0",
+            "version": "v6.10.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/scheb/2fa-email.git",
-                "reference": "48e384cee6a205c94a83ce0fdceb240daa1471da"
+                "reference": "ee2c68c2b2b04b6a6736d11f457118b233e9f299"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/scheb/2fa-email/zipball/48e384cee6a205c94a83ce0fdceb240daa1471da",
-                "reference": "48e384cee6a205c94a83ce0fdceb240daa1471da",
+                "url": "https://api.github.com/repos/scheb/2fa-email/zipball/ee2c68c2b2b04b6a6736d11f457118b233e9f299",
+                "reference": "ee2c68c2b2b04b6a6736d11f457118b233e9f299",
                 "shasum": ""
             },
             "require": {
-                "php": "~8.0.0 || ~8.1.0 || ~8.2.0",
+                "php": "~8.0.0 || ~8.1.0 || ~8.2.0 || ~8.3.0",
                 "scheb/2fa-bundle": "self.version"
             },
             "type": "library",
@@ -2805,27 +2805,27 @@
                 "two-step"
             ],
             "support": {
-                "source": "https://github.com/scheb/2fa-email/tree/v6.9.0"
+                "source": "https://github.com/scheb/2fa-email/tree/v6.10.0"
             },
-            "time": "2022-12-10T15:20:09+00:00"
+            "time": "2023-11-04T12:54:57+00:00"
         },
         {
             "name": "scheb/2fa-google-authenticator",
-            "version": "v6.9.0",
+            "version": "v6.10.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/scheb/2fa-google-authenticator.git",
-                "reference": "20eab4c1814b587cac71c4516a06b192ca838294"
+                "reference": "3ee3fa82bcd579e396b7ed63d9006e8d63a18e67"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/scheb/2fa-google-authenticator/zipball/20eab4c1814b587cac71c4516a06b192ca838294",
-                "reference": "20eab4c1814b587cac71c4516a06b192ca838294",
+                "url": "https://api.github.com/repos/scheb/2fa-google-authenticator/zipball/3ee3fa82bcd579e396b7ed63d9006e8d63a18e67",
+                "reference": "3ee3fa82bcd579e396b7ed63d9006e8d63a18e67",
                 "shasum": ""
             },
             "require": {
                 "paragonie/constant_time_encoding": "^2.4",
-                "php": "~8.0.0 || ~8.1.0 || ~8.2.0",
+                "php": "~8.0.0 || ~8.1.0 || ~8.2.0 || ~8.3.0",
                 "scheb/2fa-bundle": "self.version",
                 "spomky-labs/otphp": "^10.0 || ^11.0"
             },
@@ -2856,27 +2856,27 @@
                 "two-step"
             ],
             "support": {
-                "source": "https://github.com/scheb/2fa-google-authenticator/tree/v6.9.0"
+                "source": "https://github.com/scheb/2fa-google-authenticator/tree/v6.10.0"
             },
-            "time": "2022-12-10T15:20:09+00:00"
+            "time": "2023-11-04T12:54:57+00:00"
         },
         {
             "name": "scheb/2fa-totp",
-            "version": "v6.9.0",
+            "version": "v6.10.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/scheb/2fa-totp.git",
-                "reference": "a0d07cb4a52b0e4ecf6453ac99b35358ebe505a9"
+                "reference": "ce5f9ab528d00671e6580ef37a4cb49c5e373bdb"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/scheb/2fa-totp/zipball/a0d07cb4a52b0e4ecf6453ac99b35358ebe505a9",
-                "reference": "a0d07cb4a52b0e4ecf6453ac99b35358ebe505a9",
+                "url": "https://api.github.com/repos/scheb/2fa-totp/zipball/ce5f9ab528d00671e6580ef37a4cb49c5e373bdb",
+                "reference": "ce5f9ab528d00671e6580ef37a4cb49c5e373bdb",
                 "shasum": ""
             },
             "require": {
                 "paragonie/constant_time_encoding": "^2.4",
-                "php": "~8.0.0 || ~8.1.0 || ~8.2.0",
+                "php": "~8.0.0 || ~8.1.0 || ~8.2.0 || ~8.3.0",
                 "scheb/2fa-bundle": "self.version",
                 "spomky-labs/otphp": "^10.0 || ^11.0"
             },
@@ -2907,28 +2907,28 @@
                 "two-step"
             ],
             "support": {
-                "source": "https://github.com/scheb/2fa-totp/tree/v6.9.0"
+                "source": "https://github.com/scheb/2fa-totp/tree/v6.10.0"
             },
-            "time": "2022-12-10T15:20:09+00:00"
+            "time": "2023-11-04T12:54:57+00:00"
         },
         {
             "name": "scheb/2fa-trusted-device",
-            "version": "v6.9.0",
+            "version": "v6.10.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/scheb/2fa-trusted-device.git",
-                "reference": "cac6feaf9f2c7d3a1aade86942f7b7b234fcd151"
+                "reference": "9ee6c957d2a7f6a72a9fdb006ac4ccda3d8b61d3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/scheb/2fa-trusted-device/zipball/cac6feaf9f2c7d3a1aade86942f7b7b234fcd151",
-                "reference": "cac6feaf9f2c7d3a1aade86942f7b7b234fcd151",
+                "url": "https://api.github.com/repos/scheb/2fa-trusted-device/zipball/9ee6c957d2a7f6a72a9fdb006ac4ccda3d8b61d3",
+                "reference": "9ee6c957d2a7f6a72a9fdb006ac4ccda3d8b61d3",
                 "shasum": ""
             },
             "require": {
                 "lcobucci/clock": "^2.0 || ^3.0",
                 "lcobucci/jwt": "^4.1 || ^5.0",
-                "php": "~8.0.0 || ~8.1.0 || ~8.2.0",
+                "php": "~8.0.0 || ~8.1.0 || ~8.2.0 || ~8.3.0",
                 "scheb/2fa-bundle": "self.version"
             },
             "type": "library",
@@ -2958,9 +2958,9 @@
                 "two-step"
             ],
             "support": {
-                "source": "https://github.com/scheb/2fa-trusted-device/tree/v6.9.0"
+                "source": "https://github.com/scheb/2fa-trusted-device/tree/v6.10.0"
             },
-            "time": "2023-04-01T11:20:00+00:00"
+            "time": "2023-11-04T12:54:57+00:00"
         },
         {
             "name": "scienta/doctrine-json-functions",
