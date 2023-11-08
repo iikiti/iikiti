@@ -22,6 +22,7 @@ class AuthenticationController extends AppController
     #[Route('/login', name: "html_login")]
     function html_login(AuthenticationUtils $authenticationUtils): Response
     {
+		dump($authenticationUtils);
         $error = $authenticationUtils->getLastAuthenticationError();
 
         // last username entered by the user
