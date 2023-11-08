@@ -6,6 +6,7 @@ use iikiti\CMS\Controller\AppController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\AsController;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
 
 /**
@@ -20,7 +21,13 @@ class AuthenticationController extends AppController
      * @return \Symfony\Component\HttpFoundation\Response
      */
     #[Route('/login', name: "html_login")]
-    function html_login(AuthenticationUtils $authenticationUtils): Response {
+    function html_login(
+		AuthenticationUtils $authenticationUtils,
+		AuthorizationCheckerInterface $authChecker
+	): Response {
+		if($authChecker->isGranted('IS_MFA_IN_PROGRESS')) {
+			dump('MFA in progress');
+		}
         $error = $authenticationUtils->getLastAuthenticationError();
 
         // last username entered by the user
