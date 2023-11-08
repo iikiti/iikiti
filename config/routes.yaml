@@ -5,13 +5,3 @@ controllers:
 kernel:
   resource: ../src/Kernel.php
   type: annotation
-
-mfa_login:
-    path: /login/mfa
-    defaults:
-        # "scheb_two_factor.form_controller" references the controller service provided by the bundle.
-        # You don't HAVE to use it, but - except you have very special requirements - it is recommended.
-        _controller: "scheb_two_factor.form_controller::form"
-
-mfa_login_check:
-    path: /login/mfa/check
