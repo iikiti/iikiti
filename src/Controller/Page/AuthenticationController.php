@@ -20,9 +20,7 @@ class AuthenticationController extends AppController
      * @return \Symfony\Component\HttpFoundation\Response
      */
     #[Route('/login', name: "html_login")]
-    function html_login(AuthenticationUtils $authenticationUtils): Response
-    {
-		dump($authenticationUtils);
+    function html_login(AuthenticationUtils $authenticationUtils): Response {
         $error = $authenticationUtils->getLastAuthenticationError();
 
         // last username entered by the user
