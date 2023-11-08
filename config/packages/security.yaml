@@ -13,10 +13,10 @@ security:
             security: false
         main:
             lazy: true
-            two_factor:
-                auth_form_path: mfa_login    # The route name you have used in the routes.yaml
-                check_path: mfa_login_check  # The route name you have used in the routes.yaml
-                multi_factor: false
+            #two_factor:
+            #    auth_form_path: mfa_login    # The route name you have used in the routes.yaml
+            #    check_path: mfa_login_check  # The route name you have used in the routes.yaml
+            #    multi_factor: false
             form_login:
                 check_path: /login
                 failure_path: /login
@@ -39,7 +39,5 @@ security:
     # Note: Only the *first* access control that matches will be used
     access_control:
         - { path: ^/logout, roles: ROLE_USER }
-        - { path: ^/login/mfa, roles: IS_AUTHENTICATED_2FA_IN_PROGRESS }
-        - { path: ^/login/mfa/check, roles: IS_AUTHENTICATED_2FA_IN_PROGRESS }
         - { path: ^/login, roles: PUBLIC_ACCESS }
         - { path: ^/, roles: PUBLIC_ACCESS }
