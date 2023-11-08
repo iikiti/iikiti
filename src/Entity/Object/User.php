@@ -7,12 +7,16 @@ use iikiti\CMS\Manager\UserRoleManager;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\Object\UserRepository;
 use InvalidArgumentException;
+use Scheb\TwoFactorBundle\Model\PreferredProviderInterface;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: "objects")]
-class User extends DbObject implements UserInterface, PasswordAuthenticatedUserInterface
+class User
+	extends DbObject
+	implements UserInterface, PasswordAuthenticatedUserInterface,
+		PreferredProviderInterface
 {
 
 	const SITE_SPECIFIC = false;
@@ -55,7 +59,7 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
     }
 
     public function eraseCredentials(): void {
-        // TODO: Implement eraseCredentials() method.
+        
     }
 
     public function registeredToSite(string|int|null $siteId): bool {
@@ -83,6 +87,11 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
 
 	public function getRegistrationRoles(string|int $siteId): array {
 		return array_merge($this->getGlobalRoles(), $this->getSiteRoles($siteId));
+	}
+
+	public function getPreferredTwoFactorProvider(): ?string {
+		dd('test');
+		return 'email';
 	}
 
 }
