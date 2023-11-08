@@ -90,7 +90,6 @@ class User
 	}
 
 	public function getPreferredTwoFactorProvider(): ?string {
-		dd('test');
 		return 'email';
 	}
 
