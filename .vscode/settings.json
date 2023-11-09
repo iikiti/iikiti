@@ -1,9 +1,11 @@
 {
 	"cSpell.words": [
+		"Autoconfigure",
 		"corejs",
 		"dtype",
 		"lexbor",
-		"NOBLANKS"
+		"NOBLANKS",
+		"Scheb"
 	],
 	"cSpell.ignoreWords": [
 		"IvoPetkov",
