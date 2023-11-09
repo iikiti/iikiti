@@ -10,6 +10,7 @@ use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Interfaces\SearchableRepositoryInterface;
 use iikiti\CMS\Registry\SiteRegistry;
 use InvalidArgumentException;
+use Symfony\Contracts\Service\Attribute\Required;
 
 /**
  * Class ObjectRepository
@@ -19,11 +20,18 @@ use InvalidArgumentException;
 abstract class ObjectRepository extends ServiceEntityRepository implements
     SearchableRepositoryInterface {
 
+	protected SiteRegistry $siteRegistry;
+
 	public function __construct(
 		ManagerRegistry $registry,
 		string $entityClass = DbObject::class
 	) {
 		parent::__construct($registry, $entityClass);
+	}
+
+	#[Required]
+	public function setSiteRegistry(SiteRegistry $siteRegistry): void {
+		$this->siteRegistry = $siteRegistry;
 	}
 
 	public function createQueryBuilder($alias, $indexBy = null): QueryBuilder {
@@ -52,7 +60,7 @@ abstract class ObjectRepository extends ServiceEntityRepository implements
 
 	protected function __filterBySite(array|QueryBuilder $criteriaOrBuilder = []): array|QueryBuilder {
 		$siteId = $this->getClassMetadata()->getReflectionClass()->getConstant('SITE_SPECIFIC') ?
-			SiteRegistry::getCurrentSite()->getId() :
+			($this->siteRegistry->getCurrentSite()->getId()) :
 			0;
 		if($criteriaOrBuilder instanceof QueryBuilder) {
 			return $criteriaOrBuilder->setParameter('siteId', $siteId)

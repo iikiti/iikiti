@@ -22,18 +22,3 @@ services:
             - '../src/Kernel.php'
             - '../src/Tests/'
 
-    # Initialization
-    init:
-        class: iikiti\CMS\EventListeners\Initializer
-        calls:
-            - [ setContainer, [ '@service_container' ]]
-        tags:
-            - { name: kernel.event_listener, event: kernel.request, method: onKernelRequest, priority: 10 }
-
-    # HTML minifier middleware
-    html_minifier:
-        class: iikiti\CMS\EventListeners\OutputParser
-        tags:
-            - { name: kernel.event_listener, event: kernel.response, method: onKernelResponse, priority: 100 }
-
-

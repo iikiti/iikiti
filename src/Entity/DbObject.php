@@ -41,10 +41,6 @@ class DbObject
 	#[ORM\OneToMany(targetEntity: ObjectProperty::class, mappedBy: 'object', indexBy: 'name')]
 	private Collection $properties;
 
-	public function __construct()
-	{
-	}
-
 	public function getId(): int|string|null
 	{
 		return $this->id;

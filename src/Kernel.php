@@ -14,8 +14,7 @@ use Symfony\Component\Yaml\Yaml;
 /**
  * @uses MicroKernelTrait
  */
-class Kernel extends BaseKernel implements CompilerPassInterface
-{
+class Kernel extends BaseKernel implements CompilerPassInterface {
     use MicroKernelTrait {
         MicroKernelTrait::registerBundles as private __kernelRegisterBundles;
         MicroKernelTrait::configureRoutes as private __kernelConfigureRoutes;
@@ -33,11 +32,13 @@ class Kernel extends BaseKernel implements CompilerPassInterface
 
     private function configureRoutes(RoutingConfigurator $routes): void {
         $this->__kernelConfigureRoutes($routes);
-        $this->_configureExtensionRoutes($routes);
+        //TODO: $this->_configureExtensionRoutes($routes);
     }
 
     protected function _configureExtensionRoutes(RoutingConfigurator $routes): void {
-        foreach (Extensions::getExtensions() as $ext) {
+		/** @var Extensions $extensions */
+		$extensions = $this->getContainer()->get('extensions');
+        foreach ($extensions->getExtensions() as $ext) {
             /** @var \Symfony\Component\HttpKernel\Bundle\AbstractBundle $ext */
             $configDir = dirname(
                 (new ReflectionClass($ext::class))->getFileName()
@@ -62,8 +63,10 @@ class Kernel extends BaseKernel implements CompilerPassInterface
     }
 
     public function registerBundles(): iterable {
+		/** @var Extensions $extensions */
+		//$extensions = $this->getContainer()->get('extensions');
         yield from $this->__kernelRegisterBundles();
-        yield from Extensions::load($this);
+        //TODO: yield from $extensions->load($this);
     }
 
 }
