@@ -1,6 +1,6 @@
 <?php
 
-namespace iikiti\CMS\EventListeners;
+namespace iikiti\CMS\EventSubscriber;
 
 use Closure;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;

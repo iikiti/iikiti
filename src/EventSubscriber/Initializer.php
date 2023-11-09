@@ -1,23 +1,19 @@
 <?php
 
-namespace iikiti\CMS\EventListeners;
+namespace iikiti\CMS\EventSubscriber;
 
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Filters\HtmlFilter;
-use iikiti\CMS\Loader\Extensions;
 use iikiti\CMS\Registry\SiteRegistry;
-use iikiti\CMS\Repository\Object\SiteRepository;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\ContainerAwareInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ControllerEvent;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Stopwatch\Stopwatch;
 
@@ -26,15 +22,15 @@ use Symfony\Component\Stopwatch\Stopwatch;
  *
  * @package iikiti\CMS\src\EventListeners
  */
-class Initializer implements EventSubscriberInterface, ContainerAwareInterface
-{
+class Initializer implements EventSubscriberInterface, ContainerAwareInterface {
 	protected static bool $hasInitialized = false;
 	protected ?ContainerInterface $container = null;
 
 	public function __construct(
 		protected ManagerRegistry $registry,
 		private Stopwatch $stopwatch,
-		private Security $security
+		private Security $security,
+		private SiteRegistry $siteRegistry
 	) {}
 
 	public function setContainer(?ContainerInterface $container = null): void
@@ -82,12 +78,11 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface
 
 		$em->getFilters()->enable('ObjectPropertyFilter');
 
-		$this->matchDomain($request);
-		
-		if(SiteRegistry::getCurrentSite() instanceof Site) {
-			Extensions::setInitialSiteId(
-				SiteRegistry::getCurrentSite()->getId() ?? 0
-			);
+		if(
+			($site = $this->siteRegistry->getCurrentSite()) instanceof Site &&
+			$site->getId() !== null
+		) {
+			//TODO: Extensions::setInitialSiteId($site->getId() ?? 0);
 		}
 
 		static::$hasInitialized = true;
@@ -101,30 +96,8 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface
 		$user = $this->security->getUser();
 		if(!($user instanceof User)) return; // Not logged in
 
-		if(!$user->registeredToSite(SiteRegistry::getCurrentSite()->getId())) {
+		if(!$user->registeredToSite($this->siteRegistry->getCurrentSite()->getId())) {
 			throw new AuthenticationException('User not registered to current site');
-		}
-	}
-
-	/**
-	 * matchDomain
-	 * 
-	 * Get and add possible site(s) to registry based on the current
-	 * domain/host.
-	 *
-	 * @param  Request $request
-	 */
-	private function matchDomain(Request $request): void {
-		/** @var SiteRepository $siteRep */
-		$siteRep = $this->registry->getManager()->getRepository(Site::class);
-		$sites = $siteRep->findByDomain($request->getHost());
-		if(empty($sites)) {
-			throw new NotFoundHttpException(
-				'Site does not exist for current domain.'
-			);
-		}
-		foreach($sites as $site) {
-			SiteRegistry::pushSite($site);
 		}
 	}
 

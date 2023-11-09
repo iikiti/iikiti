@@ -4,36 +4,40 @@ namespace iikiti\CMS\Loader;
 
 use iikiti\CMS\Kernel;
 use iikiti\CMS\Registry\SiteRegistry;
+use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 
-abstract class Extensions {
+#[AutoconfigureTag('extensions')]
+class Extensions {
 
     const PREFIX = 'iikiti\\extension\\';
     const INITIAL_KEY = 'initial';
     
     static array $EXTENSIONS = [];
+
+	public function __construct(protected SiteRegistry $siteRegistry) {}
     
     /**
      * Acquires list of enabled extensions and loads them via PSR-4 then
      * creates a new instance.
      *
      */
-    public static function load(Kernel $kernel): \Generator {
-        $gen = self::_loadFromDirectory($kernel);
+    public function load(Kernel $kernel): \Generator {
+        $gen = $this->_loadFromDirectory($kernel);
         $cur = $gen->current();
         if($cur !== null) {
             self::$EXTENSIONS[
-                SiteRegistry::getCurrentSite()->getId() ?? self::INITIAL_KEY
+                $this->siteRegistry->getCurrentSite()->getId() ?? self::INITIAL_KEY
             ][] = $gen->current();
         }
         yield from $cur !== null ? $gen : [];
     }
 
-    public static function setInitialSiteId(int|string $siteId): void {
+    public function setInitialSiteId(int|string $siteId): void {
         self::$EXTENSIONS[$siteId] = self::$EXTENSIONS[self::INITIAL_KEY] ?? [];
         unset(self::$EXTENSIONS[self::INITIAL_KEY]);
     }
 
-    protected static function _loadFromDirectory(Kernel $kernel): \Generator {
+    protected function _loadFromDirectory(Kernel $kernel): \Generator {
         $PATH = $kernel->getProjectDir() . '/cms/extensions/active/';
         $fileLoop = new \CallbackFilterIterator(
             new \DirectoryIterator($PATH),
@@ -59,7 +63,7 @@ abstract class Extensions {
              TODO Find a better way to get extension list
                   (or any required arguments) to the extension bundles.
              */
-            yield new $bundleClass(self::getExtensions());
+            yield new $bundleClass($this->getExtensions());
         }
     }
 
@@ -71,9 +75,9 @@ abstract class Extensions {
         return false === $current->isDot() && $current->isDir() && $current->isLink();
     }
 
-    public static function getExtensions(): array {
+    public function getExtensions(): array {
         return self::$EXTENSIONS[
-            SiteRegistry::getCurrentSite()->getId() ?? self::INITIAL_KEY
+            $this->siteRegistry->getCurrentSite()->getId() ?? self::INITIAL_KEY
         ] ?? []; 
     }
 
