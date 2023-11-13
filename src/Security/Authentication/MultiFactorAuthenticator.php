@@ -11,7 +11,7 @@ use Symfony\Component\Security\Http\Authenticator\Passport\Credentials\PasswordC
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
 use Symfony\Component\Workflow\Workflow;
 
-class MFAuthenticator extends AbstractAuthenticator
+class MultiFactorAuthenticator extends AbstractAuthenticator
 {
 
     public function __construct(private Workflow $workflow) {
@@ -28,14 +28,6 @@ class MFAuthenticator extends AbstractAuthenticator
         $password = (string) $request->request->get('password');
 		$credentials = new PasswordCredentials($password);
 
-        // Authenticate the user using their username and password.
-        if (!$this->isValidCredentials($username, $password)) {
-            throw new AuthenticationException('Invalid credentials.');
-        }
-
-        // Transition the state machine to the `Request MFA Code` state.
-        $this->workflow->transition('Request MFA Code');
-
         return new Passport(new UserBadge($username), $credentials);
     }
 
@@ -44,7 +36,7 @@ class MFAuthenticator extends AbstractAuthenticator
 		TokenInterface $token,
 		string $firewallName
 	): ?Response
-    {
+	{
         return null;
     }
 
@@ -54,11 +46,6 @@ class MFAuthenticator extends AbstractAuthenticator
 	): ?Response
 	{
         return null;
-    }
-
-    private function isValidCredentials(string $username, string $password): bool {
-        // TODO: Implement this method to check if the user's credentials are valid.
-        return true;
     }
 
 }
