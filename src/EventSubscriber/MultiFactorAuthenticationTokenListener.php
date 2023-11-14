@@ -17,11 +17,6 @@ class MultiFactorAuthenticationTokenListener implements EventSubscriberInterface
 		];
 	}
 
-	public static function onCheckPassport(CheckPassportEvent $event): ?Passport {
-		dump($event);
-		return $event->getPassport();
-	}
-
 	public static function onGeneralTokenCreated(AuthenticationTokenCreatedEvent $event): void {
 		$token = $event->getAuthenticatedToken();
 
