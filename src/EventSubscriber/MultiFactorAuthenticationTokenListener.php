@@ -12,7 +12,6 @@ class MultiFactorAuthenticationTokenListener implements EventSubscriberInterface
 	public static function getSubscribedEvents(): array
 	{
 		return [
-				//CheckPassportEvent::class => 'onCheckPassport',
 			AuthenticationTokenCreatedEvent::class => 'onGeneralTokenCreated'
 		];
 	}
