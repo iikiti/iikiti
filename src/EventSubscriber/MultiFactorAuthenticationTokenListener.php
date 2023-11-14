@@ -30,7 +30,7 @@ class MultiFactorAuthenticationTokenListener implements EventSubscriberInterface
 		}
 
 		$mfToken = new MultiFactorAuthenticationToken();
-		$mfToken->addToken($token);
+		$mfToken->setAssociatedToken($token);
 
 		$event->setAuthenticatedToken($mfToken);
 	}

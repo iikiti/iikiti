@@ -1,15 +1,14 @@
 <?php
 namespace iikiti\CMS\Security\Authentication;
 
-use InvalidArgumentException;
 use Symfony\Component\Security\Core\Authentication\Token\AbstractToken;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
 class MultiFactorAuthenticationToken extends AbstractToken implements MultiFactorTokenInterface {
 
-	/** @var array<TokenInterface> */
-	private array $tokenChain = [];
+	/** @psalm-suppress PropertyNotSetInConstructor */
+	private TokenInterface $associatedToken;
 
 	private bool $authenticated = false;
 
@@ -17,28 +16,21 @@ class MultiFactorAuthenticationToken extends AbstractToken implements MultiFacto
 		parent::__construct($roles);
 	}
 
-	public function getTokenChain(): array {
-		return $this->tokenChain;
+	public function getAssociatedToken(): TokenInterface {
+		return $this->associatedToken;
 	}
 
-	public function getLastToken(): ?TokenInterface {
-		return $this->getTokenChain()[array_key_last($this->getTokenChain())] ?? null;
+	public function setAssociatedToken(TokenInterface $token): void {
+		$this->associatedToken = $token;
 	}
 
 	public function getUser(): ?UserInterface {
-        return $this->getLastToken()?->getUser() ?? null;
+        return $this->getAssociatedToken()->getUser();
     }
 
 	public function setUser(UserInterface $user) {
-        $this->getLastToken()?->setUser($user);
+        $this->getAssociatedToken()->setUser($user);
     }
-
-	public function addToken(TokenInterface $token): void {
-		if($token instanceof self) {
-			throw new InvalidArgumentException('Cannot add token of type ' . self::class);
-		}
-		array_push($this->tokenChain, $token);
-	}
 
 	public function isAuthenticated(): bool {
 		return $this->authenticated;
@@ -49,7 +41,7 @@ class MultiFactorAuthenticationToken extends AbstractToken implements MultiFacto
 	}
 
 	public function getRoleNames(): array {
-		return $this->getLastToken()?->getRoleNames() ?? [];
+		return $this->getAssociatedToken()->getRoleNames();
 	}
 
 	public function getUserIdentifier(): string {
@@ -57,33 +49,33 @@ class MultiFactorAuthenticationToken extends AbstractToken implements MultiFacto
 	}
 
 	public function getAttributes(): array {
-		return $this->getLastToken()?->getAttributes() ?? [];
+		return $this->getAssociatedToken()->getAttributes();
 	}
 
 	public function setAttributes(array $attributes) {
-		$this->getLastToken()?->setAttributes($attributes);
+		$this->getAssociatedToken()->setAttributes($attributes);
 	}
 
 	public function hasAttribute(string $name): bool {
-		return $this->getLastToken()?->hasAttribute($name) ?? false;
+		return $this->getAssociatedToken()->hasAttribute($name);
 	}
 
 	public function getAttribute(string $name): mixed {
-		return $this->getLastToken()?->getAttribute($name);
+		return $this->getAssociatedToken()->getAttribute($name);
 	}
 
 	public function setAttribute(string $name, mixed $value) {
-		$this->getLastToken()?->setAttribute($name, $value);
+		$this->getAssociatedToken()->setAttribute($name, $value);
 	}
 
 	public function __serialize(): array {
 		$data = parent::__serialize();
-		$data[] = $this->tokenChain;
+		$data[] = $this->associatedToken;
 		return $data;
 	}
 
 	public function __unserialize(array $data): void {
-		[, , , , , $this->tokenChain] = $data;
+		[, , , , , $this->associatedToken] = $data;
 		parent::__unserialize($data);
 	}
 

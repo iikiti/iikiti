@@ -5,14 +5,9 @@ use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 
 interface MultiFactorTokenInterface extends TokenInterface {
 
-	/**
-	 * @return array<TokenInterface>
-	 */
- 	public function getTokenChain(): array;
+	public function getAssociatedToken(): ?TokenInterface;
 
-	public function getLastToken(): ?TokenInterface;
-
-	public function addToken(TokenInterface $token): void;
+	public function setAssociatedToken(TokenInterface $token): void;
 
 	public function isAuthenticated(): bool;
 
