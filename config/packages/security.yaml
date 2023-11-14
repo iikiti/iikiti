@@ -15,6 +15,8 @@ security:
             pattern: ^/(_(profiler|wdt)|css|images|js)/
             security: false
         main:
+            custom_authenticators:
+                - iikiti\CMS\Security\Authentication\MultiFactorAuthenticator
             lazy: true
             #two_factor:
             #    auth_form_path: mfa_login    # The route name you have used in the routes.yaml

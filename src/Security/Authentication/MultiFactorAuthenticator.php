@@ -1,36 +1,42 @@
 <?php
 namespace iikiti\CMS\Security\Authentication;
 
+use Symfony\Bundle\SecurityBundle\Security\FirewallContext;
+use Symfony\Component\DependencyInjection\Container;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
+use Symfony\Component\Security\Http\AccessToken\AccessTokenHandlerInterface;
 use Symfony\Component\Security\Http\Authenticator\AbstractAuthenticator;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
-use Symfony\Component\Security\Http\Authenticator\Passport\Credentials\PasswordCredentials;
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
+use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPassport;
+use Symfony\Bundle\SecurityBundle\Security\FirewallMap;
 
 class MultiFactorAuthenticator extends AbstractAuthenticator
 {
 
-	public function __construct()
-	{
+	public function __construct(
+		
+	) {
 
 	}
 
 	public function supports(Request $request): ?bool
 	{
-		return true;
+		return false;
 	}
 
 	public function authenticate(Request $request): Passport
 	{
-		// Get the user's credentials from the request.
-		$username = (string) $request->request->get('username');
-		$password = (string) $request->request->get('password');
-		$credentials = new PasswordCredentials($password);
-
-		return new Passport(new UserBadge($username), $credentials);
+		$firewallMap = $this->container->get('security.firewall.map');
+		dump($firewallMap);
+		return new SelfValidatingPassport(
+			new UserBadge($this->tokenStorage->getToken()?->getUser()->getUserIdentifier())
+		);
 	}
 
 	public function onAuthenticationSuccess(
