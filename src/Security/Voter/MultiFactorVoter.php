@@ -11,11 +11,13 @@ use Symfony\Component\Security\Core\Authorization\Voter\Voter;
  * @template TSubject of mixed
  * @extends Voter<TAttribute,TSubject>
  */
-class MultiFactorVoter extends Voter {
+class MultiFactorVoter extends Voter
+{
 
 	const IS_MFA_IN_PROGRESS = 'IS_MFA_IN_PROGRESS';
 
-	protected function supports(string $attribute, mixed $subject): bool {
+	protected function supports(string $attribute, mixed $subject): bool
+	{
 		return \in_array($attribute, [
 			AuthenticatedVoter::IS_AUTHENTICATED_FULLY,
 			AuthenticatedVoter::IS_AUTHENTICATED_REMEMBERED,
@@ -30,9 +32,9 @@ class MultiFactorVoter extends Voter {
 		TokenInterface $token
 	): bool {
 		$isMfaToken = $token instanceof MultiFactorAuthenticationToken;
-		if($attribute == self::IS_MFA_IN_PROGRESS && !$isMfaToken) {
+		if ($attribute == self::IS_MFA_IN_PROGRESS && !$isMfaToken) {
 			return false;
-		} else if($isMfaToken) {
+		} else if ($isMfaToken) {
 			/** @var MultiFactorAuthenticationToken $token */
 			return $token->isAuthenticated();
 		}
