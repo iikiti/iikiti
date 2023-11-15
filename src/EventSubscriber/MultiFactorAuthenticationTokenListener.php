@@ -1,4 +1,5 @@
 <?php
+
 namespace iikiti\CMS\EventSubscriber;
 
 use iikiti\CMS\Security\Authentication\MultiFactorAuthenticationToken;
@@ -8,11 +9,10 @@ use Symfony\Component\Security\Http\Event\AuthenticationTokenCreatedEvent;
 
 class MultiFactorAuthenticationTokenListener implements EventSubscriberInterface
 {
-
 	public static function getSubscribedEvents(): array
 	{
 		return [
-			AuthenticationTokenCreatedEvent::class => 'onGeneralTokenCreated'
+			AuthenticationTokenCreatedEvent::class => 'onGeneralTokenCreated',
 		];
 	}
 
@@ -29,6 +29,4 @@ class MultiFactorAuthenticationTokenListener implements EventSubscriberInterface
 
 		$event->setAuthenticatedToken($mfToken);
 	}
-
 }
-

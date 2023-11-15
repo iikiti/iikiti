@@ -10,18 +10,13 @@ use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
 
 /**
- * Class AuthenticationController
- *
- * @package iikiti\CMSBundle\Controller
+ * Class AuthenticationController.
  */
 #[AsController]
 class AuthenticationController extends AppController
 {
-	/**
-	 * @return \Symfony\Component\HttpFoundation\Response
-	 */
-	#[Route('/login', name: "html_login")]
-	function html_login(
+	#[Route('/login', name: 'html_login')]
+	public function html_login(
 		AuthenticationUtils $authenticationUtils,
 		AuthorizationCheckerInterface $authChecker
 	): Response {
@@ -50,10 +45,9 @@ class AuthenticationController extends AppController
 		);
 	}
 
-	#[Route('/logout', name: "html_logout")]
+	#[Route('/logout', name: 'html_logout')]
 	public function logout(): void
 	{
 		return;
 	}
-
 }
