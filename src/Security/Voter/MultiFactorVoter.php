@@ -1,4 +1,5 @@
 <?php
+
 namespace iikiti\CMS\Security\Voter;
 
 use iikiti\CMS\Security\Authentication\MultiFactorAuthenticationToken;
@@ -9,12 +10,12 @@ use Symfony\Component\Security\Core\Authorization\Voter\Voter;
 /**
  * @template TAttribute of string
  * @template TSubject of mixed
+ *
  * @extends Voter<TAttribute,TSubject>
  */
 class MultiFactorVoter extends Voter
 {
-
-	const IS_MFA_IN_PROGRESS = 'IS_MFA_IN_PROGRESS';
+	public const IS_MFA_IN_PROGRESS = 'IS_MFA_IN_PROGRESS';
 
 	protected function supports(string $attribute, mixed $subject): bool
 	{
@@ -22,7 +23,7 @@ class MultiFactorVoter extends Voter
 			AuthenticatedVoter::IS_AUTHENTICATED_FULLY,
 			AuthenticatedVoter::IS_AUTHENTICATED_REMEMBERED,
 			AuthenticatedVoter::IS_AUTHENTICATED,
-			self::IS_MFA_IN_PROGRESS
+			self::IS_MFA_IN_PROGRESS,
 		], true);
 	}
 
@@ -32,14 +33,13 @@ class MultiFactorVoter extends Voter
 		TokenInterface $token
 	): bool {
 		$isMfaToken = $token instanceof MultiFactorAuthenticationToken;
-		if ($attribute == self::IS_MFA_IN_PROGRESS && !$isMfaToken) {
+		if (self::IS_MFA_IN_PROGRESS == $attribute && !$isMfaToken) {
 			return false;
-		} else if ($isMfaToken) {
-			/** @var MultiFactorAuthenticationToken $token */
+		} elseif ($isMfaToken) {
+			/* @var MultiFactorAuthenticationToken $token */
 			return $token->isAuthenticated();
 		}
+
 		return true;
 	}
-
 }
-
