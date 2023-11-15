@@ -32,10 +32,12 @@ class MultiFactorVoter extends Voter
 		mixed $subject,
 		TokenInterface $token
 	): bool {
-		$isMfaToken = $token instanceof MultiFactorAuthenticationToken;
-		if (self::IS_MFA_IN_PROGRESS == $attribute && !$isMfaToken) {
+		if (
+			self::IS_MFA_IN_PROGRESS == $attribute &&
+			!($token instanceof MultiFactorAuthenticationToken)
+		) {
 			return false;
-		} elseif ($isMfaToken) {
+		} elseif ($token instanceof MultiFactorAuthenticationToken) {
 			/* @var MultiFactorAuthenticationToken $token */
 			return $token->isAuthenticated();
 		}
