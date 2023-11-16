@@ -4,6 +4,7 @@ namespace iikiti\CMS\Entity;
 
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\ORM\Mapping\DiscriminatorColumn;
 use Doctrine\ORM\Mapping\InheritanceType;
@@ -40,6 +41,10 @@ class DbObject
 	 */
 	#[ORM\OneToMany(targetEntity: ObjectProperty::class, mappedBy: 'object', indexBy: 'name')]
 	private Collection $properties;
+
+	public function __construct()
+	{
+	}
 
 	public function getId(): int|string|null
 	{
