@@ -18,18 +18,13 @@ class DbObject
 {
 	/** @var bool SITE_SPECIFIC */
 	public const SITE_SPECIFIC = true;
+	public const SITE_SPECIFIC = true;
 
 	#[ORM\Id()]
 	#[ORM\GeneratedValue()]
 	#[ORM\Column(type: Types::BIGINT)]
 	protected int|string|null $id = null;
-	#[ORM\Id()]
-	#[ORM\GeneratedValue()]
-	#[ORM\Column(type: Types::BIGINT)]
-	protected int|string|null $id = null;
 
-	#[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
-	private ?\DateTimeInterface $created_date = null;
 	#[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
 	private ?\DateTimeInterface $created_date = null;
 
@@ -46,6 +41,10 @@ class DbObject
 	 */
 	#[ORM\OneToMany(targetEntity: ObjectProperty::class, mappedBy: 'object', indexBy: 'name')]
 	private Collection $properties;
+
+	public function __construct()
+	{
+	}
 
 	public function getId(): int|string|null
 	{
