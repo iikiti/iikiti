@@ -2,6 +2,7 @@
 
 namespace iikiti\CMS\Security\Authentication;
 
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
@@ -13,22 +14,21 @@ use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPasspor
 
 class MultiFactorAuthenticator extends AbstractAuthenticator
 {
-	public function __construct()
+	public function __construct(private Security $s)
 	{
 	}
 
 	public function supports(Request $request): ?bool
 	{
+		dump($this->s->getFirewallConfig($request), $this->s);
+
 		return false;
 	}
 
 	public function authenticate(Request $request): Passport
 	{
-		$firewallMap = $this->container->get('security.firewall.map');
-		dump($firewallMap);
-
 		return new SelfValidatingPassport(
-			new UserBadge($this->tokenStorage->getToken()?->getUser()->getUserIdentifier())
+			new UserBadge('')
 		);
 	}
 
