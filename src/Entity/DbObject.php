@@ -1,5 +1,6 @@
 <?php
 
+
 namespace iikiti\CMS\Entity;
 
 use Doctrine\Common\Collections\Collection;
@@ -39,8 +40,13 @@ class DbObject
 	/** @psalm-suppress PropertyNotSetInConstructor
 	 * @var Collection<string,ObjectProperty> $properties
 	 */
+	 */
 	#[ORM\OneToMany(targetEntity: ObjectProperty::class, mappedBy: 'object', indexBy: 'name')]
 	private Collection $properties;
+
+	public function __construct()
+	{
+	}
 
 	public function getId(): int|string|null
 	{
