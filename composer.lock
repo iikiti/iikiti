@@ -517,11 +517,9 @@
         {
             "name": "doctrine/doctrine-bundle",
             "version": "2.11.1",
-            "version": "2.11.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/doctrine/DoctrineBundle.git",
-                "reference": "4089f1424b724786c062aea50aae5f773449b94b"
                 "reference": "4089f1424b724786c062aea50aae5f773449b94b"
             },
             "dist": {
@@ -1176,16 +1174,16 @@
         },
         {
             "name": "doctrine/orm",
-            "version": "2.17.1",
+            "version": "2.17.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/doctrine/orm.git",
-                "reference": "1a4fe6e0bb67762370937a7e6cee3da40a9122d1"
+                "reference": "e8afa9f80ce66ac728f63325d102adda01cbd6ff"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/doctrine/orm/zipball/1a4fe6e0bb67762370937a7e6cee3da40a9122d1",
-                "reference": "1a4fe6e0bb67762370937a7e6cee3da40a9122d1",
+                "url": "https://api.github.com/repos/doctrine/orm/zipball/e8afa9f80ce66ac728f63325d102adda01cbd6ff",
+                "reference": "e8afa9f80ce66ac728f63325d102adda01cbd6ff",
                 "shasum": ""
             },
             "require": {
@@ -1271,9 +1269,9 @@
             ],
             "support": {
                 "issues": "https://github.com/doctrine/orm/issues",
-                "source": "https://github.com/doctrine/orm/tree/2.17.1"
+                "source": "https://github.com/doctrine/orm/tree/2.17.0"
             },
-            "time": "2023-11-17T06:25:40+00:00"
+            "time": "2023-11-15T23:04:41+00:00"
         },
         {
             "name": "doctrine/persistence",
@@ -9244,22 +9242,22 @@
         },
         {
             "name": "doctrine/doctrine-fixtures-bundle",
-            "version": "3.5.1",
+            "version": "3.5.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/doctrine/DoctrineFixturesBundle.git",
-                "reference": "c808a0c85c38c8ee265cc8405b456c1d2b38567d"
+                "reference": "2191922463c976bd512c592d027c033e80460c6d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/doctrine/DoctrineFixturesBundle/zipball/c808a0c85c38c8ee265cc8405b456c1d2b38567d",
-                "reference": "c808a0c85c38c8ee265cc8405b456c1d2b38567d",
+                "url": "https://api.github.com/repos/doctrine/DoctrineFixturesBundle/zipball/2191922463c976bd512c592d027c033e80460c6d",
+                "reference": "2191922463c976bd512c592d027c033e80460c6d",
                 "shasum": ""
             },
             "require": {
                 "doctrine/data-fixtures": "^1.3",
                 "doctrine/doctrine-bundle": "^2.2",
-                "doctrine/orm": "^2.14.0 || ^3.0",
+                "doctrine/orm": "^2.14.0",
                 "doctrine/persistence": "^2.4|^3.0",
                 "php": "^7.4 || ^8.0",
                 "symfony/config": "^5.4|^6.0|^7.0",
@@ -9277,7 +9275,7 @@
                 "phpstan/phpstan": "^1.10.39",
                 "phpunit/phpunit": "^9.6.13",
                 "symfony/phpunit-bridge": "^6.3.6",
-                "vimeo/psalm": "^5.15"
+                "vimeo/psalm": "^4.30"
             },
             "type": "symfony-bundle",
             "autoload": {
@@ -9311,7 +9309,7 @@
             ],
             "support": {
                 "issues": "https://github.com/doctrine/DoctrineFixturesBundle/issues",
-                "source": "https://github.com/doctrine/DoctrineFixturesBundle/tree/3.5.1"
+                "source": "https://github.com/doctrine/DoctrineFixturesBundle/tree/3.5.0"
             },
             "funding": [
                 {
@@ -9327,7 +9325,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2023-11-19T12:48:54+00:00"
+            "time": "2023-11-15T19:40:48+00:00"
         },
         {
             "name": "felixfbecker/advanced-json-rpc",
