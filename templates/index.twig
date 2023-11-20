@@ -3,6 +3,7 @@
 {# Prevent right sidebar from showing. #}
 {#% block body_aside_right %}{% endblock %#}
 {% block body %}
+	<section {{ svelte_component('BlockEditor', {}) }}></section>
 	<section data-vue-component='{"name": "BlockEditor"}' id="page-wrapper">
 		<section class="editor-components grid grid-cols-3">{% include 'base/default-block-editor-content.twig' %}</section>
 	</section>
