@@ -1,5 +1,7 @@
 <script>
-    
-</script>
+	import { onMount } from 'svelte';
 
-<section class="block-editor">Block Editor</section>
+	onMount(function() {
+		console.log("mounted");
+	});
+</script>
