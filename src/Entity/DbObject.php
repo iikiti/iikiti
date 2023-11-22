@@ -18,7 +18,6 @@ class DbObject
 {
 	/** @var bool SITE_SPECIFIC */
 	public const SITE_SPECIFIC = true;
-	public const SITE_SPECIFIC = true;
 
 	#[ORM\Id()]
 	#[ORM\GeneratedValue()]
