@@ -20,8 +20,6 @@ class MultiFactorAuthenticator extends AbstractAuthenticator
 
 	public function supports(Request $request): ?bool
 	{
-		dump($this->s->getFirewallConfig($request), $this->s);
-
 		return false;
 	}
 
