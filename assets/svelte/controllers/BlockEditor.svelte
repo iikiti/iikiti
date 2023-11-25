@@ -6,6 +6,8 @@
 
 	/*
 	console.log(node.previousSibling?.matches('test'));
+	/*
+	console.log(node.previousSibling?.matches('test'));
 	let template = node.previousSibling.matches("template[data-for='BlockEditor']") ?
 		get_current_component().$$.root.previousSibling :
 		null;
@@ -17,8 +19,9 @@
 	*/
 	console.log('BlockEditor');
 
+
 	onMount(function() {
-		console.log("BlockEditor Mounted");
+		console.log("BlockEditor Mounted", node);
 	});
 </script>
 
