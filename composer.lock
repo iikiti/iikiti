@@ -1652,16 +1652,16 @@
         },
         {
             "name": "ivopetkov/html5-dom-document-php",
-            "version": "v2.6.0",
+            "version": "v2.7.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/ivopetkov/html5-dom-document-php.git",
-                "reference": "2d0e3b67f0622c536a78137808c786c42330d577"
+                "reference": "cbbe2d5d03acc020ec78c72fdb20302cb3cdc872"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ivopetkov/html5-dom-document-php/zipball/2d0e3b67f0622c536a78137808c786c42330d577",
-                "reference": "2d0e3b67f0622c536a78137808c786c42330d577",
+                "url": "https://api.github.com/repos/ivopetkov/html5-dom-document-php/zipball/cbbe2d5d03acc020ec78c72fdb20302cb3cdc872",
+                "reference": "cbbe2d5d03acc020ec78c72fdb20302cb3cdc872",
                 "shasum": ""
             },
             "require": {
@@ -1691,9 +1691,9 @@
             "description": "HTML5 DOMDocument PHP library (extends DOMDocument)",
             "support": {
                 "issues": "https://github.com/ivopetkov/html5-dom-document-php/issues",
-                "source": "https://github.com/ivopetkov/html5-dom-document-php/tree/v2.6.0"
+                "source": "https://github.com/ivopetkov/html5-dom-document-php/tree/v2.7.0"
             },
-            "time": "2023-11-02T13:45:46+00:00"
+            "time": "2023-11-24T17:25:06+00:00"
         },
         {
             "name": "laminas/laminas-code",
@@ -9475,16 +9475,16 @@
         },
         {
             "name": "friendsofphp/php-cs-fixer",
-            "version": "v3.39.0",
+            "version": "v3.39.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/PHP-CS-Fixer/PHP-CS-Fixer.git",
-                "reference": "04bf7b28fc847185b247d112cab617da941e3cca"
+                "reference": "857046d26b0d92dc13c4be769309026b100b517e"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/PHP-CS-Fixer/PHP-CS-Fixer/zipball/04bf7b28fc847185b247d112cab617da941e3cca",
-                "reference": "04bf7b28fc847185b247d112cab617da941e3cca",
+                "url": "https://api.github.com/repos/PHP-CS-Fixer/PHP-CS-Fixer/zipball/857046d26b0d92dc13c4be769309026b100b517e",
+                "reference": "857046d26b0d92dc13c4be769309026b100b517e",
                 "shasum": ""
             },
             "require": {
@@ -9556,7 +9556,7 @@
             ],
             "support": {
                 "issues": "https://github.com/PHP-CS-Fixer/PHP-CS-Fixer/issues",
-                "source": "https://github.com/PHP-CS-Fixer/PHP-CS-Fixer/tree/v3.39.0"
+                "source": "https://github.com/PHP-CS-Fixer/PHP-CS-Fixer/tree/v3.39.1"
             },
             "funding": [
                 {
@@ -9564,7 +9564,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2023-11-22T11:20:09+00:00"
+            "time": "2023-11-24T22:59:03+00:00"
         },
         {
             "name": "myclabs/deep-copy",
