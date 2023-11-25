@@ -4,7 +4,7 @@
 	console.log('Test');
 
 	onMount(function() {
-		console.log("Test mounted");
+		console.log("Test mounted", node);
 	});
 </script>
 
