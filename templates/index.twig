@@ -3,12 +3,13 @@
 {# Prevent right sidebar from showing. #}
 {#% block body_aside_right %}{% endblock %#}
 {% block body %}
-	<section {{ svelte_component('BlockEditor', {}) }}>
-		{% include 'base/default-block-editor-content.twig' %}
+	<!--section {{ svelte_component('BlockEditor', {}) }}>
+		Loading...
+	</section-->
+	<section {{ svelte_component('Test', {}) }}>
+		Loading...
 	</section>
 	<!--section data-vue-component='{"name": "BlockEditor"}' id="page-wrapper">
-	<!--section data-vue-component='{"name": "BlockEditor"}' id="page-wrapper">
 		<section class="editor-components grid grid-cols-3">{% include 'base/default-block-editor-content.twig' %}</section>
-	</section-->
 	</section-->
 {% endblock %}
