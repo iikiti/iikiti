@@ -4,6 +4,8 @@
 
 	let node = get_current_component().$$.root;
 
+	/*
+	console.log(node.previousSibling?.matches('test'));
 	let template = node.previousSibling.matches("template[data-for='BlockEditor']") ?
 		get_current_component().$$.root.previousSibling :
 		null;
@@ -12,11 +14,12 @@
 		throw new Error("Invalid editor template");
 	}
 
-	let wrapper = template.content.firstElementChild.cloneNode(true);
+	*/
+	console.log('BlockEditor');
 
 
 	onMount(function() {
-		//console.log("mounted", node);
+		console.log("BlockEditor Mounted", node);
 	});
 </script>
 
