@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { get_current_component } from 'svelte/internal';
 
-	let node = get_current_component().$$.root;
+	var node = get_current_component().$$.root;
 
 	/*
 	console.log(node.previousSibling?.matches('test'));
@@ -17,9 +17,8 @@
 	*/
 	console.log('BlockEditor');
 
-
 	onMount(function() {
-		console.log("BlockEditor Mounted", node);
+		console.log("BlockEditor Mounted");
 	});
 </script>
 
