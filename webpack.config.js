@@ -30,7 +30,7 @@ Encore
      */
     .addStyleEntry('tailwind', './assets/styles/app.scss')
 
-	.addEntry('main', './assets/app.js')
+	.addEntry('app', './assets/app.js')
     //.addEntry('main', './assets/main.js')
     //.addEntry('admin', './assets/admin.js')
 
@@ -61,6 +61,7 @@ Encore
     // enables hashed filenames (e.g. app.abc123.css)
     .enableVersioning(Encore.isProduction())
 
+	/*
     .configureBabel((config) => {
         config.plugins.push('@babel/plugin-proposal-class-properties');
     })
@@ -70,6 +71,7 @@ Encore
         config.useBuiltIns = 'usage';
         config.corejs = 3;
     })
+	*/
 
     // enables Sass/SCSS support
     .enableSassLoader()

@@ -1,6 +1,4 @@
 import { registerSvelteControllerComponents } from '@symfony/ux-svelte';
-import './bootstrap.js';
-import './js/utilities/Element.furthest';
 
 /*
  * Welcome to your app's main JavaScript file!
@@ -14,5 +12,7 @@ import './styles/app.css';
 
 // start the Stimulus application
 import './bootstrap';
+
+import './main.js';
 
 registerSvelteControllerComponents(require.context('./svelte/controllers', true, /\.svelte$/));
