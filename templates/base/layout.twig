@@ -9,11 +9,16 @@
         {% endblock %}
         {% block head_styles %}
             {{ encore_entry_link_tags('tailwind') }}
+            {{ encore_entry_link_tags('app') }}
             {#{ encore_entry_link_tags('admin') }#}
         {% endblock %}
         <title>{{ (doc.title ?? 'iikiti')|escape('html') }}</title>
         {% block head_js %}
-            {{ encore_entry_script_tags('app') }}
+            {{ encore_entry_script_tags('app',
+				attributes={
+                    defer: true
+                }
+			) }}
             {#{ encore_entry_script_tags('admin',
                 attributes={
                     defer: true
