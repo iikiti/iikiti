@@ -17,9 +17,8 @@
 	*/
 	console.log('BlockEditor');
 
-
 	onMount(function() {
-		console.log("BlockEditor Mounted", node);
+		console.log("BlockEditor Mounted");
 	});
 </script>
 
