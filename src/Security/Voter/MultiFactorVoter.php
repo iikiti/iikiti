@@ -3,17 +3,17 @@
 namespace iikiti\CMS\Security\Voter;
 
 use iikiti\CMS\Security\Authentication\MultiFactorAuthenticationToken;
-use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\AuthenticatedVoter;
-use Symfony\Component\Security\Core\Authorization\Voter\RoleHierarchyVoter;
+use Symfony\Component\Security\Core\Authorization\Voter\Voter;
 
 /**
  * @template TAttribute of string
  * @template TSubject of mixed
+ *
+ * @extends Voter<TAttribute, TSubject>
  */
-#[Autoconfigure(tags: ['security.access.role_hierarchy_voter'])]
-class MultiFactorVoter extends RoleHierarchyVoter
+class MultiFactorVoter extends Voter
 {
 	public const IS_MFA_IN_PROGRESS = 'IS_MFA_IN_PROGRESS';
 
