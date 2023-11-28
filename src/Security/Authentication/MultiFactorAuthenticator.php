@@ -2,6 +2,7 @@
 
 namespace iikiti\CMS\Security\Authentication;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -14,7 +15,7 @@ use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPasspor
 
 class MultiFactorAuthenticator extends AbstractAuthenticator
 {
-	public function __construct(private Security $s)
+	public function __construct(private Security $s, private EntityManagerInterface $em)
 	{
 	}
 
