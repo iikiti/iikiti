@@ -49,6 +49,5 @@ security:
     access_control:
         - { path: ^/admin, roles: IS_AUTHENTICATED }
         - { path: ^/logout, roles: ROLE_USER }
-        - { path: ^/login/mfa, roles: IS_MFA_IN_PROGRESS }
         - { path: ^/login, roles: PUBLIC_ACCESS }
         - { path: ^/, roles: PUBLIC_ACCESS }
