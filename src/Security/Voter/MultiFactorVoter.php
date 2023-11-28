@@ -2,7 +2,9 @@
 
 namespace iikiti\CMS\Security\Voter;
 
+use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Security\Authentication\MultiFactorAuthenticationToken;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\AuthenticatedVoter;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
@@ -16,6 +18,12 @@ use Symfony\Component\Security\Core\Authorization\Voter\Voter;
 class MultiFactorVoter extends Voter
 {
 	public const IS_MFA_IN_PROGRESS = 'IS_MFA_IN_PROGRESS';
+
+	public function __construct(
+		private Security $s,
+		private EntityManagerInterface $em
+	) {
+	}
 
 	protected function supports(string $attribute, mixed $subject): bool
 	{
