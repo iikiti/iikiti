@@ -20,9 +20,6 @@ class AuthenticationController extends AppController
 		AuthenticationUtils $authenticationUtils,
 		AuthorizationCheckerInterface $authChecker
 	): Response {
-		if ($authChecker->isGranted('IS_MFA_IN_PROGRESS')) {
-			dump('MFA in progress');
-		}
 		$error = $authenticationUtils->getLastAuthenticationError();
 
 		// last username entered by the user
