@@ -15,8 +15,10 @@ use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPasspor
 
 class MultiFactorAuthenticator extends AbstractAuthenticator
 {
-	public function __construct(private Security $s, private EntityManagerInterface $em)
-	{
+	public function __construct(
+		private Security $s,
+		private EntityManagerInterface $em
+	) {
 	}
 
 	public function supports(Request $request): ?bool
