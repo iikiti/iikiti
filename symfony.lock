@@ -18,7 +18,7 @@
         "version": "v0.1.1"
     },
     "doctrine/annotations": {
-        "version": "1.13",
+        "version": "2.0",
         "recipe": {
             "repo": "github.com/symfony/recipes",
             "branch": "main",
@@ -124,12 +124,6 @@
         "files": [
             ".php-cs-fixer.dist.php"
         ]
-    },
-    "friendsofphp/proxy-manager-lts": {
-        "version": "v1.0.12"
-    },
-    "laminas/laminas-code": {
-        "version": "4.5.1"
     },
     "masterminds/html5": {
         "version": "2.7.5"
@@ -480,9 +474,6 @@
         "version": "v1.25.0"
     },
     "symfony/polyfill-mbstring": {
-        "version": "v1.25.0"
-    },
-    "symfony/polyfill-php72": {
         "version": "v1.25.0"
     },
     "symfony/process": {
