@@ -128,9 +128,6 @@
     "friendsofphp/proxy-manager-lts": {
         "version": "v1.0.12"
     },
-    "iikiti/extension-utilities": {
-        "version": "0.0.1"
-    },
     "laminas/laminas-code": {
         "version": "4.5.1"
     },
