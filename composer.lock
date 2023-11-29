@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "a0efb510e73e21dc74f55f4442f4c256",
+    "content-hash": "edd12fed7a187b6e2197ab20494c3993",
     "packages": [
         {
             "name": "doctrine/annotations",
@@ -1553,102 +1553,6 @@
                 }
             ],
             "time": "2023-05-24T07:17:17+00:00"
-        },
-        {
-            "name": "iikiti/components",
-            "version": "0.1",
-            "dist": {
-                "type": "path",
-                "url": "/home/jim/dev/lib/iikiti/components",
-                "reference": "5744ad5c7ea6c3bcd482e7221ea3e0e64fb767b7"
-            },
-            "require": {
-                "ext-ctype": "*",
-                "ext-iconv": "*",
-                "iikiti/extension-utilities": "^0.0.1",
-                "php": ">=8.1",
-                "symfony/console": "^6.2",
-                "symfony/dotenv": "^6.2",
-                "symfony/flex": "^2",
-                "symfony/framework-bundle": "^6.2",
-                "symfony/runtime": "^6.2",
-                "symfony/yaml": "^6.2"
-            },
-            "conflict": {
-                "symfony/symfony": "*"
-            },
-            "type": "symfony-bundle",
-            "extra": {
-                "symfony": {
-                    "allow-contrib": false,
-                    "require": "6.2.*"
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "iikiti\\components\\": "src/"
-                }
-            },
-            "autoload-dev": {
-                "psr-4": {
-                    "iikiti\\components\\tests\\": "tests/"
-                }
-            },
-            "scripts": {
-                "auto-scripts": {
-                    "cache:clear": "symfony-cmd",
-                    "assets:install %PUBLIC_DIR%": "symfony-cmd"
-                },
-                "post-install-cmd": [
-                    "@auto-scripts"
-                ],
-                "post-update-cmd": [
-                    "@auto-scripts"
-                ]
-            },
-            "license": [
-                "Apache"
-            ],
-            "transport-options": {
-                "symlink": true,
-                "relative": false
-            }
-        },
-        {
-            "name": "iikiti/extension-utilities",
-            "version": "0.0.1",
-            "dist": {
-                "type": "path",
-                "url": "/home/jim/dev/lib/iikiti/extension-utilities",
-                "reference": "dc6f3580cb0e732694ca7fc6f5b497acb7a3385e"
-            },
-            "require": {
-                "php": ">=8.2",
-                "symfony/dependency-injection": "^6.2",
-                "symfony/event-dispatcher": "^6.2",
-                "symfony/http-kernel": "^6.2",
-                "symfony/yaml": "^6.2"
-            },
-            "type": "symfony-bundle",
-            "autoload": {
-                "psr-4": {
-                    "iikiti\\ExtensionUtilities\\": "src/"
-                }
-            },
-            "license": [
-                "Apache"
-            ],
-            "authors": [
-                {
-                    "name": "Jim Robinson",
-                    "email": "jimbo2150@gmail.com"
-                }
-            ],
-            "description": "Utilities for iikiti extensions.",
-            "transport-options": {
-                "symlink": true,
-                "relative": false
-            }
         },
         {
             "name": "ivopetkov/html5-dom-document-php",
