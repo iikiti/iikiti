@@ -1,6 +1,6 @@
 <?php
 
-namespace iikiti\CMS\EventSubscriber;
+namespace iikiti\CMS\Event\Subscriber;
 
 use iikiti\CMS\Security\Authentication\MultiFactorAuthenticationToken;
 use iikiti\CMS\Security\Authentication\MultiFactorTokenInterface;
