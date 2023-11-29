@@ -33,8 +33,6 @@
         "doctrine/doctrine-bundle": "^2.10",
         "doctrine/doctrine-migrations-bundle": "^3.2",
         "doctrine/orm": "^2.16",
-        "iikiti/components": "^0.1.0",
-        "iikiti/extension-utilities": "^0.0.1",
         "ivopetkov/html5-dom-document-php": "^2.5",
         "phpdocumentor/reflection-docblock": "^5.3",
         "scienta/doctrine-json-functions": "^5.3",
@@ -136,7 +134,7 @@
     "extra": {
         "symfony": {
             "allow-contrib": false,
-            "require": "6.3.*",
+            "require": "7.0.*",
             "docker": false
         }
     }
