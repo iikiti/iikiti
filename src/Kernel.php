@@ -3,7 +3,6 @@
 namespace iikiti\CMS;
 
 use iikiti\CMS\Loader\Extensions;
-use ReflectionClass;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -14,59 +13,64 @@ use Symfony\Component\Yaml\Yaml;
 /**
  * @uses MicroKernelTrait
  */
-class Kernel extends BaseKernel implements CompilerPassInterface {
-    use MicroKernelTrait {
-        MicroKernelTrait::registerBundles as private __kernelRegisterBundles;
-        MicroKernelTrait::configureRoutes as private __kernelConfigureRoutes;
-    }
+class Kernel extends BaseKernel implements CompilerPassInterface
+{
+	use MicroKernelTrait {
+		MicroKernelTrait::registerBundles as private __kernelRegisterBundles;
+		MicroKernelTrait::configureRoutes as private __kernelConfigureRoutes;
+	}
 
-    public function process(ContainerBuilder $container): void {
-        $encoreConfig = Yaml::parseFile(
-            $this->getProjectDir() . '/config/packages/webpack_encore.yaml'
-        );
-        $container->setParameter(
-            'webpack_encore.output_path',
-            $encoreConfig['webpack_encore']['output_path']
-        );
-    }
+	public function process(ContainerBuilder $container): void
+	{
+		$encoreConfig = Yaml::parseFile(
+			$this->getProjectDir().'/config/packages/webpack_encore.yaml'
+		);
+		$container->setParameter(
+			'webpack_encore.output_path',
+			$encoreConfig['webpack_encore']['output_path']
+		);
+	}
 
-    private function configureRoutes(RoutingConfigurator $routes): void {
-        $this->__kernelConfigureRoutes($routes);
-        //TODO: $this->_configureExtensionRoutes($routes);
-    }
+	private function configureRoutes(RoutingConfigurator $routes): void
+	{
+		$this->__kernelConfigureRoutes($routes);
+		// TODO: $this->_configureExtensionRoutes($routes);
+	}
 
-    protected function _configureExtensionRoutes(RoutingConfigurator $routes): void {
+	protected function _configureExtensionRoutes(RoutingConfigurator $routes): void
+	{
 		/** @var Extensions $extensions */
 		$extensions = $this->getContainer()->get('extensions');
-        foreach ($extensions->getExtensions() as $ext) {
-            /** @var \Symfony\Component\HttpKernel\Bundle\AbstractBundle $ext */
-            $configDir = dirname(
-                (new ReflectionClass($ext::class))->getFileName()
-            ) . '/config';
-            $files = array_merge(
-                glob(
-                    $configDir . '/{routes}/' . $this->environment .
-                    '/*.{php,yaml}',
-                    GLOB_BRACE
-                ),
-                glob($configDir . '/{routes}/*.{php,yaml}', GLOB_BRACE),
-                glob($configDir . '/routes.{php,yaml}', GLOB_BRACE)
-            );
-            foreach ($files as $filename) {
-                $routes->import($filename);
-            }
-        }
-    }
+		foreach ($extensions->getExtensions() as $ext) {
+			/** @var \Symfony\Component\HttpKernel\Bundle\AbstractBundle $ext */
+			$configDir = dirname(
+				(new \ReflectionClass($ext::class))->getFileName()
+			).'/config';
+			$files = array_merge(
+				glob(
+					$configDir.'/{routes}/'.$this->environment.
+					'/*.{php,yaml}',
+					GLOB_BRACE
+				),
+				glob($configDir.'/{routes}/*.{php,yaml}', GLOB_BRACE),
+				glob($configDir.'/routes.{php,yaml}', GLOB_BRACE)
+			);
+			foreach ($files as $filename) {
+				$routes->import($filename);
+			}
+		}
+	}
 
-    public function boot(): void {
-        parent::boot();
-    }
+	public function boot(): void
+	{
+		parent::boot();
+	}
 
-    public function registerBundles(): iterable {
-		/** @var Extensions $extensions */
-		//$extensions = $this->getContainer()->get('extensions');
-        yield from $this->__kernelRegisterBundles();
-        //TODO: yield from $extensions->load($this);
-    }
-
+	public function registerBundles(): iterable
+	{
+		/* @var Extensions $extensions */
+		// $extensions = $this->getContainer()->get('extensions');
+		yield from $this->__kernelRegisterBundles();
+		// TODO: yield from $extensions->load($this);
+	}
 }
