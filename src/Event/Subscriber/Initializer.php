@@ -1,6 +1,6 @@
 <?php
 
-namespace iikiti\CMS\EventSubscriber;
+namespace iikiti\CMS\Event\Subscriber;
 
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\Object\Site;
@@ -58,6 +58,8 @@ class Initializer implements EventSubscriberInterface
 		OutputParser::appendFilter(function (ResponseEvent $event) {
 			HtmlFilter::filterHtml($event, $this->stopwatch);
 		});
+
+		dump($this->security->getToken());
 
 		$request = $event->getRequest();
 
