@@ -6,13 +6,12 @@ use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Manager\UserRoleManager;
 use iikiti\CMS\Repository\Object\UserRepository;
-use Scheb\TwoFactorBundle\Model\PreferredProviderInterface;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: 'objects')]
-class User extends DbObject implements UserInterface, PasswordAuthenticatedUserInterface, PreferredProviderInterface
+class User extends DbObject implements UserInterface, PasswordAuthenticatedUserInterface
 {
 	public const SITE_SPECIFIC = false;
 
