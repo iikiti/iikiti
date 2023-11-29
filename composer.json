@@ -35,7 +35,6 @@
         "doctrine/orm": "^2.16",
         "ivopetkov/html5-dom-document-php": "^2.5",
         "phpdocumentor/reflection-docblock": "^5.3",
-        "phpstan/phpdoc-parser": "^1.24",
         "scienta/doctrine-json-functions": "^5.3",
         "symfony/apache-pack": "^1.0",
         "symfony/asset": "^7.0",
