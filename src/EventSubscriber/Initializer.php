@@ -8,8 +8,6 @@ use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Filters\HtmlFilter;
 use iikiti\CMS\Registry\SiteRegistry;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\DependencyInjection\ContainerAwareInterface;
-use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\ControllerEvent;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
@@ -18,47 +16,38 @@ use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Stopwatch\Stopwatch;
 
 /**
- * Class OutputParser
- *
- * @package iikiti\CMS\src\EventListeners
+ * Class OutputParser.
  */
-class Initializer implements EventSubscriberInterface, ContainerAwareInterface {
+class Initializer implements EventSubscriberInterface
+{
 	protected static bool $hasInitialized = false;
-	protected ?ContainerInterface $container = null;
 
 	public function __construct(
 		protected ManagerRegistry $registry,
 		private Stopwatch $stopwatch,
 		private Security $security,
 		private SiteRegistry $siteRegistry
-	) {}
-
-	public function setContainer(?ContainerInterface $container = null): void
-	{
-		$this->container = $container;
+	) {
 	}
 
-	/**
-	 * @inheritDoc
-	 */
 	public static function getSubscribedEvents(): array
 	{
 		return [
 			'kernel.request' => 'onKernelRequest',
-			'kernel.controller' => 'onKernelController'
+			'kernel.controller' => 'onKernelController',
 		];
 	}
 
 	/**
-	 * @param \Symfony\Component\HttpKernel\Event\RequestEvent $event
-	 *
 	 * @return void
+	 *
 	 * @throws \Symfony\Component\HttpKernel\Exception\NotFoundHttpException
-	 *         When current host does not match a site in the database.
+	 *                                                                       When current host does not match a site in the database
 	 */
-	public function onKernelRequest(RequestEvent $event) {
+	public function onKernelRequest(RequestEvent $event)
+	{
 		// Skip if already initialized or not the main route.
-		if(
+		if (
 			static::$hasInitialized ||
 			str_starts_with($event->getRequest()->attributes->get('_route'), '_')
 		) {
@@ -66,7 +55,7 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface {
 		}
 
 		// Add HTML Output Filter
-		OutputParser::appendFilter(function(ResponseEvent $event) {
+		OutputParser::appendFilter(function (ResponseEvent $event) {
 			HtmlFilter::filterHtml($event, $this->stopwatch);
 		});
 
@@ -78,27 +67,30 @@ class Initializer implements EventSubscriberInterface, ContainerAwareInterface {
 
 		$em->getFilters()->enable('ObjectPropertyFilter');
 
-		if(
+		if (
 			($site = $this->siteRegistry->getCurrentSite()) instanceof Site &&
-			$site->getId() !== null
+			null !== $site->getId()
 		) {
-			//TODO: Extensions::setInitialSiteId($site->getId() ?? 0);
+			// TODO: Extensions::setInitialSiteId($site->getId() ?? 0);
 		}
 
 		static::$hasInitialized = true;
 	}
 
-	public function onKernelController(ControllerEvent $event): void {
+	public function onKernelController(ControllerEvent $event): void
+	{
 		$this->_verifyUserHasSiteAccess();
 	}
 
-	protected function _verifyUserHasSiteAccess(): void {
+	protected function _verifyUserHasSiteAccess(): void
+	{
 		$user = $this->security->getUser();
-		if(!($user instanceof User)) return; // Not logged in
+		if (!($user instanceof User)) {
+			return;
+		} // Not logged in
 
-		if(!$user->registeredToSite($this->siteRegistry->getCurrentSite()->getId())) {
+		if (!$user->registeredToSite($this->siteRegistry->getCurrentSite()->getId())) {
 			throw new AuthenticationException('User not registered to current site');
 		}
 	}
-
 }
