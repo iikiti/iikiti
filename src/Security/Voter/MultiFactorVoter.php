@@ -5,6 +5,7 @@ namespace iikiti\CMS\Security\Voter;
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Security\Authentication\MultiFactorAuthenticationToken;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\AuthenticatedVoter;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
@@ -46,10 +47,14 @@ class MultiFactorVoter extends Voter
 		) {
 			return false;
 		} elseif ($token instanceof MultiFactorAuthenticationToken) {
-			/* @var MultiFactorAuthenticationToken $token */
 			return $token->isAuthenticated();
 		}
 
 		return true;
+	}
+
+	public function supportsType(string $subjectType): bool
+	{
+		return Request::class == $subjectType;
 	}
 }

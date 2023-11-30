@@ -47,10 +47,7 @@ class Initializer implements EventSubscriberInterface
 	public function onKernelRequest(RequestEvent $event)
 	{
 		// Skip if already initialized or not the main route.
-		if (
-			static::$hasInitialized ||
-			str_starts_with($event->getRequest()->attributes->get('_route'), '_')
-		) {
+		if (static::$hasInitialized || $event->isMainRequest()) {
 			return;
 		}
 
@@ -58,8 +55,6 @@ class Initializer implements EventSubscriberInterface
 		OutputParser::appendFilter(function (ResponseEvent $event) {
 			HtmlFilter::filterHtml($event, $this->stopwatch);
 		});
-
-		dump($this->security->getToken());
 
 		$request = $event->getRequest();
 
