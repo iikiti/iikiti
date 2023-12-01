@@ -56,8 +56,6 @@ class Initializer implements EventSubscriberInterface
 			HtmlFilter::filterHtml($event, $this->stopwatch);
 		});
 
-		$request = $event->getRequest();
-
 		$registry = $this->registry;
 		/** @var \Doctrine\ORM\EntityManager $em */
 		$em = $registry->getManager();
