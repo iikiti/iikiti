@@ -8,11 +8,12 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
+use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Core\User\UserProviderInterface;
 use Symfony\Component\Security\Http\Authenticator\AbstractAuthenticator;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
+use Symfony\Component\Security\Http\Authenticator\Passport\Credentials\CustomCredentials;
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
-use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPassport;
 use Symfony\Component\Security\Http\SecurityRequestAttributes;
 
 class MultiFactorAuthenticator extends AbstractAuthenticator
@@ -27,6 +28,7 @@ class MultiFactorAuthenticator extends AbstractAuthenticator
 
 	public function supports(Request $request): ?bool
 	{
+		// TODO: Check for form submission
 		if (
 			$request->hasSession() &&
 			$request->getSession()->has(SecurityRequestAttributes::LAST_USERNAME)
@@ -40,9 +42,17 @@ class MultiFactorAuthenticator extends AbstractAuthenticator
 	public function authenticate(Request $request): Passport
 	{
 		$username = $request->getSession()->get(SecurityRequestAttributes::LAST_USERNAME);
+		$token = ''; // TODO: Acquire token
 
-		return new SelfValidatingPassport(
-			new UserBadge($username, $this->userProvider->loadUserByIdentifier(...))
+		return new Passport(
+			new UserBadge($username),
+			new CustomCredentials(
+				function (string $token, UserInterface $user): bool {
+					// TODO: Check token
+					return false;
+				},
+				$token
+			)
 		);
 	}
 

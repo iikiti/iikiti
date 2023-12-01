@@ -20,7 +20,13 @@ class MultiFactorAuthenticationTokenListener implements EventSubscriberInterface
 	{
 		$token = $event->getAuthenticatedToken();
 
-		if ($token instanceof MultiFactorTokenInterface) {
+		// TODO: Check user for multi-factor login requirement.
+		$user = $token->getUser();
+
+		if (
+			$token instanceof MultiFactorTokenInterface
+			// TODO: OR User does not require MFA
+		) {
 			return;
 		}
 
