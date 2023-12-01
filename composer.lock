@@ -9007,21 +9007,13 @@
         {
             "name": "phpstan/phpstan",
             "version": "1.10.46",
-            "version": "1.10.46",
-            "version": "1.10.46",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpstan/phpstan.git",
                 "reference": "90d3d25c5b98b8068916bbf08ce42d5cb6c54e70"
-                "reference": "90d3d25c5b98b8068916bbf08ce42d5cb6c54e70"
-                "reference": "90d3d25c5b98b8068916bbf08ce42d5cb6c54e70"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpstan/phpstan/zipball/90d3d25c5b98b8068916bbf08ce42d5cb6c54e70",
-                "reference": "90d3d25c5b98b8068916bbf08ce42d5cb6c54e70",
-                "url": "https://api.github.com/repos/phpstan/phpstan/zipball/90d3d25c5b98b8068916bbf08ce42d5cb6c54e70",
-                "reference": "90d3d25c5b98b8068916bbf08ce42d5cb6c54e70",
                 "url": "https://api.github.com/repos/phpstan/phpstan/zipball/90d3d25c5b98b8068916bbf08ce42d5cb6c54e70",
                 "reference": "90d3d25c5b98b8068916bbf08ce42d5cb6c54e70",
                 "shasum": ""
@@ -9072,8 +9064,6 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2023-11-28T14:57:26+00:00"
-            "time": "2023-11-28T14:57:26+00:00"
             "time": "2023-11-28T14:57:26+00:00"
         },
         {
