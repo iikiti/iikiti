@@ -4,6 +4,7 @@ namespace iikiti\CMS\Security\Authentication;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
@@ -11,6 +12,8 @@ use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Core\User\UserProviderInterface;
 use Symfony\Component\Security\Http\Authenticator\AbstractAuthenticator;
+use Symfony\Component\Security\Http\Authenticator\Passport\Badge\CsrfTokenBadge;
+use Symfony\Component\Security\Http\Authenticator\Passport\Badge\RememberMeBadge;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 use Symfony\Component\Security\Http\Authenticator\Passport\Credentials\CustomCredentials;
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
@@ -22,6 +25,7 @@ class MultiFactorAuthenticator extends AbstractAuthenticator
 		private Security $s,
 		private EntityManagerInterface $em,
 		private UserProviderInterface $userProvider,
+		private ParameterBagInterface $parameterBag,
 		private array $options = []
 	) {
 	}
@@ -44,7 +48,7 @@ class MultiFactorAuthenticator extends AbstractAuthenticator
 		$username = $request->getSession()->get(SecurityRequestAttributes::LAST_USERNAME);
 		$token = ''; // TODO: Acquire token
 
-		return new Passport(
+		$passport = new Passport(
 			new UserBadge($username),
 			new CustomCredentials(
 				function (string $token, UserInterface $user): bool {
@@ -52,8 +56,20 @@ class MultiFactorAuthenticator extends AbstractAuthenticator
 					return false;
 				},
 				$token
-			)
+			),
+			[new RememberMeBadge()]
 		);
+
+		if ($this->parameterBag->get('form.type_extension.csrf.enabled') ?? false) {
+			$passport->addBadge(
+				new CsrfTokenBadge(
+					'mfa',
+					(string) $request->request->get('_csrf_token', null)
+				)
+			);
+		}
+
+		return $passport;
 	}
 
 	public function onAuthenticationSuccess(
