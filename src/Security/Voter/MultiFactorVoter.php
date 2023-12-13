@@ -28,12 +28,16 @@ class MultiFactorVoter extends Voter
 
 	protected function supports(string $attribute, mixed $subject): bool
 	{
-		return \in_array($attribute, [
-			AuthenticatedVoter::IS_AUTHENTICATED_FULLY,
-			AuthenticatedVoter::IS_AUTHENTICATED_REMEMBERED,
-			AuthenticatedVoter::IS_AUTHENTICATED,
-			self::IS_MFA_IN_PROGRESS,
-		], true);
+		return \in_array(
+			$attribute,
+			[
+				AuthenticatedVoter::IS_AUTHENTICATED_FULLY,
+				AuthenticatedVoter::IS_AUTHENTICATED_REMEMBERED,
+				AuthenticatedVoter::IS_AUTHENTICATED,
+				self::IS_MFA_IN_PROGRESS,
+			],
+			true
+		);
 	}
 
 	protected function voteOnAttribute(

@@ -30,6 +30,7 @@ security:
                 default_target_path: html_login
             # configure the form authentication as the entry point for unauthenticated users
             entry_point: form_login
+            access_denied_handler: iikiti\CMS\Security\Authentication\MultiFactorAccessHandler
             logout:
                 path: html_logout
                 target: /
