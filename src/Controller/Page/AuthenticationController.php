@@ -4,6 +4,7 @@ namespace iikiti\CMS\Controller\Page;
 
 use iikiti\CMS\Controller\AppController;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\HttpKernel\Attribute\AsController;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
@@ -17,6 +18,7 @@ class AuthenticationController extends AppController
 {
 	#[Route('/login', name: 'html_login')]
 	public function html_login(
+		SessionInterface $session,
 		AuthenticationUtils $authenticationUtils,
 		AuthorizationCheckerInterface $authChecker
 	): Response {
@@ -45,6 +47,5 @@ class AuthenticationController extends AppController
 	#[Route('/logout', name: 'html_logout')]
 	public function logout(): void
 	{
-		return;
 	}
 }
