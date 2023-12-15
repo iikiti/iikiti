@@ -1,6 +1,6 @@
 <?php
 
-namespace iikiti\CMS\Security\Authentication;
+namespace iikiti\CMS\Security\Authentication\MultiFactor;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -19,7 +19,7 @@ use Symfony\Component\Security\Http\Authenticator\Passport\Credentials\CustomCre
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
 use Symfony\Component\Security\Http\SecurityRequestAttributes;
 
-class MultiFactorAuthenticator extends AbstractAuthenticator
+class Authenticator extends AbstractAuthenticator
 {
 	public function __construct(
 		private Security $s,

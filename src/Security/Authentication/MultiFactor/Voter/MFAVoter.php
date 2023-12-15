@@ -1,9 +1,9 @@
 <?php
 
-namespace iikiti\CMS\Security\Voter;
+namespace iikiti\CMS\Security\Authentication\MultiFactor\Voter;
 
 use Doctrine\ORM\EntityManagerInterface;
-use iikiti\CMS\Security\Authentication\MultiFactorAuthenticationToken;
+use iikiti\CMS\Security\Authentication\MultiFactor\AuthenticationToken;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
@@ -16,7 +16,7 @@ use Symfony\Component\Security\Core\Authorization\Voter\Voter;
  *
  * @extends Voter<TAttribute, TSubject>
  */
-class MultiFactorVoter extends Voter
+class MFAVoter extends Voter
 {
 	public const IS_MFA_IN_PROGRESS = 'IS_MFA_IN_PROGRESS';
 
@@ -26,7 +26,7 @@ class MultiFactorVoter extends Voter
 	) {
 	}
 
-	protected function supports(string $attribute, mixed $subject): bool
+	public function supportsAttribute(string $attribute): bool
 	{
 		return \in_array(
 			$attribute,
@@ -40,6 +40,17 @@ class MultiFactorVoter extends Voter
 		);
 	}
 
+	protected function supports(string $attribute, mixed $subject): bool
+	{
+		return
+			$this->supportsType(
+				is_object($subject) ?
+					$subject::class :
+					gettype($subject)
+			) &&
+			$this->supportsAttribute($attribute);
+	}
+
 	protected function voteOnAttribute(
 		string $attribute,
 		mixed $subject,
@@ -47,10 +58,10 @@ class MultiFactorVoter extends Voter
 	): bool {
 		if (
 			self::IS_MFA_IN_PROGRESS == $attribute &&
-			!($token instanceof MultiFactorAuthenticationToken)
+			!($token instanceof AuthenticationToken)
 		) {
 			return false;
-		} elseif ($token instanceof MultiFactorAuthenticationToken) {
+		} elseif ($token instanceof AuthenticationToken) {
 			return $token->isAuthenticated();
 		}
 

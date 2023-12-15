@@ -1,10 +1,11 @@
 <?php
-namespace iikiti\CMS\Security\Authentication;
 
-use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
+namespace iikiti\CMS\Security\Authentication\MultiFactor;
 
-interface MultiFactorTokenInterface extends TokenInterface {
+use Symfony\Component\Security\Core\Authentication\Token\TokenInterface as SecurityTokenInterface;
 
+interface TokenInterface extends SecurityTokenInterface
+{
 	public function getAssociatedToken(): ?TokenInterface;
 
 	public function setAssociatedToken(TokenInterface $token): void;
@@ -12,6 +13,4 @@ interface MultiFactorTokenInterface extends TokenInterface {
 	public function isAuthenticated(): bool;
 
 	public function setIsAuthenticated(bool $authenticated): void;
-
 }
-
