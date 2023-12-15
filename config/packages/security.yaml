@@ -16,7 +16,7 @@ security:
             security: false
         main:
             custom_authenticators:
-                - iikiti\CMS\Security\Authentication\MultiFactorAuthenticator
+                - iikiti\CMS\Security\Authentication\MultiFactor\Authenticator
             lazy: true
             #two_factor:
             #    auth_form_path: mfa_login    # The route name you have used in the routes.yaml
@@ -30,7 +30,7 @@ security:
                 default_target_path: html_login
             # configure the form authentication as the entry point for unauthenticated users
             entry_point: form_login
-            access_denied_handler: iikiti\CMS\Security\Authentication\MultiFactorAccessHandler
+            access_denied_handler: iikiti\CMS\Security\Authentication\MultiFactor\AccessHandler
             logout:
                 path: html_logout
                 target: /
