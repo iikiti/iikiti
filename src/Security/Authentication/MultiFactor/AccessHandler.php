@@ -1,6 +1,6 @@
 <?php
 
-namespace iikiti\CMS\Security\Authentication;
+namespace iikiti\CMS\Security\Authentication\MultiFactor;
 
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -11,7 +11,7 @@ use Symfony\Component\Routing\RouterInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Http\Authorization\AccessDeniedHandlerInterface;
 
-class MultiFactorAccessHandler implements AccessDeniedHandlerInterface
+class AccessHandler implements AccessDeniedHandlerInterface
 {
 	public function __construct(
 		private Security $security,
@@ -25,7 +25,7 @@ class MultiFactorAccessHandler implements AccessDeniedHandlerInterface
 	): ?Response {
 		$token = $this->security->getToken();
 		if (
-			$token instanceof MultiFactorAuthenticationToken &&
+			$token instanceof AuthenticationToken &&
 			false === $token->isAuthenticated() &&
 			'html_login' != $this->router->match($request->getPathInfo())['_route']
 		) {
@@ -35,8 +35,8 @@ class MultiFactorAccessHandler implements AccessDeniedHandlerInterface
 				false == $session->isStarted() ||
 				false == ($session instanceof FlashBagAwareSessionInterface)
 			) {
-				if (false == ($accessDeniedException instanceof MultiFactorAccessDeniedException)) {
-					throw new MultiFactorAccessDeniedException($message, $accessDeniedException);
+				if (false == ($accessDeniedException instanceof AccessDeniedException)) {
+					throw new AccessDeniedException($message, $accessDeniedException);
 				}
 			} else {
 				$session->getFlashBag()->set('error', $message);

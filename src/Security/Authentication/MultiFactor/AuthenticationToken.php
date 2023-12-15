@@ -1,12 +1,12 @@
 <?php
 
-namespace iikiti\CMS\Security\Authentication;
+namespace iikiti\CMS\Security\Authentication\MultiFactor;
 
 use Symfony\Component\Security\Core\Authentication\Token\AbstractToken;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
-class MultiFactorAuthenticationToken extends AbstractToken implements MultiFactorTokenInterface
+class AuthenticationToken extends AbstractToken implements TokenInterface
 {
 	/** @psalm-suppress PropertyNotSetInConstructor */
 	private TokenInterface $associatedToken;
