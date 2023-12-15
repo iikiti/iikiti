@@ -18,10 +18,6 @@ security:
             custom_authenticators:
                 - iikiti\CMS\Security\Authentication\MultiFactor\Authenticator
             lazy: true
-            #two_factor:
-            #    auth_form_path: mfa_login    # The route name you have used in the routes.yaml
-            #    check_path: mfa_login_check  # The route name you have used in the routes.yaml
-            #    multi_factor: false
             form_login:
                 check_path: html_login
                 failure_path: html_login
