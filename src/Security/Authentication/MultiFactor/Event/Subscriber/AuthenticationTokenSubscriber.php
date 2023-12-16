@@ -33,13 +33,12 @@ class AuthenticationTokenSubscriber implements EventSubscriberInterface
 			return; // User does not have MFA preferences
 		}
 
-		$unserializeClassLoad = function (string $classname): void {
+		spl_autoload_register($unserializeLoadHandler = function (string $classname): void {
 			self::__unserializeClassAlias($classname);
-		};
-		spl_autoload_register($unserializeClassLoad);
+		});
 		/** @var MFProp|\__PHP_Incomplete_Class|false $mfaProperty */
 		$mfaProperty = unserialize($user->getProperties()->get(MFProp::KEY)->getValue());
-		spl_autoload_unregister($unserializeClassLoad);
+		spl_autoload_unregister($unserializeLoadHandler);
 
 		if (false === $mfaProperty || false == ($mfaProperty instanceof MFProp)) {
 			throw new AuthenticationException('User has invalid or missing MFA preferences');
