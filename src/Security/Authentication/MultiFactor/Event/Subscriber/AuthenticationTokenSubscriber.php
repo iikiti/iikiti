@@ -33,9 +33,11 @@ class AuthenticationTokenSubscriber implements EventSubscriberInterface
 			return; // User does not have MFA preferences
 		}
 
-		spl_autoload_register($unserializeLoadHandler = static function (string $classname): void {
-			self::__unserializeClassAlias($classname);
-		});
+		spl_autoload_register(
+			$unserializeLoadHandler = static function (string $classname): void {
+				self::__unserializeClassAlias($classname);
+			}
+		);
 		/** @var MFProp|\__PHP_Incomplete_Class|false $mfaProperty */
 		$mfaProperty = unserialize($user->getProperties()->get(MFProp::KEY)->getValue());
 		spl_autoload_unregister($unserializeLoadHandler);
