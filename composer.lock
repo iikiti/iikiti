@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "81029117e1fe00befc188947a59de684",
+    "content-hash": "15f19f1e65446e1fa306a6200b21fa14",
     "packages": [
         {
             "name": "doctrine/annotations",
@@ -1471,6 +1471,45 @@
                 }
             ],
             "time": "2023-10-06T06:47:41+00:00"
+        },
+        {
+            "name": "iikiti/mfa",
+            "version": "dev-master",
+            "dist": {
+                "type": "path",
+                "url": "/home/jim/dev/lib/iikiti/mfa",
+                "reference": "bb83826a9fba33a8fce6a4f3d274a67eb1858378"
+            },
+            "require": {
+                "php": "~8.2.0 || ~8.3.0",
+                "symfony/http-kernel": "^7.0",
+                "symfony/routing": "^7.0",
+                "symfony/security-bundle": "^7.0"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "*",
+                "phpunit/phpunit": "^10.5",
+                "squizlabs/php_codesniffer": "^3.8",
+                "vimeo/psalm": "^5.18"
+            },
+            "suggest": {
+                "ext-sodium": "Base32 encoding at higher performance."
+            },
+            "type": "symfony-bundle",
+            "autoload": {
+                "psr-4": {
+                    "iikiti\\MfaBundle\\": "src/",
+                    "iikiti\\MfaBundle\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "Apache-2.0"
+            ],
+            "description": "Two-factor/multi-factor authentication bundle for Symfony and iikiti.",
+            "transport-options": {
+                "symlink": true,
+                "relative": false
+            }
         },
         {
             "name": "ivopetkov/html5-dom-document-php",
@@ -11285,7 +11324,9 @@
     ],
     "aliases": [],
     "minimum-stability": "dev",
-    "stability-flags": [],
+    "stability-flags": {
+        "iikiti/mfa": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {

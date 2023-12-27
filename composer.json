@@ -20,6 +20,13 @@
             "options": {
                 "symlink": true
             }
+        },
+		{
+            "type": "path",
+            "url": "/home/jim/dev/lib/iikiti/mfa",
+            "options": {
+                "symlink": true
+            }
         }
     ],
     "require": {
@@ -33,6 +40,7 @@
         "doctrine/doctrine-bundle": "^2.10",
         "doctrine/doctrine-migrations-bundle": "^3.2",
         "doctrine/orm": "^2.16",
+        "iikiti/mfa": "dev-master",
         "ivopetkov/html5-dom-document-php": "^2.5",
         "phpdocumentor/reflection-docblock": "^5.3",
         "phpstan/phpdoc-parser": "^1.24",
