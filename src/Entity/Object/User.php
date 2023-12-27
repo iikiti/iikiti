@@ -6,12 +6,15 @@ use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Manager\UserRoleManager;
 use iikiti\CMS\Repository\Object\UserRepository;
+use iikiti\MfaBundle\Authentication\User\Property;
+use iikiti\MfaBundle\Entity\UserInterface as MfaUserInterface;
+use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: 'objects')]
-class User extends DbObject implements UserInterface, PasswordAuthenticatedUserInterface
+class User extends DbObject implements PasswordAuthenticatedUserInterface, MfaUserInterface, UserInterface
 {
 	public const SITE_SPECIFIC = false;
 
@@ -106,5 +109,21 @@ class User extends DbObject implements UserInterface, PasswordAuthenticatedUserI
 	public function getPreferredTwoFactorProvider(): ?string
 	{
 		return 'email';
+	}
+
+	public function getMultifactorPreferences(): array
+	{
+		if (false == $this->getProperties()->containsKey(Property::KEY)) {
+			return []; // User does not have MFA preferences
+		}
+
+		/** @var Property|\__PHP_Incomplete_Class|false $mfaProperty */
+		$mfaProperty = unserialize($this->getProperties()->get(Property::KEY)->getValue());
+
+		if (false === $mfaProperty || false == ($mfaProperty instanceof Property)) {
+			throw new AuthenticationException('User has invalid or missing MFA preferences');
+		}
+
+		return [];
 	}
 }
