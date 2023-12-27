@@ -15,8 +15,8 @@ security:
             pattern: ^/(_(profiler|wdt)|css|images|js)/
             security: false
         main:
-            custom_authenticators:
-                - iikiti\CMS\Security\Authentication\MultiFactor\Authenticator
+            #custom_authenticators:
+            #    - iikiti\CMS\Security\Authentication\MultiFactor\Authenticator
             lazy: true
             form_login:
                 check_path: html_login
@@ -26,7 +26,7 @@ security:
                 default_target_path: html_login
             # configure the form authentication as the entry point for unauthenticated users
             entry_point: form_login
-            access_denied_handler: iikiti\CMS\Security\Authentication\MultiFactor\AccessHandler
+            #access_denied_handler: iikiti\CMS\Security\Authentication\MultiFactor\AccessHandler
             logout:
                 path: html_logout
                 target: /
