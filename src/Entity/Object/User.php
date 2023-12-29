@@ -117,13 +117,13 @@ class User extends DbObject implements PasswordAuthenticatedUserInterface, MfaUs
 			return []; // User does not have MFA preferences
 		}
 
-		/** @var Property|\__PHP_Incomplete_Class|false $mfaProperty */
-		$mfaProperty = unserialize($this->getProperties()->get(Property::KEY)->getValue());
+		/** @var array|null $mfaProperty */
+		$mfaProperty = $this->getProperties()->get(Property::KEY)->getValue();
 
-		if (false === $mfaProperty || false == ($mfaProperty instanceof Property)) {
+		if (null === $mfaProperty) {
 			throw new AuthenticationException('User has invalid or missing MFA preferences');
 		}
 
-		return [];
+		return $mfaProperty;
 	}
 }
