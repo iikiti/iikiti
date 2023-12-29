@@ -6,7 +6,6 @@ use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Manager\UserRoleManager;
 use iikiti\CMS\Repository\Object\UserRepository;
-use iikiti\MfaBundle\Authentication\User\Property;
 use iikiti\MfaBundle\Entity\UserInterface as MfaUserInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
@@ -113,12 +112,12 @@ class User extends DbObject implements PasswordAuthenticatedUserInterface, MfaUs
 
 	public function getMultifactorPreferences(): array
 	{
-		if (false == $this->getProperties()->containsKey(Property::KEY)) {
+		if (false == $this->getProperties()->containsKey(self::MFA_KEY)) {
 			return []; // User does not have MFA preferences
 		}
 
 		/** @var array|null $mfaProperty */
-		$mfaProperty = $this->getProperties()->get(Property::KEY)->getValue();
+		$mfaProperty = $this->getProperties()->get(self::MFA_KEY)->getValue();
 
 		if (null === $mfaProperty) {
 			throw new AuthenticationException('User has invalid or missing MFA preferences');
