@@ -1478,7 +1478,7 @@
             "dist": {
                 "type": "path",
                 "url": "/home/jim/dev/lib/iikiti/mfa",
-                "reference": "adbfd210072a94904cabc106f152b816de13d2d0"
+                "reference": "1bfc779a6a1c5ff0d6f1944be45cc58ca9790543"
             },
             "require": {
                 "php": "~8.2.0 || ~8.3.0",
@@ -8676,21 +8676,22 @@
         },
         {
             "name": "friendsofphp/php-cs-fixer",
-            "version": "v3.45.0",
+            "version": "v3.46.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/PHP-CS-Fixer/PHP-CS-Fixer.git",
-                "reference": "c0daa33cb2533cd73f48dde1c70c2afa3e7953b5"
+                "reference": "be6831c9af1740470d2a773119b9273f8ac1c3d2"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/PHP-CS-Fixer/PHP-CS-Fixer/zipball/c0daa33cb2533cd73f48dde1c70c2afa3e7953b5",
-                "reference": "c0daa33cb2533cd73f48dde1c70c2afa3e7953b5",
+                "url": "https://api.github.com/repos/PHP-CS-Fixer/PHP-CS-Fixer/zipball/be6831c9af1740470d2a773119b9273f8ac1c3d2",
+                "reference": "be6831c9af1740470d2a773119b9273f8ac1c3d2",
                 "shasum": ""
             },
             "require": {
                 "composer/semver": "^3.4",
                 "composer/xdebug-handler": "^3.0.3",
+                "ext-filter": "*",
                 "ext-json": "*",
                 "ext-tokenizer": "*",
                 "php": "^7.4 || ^8.0",
@@ -8754,7 +8755,7 @@
             ],
             "support": {
                 "issues": "https://github.com/PHP-CS-Fixer/PHP-CS-Fixer/issues",
-                "source": "https://github.com/PHP-CS-Fixer/PHP-CS-Fixer/tree/v3.45.0"
+                "source": "https://github.com/PHP-CS-Fixer/PHP-CS-Fixer/tree/v3.46.0"
             },
             "funding": [
                 {
@@ -8762,7 +8763,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2023-12-30T02:07:07+00:00"
+            "time": "2024-01-03T21:38:46+00:00"
         },
         {
             "name": "myclabs/deep-copy",
