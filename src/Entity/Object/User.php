@@ -117,4 +117,9 @@ class User extends DbObject implements PasswordAuthenticatedUserInterface, MfaUs
 
 		return $this->getProperties()->get(self::MFA_KEY)->getValue();
 	}
+
+	public function setMultifactorPreferences(array $preferences): void
+	{
+		$this->getProperties()->set(self::MFA_KEY, $preferences);
+	}
 }
