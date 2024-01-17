@@ -36,8 +36,14 @@ class DbObject
 
 	private ?string $type = null;
 
+	#[ORM\OneToMany(
+		targetEntity: ObjectProperty::class,
+		mappedBy: 'object',
+		indexBy: 'name',
+		cascade: ['persist', 'remove'],
+		orphanRemoval: true
+	)]
 	/** @var Collection<string,ObjectProperty> */
-	#[ORM\OneToMany(targetEntity: ObjectProperty::class, mappedBy: 'object', indexBy: 'name')]
 	private Collection $properties;
 
 	public function __construct()
@@ -75,8 +81,21 @@ class DbObject
 		return [];
 	}
 
+	/** @return Collection<string,ObjectProperty> */
 	public function getProperties(): Collection
 	{
 		return $this->properties;
+	}
+
+	public function setProperty(string $name, mixed $value): void
+	{
+		$isProperty = $value instanceof ObjectProperty;
+		$property = $isProperty ? $value :
+			($this->getProperties()->get($name) ?? new ObjectProperty($this));
+		$property->setName($name);
+		if (false == $isProperty) {
+			$property->setValue($value);
+		}
+		$this->getProperties()->set($name, $property);
 	}
 }
