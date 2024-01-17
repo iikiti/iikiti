@@ -7,6 +7,7 @@ use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Filters\HtmlFilter;
 use iikiti\CMS\Registry\SiteRegistry;
+use iikiti\CMS\Repository\Object\SiteRepository;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\ControllerEvent;
@@ -22,12 +23,16 @@ class Initializer implements EventSubscriberInterface
 {
 	protected static bool $hasInitialized = false;
 
+	protected static SiteRegistry $siteRegistry;
+
 	public function __construct(
 		protected ManagerRegistry $registry,
 		private Stopwatch $stopwatch,
-		private Security $security,
-		private SiteRegistry $siteRegistry
+		private Security $security
 	) {
+		/** @var SiteRepository $siteRepository */
+		$siteRepository = $this->registry->getManager()->getRepository(Site::class);
+		self::$siteRegistry = $siteRepository->getRegistry();
 	}
 
 	public static function getSubscribedEvents(): array
@@ -56,14 +61,13 @@ class Initializer implements EventSubscriberInterface
 			HtmlFilter::filterHtml($event, $this->stopwatch);
 		});
 
-		$registry = $this->registry;
 		/** @var \Doctrine\ORM\EntityManager $em */
-		$em = $registry->getManager();
+		$em = $this->registry->getManager();
 
 		$em->getFilters()->enable('ObjectPropertyFilter');
 
 		if (
-			($site = $this->siteRegistry->getCurrentSite()) instanceof Site &&
+			($site = self::$siteRegistry->getCurrentSite()) instanceof Site &&
 			null !== $site->getId()
 		) {
 			// TODO: Extensions::setInitialSiteId($site->getId() ?? 0);
@@ -84,7 +88,7 @@ class Initializer implements EventSubscriberInterface
 			return;
 		} // Not logged in
 
-		if (!$user->registeredToSite($this->siteRegistry->getCurrentSite()->getId())) {
+		if (!$user->registeredToSite(static::$siteRegistry->getCurrentSite()->getId())) {
 			throw new AuthenticationException('User not registered to current site');
 		}
 	}
