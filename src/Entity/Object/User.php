@@ -4,6 +4,7 @@ namespace iikiti\CMS\Entity\Object;
 
 use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\DbObject;
+use iikiti\CMS\Entity\ObjectProperty;
 use iikiti\CMS\Manager\UserRoleManager;
 use iikiti\CMS\Repository\Object\UserRepository;
 use iikiti\MfaBundle\Entity\UserInterface as MfaUserInterface;
@@ -61,12 +62,18 @@ class User extends DbObject implements PasswordAuthenticatedUserInterface, MfaUs
 
 	public function getPassword(): null|string
 	{
-		return $this->getProperties()->get('password')?->getValue();
+		/** @var ObjectProperty<string>|null $property */
+		$property = $this->getProperties()->get('password');
+
+		return $property?->getValue();
 	}
 
 	public function getUsername(): ?string
 	{
-		return $this->getProperties()->get('username')?->getValue();
+		/** @var ObjectProperty<string>|null $property */
+		$property = $this->getProperties()->get('username');
+
+		return $property?->getValue();
 	}
 
 	public function eraseCredentials(): void
@@ -87,15 +94,21 @@ class User extends DbObject implements PasswordAuthenticatedUserInterface, MfaUs
 
 	public function getSiteRoles(string|int $siteId): array
 	{
+		/** @var ObjectProperty<array>|null $property */
+		$property = $this->getProperties()->get('roles');
+
 		return UserRoleManager::convertStringsToEnums(
-			$this->getProperties()->get('roles')?->getValue()[$siteId] ?? []
+			$property?->getValue()[$siteId] ?? []
 		);
 	}
 
 	public function getGlobalRoles(): array
 	{
+		/** @var ObjectProperty<array>|null $property */
+		$property = $this->getProperties()->get('roles');
+
 		return UserRoleManager::convertStringsToEnums(
-			$this->getProperties()->get('roles')?->getValue()[0] ?? []
+			$property?->getValue()[0] ?? []
 		);
 	}
 
@@ -115,11 +128,14 @@ class User extends DbObject implements PasswordAuthenticatedUserInterface, MfaUs
 			return []; // User does not have MFA preferences
 		}
 
-		return $this->getProperties()->get(self::MFA_KEY)->getValue();
+		/** @var ObjectProperty<array>|null $property */
+		$property = $this->getProperties()->get(self::MFA_KEY);
+
+		return $property?->getValue();
 	}
 
 	public function setMultifactorPreferences(array $preferences): void
 	{
-		$this->getProperties()->set(self::MFA_KEY, $preferences);
+		$this->setProperty(self::MFA_KEY, $preferences);
 	}
 }
