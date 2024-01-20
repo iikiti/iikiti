@@ -1478,7 +1478,7 @@
             "dist": {
                 "type": "path",
                 "url": "/home/jim/dev/lib/iikiti/mfa",
-                "reference": "74239b35b4d4b44741cbc2dbfa3be915e8271465"
+                "reference": "a96fefeaa415ee636e8e5c6ce330876aec0693bf"
             },
             "require": {
                 "php": "~8.2.0 || ~8.3.0",
