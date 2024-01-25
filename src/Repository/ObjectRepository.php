@@ -15,7 +15,8 @@ use Symfony\Contracts\Service\Attribute\Required;
 /**
  * Class ObjectRepository.
  */
-abstract class ObjectRepository extends ServiceEntityRepository implements SearchableRepositoryInterface
+abstract class ObjectRepository extends ServiceEntityRepository implements
+	SearchableRepositoryInterface
 {
 	protected SiteRegistry $siteRegistry;
 
