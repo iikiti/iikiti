@@ -10,7 +10,10 @@ return (new PhpCsFixer\Config())->
 		'@Symfony' => true,
 		'no_unused_imports' => true,
 		'operator_linebreak' => ['position' => 'end'],
-		'phpdoc_to_comment' => false
+		'phpdoc_to_comment' => false,
+		'class_definition' => [
+			'single_line' => false,
+		],
 	])->
 	setFinder($finder)->
 	setIndent("\t")
