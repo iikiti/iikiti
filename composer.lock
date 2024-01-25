@@ -1478,9 +1478,10 @@
             "dist": {
                 "type": "path",
                 "url": "/home/jim/dev/lib/iikiti/mfa",
-                "reference": "2cb197b9f0b77f151fdb1034e7b2c54fa6e78a12"
+                "reference": "d286eb0a7a0a7e71b71b919c7cb044997722d8c2"
             },
             "require": {
+                "doctrine/persistence": "^3.2",
                 "php": "~8.2.0 || ~8.3.0",
                 "spomky-labs/otphp": "^11.2",
                 "symfony/http-kernel": "^7.0",
