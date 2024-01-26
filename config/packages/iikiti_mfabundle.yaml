@@ -1,0 +1,2 @@
+iikiti_multifactor_authentication:
+  site_repository: iikiti\CMS\Repository\Object\SiteRepository
