@@ -7,11 +7,12 @@ use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\ObjectRepository;
+use iikiti\MfaBundle\Authentication\Interface\MfaPreferencesInterface;
 
 /**
  * Class SiteRepository.
  */
-class SiteRepository extends ObjectRepository
+class SiteRepository extends ObjectRepository implements MfaPreferencesInterface
 {
 	public function __construct(
 		ManagerRegistry $registry,
@@ -24,6 +25,24 @@ class SiteRepository extends ObjectRepository
 	public function getRegistry(): SiteRegistry
 	{
 		return $this->siteRegistry;
+	}
+
+	public function getCurrentSite(): ?Site
+	{
+		return $this->siteRegistry->getCurrentSite();
+	}
+
+	public function getMultifactorPreferences(): array|null
+	{
+		return $this->getCurrentSite()?->getMultifactorPreferences();
+	}
+
+	public function setMultifactorPreferences(array $preferences): void
+	{
+		($site = $this->getCurrentSite())?->setMultifactorPreferences($preferences);
+		if (null === $site) {
+			throw new \Exception('No current site. Cannot set preferences.');
+		}
 	}
 
 	public function findByDomain(string $domain): array

@@ -7,14 +7,20 @@ use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Entity\ObjectProperty;
 use iikiti\CMS\Manager\UserRoleManager;
 use iikiti\CMS\Repository\Object\UserRepository;
+use iikiti\CMS\Trait\MfaPreferencesTrait;
 use iikiti\MfaBundle\Authentication\Interface\MfaPreferencesInterface;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: 'objects')]
-class User extends DbObject implements PasswordAuthenticatedUserInterface, MfaPreferencesInterface, UserInterface
+class User extends DbObject implements
+	PasswordAuthenticatedUserInterface,
+	MfaPreferencesInterface,
+	UserInterface
 {
+	use MfaPreferencesTrait;
+
 	public const SITE_SPECIFIC = false;
 
 	/** @psalm-suppress PropertyNotSetInConstructor */
@@ -120,22 +126,5 @@ class User extends DbObject implements PasswordAuthenticatedUserInterface, MfaPr
 	public function getPreferredTwoFactorProvider(): ?string
 	{
 		return 'email';
-	}
-
-	public function getMultifactorPreferences(): array|null
-	{
-		if (false == $this->getProperties()->containsKey(self::MFA_KEY)) {
-			return []; // User does not have MFA preferences
-		}
-
-		/** @var ObjectProperty<array>|null $property */
-		$property = $this->getProperties()->get(self::MFA_KEY);
-
-		return $property?->getValue();
-	}
-
-	public function setMultifactorPreferences(array $preferences): void
-	{
-		$this->setProperty(self::MFA_KEY, $preferences);
 	}
 }
