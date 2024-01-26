@@ -6,11 +6,15 @@ use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Repository\Object\SiteRepository;
 use iikiti\CMS\Service\Configuration;
+use iikiti\CMS\Trait\MfaPreferencesTrait;
+use iikiti\MfaBundle\Authentication\Interface\MfaPreferencesInterface;
 
 #[ORM\Entity(repositoryClass: SiteRepository::class)]
 #[ORM\Table(name: 'objects')]
-class Site extends DbObject
+class Site extends DbObject implements MfaPreferencesInterface
 {
+	use MfaPreferencesTrait;
+
 	public const SITE_SPECIFIC = false;
 
 	public function getConfiguration(): Configuration
