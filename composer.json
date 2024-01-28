@@ -143,7 +143,7 @@
             "@auto-scripts"
         ],
 		"test": [
-            "phpunit"
+            "XDEBUG_MODE=develop,coverage,profile,trace phpunit"
 		]
     },
     "conflict": {
