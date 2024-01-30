@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "0e4f1e86fc552c4df781258b45d37780",
+    "content-hash": "4ef863eeb5d9f4c76b08e925ad7b5403",
     "packages": [
         {
             "name": "doctrine/annotations",
@@ -1478,7 +1478,7 @@
             "dist": {
                 "type": "path",
                 "url": "/home/jim/dev/lib/iikiti/mfa",
-                "reference": "8ee450b9043396c0d333a1cb57739412b28ee56a"
+                "reference": "9ef79ed9f5f4ff79c39e987dbd39d363776cdac7"
             },
             "require": {
                 "doctrine/persistence": "^3.2",
@@ -1493,6 +1493,7 @@
             "require-dev": {
                 "friendsofphp/php-cs-fixer": "*",
                 "phpunit/phpunit": "^10.5",
+                "psalm/plugin-symfony": "^5.1",
                 "squizlabs/php_codesniffer": "^3.8",
                 "vimeo/psalm": "^5.18"
             },
@@ -9747,6 +9748,53 @@
                 }
             ],
             "time": "2024-01-19T07:03:14+00:00"
+        },
+        {
+            "name": "psalm/attributes",
+            "version": "0.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/psalm/psalm-attributes.git",
+                "reference": "c796c2da0841a97dac3b7a1f8a5d6fe3f866b6ca"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/psalm/psalm-attributes/zipball/c796c2da0841a97dac3b7a1f8a5d6fe3f866b6ca",
+                "reference": "c796c2da0841a97dac3b7a1f8a5d6fe3f866b6ca",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8"
+            },
+            "require-dev": {
+                "vimeo/psalm": "dev-master"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Psalm\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Matthew Brown"
+                }
+            ],
+            "description": "A collection of PHP 8 Attributes that Psalm can understand",
+            "keywords": [
+                "attributes",
+                "php",
+                "static analysis"
+            ],
+            "support": {
+                "issues": "https://github.com/psalm/psalm-attributes/issues",
+                "source": "https://github.com/psalm/psalm-attributes/tree/0.1.0"
+            },
+            "time": "2020-10-31T02:02:00+00:00"
         },
         {
             "name": "psalm/plugin-symfony",
