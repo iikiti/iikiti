@@ -2,8 +2,8 @@
 
 namespace iikiti\CMS\Repository\Object;
 
-use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\Persistence\ManagerRegistry;
+use iikiti\CMS\Entity\Object\Application;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\ObjectRepository;
@@ -27,6 +27,13 @@ class SiteRepository extends ObjectRepository implements MfaPreferencesInterface
 		return $this->siteRegistry;
 	}
 
+	public function getApplicationBySite(Site $site): ?Application
+	{
+		return $this->getEntityManager()->getRepository(Application::class)->find(
+			$site->getProperties()->get(Application::PROPERTY_KEY)->getValue()
+		);
+	}
+
 	public function getCurrentSite(): ?Site
 	{
 		return $this->siteRegistry->getCurrentSite();
@@ -45,19 +52,21 @@ class SiteRepository extends ObjectRepository implements MfaPreferencesInterface
 		}
 	}
 
-	public function findByDomain(string $domain): array
+	public function findByDomain(string $domain, int $appId = null): array
 	{
-		$qb = $this->createQueryBuilder('s');
-		$siteQ = $qb->select('s')->
-			join(
-				's.properties',
-				'd',
-				Join::WITH,
-				'd.object_id = s.id AND d.name = :name AND JSON_CONTAINS(d.value, :domain) = 1'
-			)->
-			setParameter('name', 'domain')->
-			setParameter('domain', json_encode($domain));
+		return $this->findByProperty(Site::DOMAIN_PROPERTY_KEY, $domain);
+	}
 
-		return $siteQ->getQuery()->getResult();
+	public function findByApplication(int $appId = null): array
+	{
+		return $this->findByProperty(Application::PROPERTY_KEY, $appId);
+	}
+
+	public function findByDomainAndApplication(string $domain, int $appId): array
+	{
+		return $this->findByProperty(
+			[Site::DOMAIN_PROPERTY_KEY, Application::PROPERTY_KEY],
+			[$domain, $appId]
+		);
 	}
 }
