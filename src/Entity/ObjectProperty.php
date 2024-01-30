@@ -6,11 +6,11 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Repository\ObjectPropertyRepository;
 
-#[ORM\Entity(repositoryClass: ObjectPropertyRepository::class)]
-#[ORM\Table(name: 'object_properties')]
 /**
  * @template T of int|float|string|array|null
  */
+#[ORM\Entity(repositoryClass: ObjectPropertyRepository::class)]
+#[ORM\Table(name: 'object_properties')]
 class ObjectProperty
 {
 	#[ORM\ManyToOne(targetEntity: DbObject::class, inversedBy: 'properties')]
@@ -27,8 +27,8 @@ class ObjectProperty
 	#[ORM\Column(type: Types::STRING)]
 	private string|null $name = null;
 
+	/** @var T $value */
 	#[ORM\Column(type: Types::JSON)]
-	/** @var T */
 	private int|float|string|array|null $value = null;
 
 	#[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
