@@ -43,7 +43,7 @@ class DbObject
 		cascade: ['persist', 'remove'],
 		orphanRemoval: true
 	)]
-	/** @var Collection<string,ObjectProperty> */
+	/** @var Collection<string,ObjectProperty<mixed>> */
 	private Collection $properties;
 
 	public function __construct()
