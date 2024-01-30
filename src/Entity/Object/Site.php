@@ -4,6 +4,7 @@ namespace iikiti\CMS\Entity\Object;
 
 use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\DbObject;
+use iikiti\CMS\Entity\ObjectProperty;
 use iikiti\CMS\Repository\Object\SiteRepository;
 use iikiti\CMS\Service\Configuration;
 use iikiti\CMS\Trait\MfaPreferencesTrait;
@@ -16,10 +17,19 @@ class Site extends DbObject implements MfaPreferencesInterface
 	use MfaPreferencesTrait;
 
 	public const SITE_SPECIFIC = false;
+	public const DOMAIN_PROPERTY_KEY = 'domain';
 
 	public function getConfiguration(): Configuration
 	{
 		return new Configuration((object) ($this->getContent() ?? []));
+	}
+
+	public function getApplicationId(): ?int
+	{
+		/** @var ObjectProperty<int>|null $property */
+		$property = $this->getProperties()->get(Application::PROPERTY_KEY);
+
+		return $property?->getValue();
 	}
 
 	/**
