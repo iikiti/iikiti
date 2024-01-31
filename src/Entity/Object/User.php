@@ -4,7 +4,6 @@ namespace iikiti\CMS\Entity\Object;
 
 use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\DbObject;
-use iikiti\CMS\Entity\ObjectProperty;
 use iikiti\CMS\Manager\UserRoleManager;
 use iikiti\CMS\Repository\Object\UserRepository;
 use iikiti\CMS\Trait\MfaPreferencesTrait;
@@ -23,15 +22,7 @@ class User extends DbObject implements
 
 	public const SITE_SPECIFIC = false;
 
-	/** @psalm-suppress PropertyNotSetInConstructor */
-	protected string|int|null $currentSiteId = null;
-
 	private array $roles = [];
-
-	public function setCurrentSiteId(string|int|null $siteId): void
-	{
-		$this->currentSiteId = $siteId;
-	}
 
 	/**
 	 * @return array<string>
@@ -51,24 +42,20 @@ class User extends DbObject implements
 		return $this->getUserIdentifier();
 	}
 
-	/**
-	 * @return array<int,string>|array<string,EnumCase>
-	 */
-	/** @psalm-suppress ImplementedReturnTypeMismatch */
 	public function getRoles(bool $asEnum = false): array
 	{
 		$defaultRoles = UserRoleManager::getDefaultRoles();
-		if (null === $this->currentSiteId) {
+		$currentSiteId = $this->siteRegistry::getCurrent()->getId();
+		if (null === $currentSiteId) {
 			throw new \Exception('Site cannot be null');
 		}
-		$roles = array_merge($defaultRoles, $this->getRegistrationRoles($this->currentSiteId));
+		$roles = array_merge($defaultRoles, $this->getRegistrationRoles($currentSiteId));
 
 		return $asEnum ? $roles : array_values(UserRoleManager::convertEnumsToStrings($roles));
 	}
 
 	public function getPassword(): null|string
 	{
-		/** @var ObjectProperty<string>|null $property */
 		$property = $this->getProperties()->get('password');
 
 		return $property?->getValue();
@@ -76,7 +63,6 @@ class User extends DbObject implements
 
 	public function getUsername(): ?string
 	{
-		/** @var ObjectProperty<string>|null $property */
 		$property = $this->getProperties()->get('username');
 
 		return $property?->getValue();
@@ -100,7 +86,6 @@ class User extends DbObject implements
 
 	public function getSiteRoles(string|int $siteId): array
 	{
-		/** @var ObjectProperty<array>|null $property */
 		$property = $this->getProperties()->get('roles');
 
 		return UserRoleManager::convertStringsToEnums(
@@ -110,7 +95,6 @@ class User extends DbObject implements
 
 	public function getGlobalRoles(): array
 	{
-		/** @var ObjectProperty<array>|null $property */
 		$property = $this->getProperties()->get('roles');
 
 		return UserRoleManager::convertStringsToEnums(

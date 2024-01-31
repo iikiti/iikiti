@@ -3,6 +3,7 @@
 namespace iikiti\CMS\Repository\Object;
 
 use Doctrine\Persistence\ManagerRegistry;
+use iikiti\CMS\Doctrine\Collections\ArrayCollection;
 use iikiti\CMS\Entity\Object\Application;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Registry\ApplicationRegistry;
@@ -14,20 +15,16 @@ class ApplicationRepository extends ObjectRepository implements MfaPreferencesIn
 {
 	public function __construct(
 		ManagerRegistry $registry,
-		protected ApplicationRegistry $appRegistry,
+		private SiteRegistry $siteRegistry,
+		private ApplicationRegistry $appRegistry,
 		string $entityClass = Application::class
 	) {
-		parent::__construct($registry, $entityClass);
-	}
-
-	public function getRegistry(): SiteRegistry
-	{
-		return $this->siteRegistry;
+		parent::__construct($registry, $siteRegistry, $entityClass);
 	}
 
 	public function getCurrentApplication(): ?Application
 	{
-		return $this->appRegistry->getCurrentApplication();
+		return $this->appRegistry->getCurrent();
 	}
 
 	public function getMultifactorPreferences(): array|null
@@ -43,10 +40,29 @@ class ApplicationRepository extends ObjectRepository implements MfaPreferencesIn
 		}
 	}
 
+	/**
+	 * @return array<Application>
+	 */
 	public function findByDomain(string $domain): array
 	{
+		$siteIds = (new ArrayCollection($this->__getSiteRepository()->findByDomain($domain)))->
+			map(function (Site $site) {
+				return $site->getId();
+			});
+
+		return $this->findByProperty(Site::PROPERTY_KEY, $siteIds);
+	}
+
+	public function getSites(Application $app): array
+	{
+		return $this->__getSiteRepository()->findByApplication($app);
+	}
+
+	private function __getSiteRepository(): SiteRepository
+	{
+		/** @var SiteRepository $siteRep */
 		$siteRep = $this->getEntityManager()->getRepository(Site::class);
 
-		return $siteRep->findByDomain($domain);
+		return $siteRep;
 	}
 }

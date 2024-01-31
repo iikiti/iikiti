@@ -8,6 +8,7 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\ORM\Mapping\DiscriminatorColumn;
 use Doctrine\ORM\Mapping\InheritanceType;
+use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\ObjectRepository;
 
 #[ORM\Entity(repositoryClass: ObjectRepository::class)]
@@ -35,6 +36,9 @@ class DbObject
 	private int|string|null $site_id = null;
 
 	private ?string $type = null;
+
+	/** @psalm-suppress PropertyNotSetInConstructor */
+	protected SiteRegistry $siteRegistry;
 
 	#[ORM\OneToMany(
 		targetEntity: ObjectProperty::class,
@@ -91,11 +95,17 @@ class DbObject
 	{
 		$isProperty = $value instanceof ObjectProperty;
 		$property = $isProperty ? $value :
-			($this->getProperties()->get($name) ?? new ObjectProperty($this));
+			($this->getProperties()->get($name) ?? new ObjectProperty());
 		$property->setName($name);
+		$property->setObject($this);
 		if (false == $isProperty) {
 			$property->setValue($value);
 		}
 		$this->getProperties()->set($name, $property);
+	}
+
+	public function setSiteRegistry(SiteRegistry $siteRegistry): void
+	{
+		$this->siteRegistry = $siteRegistry;
 	}
 }

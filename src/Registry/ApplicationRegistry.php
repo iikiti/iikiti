@@ -2,67 +2,52 @@
 
 namespace iikiti\CMS\Registry;
 
-use Doctrine\Persistence\ManagerRegistry;
+use Doctrine\Common\Collections\Collection;
+use Doctrine\ORM\EntityManagerInterface;
+use iikiti\CMS\Doctrine\Collections\ArrayCollection;
 use iikiti\CMS\Entity\Object\Application;
+use iikiti\CMS\Entity\Object\Site;
+use iikiti\CMS\Repository\Object\SiteRepository;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
-use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 #[AutoconfigureTag('app_registry')]
 class ApplicationRegistry
 {
-	protected static \SplStack $appStack;
-	protected static bool $initialized = false;
-
 	public function __construct(
-		protected RequestStack $requestStack,
-		protected ManagerRegistry $registry,
+		private EntityManagerInterface $em,
+		private SiteRegistry $siteRegistry
 	) {
-		if (static::$initialized) {
-			return;
-		} elseif (isset(self::$appStack)) {
-			static::$initialized = true;
+	}
 
-			return;
+	public function getCurrent(): Application
+	{
+		$app = $this->__getCurrent();
+
+		if (null === $app) {
+			throw new \Exception('No application.');
 		}
-		static::$appStack = new \SplStack();
-		$this->populate();
-		static::$initialized = true;
+
+		return $app;
 	}
 
-	private function populate(): void
+	public function hasCurrentApplication(): bool
 	{
-		$request = $this->requestStack->getCurrentRequest();
-		if (null === $request) {
-			return;
-		}
-		$appRep = $this->registry->getManager()->getRepository(Application::class);
-		$apps = $appRep->findByDomain($request->getHost());
-		if (empty($apps)) {
-			throw new NotFoundHttpException('Application does not exist for current domain.');
-		}
-		foreach ($apps as $app) {
-			self::pushApplication($app);
-		}
+		return null !== $this->__getCurrent();
 	}
 
-	public function getCurrentApplication(): Application
+	private function __getCurrent(): ?Application
 	{
-		return static::count() < 1 ? new Application() : static::$appStack->top();
+		/** @var SiteRepository $siteRep */
+		$siteRep = $this->em->getRepository(Site::class);
+
+		return $siteRep->getApplicationBySite($this->siteRegistry::getCurrent());
 	}
 
-	public function pushApplication(Application $app): void
+	public function getAllParents(): Collection
 	{
-		static::$appStack->push($app);
-	}
-
-	public function popApplication(): ?Application
-	{
-		return static::count() < 1 ? null : static::$appStack->pop();
-	}
-
-	public function count(): int
-	{
-		return static::$appStack->count();
+		return (new ArrayCollection($this->siteRegistry::getAll()))->map(
+			fn (Site $site): ?Application => $this->em->getRepository(Site::class)->
+				getApplicationBySite($site)
+		)->unique();
 	}
 }
