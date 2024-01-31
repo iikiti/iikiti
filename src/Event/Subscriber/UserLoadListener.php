@@ -17,6 +17,6 @@ class UserLoadListener
 
 	public function onPostLoad(User $user, PostLoadEventArgs $eventArgs): void
 	{
-		$user->setCurrentSiteId($this->siteRegistry->getCurrentSite()->getId());
+		$user->setSiteRegistry($this->siteRegistry);
 	}
 }

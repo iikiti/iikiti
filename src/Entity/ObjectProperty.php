@@ -7,12 +7,13 @@ use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Repository\ObjectPropertyRepository;
 
 /**
- * @template T of int|float|string|array|null
+ * @template T of DbObject|null
  */
 #[ORM\Entity(repositoryClass: ObjectPropertyRepository::class)]
 #[ORM\Table(name: 'object_properties')]
 class ObjectProperty
 {
+	/** @var T $value */
 	#[ORM\ManyToOne(targetEntity: DbObject::class, inversedBy: 'properties')]
 	private ?DbObject $object = null;
 
@@ -27,23 +28,11 @@ class ObjectProperty
 	#[ORM\Column(type: Types::STRING)]
 	private string|null $name = null;
 
-	/** @var T $value */
 	#[ORM\Column(type: Types::JSON)]
 	private int|float|string|array|null $value = null;
 
 	#[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
-	private \DateTimeInterface $created;
-
-	public function __construct(
-		DbObject $dbObject = null,
-		string $name = null,
-		mixed $value = null
-	) {
-		$this->created = new \DateTimeImmutable();
-		$this->object = $dbObject;
-		$this->setName($name);
-		$this->setValue($value);
-	}
+	private ?\DateTimeInterface $created = null;
 
 	public function getName(): string|null
 	{
@@ -55,9 +44,6 @@ class ObjectProperty
 		$this->name = $name;
 	}
 
-	/**
-	 * @return T
-	 */
 	public function getValue(): mixed
 	{
 		return $this->value;
@@ -78,11 +64,19 @@ class ObjectProperty
 		$this->created = $created;
 	}
 
+	public function setObject(DbObject|int $object): void
+	{
+		$this->object_id = $object instanceof DbObject ? $object->getId() : $object;
+	}
+
 	public function getId(): int|string|null
 	{
 		return $this->id;
 	}
 
+	/**
+	 * @return T
+	 */
 	public function getObject(): ?DbObject
 	{
 		return $this->object;

@@ -16,15 +16,10 @@ class SiteRepository extends ObjectRepository implements MfaPreferencesInterface
 {
 	public function __construct(
 		ManagerRegistry $registry,
-		protected SiteRegistry $siteRegistry,
+		private SiteRegistry $siteRegistry,
 		string $entityClass = Site::class
 	) {
-		parent::__construct($registry, $entityClass);
-	}
-
-	public function getRegistry(): SiteRegistry
-	{
-		return $this->siteRegistry;
+		parent::__construct($registry, $siteRegistry, $entityClass);
 	}
 
 	public function getApplicationBySite(Site $site): ?Application
@@ -34,34 +29,46 @@ class SiteRepository extends ObjectRepository implements MfaPreferencesInterface
 		);
 	}
 
-	public function getCurrentSite(): ?Site
+	public function getCurrent(): ?Site
 	{
-		return $this->siteRegistry->getCurrentSite();
+		return $this->siteRegistry::getCurrent();
 	}
 
 	public function getMultifactorPreferences(): array|null
 	{
-		return $this->getCurrentSite()?->getMultifactorPreferences();
+		return $this->getCurrent()?->getMultifactorPreferences();
 	}
 
 	public function setMultifactorPreferences(array $preferences): void
 	{
-		($site = $this->getCurrentSite())?->setMultifactorPreferences($preferences);
+		($site = $this->getCurrent())?->setMultifactorPreferences($preferences);
 		if (null === $site) {
 			throw new \Exception('No current site. Cannot set preferences.');
 		}
 	}
 
+	/**
+	 * @return array<Site>
+	 */
 	public function findByDomain(string $domain, int $appId = null): array
 	{
 		return $this->findByProperty(Site::DOMAIN_PROPERTY_KEY, $domain);
 	}
 
-	public function findByApplication(int $appId = null): array
+	/**
+	 * @return array<Site>
+	 */
+	public function findByApplication(int|Application $application = null): array
 	{
-		return $this->findByProperty(Application::PROPERTY_KEY, $appId);
+		return $this->findByProperty(
+			Application::PROPERTY_KEY,
+			$application instanceof Application ? $application->getId() : $application
+		);
 	}
 
+	/**
+	 * @return array<Site>
+	 */
 	public function findByDomainAndApplication(string $domain, int $appId): array
 	{
 		return $this->findByProperty(

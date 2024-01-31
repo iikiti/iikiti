@@ -1,64 +1,103 @@
 <?php
+
 namespace iikiti\CMS\Registry;
 
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Repository\Object\SiteRepository;
-use SplStack;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 #[AutoconfigureTag('site_registry')]
-class SiteRegistry {
-
-    protected static SplStack $siteStack;
+class SiteRegistry
+{
+	protected static \SplStack $siteStack;
 	protected static bool $initialized = false;
+	protected static bool $populated = false;
 
 	public function __construct(
-        protected RequestStack $requestStack,
-		protected ManagerRegistry $registry,
-    ) {
-		if(static::$initialized) return;
-		else if(isset(self::$siteStack)) {
-			static::$initialized = true;
-			return;
-		}
-        static::$siteStack = new SplStack();
-		$this->populate();
-		static::$initialized = true;
-    }
-
-	private function populate(): void {
-		$request = $this->requestStack->getCurrentRequest();
-		if($request === null) return;
-		/** @var SiteRepository $siteRep */
-		$siteRep = $this->registry->getManager()->getRepository(Site::class);
-		$sites = $siteRep->findByDomain($request->getHost());
-		if(empty($sites)) {
-			throw new NotFoundHttpException(
-				'Site does not exist for current domain.'
-			);
-		}
-		foreach($sites as $site) {
-			SiteRegistry::pushSite($site);
-		}
+		RequestStack $requestStack,
+		ManagerRegistry $registry
+	) {
+		static::initialize($requestStack, $registry);
 	}
 
-    public function getCurrentSite(): Site {
-        return static::count() < 1 ? new Site() : static::$siteStack->top();
-    }
+	protected static function initialize(
+		RequestStack $requestStack,
+		ManagerRegistry $registry
+	): void {
+		if (static::$initialized) {
+			return;
+		}
+		static::$siteStack = new \SplStack();
+		static::$initialized = true;
+		static::populate($requestStack, $registry);
+	}
 
-    public function pushSite(Site $site): void {
-        static::$siteStack->push($site);
-    }
+	protected static function populate(
+		RequestStack $requestStack,
+		ManagerRegistry $registry
+	): void {
+		if (static::$populated || !static::$initialized) {
+			return;
+		}
+		$request = $requestStack->getCurrentRequest();
+		if (null === $request) {
+			throw new NotFoundHttpException('Request does not exist.');
+		}
+		/** @var SiteRepository $siteRep */
+		$siteRep = $registry->getManager()->getRepository(Site::class);
+		$sites = $siteRep->findByDomain($request->getHost());
+		if (empty($sites)) {
+			throw new NotFoundHttpException('Site does not exist for current domain.');
+		}
+		foreach ($sites as $site) {
+			static::pushSite($site);
+		}
+		static::$populated = true;
+	}
 
-    public function popSite(): ?Site {
-        return static::count() < 1 ? null : static::$siteStack->pop();
-    }
+	public static function getStack(): \SplStack
+	{
+		return clone static::$siteStack;
+	}
 
-    public function count(): int {
-        return static::$siteStack->count();
-    }
+	public static function getAll(): array
+	{
+		return iterator_to_array(static::$siteStack);
+	}
 
+	public static function getCurrent(): Site
+	{
+		if (!static::hasCurrent()) {
+			throw new NotFoundHttpException('No site.');
+		}
+
+		return static::$siteStack->top();
+	}
+
+	public static function hasCurrent(): bool
+	{
+		return static::count() > 0;
+	}
+
+	public static function pushSite(Site $site): void
+	{
+		static::$siteStack->push($site);
+	}
+
+	public static function popSite(): Site
+	{
+		if (!static::hasCurrent()) {
+			throw new NotFoundHttpException('No site.');
+		}
+
+		return static::$siteStack->pop();
+	}
+
+	public static function count(): int
+	{
+		return static::$siteStack->count();
+	}
 }

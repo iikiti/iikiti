@@ -6,8 +6,8 @@ use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Filters\HtmlFilter;
+use iikiti\CMS\Registry\ApplicationRegistry;
 use iikiti\CMS\Registry\SiteRegistry;
-use iikiti\CMS\Repository\Object\SiteRepository;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\ControllerEvent;
@@ -23,16 +23,13 @@ class Initializer implements EventSubscriberInterface
 {
 	protected static bool $hasInitialized = false;
 
-	protected static SiteRegistry $siteRegistry;
-
 	public function __construct(
 		protected ManagerRegistry $registry,
 		private Stopwatch $stopwatch,
-		private Security $security
+		private Security $security,
+		private SiteRegistry $siteRegistry,
+		private ApplicationRegistry $appRegistry
 	) {
-		/** @var SiteRepository $siteRepository */
-		$siteRepository = $this->registry->getManager()->getRepository(Site::class);
-		self::$siteRegistry = $siteRepository->getRegistry();
 	}
 
 	public static function getSubscribedEvents(): array
@@ -52,9 +49,12 @@ class Initializer implements EventSubscriberInterface
 	public function onKernelRequest(RequestEvent $event)
 	{
 		// Skip if already initialized or not the main route.
-		if (static::$hasInitialized || $event->isMainRequest()) {
+		if (static::$hasInitialized || !$event->isMainRequest()) {
 			return;
 		}
+
+		$this->appRegistry->getCurrent();
+		$this->siteRegistry::getCurrent();
 
 		// Add HTML Output Filter
 		OutputParser::appendFilter(function (ResponseEvent $event) {
@@ -66,12 +66,7 @@ class Initializer implements EventSubscriberInterface
 
 		$em->getFilters()->enable('ObjectPropertyFilter');
 
-		if (
-			($site = self::$siteRegistry->getCurrentSite()) instanceof Site &&
-			null !== $site->getId()
-		) {
-			// TODO: Extensions::setInitialSiteId($site->getId() ?? 0);
-		}
+		// TODO: Extensions::setInitialSiteId($site->getId() ?? 0);
 
 		static::$hasInitialized = true;
 	}
@@ -88,7 +83,7 @@ class Initializer implements EventSubscriberInterface
 			return;
 		} // Not logged in
 
-		if (!$user->registeredToSite(static::$siteRegistry->getCurrentSite()->getId())) {
+		if (!$user->registeredToSite(SiteRegistry::getCurrent()->getId())) {
 			throw new AuthenticationException('User not registered to current site');
 		}
 	}
