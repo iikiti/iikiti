@@ -4,16 +4,18 @@ namespace iikiti\CMS\Filters;
 
 use iikiti\CMS\Utility\Variable as V;
 use IvoPetkov\HTML5DOMDocument;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\Stopwatch\Stopwatch;
 
-/**
- * Class HtmlFilter.
- */
-abstract class HtmlFilter
+class HtmlFilter extends AbstractFilter
 {
+	/**
+	 * Only static methods, prevent creating instances.
+	 */
+	private function __construct()
+	{
+	}
+
 	public static function filterHtml(
 		ResponseEvent $event,
 		Stopwatch $stopwatch
@@ -24,7 +26,7 @@ abstract class HtmlFilter
 			('dev' === $appEnv && false == $useHtmlFilter) ||
 			false == $useHtmlFilter ||
 			false == $event->isMainRequest() ||
-			false == static::isHtmlType($event->getRequest(), $event->getResponse())
+			false == static::isHtmlResponseType($event->getRequest(), $event->getResponse())
 		) {
 			return;
 		}
@@ -70,19 +72,5 @@ abstract class HtmlFilter
 		}
 
 		return preg_replace('/(?:\v+|(\h)\h+)/u', '$1', $text[0]);
-	}
-
-	protected static function isEmptyString(string $str, bool $trim = true): bool
-	{
-		return !($trim ? isset(trim($str)[0]) : isset($str[0]));
-	}
-
-	protected static function isHtmlType(Request $request, Response $response): bool
-	{
-		$htmlMime = $request->getMimeType('html') ?? 'text/html';
-		$ctHeader = 'Content-Type';
-
-		return false == $response->headers->has($ctHeader) ||
-			str_starts_with($response->headers->get($ctHeader) ?? $htmlMime, $htmlMime);
 	}
 }
