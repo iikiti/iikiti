@@ -4,6 +4,7 @@ namespace iikiti\CMS\Controller\Page;
 
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Controller\AppController;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\AsController;
 use Symfony\Component\Routing\Annotation\Route;
@@ -14,19 +15,14 @@ use Symfony\Component\Routing\Annotation\Route;
 #[AsController]
 class HomeController extends AppController
 {
-	#[Route('/', name: 'home', priority: 0)]
-	public function index(EntityManagerInterface $em): Response
+	#[Route('/', name: 'home', priority: 0, format: 'html')]
+	public function index(Request $request, EntityManagerInterface $em): Response
 	{
 		return $this->render(
 			'index.twig',
 			[
 				'doc' => ['title' => 'iikiti'],
-			],
-			new Response(
-				'',
-				Response::HTTP_OK,
-				['content-type' => 'text/html']
-			)
+			]
 		);
 	}
 }

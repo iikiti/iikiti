@@ -27,20 +27,13 @@ class AuthenticationController extends AppController
 		// last username entered by the user
 		$lastUsername = $authenticationUtils->getLastUsername();
 
-		$response = new Response(
-			'',
-			Response::HTTP_OK,
-			['content-type' => 'text/html']
-		);
-
 		return $this->render(
 			'login.twig',
 			[
 				'doc' => ['title' => 'iikiti login'],
 				'last_username' => $lastUsername,
 				'error' => $error,
-			],
-			$response
+			]
 		);
 	}
 
