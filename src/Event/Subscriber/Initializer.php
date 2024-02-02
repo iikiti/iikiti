@@ -53,12 +53,14 @@ class Initializer implements EventSubscriberInterface
 			return;
 		}
 
+		$stopwatch = $this->stopwatch;
+
 		$this->appRegistry->getCurrent();
 		$this->siteRegistry::getCurrent();
 
 		// Add HTML Output Filter
-		OutputParser::appendFilter(function (ResponseEvent $event) {
-			HtmlFilter::filterHtml($event, $this->stopwatch);
+		OutputParser::appendFilter(function (ResponseEvent $event) use ($stopwatch) {
+			HtmlFilter::filterHtml($event, $stopwatch);
 		});
 
 		/** @var \Doctrine\ORM\EntityManager $em */
