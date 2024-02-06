@@ -6,6 +6,7 @@ use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Repository\Object\ApplicationRepository;
 use iikiti\CMS\Service\Configuration;
+use iikiti\CMS\Trait\ConfigurableTrait;
 use iikiti\CMS\Trait\MfaPreferencesTrait;
 use iikiti\MfaBundle\Authentication\Interface\MfaPreferencesInterface;
 
@@ -14,13 +15,13 @@ use iikiti\MfaBundle\Authentication\Interface\MfaPreferencesInterface;
 class Application extends DbObject implements MfaPreferencesInterface
 {
 	use MfaPreferencesTrait;
+	use ConfigurableTrait;
 
 	public const SITE_SPECIFIC = false;
 	public const PROPERTY_KEY = 'application';
 
-	public function getConfiguration(): Configuration
+	public function setConfiguration(Configuration $configuration): void
 	{
-		return new Configuration((object) ($this->getContent() ?? []));
 	}
 
 	/**

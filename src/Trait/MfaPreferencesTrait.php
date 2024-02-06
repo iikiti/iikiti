@@ -6,6 +6,8 @@ use iikiti\CMS\Entity\ObjectProperty;
 
 trait MfaPreferencesTrait
 {
+	public const MFA_KEY = 'mfa';
+
 	public function getMultifactorPreferences(): array|null
 	{
 		if (false == $this->getProperties()->containsKey(self::MFA_KEY)) {
