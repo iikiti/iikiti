@@ -4,9 +4,12 @@ namespace iikiti\CMS\Entity\Object;
 
 use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\DbObject;
+use iikiti\CMS\Interfaces\PreferentialInterface;
 use iikiti\CMS\Manager\UserRoleManager;
 use iikiti\CMS\Repository\Object\UserRepository;
+use iikiti\CMS\Service\Preferences;
 use iikiti\CMS\Trait\MfaPreferencesTrait;
+use iikiti\CMS\Trait\PreferentialTrait;
 use iikiti\MfaBundle\Authentication\Interface\MfaPreferencesInterface;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -16,9 +19,11 @@ use Symfony\Component\Security\Core\User\UserInterface;
 class User extends DbObject implements
 	PasswordAuthenticatedUserInterface,
 	MfaPreferencesInterface,
-	UserInterface
+	UserInterface,
+	PreferentialInterface
 {
 	use MfaPreferencesTrait;
+	use PreferentialTrait;
 
 	public const SITE_SPECIFIC = false;
 
@@ -54,7 +59,7 @@ class User extends DbObject implements
 		return $asEnum ? $roles : array_values(UserRoleManager::convertEnumsToStrings($roles));
 	}
 
-	public function getPassword(): null|string
+	public function getPassword(): string|null
 	{
 		$property = $this->getProperties()->get('password');
 
@@ -110,5 +115,9 @@ class User extends DbObject implements
 	public function getPreferredTwoFactorProvider(): ?string
 	{
 		return 'email';
+	}
+
+	public function setPreferences(Preferences $preferences): void
+	{
 	}
 }

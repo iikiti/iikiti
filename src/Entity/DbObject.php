@@ -10,6 +10,7 @@ use Doctrine\ORM\Mapping\DiscriminatorColumn;
 use Doctrine\ORM\Mapping\InheritanceType;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\ObjectRepository;
+use iikiti\CMS\Trait\PropertiedTrait;
 
 #[ORM\Entity(repositoryClass: ObjectRepository::class)]
 #[ORM\Table(name: 'objects')]
@@ -18,6 +19,8 @@ use iikiti\CMS\Repository\ObjectRepository;
 #[DiscriminatorColumn(name: 'type', type: 'string')]
 class DbObject
 {
+	use PropertiedTrait;
+
 	/** @var bool SITE_SPECIFIC */
 	public const SITE_SPECIFIC = true;
 
@@ -80,15 +83,21 @@ class DbObject
 		return $this->creator_id;
 	}
 
-	public function getContent(): null|array
-	{
-		return [];
-	}
-
-	/** @return Collection<string,ObjectProperty> */
 	public function getProperties(): Collection
 	{
 		return $this->properties;
+	}
+
+	public function setProperties(Collection $properties): void
+	{
+		/** @var ObjectProperty $property */
+		foreach ($properties as $property) {
+			$name = $property->getName();
+			if (!is_string($name) || '' == $name) {
+				throw new \Exception('Property name is missing.');
+			}
+			$this->setProperty($name, $property);
+		}
 	}
 
 	public function setProperty(string $name, mixed $value): void
@@ -96,7 +105,9 @@ class DbObject
 		$isProperty = $value instanceof ObjectProperty;
 		$property = $isProperty ? $value :
 			($this->getProperties()->get($name) ?? new ObjectProperty());
-		$property->setName($name);
+		if ($property->getName() != $name) {
+			$property->setName($name);
+		}
 		$property->setObject($this);
 		if (false == $isProperty) {
 			$property->setValue($value);
