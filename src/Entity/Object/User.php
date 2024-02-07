@@ -4,10 +4,8 @@ namespace iikiti\CMS\Entity\Object;
 
 use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\DbObject;
-use iikiti\CMS\Interfaces\PreferentialInterface;
 use iikiti\CMS\Manager\UserRoleManager;
 use iikiti\CMS\Repository\Object\UserRepository;
-use iikiti\CMS\Service\Preferences;
 use iikiti\CMS\Trait\MfaPreferencesTrait;
 use iikiti\CMS\Trait\PreferentialTrait;
 use iikiti\MfaBundle\Authentication\Interface\MfaPreferencesInterface;
@@ -19,8 +17,7 @@ use Symfony\Component\Security\Core\User\UserInterface;
 class User extends DbObject implements
 	PasswordAuthenticatedUserInterface,
 	MfaPreferencesInterface,
-	UserInterface,
-	PreferentialInterface
+	UserInterface
 {
 	use MfaPreferencesTrait;
 	use PreferentialTrait;
@@ -115,9 +112,5 @@ class User extends DbObject implements
 	public function getPreferredTwoFactorProvider(): ?string
 	{
 		return 'email';
-	}
-
-	public function setPreferences(Preferences $preferences): void
-	{
 	}
 }
