@@ -40,6 +40,8 @@ class DbObject
 
 	private ?string $type = null;
 
+	protected ?string $repositoryClass = null;
+
 	/** @psalm-suppress PropertyNotSetInConstructor */
 	protected SiteRegistry $siteRegistry;
 
@@ -118,5 +120,22 @@ class DbObject
 	public function setSiteRegistry(SiteRegistry $siteRegistry): void
 	{
 		$this->siteRegistry = $siteRegistry;
+	}
+
+	public function getRepositoryClass(): ?string
+	{
+		if (null === $this->repositoryClass) {
+			$refClass = new \ReflectionClass($this);
+			$attrs = $refClass->getAttributes();
+			foreach ($attrs as $attr) {
+				if (ORM\Entity::class == $attr->getName()) {
+					$this->repositoryClass = $attr->getArguments()['repositoryClass'] ??
+						$attr->getArguments()[0];
+					break;
+				}
+			}
+		}
+
+		return $this->repositoryClass;
 	}
 }
