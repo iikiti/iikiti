@@ -15,7 +15,7 @@ trait PreferentialTrait
 	{
 		if (null === $this->preferences) {
 			$this->preferences = new Preferences(
-				(array) ($this->getProperties()->get(self::PREFERENCES_KEY) ?? [])
+				(array) ($this->getProperties()->get(self::PREFERENCES_KEY)?->getValue() ?? [])
 			);
 		}
 
