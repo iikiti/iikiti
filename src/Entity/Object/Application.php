@@ -6,14 +6,14 @@ use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Repository\Object\ApplicationRepository;
 use iikiti\CMS\Trait\ConfigurableTrait;
-use iikiti\CMS\Trait\MfaPreferencesTrait;
+use iikiti\CMS\Trait\MfaConfigurableTrait;
 use iikiti\MfaBundle\Authentication\Interface\MfaPreferencesInterface;
 
 #[ORM\Entity(repositoryClass: ApplicationRepository::class)]
 #[ORM\Table(name: 'objects')]
 class Application extends DbObject implements MfaPreferencesInterface
 {
-	use MfaPreferencesTrait;
+	use MfaConfigurableTrait;
 	use ConfigurableTrait;
 
 	public const SITE_SPECIFIC = false;
@@ -32,22 +32,5 @@ class Application extends DbObject implements MfaPreferencesInterface
 			$requiredExtensions,
 			$this->getConfiguration()->getActiveExtensions()
 		);
-	}
-
-	public function getMultifactorPreferences(): array|null
-	{
-		$mfaConfig = $this->getConfiguration()->get(self::MFA_KEY);
-		if (!is_array($mfaConfig)) {
-			return []; // User does not have MFA preferences
-		}
-
-		return $mfaConfig;
-	}
-
-	public function setMultifactorPreferences(array $preferences): void
-	{
-		$config = $this->getConfiguration();
-		$config->set(self::MFA_KEY, $preferences);
-		$this->setConfiguration($config);
 	}
 }

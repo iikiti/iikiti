@@ -25,5 +25,6 @@ trait ConfigurableTrait
 
 	public function setConfiguration(Configuration $configuration): void
 	{
+		$this->getProperties()->set(self::CONFIGURATION_KEY, $configuration);
 	}
 }
