@@ -16,7 +16,7 @@ trait ConfigurableTrait
 	{
 		if (null === $this->configuration) {
 			$this->configuration = new Configuration(
-				(array) ($this->getProperties()->get(self::CONFIGURATION_KEY) ?? [])
+				(array) ($this->getProperties()->get(self::CONFIGURATION_KEY)?->getValue() ?? [])
 			);
 		}
 
