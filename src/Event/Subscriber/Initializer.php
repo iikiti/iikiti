@@ -43,8 +43,9 @@ class Initializer implements EventSubscriberInterface
 	/**
 	 * @return void
 	 *
-	 * @throws \Symfony\Component\HttpKernel\Exception\NotFoundHttpException
-	 *                                                                       When current host does not match a site in the database
+	 * @throws \Symfony\Component\HttpKernel\Exception\NotFoundHttpException When current host
+	 *                                                                       does not match a site
+	 *                                                                       in the database
 	 */
 	public function onKernelRequest(RequestEvent $event)
 	{
