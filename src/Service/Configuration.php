@@ -27,6 +27,11 @@ class Configuration implements ContainerInterface
 		return $this->config->get($id);
 	}
 
+	public function set(string $id, mixed $value): void
+	{
+		$this->config->set($id, $value);
+	}
+
 	public function has(string $id): bool
 	{
 		return $this->config->containsKey($id);

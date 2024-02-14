@@ -34,4 +34,21 @@ class Site extends DbObject implements MfaPreferencesInterface
 			$this->getConfiguration()->getActiveExtensions()
 		);
 	}
+
+	public function getMultifactorPreferences(): array|null
+	{
+		$mfaConfig = $this->getConfiguration()->get(self::MFA_KEY);
+		if (!is_array($mfaConfig)) {
+			return []; // User does not have MFA preferences
+		}
+
+		return $mfaConfig;
+	}
+
+	public function setMultifactorPreferences(array $preferences): void
+	{
+		$config = $this->getConfiguration();
+		$config->set(self::MFA_KEY, $preferences);
+		$this->setConfiguration($config);
+	}
 }
