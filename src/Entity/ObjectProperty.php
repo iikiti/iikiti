@@ -4,6 +4,7 @@ namespace iikiti\CMS\Entity;
 
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Repository\ObjectPropertyRepository;
 
 /**
@@ -29,15 +30,13 @@ class ObjectProperty
 {
 	/** @var T $value */
 	#[ORM\ManyToOne(targetEntity: DbObject::class, inversedBy: 'properties')]
+	#[ORM\JoinColumn(name: 'object_id', referencedColumnName: 'id')]
 	private ?DbObject $object;
 
 	#[ORM\Id()]
 	#[ORM\GeneratedValue()]
 	#[ORM\Column(type: Types::BIGINT)]
-	private int|string|null $id;
-
-	#[ORM\Column(type: Types::BIGINT)]
-	private int|string|null $object_id;
+	private int|float $id;
 
 	#[ORM\Column(type: Types::STRING)]
 	private string|null $name;
@@ -47,6 +46,10 @@ class ObjectProperty
 
 	#[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
 	private ?\DateTimeInterface $created;
+
+	#[ORM\OneToOne(targetEntity: User::class)]
+	#[ORM\JoinColumn(name: 'creator_id', referencedColumnName: 'id')]
+	private ?User $creator;
 
 	#[ORM\Column(
 		type: Types::JSON,
@@ -60,6 +63,9 @@ class ObjectProperty
 		generated: 'ALWAYS'
 	)]
 	private string|int|float|null $value_array;
+
+	#[ORM\Column(type: Types::BIGINT)]
+	private int|float $creator_id;
 
 	public function getName(): string|null
 	{
