@@ -3,7 +3,6 @@
 namespace iikiti\CMS\Event\Subscriber;
 
 use Doctrine\Persistence\ManagerRegistry;
-use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Filters\HtmlFilter;
 use iikiti\CMS\Registry\ApplicationRegistry;
