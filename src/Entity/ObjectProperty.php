@@ -14,8 +14,8 @@ use iikiti\CMS\Repository\ObjectPropertyRepository;
 #[ORM\Entity(repositoryClass: ObjectPropertyRepository::class)]
 #[ORM\Table(name: 'object_properties')]
 #[ORM\UniqueConstraint(
-	name: 'object_properties_UN',
-	columns: ['object_id', 'name', 'created' /* DESC */]
+	name: 'object_properties_object_key',
+	columns: ['object_id', 'name']
 )]
 #[ORM\Index(
 	name: 'object_properties_PK',
