@@ -27,5 +27,3 @@ doctrine:
                 
 
         filters:
-          ObjectPropertyFilter:
-            class: iikiti\CMS\Filters\LatestObjectPropertyFilter
