@@ -26,12 +26,20 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 		parent::__construct($registry, $entityClass);
 	}
 
-	public function createQueryBuilder($alias, $indexBy = null): QueryBuilder
+	public function createQueryBuilder($alias, $indexBy = null, array $options = []): QueryBuilder
 	{
-		return $this->__filterBySite(parent::createQueryBuilder($alias, $indexBy));
+		$filterBySite = (bool) $this->_checkOption(
+			'filterBySite',
+			$options,
+			\Closure::fromCallable([$this, '_typeCheck_bool'])
+		);
+
+		return $filterBySite ?
+			$this->__filterBySite(parent::createQueryBuilder($alias, $indexBy)) :
+			parent::createQueryBuilder($alias, $indexBy);
 	}
 
-	public function find($id, $lockMode = null, $lockVersion = null): ?DbObject
+	public function find($id, $lockMode = null, $lockVersion = null, array $options = []): ?DbObject
 	{
 		$entity = $this->findOneBy([$this->getClassMetadata()->getIdentifier()[0] => $id]);
 		if (null !== $entity && null !== $lockMode && LockMode::NONE !== $lockMode) {
@@ -41,23 +49,47 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 		return $entity;
 	}
 
-	public function findAll(): array
+	public function findAll(array $options = []): array
 	{
-		return parent::findBy([]);
+		return $this->findBy([], null, null, null, $options);
 	}
 
 	public function findBy(
 		array $criteria,
 		?array $orderBy = null,
 		$limit = null,
-		$offset = null
+		$offset = null,
+		array $options = []
 	): array {
-		return parent::findBy($this->__filterBySite($criteria), $orderBy, $limit, $offset);
+		$filterBySite = (bool) $this->_checkOption(
+			'filterBySite',
+			$options,
+			\Closure::fromCallable([$this, '_typeCheck_bool'])
+		);
+
+		return parent::findBy(
+			$filterBySite ? $this->__filterBySite($criteria) : $criteria,
+			$orderBy,
+			$limit,
+			$offset
+		);
 	}
 
-	public function findOneBy(array $criteria, ?array $orderBy = null): ?DbObject
-	{
-		return parent::findOneBy($this->__filterBySite($criteria), $orderBy);
+	public function findOneBy(
+		array $criteria,
+		?array $orderBy = null,
+		array $options = []
+	): ?DbObject {
+		$filterBySite = (bool) $this->_checkOption(
+			'filterBySite',
+			$options,
+			\Closure::fromCallable([$this, '_typeCheck_bool'])
+		);
+
+		return parent::findOneBy(
+			$filterBySite ? $this->__filterBySite($criteria) : $criteria,
+			$orderBy
+		);
 	}
 
 	protected function __filterBySite(
@@ -79,9 +111,12 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 	 *
 	 * @return array<DbObject>
 	 */
-	public function findByProperty(string|array $name, string|int|float|array $value): array
-	{
-		return $this->__findByProperty($name, $value)->getQuery()->getResult();
+	public function findByProperty(
+		string|array $name,
+		string|int|float|array $value,
+		array $options = []
+	): array {
+		return $this->__findByProperty($name, $value, $options)->getQuery()->getResult();
 	}
 
 	/**
@@ -89,9 +124,12 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 	 *
 	 * @return ?DbObject
 	 */
-	public function findOneByProperty(string|array $name, string|int|float|array $value): ?DbObject
-	{
-		return $this->__findByProperty($name, $value)->getQuery()->getOneOrNullResult();
+	public function findOneByProperty(
+		string|array $name,
+		string|int|float|array $value,
+		array $options = []
+	): ?DbObject {
+		return $this->__findByProperty($name, $value, $options)->getQuery()->getOneOrNullResult();
 	}
 
 	/**
@@ -99,9 +137,15 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 	 */
 	private function __findByProperty(
 		string|array $name,
-		string|int|float|array $value
+		string|int|float|array $value,
+		array $options = []
 	): QueryBuilder {
-		$qb = $this->createQueryBuilder('o');
+		$indexBy = $this->_checkOption(
+			'indexBy',
+			$options,
+			\Closure::fromCallable([$this, '_typeCheck_stringOrArray'])
+		);
+		$qb = $this->createQueryBuilder('o', $indexBy, $options);
 		if (is_array($name)) {
 			if (!is_array($value)) {
 				throw new \InvalidArgumentException('$value is expected to be an array. '.gettype($value).' provided.');
@@ -139,6 +183,39 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 		}
 
 		return $qb;
+	}
+
+	protected function _typeCheck_bool($value, $allowNull = true): bool
+	{
+		return is_bool($value) || (null === $value && $allowNull);
+	}
+
+	protected function _typeCheck_stringOrArray($value, $allowNull = true): bool
+	{
+		return (is_string($value) || is_array($value)) || (null === $value && $allowNull);
+	}
+
+	protected static function _checkOption(
+		string $key,
+		array $options,
+		\Closure|null $typeCheck
+	): mixed {
+		$default = self::_defaultOption($key);
+		$value = $options[$key] ?? null;
+		if (null !== $typeCheck && !$typeCheck($value)) {
+			throw new \InvalidArgumentException('Type is incorrect for key: '.$key);
+		}
+
+		return $value ?? $default;
+	}
+
+	protected static function _defaultOption(string $key): bool|string|null
+	{
+		static $values = [
+			'filterBySite' => true,
+		];
+
+		return $values[$key] ?? null;
 	}
 
 	public function search(string $query): mixed
