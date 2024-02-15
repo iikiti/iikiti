@@ -55,7 +55,7 @@ class ObjectProperty
 		type: Types::JSON,
 		columnDefinition: '('.
 			"(case when (json_type(`value`) <> _utf8mb4'OBJECT') then ".
-				"ifnull(json_extract(`value`,_utf8mb4'$[*]'),json_array(`value`)) else ".
+				'`value` else '.
 				'NULL '.
 			'end))',
 		insertable: false,
