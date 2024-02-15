@@ -62,7 +62,7 @@ class ObjectProperty
 		updatable: false,
 		generated: 'ALWAYS'
 	)]
-	private string|int|float|null $value_array;
+	private array|null $value_array;
 
 	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
 	private int|float $creator_id;
