@@ -7,6 +7,7 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\ORM\Mapping\DiscriminatorColumn;
 use Doctrine\ORM\Mapping\InheritanceType;
+use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\ObjectRepository;
 use iikiti\CMS\Trait\PropertiedTrait;
@@ -33,19 +34,23 @@ class DbObject
 
 	#[ORM\Id()]
 	#[ORM\GeneratedValue()]
-	#[ORM\Column(type: Types::BIGINT)]
+	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
 	protected int|string|null $id;
 
 	#[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
 	private ?\DateTimeInterface $created_date;
 
-	#[ORM\Column(type: Types::BIGINT)]
+	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
 	private int|string|null $creator_id;
 
-	#[ORM\Column(type: Types::BIGINT)]
+	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
 	private int|string|null $site_id;
 
 	private ?string $type;
+
+	#[ORM\OneToOne(targetEntity: User::class)]
+	#[ORM\JoinColumn(name: 'creator_id', referencedColumnName: 'id')]
+	private ?User $creator;
 
 	protected ?string $repositoryClass;
 
@@ -79,6 +84,11 @@ class DbObject
 	public function getCreatedDate(): ?\DateTimeInterface
 	{
 		return $this->created_date;
+	}
+
+	public function getCreator(): ?User
+	{
+		return $this instanceof User ? null : $this->creator;
 	}
 
 	public function getCreatorId(): int|string|null

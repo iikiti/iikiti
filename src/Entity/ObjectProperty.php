@@ -30,9 +30,12 @@ class ObjectProperty
 	#[ORM\JoinColumn(name: 'object_id', referencedColumnName: 'id')]
 	private ?DbObject $object;
 
+	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
+	private int|string|null $object_id;
+
 	#[ORM\Id()]
 	#[ORM\GeneratedValue()]
-	#[ORM\Column(type: Types::BIGINT)]
+	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
 	private int|float $id;
 
 	#[ORM\Column(type: Types::STRING)]
@@ -61,7 +64,7 @@ class ObjectProperty
 	)]
 	private string|int|float|null $value_array;
 
-	#[ORM\Column(type: Types::BIGINT)]
+	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
 	private int|float $creator_id;
 
 	public function getName(): string|null
