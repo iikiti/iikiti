@@ -64,9 +64,6 @@ class Initializer implements EventSubscriberInterface
 			HtmlFilter::filterHtml($event, $stopwatch);
 		});
 
-		/** @var \Doctrine\ORM\EntityManager $em */
-		$em = $this->registry->getManager();
-
 		// TODO: Extensions::setInitialSiteId($site->getId() ?? 0);
 
 		static::$hasInitialized = true;
