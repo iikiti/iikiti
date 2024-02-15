@@ -67,8 +67,6 @@ class Initializer implements EventSubscriberInterface
 		/** @var \Doctrine\ORM\EntityManager $em */
 		$em = $this->registry->getManager();
 
-		$em->getFilters()->enable('ObjectPropertyFilter');
-
 		// TODO: Extensions::setInitialSiteId($site->getId() ?? 0);
 
 		static::$hasInitialized = true;
