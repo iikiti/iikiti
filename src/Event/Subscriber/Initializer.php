@@ -51,6 +51,8 @@ class Initializer implements EventSubscriberInterface
 	{
 		// Skip if already initialized or not the main route.
 		if (static::$hasInitialized || !$event->isMainRequest()) {
+			static::$hasInitialized = true;
+
 			return;
 		}
 
@@ -65,8 +67,6 @@ class Initializer implements EventSubscriberInterface
 		});
 
 		// TODO: Extensions::setInitialSiteId($site->getId() ?? 0);
-
-		static::$hasInitialized = true;
 	}
 
 	public function onKernelController(ControllerEvent $event): void
