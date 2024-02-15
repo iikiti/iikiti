@@ -2,7 +2,6 @@
 
 namespace iikiti\CMS\Entity;
 
-use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -12,11 +11,19 @@ use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\ObjectRepository;
 use iikiti\CMS\Trait\PropertiedTrait;
 
+/**
+ * @psalm-suppress MissingConstructor
+ */
 #[ORM\Entity(repositoryClass: ObjectRepository::class)]
 #[ORM\Table(name: 'objects')]
 #[ORM\MappedSuperclass()]
 #[InheritanceType('SINGLE_TABLE')]
 #[DiscriminatorColumn(name: 'type', type: 'string')]
+#[ORM\Index(
+	name: 'objects_type_IDX',
+	columns: ['type', 'site_id', 'creator_id', 'created_date' /* DESC */]
+)]
+#[ORM\UniqueConstraint(name: 'objects_type_IDX', columns: ['id', 'site_id'])]
 class DbObject
 {
 	use PropertiedTrait;
@@ -27,22 +34,21 @@ class DbObject
 	#[ORM\Id()]
 	#[ORM\GeneratedValue()]
 	#[ORM\Column(type: Types::BIGINT)]
-	protected int|string|null $id = null;
+	protected int|string|null $id;
 
 	#[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
-	private ?\DateTimeInterface $created_date = null;
+	private ?\DateTimeInterface $created_date;
 
 	#[ORM\Column(type: Types::BIGINT)]
-	private int|string|null $creator_id = null;
+	private int|string|null $creator_id;
 
 	#[ORM\Column(type: Types::BIGINT)]
-	private int|string|null $site_id = null;
+	private int|string|null $site_id;
 
-	private ?string $type = null;
+	private ?string $type;
 
-	protected ?string $repositoryClass = null;
+	protected ?string $repositoryClass;
 
-	/** @psalm-suppress PropertyNotSetInConstructor */
 	protected SiteRegistry $siteRegistry;
 
 	#[ORM\OneToMany(
@@ -54,11 +60,6 @@ class DbObject
 	)]
 	/** @var Collection<string,ObjectProperty<mixed>> */
 	private Collection $properties;
-
-	public function __construct()
-	{
-		$this->properties = new ArrayCollection();
-	}
 
 	public function getId(): int|string|null
 	{
