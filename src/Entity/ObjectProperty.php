@@ -21,8 +21,8 @@ use iikiti\CMS\Repository\ObjectPropertyRepository;
 	columns: ['id', 'object_id', 'name', 'created' /* DESC */]
 )]
 #[ORM\Index(
-	name: 'json_value_char',
-	columns: ['object_id', 'name', 'created' /* DESC */, '(cast(`value_array` as char(255) array))']
+	name: 'object_properties_value',
+	columns: ['object_id', 'name', '(cast(`value_array` as char(255) array))', 'created' /* DESC */]
 )]
 class ObjectProperty
 {
@@ -55,7 +55,7 @@ class ObjectProperty
 		type: Types::JSON,
 		columnDefinition: '('.
 			"(case when (json_type(`value`) <> _utf8mb4'OBJECT') then ".
-				'`value` else '.
+				"ifnull(json_extract(`value`,_utf8mb4'$[*]'),json_array(`value`)) else ".
 				'NULL '.
 			'end))',
 		insertable: false,
