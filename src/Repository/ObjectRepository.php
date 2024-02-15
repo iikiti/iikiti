@@ -12,7 +12,9 @@ use iikiti\CMS\Interfaces\SearchableRepositoryInterface;
 use iikiti\CMS\Registry\SiteRegistry;
 
 /**
- * Class ObjectRepository.
+ * @template T of object
+ *
+ * @template-extends ServiceEntityRepository<T>
  */
 abstract class ObjectRepository extends ServiceEntityRepository implements SearchableRepositoryInterface
 {
@@ -46,14 +48,14 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 
 	public function findBy(
 		array $criteria,
-		array $orderBy = null,
+		?array $orderBy = null,
 		$limit = null,
 		$offset = null
 	): array {
 		return parent::findBy($this->__filterBySite($criteria), $orderBy, $limit, $offset);
 	}
 
-	public function findOneBy(array $criteria, array $orderBy = null): ?DbObject
+	public function findOneBy(array $criteria, ?array $orderBy = null): ?DbObject
 	{
 		return parent::findOneBy($this->__filterBySite($criteria), $orderBy);
 	}

@@ -3,12 +3,13 @@
 namespace iikiti\CMS\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
-use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\ObjectProperty;
 
 /**
- * Class ObjectPropertyRepository.
+ * @template T of object
+ *
+ * @template-extends ServiceEntityRepository<T>
  */
 class ObjectPropertyRepository extends ServiceEntityRepository
 {
@@ -17,10 +18,5 @@ class ObjectPropertyRepository extends ServiceEntityRepository
 		string $entityClass = ObjectProperty::class
 	) {
 		parent::__construct($registry, $entityClass);
-	}
-
-	public function createQueryBuilder($alias, $indexBy = null): QueryBuilder
-	{
-		return parent::createQueryBuilder($alias, $indexBy);
 	}
 }
