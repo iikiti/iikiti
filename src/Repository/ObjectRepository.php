@@ -10,6 +10,7 @@ use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Interfaces\SearchableRepositoryInterface;
 use iikiti\CMS\Registry\SiteRegistry;
+use iikiti\CMS\Trait\RepositoryOptionCheckTrait;
 
 /**
  * @template T of object
@@ -18,6 +19,8 @@ use iikiti\CMS\Registry\SiteRegistry;
  */
 abstract class ObjectRepository extends ServiceEntityRepository implements SearchableRepositoryInterface
 {
+	use RepositoryOptionCheckTrait;
+
 	public function __construct(
 		ManagerRegistry $registry,
 		private SiteRegistry $siteRegistry,
@@ -183,39 +186,6 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 		}
 
 		return $qb;
-	}
-
-	protected function _typeCheck_bool($value, $allowNull = true): bool
-	{
-		return is_bool($value) || (null === $value && $allowNull);
-	}
-
-	protected function _typeCheck_stringOrArray($value, $allowNull = true): bool
-	{
-		return (is_string($value) || is_array($value)) || (null === $value && $allowNull);
-	}
-
-	protected static function _checkOption(
-		string $key,
-		array $options,
-		\Closure|null $typeCheck
-	): mixed {
-		$default = self::_defaultOption($key);
-		$value = $options[$key] ?? null;
-		if (null !== $typeCheck && !$typeCheck($value)) {
-			throw new \InvalidArgumentException('Type is incorrect for key: '.$key);
-		}
-
-		return $value ?? $default;
-	}
-
-	protected static function _defaultOption(string $key): bool|string|null
-	{
-		static $values = [
-			'filterBySite' => true,
-		];
-
-		return $values[$key] ?? null;
 	}
 
 	public function search(string $query): mixed
