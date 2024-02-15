@@ -8,8 +8,6 @@ use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Repository\ObjectPropertyRepository;
 
 /**
- * @template T of DbObject|null
- *
  * @psalm-suppress MissingConstructor
  */
 #[ORM\Entity(repositoryClass: ObjectPropertyRepository::class)]
@@ -28,7 +26,6 @@ use iikiti\CMS\Repository\ObjectPropertyRepository;
 )]
 class ObjectProperty
 {
-	/** @var T $value */
 	#[ORM\ManyToOne(targetEntity: DbObject::class, inversedBy: 'properties')]
 	#[ORM\JoinColumn(name: 'object_id', referencedColumnName: 'id')]
 	private ?DbObject $object;
@@ -97,19 +94,16 @@ class ObjectProperty
 		$this->created = $created;
 	}
 
-	public function setObject(DbObject|int $object): void
+	public function setObject(DbObject $object): void
 	{
-		$this->object_id = $object instanceof DbObject ? $object->getId() : $object;
+		$this->object = $object;
 	}
 
-	public function getId(): int|string|null
+	public function getId(): int|float
 	{
 		return $this->id;
 	}
 
-	/**
-	 * @return T
-	 */
 	public function getObject(): ?DbObject
 	{
 		return $this->object;
