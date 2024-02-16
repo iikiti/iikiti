@@ -1477,7 +1477,7 @@
             "dist": {
                 "type": "path",
                 "url": "/home/jim/dev/lib/iikiti/mfa",
-                "reference": "1920e7f1dfc9239633770872515a3ac31432a3d3"
+                "reference": "c5bb8fd262ed9bd297a808d29571be212128cd5f"
             },
             "require": {
                 "doctrine/persistence": "^3.2",
@@ -11441,16 +11441,16 @@
         },
         {
             "name": "vimeo/psalm",
-            "version": "5.22.0",
+            "version": "5.22.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/vimeo/psalm.git",
-                "reference": "fe2c67ec89f358940f90db05efd2d663388b45a6"
+                "reference": "e9dad66e11274315dac27e08349c628c7d6a1a43"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/vimeo/psalm/zipball/fe2c67ec89f358940f90db05efd2d663388b45a6",
-                "reference": "fe2c67ec89f358940f90db05efd2d663388b45a6",
+                "url": "https://api.github.com/repos/vimeo/psalm/zipball/e9dad66e11274315dac27e08349c628c7d6a1a43",
+                "reference": "e9dad66e11274315dac27e08349c628c7d6a1a43",
                 "shasum": ""
             },
             "require": {
@@ -11547,7 +11547,7 @@
                 "issues": "https://github.com/vimeo/psalm/issues",
                 "source": "https://github.com/vimeo/psalm"
             },
-            "time": "2024-02-13T14:22:51+00:00"
+            "time": "2024-02-15T22:52:31+00:00"
         },
         {
             "name": "weirdan/doctrine-psalm-plugin",
