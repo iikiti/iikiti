@@ -8,7 +8,6 @@ use iikiti\CMS\Manager\UserRoleManager;
 use iikiti\CMS\Repository\Object\UserRepository;
 use iikiti\CMS\Trait\MfaPreferencesTrait;
 use iikiti\CMS\Trait\PreferentialTrait;
-use iikiti\MfaBundle\Authentication\Interface\MfaPreferencesInterface;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
@@ -16,7 +15,6 @@ use Symfony\Component\Security\Core\User\UserInterface;
 #[ORM\Table(name: 'objects')]
 class User extends DbObject implements
 	PasswordAuthenticatedUserInterface,
-	MfaPreferencesInterface,
 	UserInterface
 {
 	use MfaPreferencesTrait;

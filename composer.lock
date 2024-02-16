@@ -1477,7 +1477,7 @@
             "dist": {
                 "type": "path",
                 "url": "/home/jim/dev/lib/iikiti/mfa",
-                "reference": "c5bb8fd262ed9bd297a808d29571be212128cd5f"
+                "reference": "081065a865fd6f1b0f6f63e25373642baf21f233"
             },
             "require": {
                 "doctrine/persistence": "^3.2",
@@ -1485,7 +1485,6 @@
                 "spomky-labs/otphp": "^11.2",
                 "symfony/http-kernel": "^7.0",
                 "symfony/options-resolver": "^7.0",
-                "symfony/orm-pack": "^2.4",
                 "symfony/property-access": "^7.0",
                 "symfony/routing": "^7.0",
                 "symfony/security-bundle": "^7.0",
@@ -5168,55 +5167,6 @@
                 }
             ],
             "time": "2023-08-08T10:20:21+00:00"
-        },
-        {
-            "name": "symfony/orm-pack",
-            "version": "v2.4.1",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/symfony/orm-pack.git",
-                "reference": "9d8729016b3a8b0db854c028d15c2dcf4d19b1b4"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/symfony/orm-pack/zipball/9d8729016b3a8b0db854c028d15c2dcf4d19b1b4",
-                "reference": "9d8729016b3a8b0db854c028d15c2dcf4d19b1b4",
-                "shasum": ""
-            },
-            "require": {
-                "doctrine/dbal": "^3",
-                "doctrine/doctrine-bundle": "*",
-                "doctrine/doctrine-migrations-bundle": "*",
-                "doctrine/orm": "*"
-            },
-            "conflict": {
-                "php": "<8.1"
-            },
-            "type": "symfony-pack",
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "description": "A pack for the Doctrine ORM",
-            "support": {
-                "issues": "https://github.com/symfony/orm-pack/issues",
-                "source": "https://github.com/symfony/orm-pack/tree/v2.4.1"
-            },
-            "funding": [
-                {
-                    "url": "https://symfony.com/sponsor",
-                    "type": "custom"
-                },
-                {
-                    "url": "https://github.com/fabpot",
-                    "type": "github"
-                },
-                {
-                    "url": "https://tidelift.com/funding/github/packagist/symfony/symfony",
-                    "type": "tidelift"
-                }
-            ],
-            "time": "2024-02-13T17:58:44+00:00"
         },
         {
             "name": "symfony/password-hasher",

@@ -9,9 +9,8 @@ use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Registry\ApplicationRegistry;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\ObjectRepository;
-use iikiti\MfaBundle\Authentication\Interface\MfaPreferencesInterface;
 
-class ApplicationRepository extends ObjectRepository implements MfaPreferencesInterface
+class ApplicationRepository extends ObjectRepository
 {
 	public function __construct(
 		ManagerRegistry $registry,

@@ -7,15 +7,11 @@ use iikiti\CMS\Entity\Object\Application;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\ObjectRepository;
-use iikiti\MfaBundle\Authentication\Interface\ApplicationSubordinateInterface;
-use iikiti\MfaBundle\Authentication\Interface\MfaPreferencesInterface;
 
 /**
  * Class SiteRepository.
  */
-class SiteRepository extends ObjectRepository implements
-	MfaPreferencesInterface,
-	ApplicationSubordinateInterface
+class SiteRepository extends ObjectRepository
 {
 	public function __construct(
 		ManagerRegistry $registry,
