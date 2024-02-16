@@ -10,10 +10,8 @@ use iikiti\CMS\Repository\Object\ApplicationRepository;
 use iikiti\CMS\Repository\Object\SiteRepository;
 use iikiti\MfaBundle\Authentication\Enum\ConfigurationTypeEnum;
 use iikiti\MfaBundle\Authentication\Interface\MfaConfigurationServiceInterface;
-use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\HttpFoundation\RequestStack;
 
-#[AsAlias(id: MfaConfigurationServiceInterface::class, public: true)]
 class MfaConfigurationService implements MfaConfigurationServiceInterface
 {
 	public function __construct(
