@@ -31,18 +31,23 @@ class MfaConfigurationService implements MfaConfigurationServiceInterface
 		/** @var SiteRepository $siteRep */
 		$siteRep = $this->entityManager->getRepository(Site::class);
 
-		if (!($user instanceof User)) {
-			throw new AuthenticationException('Invalid user.');
-		}
-
 		return match ($type) {
 			ConfigurationTypeEnum::APPLICATION => $appRep->getCurrentApplication()?->
 				getMultifactorPreferences() ?? [],
 			ConfigurationTypeEnum::SITE => $siteRep->getCurrent()?->
 				getMultifactorPreferences() ?? [],
-			ConfigurationTypeEnum::USER => $user->getMultifactorPreferences() ?? [],
+			ConfigurationTypeEnum::USER => self::__checkGetUserPreferences($user),
 			default => throw new \Exception('Unknown configuration type: '.$type->name)
 		};
+	}
+
+	private static function __checkGetUserPreferences(UserInterface $user): array
+	{
+		if (!($user instanceof User)) {
+			throw new AuthenticationException('User is invalid');
+		}
+
+		return $user->getMultifactorPreferences() ?? [];
 	}
 
 	public function setMultifactorPreferences(
