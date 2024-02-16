@@ -7,11 +7,10 @@ use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Repository\Object\SiteRepository;
 use iikiti\CMS\Trait\ConfigurableTrait;
 use iikiti\CMS\Trait\MfaConfigurableTrait;
-use iikiti\MfaBundle\Authentication\Interface\MfaPreferencesInterface;
 
 #[ORM\Entity(repositoryClass: SiteRepository::class)]
 #[ORM\Table(name: 'objects')]
-class Site extends DbObject implements MfaPreferencesInterface
+class Site extends DbObject
 {
 	use MfaConfigurableTrait;
 	use ConfigurableTrait;
