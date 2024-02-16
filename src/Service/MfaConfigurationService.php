@@ -11,6 +11,8 @@ use iikiti\CMS\Repository\Object\SiteRepository;
 use iikiti\MfaBundle\Authentication\Enum\ConfigurationTypeEnum;
 use iikiti\MfaBundle\Authentication\Interface\MfaConfigurationServiceInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\Security\Core\Exception\AuthenticationException;
+use Symfony\Component\Security\Core\User\UserInterface;
 
 class MfaConfigurationService implements MfaConfigurationServiceInterface
 {
@@ -20,21 +22,25 @@ class MfaConfigurationService implements MfaConfigurationServiceInterface
 	) {
 	}
 
-	public function getMultifactorPreferences(ConfigurationTypeEnum $type): array
-	{
+	public function getMultifactorPreferences(
+		ConfigurationTypeEnum $type,
+		UserInterface $user
+	): array {
 		/** @var ApplicationRepository $appRep */
 		$appRep = $this->entityManager->getRepository(Application::class);
 		/** @var SiteRepository $siteRep */
 		$siteRep = $this->entityManager->getRepository(Site::class);
-		/** @var User|null $user */
-		$user = $this->requestStack->getCurrentRequest()?->getUser();
+
+		if (!($user instanceof User)) {
+			throw new AuthenticationException('Invalid user.');
+		}
 
 		return match ($type) {
 			ConfigurationTypeEnum::APPLICATION => $appRep->getCurrentApplication()?->
 				getMultifactorPreferences() ?? [],
 			ConfigurationTypeEnum::SITE => $siteRep->getCurrent()?->
 				getMultifactorPreferences() ?? [],
-			ConfigurationTypeEnum::USER => $user?->getMultifactorPreferences() ?? [],
+			ConfigurationTypeEnum::USER => $user->getMultifactorPreferences() ?? [],
 			default => throw new \Exception('Unknown configuration type: '.$type->name)
 		};
 	}
