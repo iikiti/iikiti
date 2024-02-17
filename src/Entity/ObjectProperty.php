@@ -53,7 +53,7 @@ class ObjectProperty
 
 	#[ORM\Column(
 		type: Types::JSON,
-		columnDefinition: '('.
+		columnDefinition: 'AS ('.
 			"(case when (json_type(`value`) <> _utf8mb4'OBJECT') then ".
 				"ifnull(json_extract(`value`,_utf8mb4'$[*]'),json_array(`value`)) else ".
 				'NULL '.
