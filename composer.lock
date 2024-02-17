@@ -1477,7 +1477,7 @@
             "dist": {
                 "type": "path",
                 "url": "/home/jim/dev/lib/iikiti/mfa",
-                "reference": "081065a865fd6f1b0f6f63e25373642baf21f233"
+                "reference": "cdae2579896bc35c03c84b318bafc4f752658bdf"
             },
             "require": {
                 "doctrine/persistence": "^3.2",
