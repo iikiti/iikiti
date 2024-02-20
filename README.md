@@ -1,3 +1,7 @@
+<p align="center">
+	<img src="https://iikiti.github.io/brand/logo/iikiti-logo-128.png" width="128" height="130" alt="Logo with a dark splat. Inside is a circle consisting of various spiraled slices. The slices are made of of various triangular shapes with gradient colors ranging from dark blue at the top to bright yellow at the bottom." />
+</p>
+
 # iikiti
 
 | :exclamation:  This is a work in progress (WIP) and not ready for production use!   |
