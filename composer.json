@@ -8,25 +8,8 @@
     "prefer-stable": true,
     "repositories": [
         {
-            "type": "path",
-            "url": "/home/jim/dev/lib/iikiti/extension-utilities",
-            "options": {
-                "symlink": true
-            }
-        },
-        {
-            "type": "path",
-            "url": "/home/jim/dev/lib/iikiti/components",
-            "options": {
-                "symlink": true
-            }
-        },
-		{
-            "type": "path",
-            "url": "/home/jim/dev/lib/iikiti/mfa",
-            "options": {
-                "symlink": true
-            }
+            "type": "vcs",
+            "url": "git@github.com:iikiti/mfa.git"
         }
     ],
     "require": {
@@ -40,7 +23,6 @@
         "doctrine/doctrine-bundle": "^2.10",
         "doctrine/doctrine-migrations-bundle": "^3.2",
         "doctrine/orm": "^2.16",
-        "iikiti/mfa": "dev-master",
         "ivopetkov/html5-dom-document-php": "^2.5",
         "phpdocumentor/reflection-docblock": "^5.3",
         "phpstan/phpdoc-parser": "^1.24",
