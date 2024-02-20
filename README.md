@@ -41,7 +41,7 @@ Want to build a site just by writing a text prompt? Now you can! You can write a
 
 ### Other Features
 
-Import/export & multiple-application & site support & management.
+API, import & export, multiple application & site support & management.
 
 ## Planned Developer Features
 
