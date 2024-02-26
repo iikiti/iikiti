@@ -52,3 +52,8 @@ Instead of writing an entire page structure with header, footer, sidebars, etc, 
 Extension developers focus on providing middleware, services, connections, and components to provide new functionality and integration with other services and provide front-end access to it via components and administrative interfaces.
 
 Theme developers focus on components that provide the user the ability to shape their site the way they see fit. Components can even be combined in to form composites that combine the features of multiple components into one. There is also full control over the style and color palette, including automated or manual light/dark theming tools.
+
+# Multi-Factor Authentication
+A multi-factor authentication (MFA/2FA) bundle is being developed that is required. It is not necessary to use it, but is provided as a primary way to increase user login security:
+
+https://github.com/iikiti/mfa
