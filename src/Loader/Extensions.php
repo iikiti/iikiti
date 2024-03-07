@@ -6,6 +6,9 @@ use iikiti\CMS\Kernel;
 use iikiti\CMS\Registry\SiteRegistry;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 
+/**
+ * CMS extension (plugin) loader.
+ */
 #[AutoconfigureTag('extensions')]
 class Extensions
 {

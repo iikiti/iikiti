@@ -8,6 +8,10 @@ use iikiti\CMS\Repository\Object\SiteRepository;
 use iikiti\CMS\Trait\ConfigurableTrait;
 use iikiti\CMS\Trait\MfaConfigurableTrait;
 
+/**
+ * Site entity
+ * Handles actual websites by domain/URL.
+ */
 #[ORM\Entity(repositoryClass: SiteRepository::class)]
 #[ORM\Table(name: 'objects')]
 class Site extends DbObject

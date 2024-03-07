@@ -8,11 +8,15 @@ use Doctrine\ORM\Mapping as ORM;
 use Doctrine\ORM\Mapping\DiscriminatorColumn;
 use Doctrine\ORM\Mapping\InheritanceType;
 use iikiti\CMS\Entity\Object\User;
-use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\ObjectRepository;
 use iikiti\CMS\Trait\PropertiedTrait;
 
 /**
+ * Database object entity
+ * High-level class that all other objects (like applications, pages, sites,
+ * users, etc) should extend from.
+ * Provides convenience methods.
+ *
  * @psalm-suppress MissingConstructor
  */
 #[ORM\Entity(repositoryClass: ObjectRepository::class)]
@@ -51,10 +55,6 @@ class DbObject
 	#[ORM\OneToOne(targetEntity: User::class)]
 	#[ORM\JoinColumn(name: 'creator_id', referencedColumnName: 'id')]
 	private ?User $creator;
-
-	protected ?string $repositoryClass;
-
-	protected SiteRegistry $siteRegistry;
 
 	#[ORM\OneToMany(
 		targetEntity: ObjectProperty::class,
@@ -103,7 +103,6 @@ class DbObject
 
 	public function setProperties(Collection $properties): void
 	{
-		/** @var ObjectProperty $property */
 		foreach ($properties as $property) {
 			$name = $property->getName();
 			if (!is_string($name) || '' == $name) {
@@ -126,27 +125,5 @@ class DbObject
 			$property->setValue($value);
 		}
 		$this->getProperties()->set($name, $property);
-	}
-
-	public function setSiteRegistry(SiteRegistry $siteRegistry): void
-	{
-		$this->siteRegistry = $siteRegistry;
-	}
-
-	public function getRepositoryClass(): ?string
-	{
-		if (null === $this->repositoryClass) {
-			$refClass = new \ReflectionClass($this);
-			$attrs = $refClass->getAttributes();
-			foreach ($attrs as $attr) {
-				if (ORM\Entity::class == $attr->getName()) {
-					$this->repositoryClass = $attr->getArguments()['repositoryClass'] ??
-						$attr->getArguments()[0];
-					break;
-				}
-			}
-		}
-
-		return $this->repositoryClass;
 	}
 }

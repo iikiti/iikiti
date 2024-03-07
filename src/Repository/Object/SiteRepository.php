@@ -9,7 +9,7 @@ use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\ObjectRepository;
 
 /**
- * Class SiteRepository.
+ * Repository for site entities.
  */
 class SiteRepository extends ObjectRepository
 {
@@ -41,7 +41,7 @@ class SiteRepository extends ObjectRepository
 		return $this->siteRegistry::getCurrent();
 	}
 
-	public function getMultifactorPreferences(): array|null
+	public function getMultifactorPreferences(): ?array
 	{
 		return $this->getCurrent()?->getMultifactorPreferences();
 	}

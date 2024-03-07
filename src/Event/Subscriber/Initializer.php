@@ -16,12 +16,15 @@ use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Stopwatch\Stopwatch;
 
 /**
- * Class OutputParser.
+ * Runs early to initialize the application.
  */
 class Initializer implements EventSubscriberInterface
 {
 	protected static bool $hasInitialized = false;
 
+	/**
+	 * Import necessary services.
+	 */
 	public function __construct(
 		protected ManagerRegistry $registry,
 		private Stopwatch $stopwatch,
@@ -31,6 +34,9 @@ class Initializer implements EventSubscriberInterface
 	) {
 	}
 
+	/**
+	 * Identifies subscribed events.
+	 */
 	public static function getSubscribedEvents(): array
 	{
 		return [
@@ -40,6 +46,9 @@ class Initializer implements EventSubscriberInterface
 	}
 
 	/**
+	 * Fired when kernel request comes in. Handles initialization of the
+	 * CMS.
+	 *
 	 * @return void
 	 *
 	 * @throws \Symfony\Component\HttpKernel\Exception\NotFoundHttpException When current host
@@ -68,11 +77,17 @@ class Initializer implements EventSubscriberInterface
 		// TODO: Extensions::setInitialSiteId($site->getId() ?? 0);
 	}
 
+	/**
+	 * Fired when a controller identified and called based on route.
+	 */
 	public function onKernelController(ControllerEvent $event): void
 	{
 		$this->_verifyUserHasSiteAccess();
 	}
 
+	/**
+	 * Ensures the current user has access to the current site.
+	 */
 	protected function _verifyUserHasSiteAccess(): void
 	{
 		$user = $this->security->getUser();

@@ -4,6 +4,9 @@ namespace iikiti\CMS\Trait;
 
 use iikiti\CMS\Service\Preferences;
 
+/**
+ * Trait for entities that need to provide preferences.
+ */
 trait PreferentialTrait
 {
 	use PropertiedTrait;

@@ -10,6 +10,9 @@ use iikiti\CMS\Registry\ApplicationRegistry;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\ObjectRepository;
 
+/**
+ * Repository for application entities.
+ */
 class ApplicationRepository extends ObjectRepository
 {
 	public function __construct(
@@ -26,7 +29,7 @@ class ApplicationRepository extends ObjectRepository
 		return $this->appRegistry->getCurrent();
 	}
 
-	public function getMultifactorPreferences(): array|null
+	public function getMultifactorPreferences(): ?array
 	{
 		return $this->getCurrentApplication()?->getMultifactorPreferences();
 	}

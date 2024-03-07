@@ -5,6 +5,9 @@ namespace iikiti\CMS\Filters;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * High-level class for output filters.
+ */
 class AbstractFilter
 {
 	/**

@@ -8,79 +8,70 @@ use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Repository\ObjectRepository;
 
 /**
- * Class APIController
- *
- * @package iikiti\CMSBundle\Controller\API
+ * API Controller.
  */
-class APIController {
+class APIController
+{
+	public function __construct(private ManagerRegistry $emi)
+	{
+	}
 
-    public function __construct(private ManagerRegistry $emi) {
-    }
-    
-    /**
-     * getObject
-     *
-     * @return array|null
-     */
-    public function getObject(
-        string $typeClass = DbObject::class,
-        array $criteria = [],
-        ?array $orderBy = null,
-        ?int $limit = null,
-        ?int $offset = null
-    ): ?array {
-        if(!class_exists($typeClass)) {
-            throw new \Exception('Class type "' . $typeClass . '" does not exist.');
-        } elseif(
-            $typeClass != DbObject::class &&
-            (new \ReflectionClass($typeClass))
-                ->isSubclassOf(DbObject::class) == false
-        ) {
-            throw new \Exception(
-                'Class type "' . $typeClass . '" is not instance of ' .
-                DbObject::class
-            );
-        }
-        $objRep = $this->emi->getRepository($typeClass);
-        return $objRep->findBy($criteria, $orderBy, $limit, $offset);
-    }
+	/**
+	 * getObject.
+	 */
+	public function getObject(
+		string $typeClass = DbObject::class,
+		array $criteria = [],
+		?array $orderBy = null,
+		?int $limit = null,
+		?int $offset = null
+	): ?array {
+		if (!class_exists($typeClass)) {
+			throw new \Exception('Class type "'.$typeClass.'" does not exist.');
+		} elseif (
+			DbObject::class != $typeClass &&
+			false == (new \ReflectionClass($typeClass))->
+				isSubclassOf(DbObject::class)
+		) {
+			throw new \Exception('Class type "'.$typeClass.'" is not instance of '.DbObject::class);
+		}
+		$objRep = $this->emi->getRepository($typeClass);
 
-    /**
-     * @param string           $typeClass   Object class. Must be subclass of
-     *                                      DbObject.
-     * @param string $criteria    Criteria for query (where clause).
-     * @param array            $options     Associative array of options.
-     *          See ObjectRepository for full details of options array.
-     *
-     * @return array|ArrayCollection|DbObject|false
-     * @throws \Exception
-     */
-    public function getObjectsByContent(
-        string $typeClass = DbObject::class,
-        string $criteria = '',
-        array $options = []
-    ): array|ArrayCollection|DbObject|bool {
-        if(!class_exists($typeClass)) {
-            throw new \Exception(
-                'Class type "' . $typeClass . '" does not exist.'
-            );
-        } elseif(
-            $typeClass != DbObject::class &&
-            (new \ReflectionClass($typeClass))
-                ->isSubclassOf(DbObject::class) == false
-        ) {
-            throw new \Exception(
-                'Class type "' . $typeClass . '" is not instance of ' .
-                DbObject::class
-            );
-        }
+		return $objRep->findBy($criteria, $orderBy, $limit, $offset);
+	}
+
+	/**
+	 * @param string $typeClass Object class. Must be subclass of
+	 *                          DbObject.
+	 * @param string $criteria  criteria for query (where clause)
+	 * @param array  $options   Associative array of options.
+	 *                          See ObjectRepository for full details of options array.
+	 *
+	 * @return array|ArrayCollection|DbObject|false
+	 *
+	 * @throws \Exception
+	 */
+	public function getObjectsByContent(
+		string $typeClass = DbObject::class,
+		string $criteria = '',
+		array $options = []
+	): array|ArrayCollection|DbObject|bool {
+		if (!class_exists($typeClass)) {
+			throw new \Exception('Class type "'.$typeClass.'" does not exist.');
+		} elseif (
+			DbObject::class != $typeClass &&
+			false == (new \ReflectionClass($typeClass))->
+				isSubclassOf(DbObject::class)
+		) {
+			throw new \Exception('Class type "'.$typeClass.'" is not instance of '.DbObject::class);
+		}
 		/** @var ObjectRepository $rep */
 		$rep = $this->emi->getRepository($typeClass);
-        // TODO: Change findByMeta to findByContent and implement.
-        return $rep->findByContent(
-            criteria: $criteria,
-            options: $options
-        );
-    }
 
+		// TODO: Change findByMeta to findByContent and implement.
+		return $rep->findByContent(
+			criteria: $criteria,
+			options: $options
+		);
+	}
 }

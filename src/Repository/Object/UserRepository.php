@@ -8,6 +8,9 @@ use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\ObjectRepository;
 use Symfony\Bridge\Doctrine\Security\User\UserLoaderInterface;
 
+/**
+ * Repository for user entities.
+ */
 class UserRepository extends ObjectRepository implements UserLoaderInterface
 {
 	public function __construct(

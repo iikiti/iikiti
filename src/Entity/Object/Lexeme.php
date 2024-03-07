@@ -1,13 +1,16 @@
 <?php
+
 namespace iikiti\CMS\Entity\Object;
 
 use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Repository\Object\LexemeRepository;
 
+/**
+ * Lexeme entity.
+ */
 #[ORM\Entity(repositoryClass: LexemeRepository::class)]
-#[ORM\Table(name: "objects")]
+#[ORM\Table(name: 'objects')]
 class Lexeme extends DbObject
 {
-
 }

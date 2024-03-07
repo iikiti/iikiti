@@ -1,6 +1,10 @@
 <?php
+
 namespace iikiti\CMS\Web\BlockEditor\Interfaces;
 
-interface WebComponentInterface {
-
+/**
+ * Interface for web components.
+ */
+interface WebComponentInterface
+{
 }

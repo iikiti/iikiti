@@ -7,6 +7,9 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\AsController;
 use Symfony\Component\Routing\Annotation\Route;
 
+/**
+ * Administration controller.
+ */
 #[AsController]
 class AdminController extends AppController
 {

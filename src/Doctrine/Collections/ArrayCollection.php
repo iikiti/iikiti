@@ -5,6 +5,8 @@ namespace iikiti\CMS\Doctrine\Collections;
 use Doctrine\Common\Collections\ArrayCollection as DoctrineArrayCollection;
 
 /**
+ * Extends DoctrineArrayCollection to add a unique() method.
+ *
  * @psalm-template TKey of array-key
  * @psalm-template T
  *

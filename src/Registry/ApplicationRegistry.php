@@ -7,9 +7,12 @@ use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Doctrine\Collections\ArrayCollection;
 use iikiti\CMS\Entity\Object\Application;
 use iikiti\CMS\Entity\Object\Site;
-use iikiti\CMS\Repository\Object\SiteRepository;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 
+/**
+ * Manages applications stored in the database.
+ * Allows access to the current application based on the request.
+ */
 #[AutoconfigureTag('app_registry')]
 class ApplicationRegistry
 {
@@ -37,7 +40,6 @@ class ApplicationRegistry
 
 	private function __getCurrent(): ?Application
 	{
-		/** @var SiteRepository $siteRep */
 		$siteRep = $this->em->getRepository(Site::class);
 
 		return $siteRep->getApplicationBySite($this->siteRegistry::getCurrent());

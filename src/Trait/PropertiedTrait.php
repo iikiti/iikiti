@@ -5,6 +5,9 @@ namespace iikiti\CMS\Trait;
 use Doctrine\Common\Collections\Collection;
 use iikiti\CMS\Entity\ObjectProperty;
 
+/**
+ * Trait for entities that need to get and set a collection of properties.
+ */
 trait PropertiedTrait
 {
 	/** @return Collection<string,ObjectProperty> */

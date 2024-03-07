@@ -13,6 +13,10 @@ use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Trait\RepositoryOptionCheckTrait;
 
 /**
+ * Repository for database objects.
+ * This is a high-level abstract class that individual object repositories
+ * should extend. Provides convenience methods and query management.
+ *
  * @template T of object
  *
  * @template-extends ServiceEntityRepository<T>

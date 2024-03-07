@@ -11,6 +11,8 @@ use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 use Symfony\Component\Yaml\Yaml;
 
 /**
+ * CMS Kernel.
+ *
  * @uses MicroKernelTrait
  */
 class Kernel extends BaseKernel implements CompilerPassInterface
@@ -20,6 +22,9 @@ class Kernel extends BaseKernel implements CompilerPassInterface
 		MicroKernelTrait::configureRoutes as private __kernelConfigureRoutes;
 	}
 
+	/**
+	 * Load configurations.
+	 */
 	public function process(ContainerBuilder $container): void
 	{
 		$encoreConfig = Yaml::parseFile(
@@ -31,12 +36,18 @@ class Kernel extends BaseKernel implements CompilerPassInterface
 		);
 	}
 
+	/**
+	 * Configure routes for application and extensions.
+	 */
 	private function configureRoutes(RoutingConfigurator $routes): void
 	{
 		$this->__kernelConfigureRoutes($routes);
 		// TODO: $this->_configureExtensionRoutes($routes);
 	}
 
+	/**
+	 * Loads routes for extensions.
+	 */
 	protected function _configureExtensionRoutes(RoutingConfigurator $routes): void
 	{
 		/** @var Extensions $extensions */
@@ -66,6 +77,10 @@ class Kernel extends BaseKernel implements CompilerPassInterface
 		parent::boot();
 	}
 
+	/**
+	 * Registers bundles for extensions.
+	 * Will this be needed?
+	 */
 	public function registerBundles(): iterable
 	{
 		/* @var Extensions $extensions */

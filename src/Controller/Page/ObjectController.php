@@ -12,7 +12,9 @@ use Symfony\Component\HttpKernel\Attribute\AsController;
 use Symfony\Component\Routing\Annotation\Route;
 
 /**
- * Class ObjectController.
+ * Object controller.
+ *
+ * Handles individual object pages.
  */
 #[AsController]
 class ObjectController extends AppController

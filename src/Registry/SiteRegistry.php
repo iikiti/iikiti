@@ -4,11 +4,14 @@ namespace iikiti\CMS\Registry;
 
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\Object\Site;
-use iikiti\CMS\Repository\Object\SiteRepository;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
+/**
+ * Manages sites (children of applications) stored in the database.
+ * Allows access to the current site based on the request.
+ */
 #[AutoconfigureTag('site_registry')]
 class SiteRegistry
 {
@@ -46,7 +49,6 @@ class SiteRegistry
 		if (null === $request) {
 			throw new NotFoundHttpException('Request does not exist.');
 		}
-		/** @var SiteRepository $siteRep */
 		$siteRep = $registry->getManager()->getRepository(Site::class);
 		$sites = $siteRep->findByDomain($request->getHost());
 		if (empty($sites)) {

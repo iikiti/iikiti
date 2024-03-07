@@ -2,20 +2,23 @@
 
 namespace iikiti\CMS\Enum;
 
+/**
+ * Handles an arbitrary number of user roles.
+ */
+final class UserRoleEnum extends DynamicBackedEnumerator
+{
+	protected static array $defaultRoles = [];
 
-final class UserRoleEnum extends DynamicBackedEnumerator {
-
-	static protected array $defaultRoles = [];
-
-	public static function registerDefault(string|int $role): void {
+	public static function registerDefault(string|int $role): void
+	{
 		$role = self::from($role);
 		self::$defaultRoles = array_merge([$role->getName() => $role], self::$defaultRoles);
 	}
 
-	public static function getDefaultRoles(): array {
+	public static function getDefaultRoles(): array
+	{
 		return self::$defaultRoles;
 	}
-
 }
 
 UserRoleEnum::register('User', 'ROLE_USER');

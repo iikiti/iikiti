@@ -2,13 +2,17 @@
 
 namespace iikiti\CMS\Trait;
 
+/**
+ * Trait for entities that need to provide multi-factor authentication
+ * preferences.
+ */
 trait MfaPreferencesTrait
 {
 	use PreferentialTrait;
 
 	public const MFA_KEY = 'mfa';
 
-	public function getMultifactorPreferences(): array|null
+	public function getMultifactorPreferences(): ?array
 	{
 		$mfaConfig = $this->getPreferences()->get(self::MFA_KEY);
 		if (!is_array($mfaConfig)) {
