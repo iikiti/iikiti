@@ -7,7 +7,10 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 
 /**
- * Class AppController.
+ * Abstract App controller.
+ *
+ * High-level class that all other controllers should extend. Includes
+ * convenience methods.
  */
 abstract class AppController extends AbstractController
 {

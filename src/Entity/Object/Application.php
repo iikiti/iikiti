@@ -8,6 +8,10 @@ use iikiti\CMS\Repository\Object\ApplicationRepository;
 use iikiti\CMS\Trait\ConfigurableTrait;
 use iikiti\CMS\Trait\MfaConfigurableTrait;
 
+/**
+ * Application entity
+ * Top level above sites.
+ */
 #[ORM\Entity(repositoryClass: ApplicationRepository::class)]
 #[ORM\Table(name: 'objects')]
 class Application extends DbObject

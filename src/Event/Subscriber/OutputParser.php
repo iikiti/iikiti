@@ -6,12 +6,15 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 
 /**
- * Class OutputParser.
+ * Handles output filters.
  */
 class OutputParser implements EventSubscriberInterface
 {
 	protected static array $filters = [];
 
+	/**
+	 * Identifies subscribed events.
+	 */
 	public static function getSubscribedEvents(): array
 	{
 		return [
@@ -20,6 +23,8 @@ class OutputParser implements EventSubscriberInterface
 	}
 
 	/**
+	 * Appends a new filter.
+	 *
 	 * @return void
 	 */
 	public static function appendFilter(\Closure $filter)
@@ -28,6 +33,8 @@ class OutputParser implements EventSubscriberInterface
 	}
 
 	/**
+	 * Fired on kernel response. Calls each assigned filter on the output.
+	 *
 	 * @return void
 	 */
 	public function onKernelResponse(ResponseEvent $event)

@@ -8,6 +8,9 @@ use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Repository\ObjectPropertyRepository;
 
 /**
+ * Database property entity
+ * Allows access to object metadata.
+ *
  * @psalm-suppress MissingConstructor
  */
 #[ORM\Entity(repositoryClass: ObjectPropertyRepository::class)]
@@ -39,7 +42,7 @@ class ObjectProperty
 	private int|float $id;
 
 	#[ORM\Column(type: Types::STRING)]
-	private string|null $name;
+	private ?string $name;
 
 	#[ORM\Column(type: Types::JSON)]
 	private int|float|string|array|null $value;
@@ -62,17 +65,17 @@ class ObjectProperty
 		updatable: false,
 		generated: 'ALWAYS'
 	)]
-	private array|null $value_array;
+	private ?array $value_array;
 
 	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
 	private int|float $creator_id;
 
-	public function getName(): string|null
+	public function getName(): ?string
 	{
 		return $this->name;
 	}
 
-	public function setName(string|null $name): void
+	public function setName(?string $name): void
 	{
 		$this->name = $name;
 	}

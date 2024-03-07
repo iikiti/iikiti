@@ -8,7 +8,9 @@ use Symfony\Component\HttpKernel\Attribute\AsController;
 use Symfony\Component\Routing\Annotation\Route;
 
 /**
- * Class TestController.
+ * Test controller.
+ *
+ * Handles tests. Won't be included in final.
  */
 #[AsController]
 class TestController extends AppController

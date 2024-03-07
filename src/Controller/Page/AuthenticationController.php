@@ -11,7 +11,7 @@ use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
 
 /**
- * Class AuthenticationController.
+ * Authentication controller.
  */
 #[AsController]
 class AuthenticationController extends AppController

@@ -10,7 +10,7 @@ use Symfony\Component\HttpKernel\Attribute\AsController;
 use Symfony\Component\Routing\Annotation\Route;
 
 /**
- * Class AppController.
+ * Homepage controller.
  */
 #[AsController]
 class HomeController extends AppController

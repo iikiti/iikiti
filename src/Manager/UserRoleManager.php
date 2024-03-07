@@ -5,6 +5,9 @@ namespace iikiti\CMS\Manager;
 use iikiti\CMS\Enum\EnumCase;
 use iikiti\CMS\Enum\UserRoleEnum;
 
+/**
+ * Manage user role enumerations.
+ */
 class UserRoleManager
 {
 	private function __construct()

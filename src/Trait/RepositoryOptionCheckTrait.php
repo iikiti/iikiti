@@ -2,6 +2,10 @@
 
 namespace iikiti\CMS\Trait;
 
+/**
+ * Trait providing convenience methods for checking options, types, and
+ * providing defaults.
+ */
 trait RepositoryOptionCheckTrait
 {
 	protected function _typeCheck_bool($value, $allowNull = true): bool
@@ -17,7 +21,7 @@ trait RepositoryOptionCheckTrait
 	protected static function _checkOption(
 		string $key,
 		array $options,
-		\Closure|null $typeCheck
+		?\Closure $typeCheck
 	): mixed {
 		$default = self::_defaultOption($key);
 		$value = $options[$key] ?? null;

@@ -4,6 +4,9 @@ namespace iikiti\CMS\Trait;
 
 use iikiti\CMS\Service\Configuration;
 
+/**
+ * Configurable trait for entities that need to return a configuration.
+ */
 trait ConfigurableTrait
 {
 	use PropertiedTrait;

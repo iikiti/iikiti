@@ -7,6 +7,8 @@ use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\ObjectProperty;
 
 /**
+ * Repository for object property entities (metadata).
+ *
  * @template T of object
  *
  * @template-extends ServiceEntityRepository<T>

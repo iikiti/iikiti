@@ -11,6 +11,9 @@ use iikiti\CMS\Trait\PreferentialTrait;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
+/**
+ * User entity.
+ */
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: 'objects')]
 class User extends DbObject implements
@@ -54,7 +57,7 @@ class User extends DbObject implements
 		return $asEnum ? $roles : array_values(UserRoleManager::convertEnumsToStrings($roles));
 	}
 
-	public function getPassword(): string|null
+	public function getPassword(): ?string
 	{
 		$property = $this->getProperties()->get('password');
 

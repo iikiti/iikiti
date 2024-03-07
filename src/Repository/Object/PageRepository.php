@@ -8,7 +8,7 @@ use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\ObjectRepository;
 
 /**
- * Class PageRepository.
+ * Repository for page entities.
  */
 class PageRepository extends ObjectRepository
 {

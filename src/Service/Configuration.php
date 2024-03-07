@@ -6,6 +6,9 @@ use iikiti\CMS\Doctrine\Collections\ArrayCollection;
 use iikiti\CMS\Service\Configuration as Config;
 use Psr\Container\ContainerInterface;
 
+/**
+ * Configuration service.
+ */
 class Configuration implements ContainerInterface
 {
 	use Config\ExtensionConfigurationTrait;

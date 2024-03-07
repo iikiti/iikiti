@@ -7,6 +7,9 @@ use IvoPetkov\HTML5DOMDocument;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\Stopwatch\Stopwatch;
 
+/**
+ * HTML output filter. Parses HTML into a DOM structure for manipulation.
+ */
 class HtmlFilter extends AbstractFilter
 {
 	/**
