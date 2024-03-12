@@ -1477,12 +1477,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/iikiti/mfa.git",
-                "reference": "c0111fa76bb4c98d5018ecbaaea6615327659d91"
+                "reference": "e9b41d682c95c0e85456e95803e21ec5d6777030"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/iikiti/mfa/zipball/c0111fa76bb4c98d5018ecbaaea6615327659d91",
-                "reference": "c0111fa76bb4c98d5018ecbaaea6615327659d91",
+                "url": "https://api.github.com/repos/iikiti/mfa/zipball/e9b41d682c95c0e85456e95803e21ec5d6777030",
+                "reference": "e9b41d682c95c0e85456e95803e21ec5d6777030",
                 "shasum": ""
             },
             "require": {
@@ -1527,7 +1527,7 @@
                 "source": "https://github.com/iikiti/mfa/tree/master",
                 "issues": "https://github.com/iikiti/mfa/issues"
             },
-            "time": "2024-03-10T14:00:47+00:00"
+            "time": "2024-03-12T11:21:38+00:00"
         },
         {
             "name": "ivopetkov/html5-dom-document-php",
@@ -11412,16 +11412,16 @@
         },
         {
             "name": "vimeo/psalm",
-            "version": "5.23.0",
+            "version": "5.23.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/vimeo/psalm.git",
-                "reference": "005e3184fb6de4350a873b9b8c4dc3cede9db762"
+                "reference": "8471a896ccea3526b26d082f4461eeea467f10a4"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/vimeo/psalm/zipball/005e3184fb6de4350a873b9b8c4dc3cede9db762",
-                "reference": "005e3184fb6de4350a873b9b8c4dc3cede9db762",
+                "url": "https://api.github.com/repos/vimeo/psalm/zipball/8471a896ccea3526b26d082f4461eeea467f10a4",
+                "reference": "8471a896ccea3526b26d082f4461eeea467f10a4",
                 "shasum": ""
             },
             "require": {
@@ -11518,7 +11518,7 @@
                 "issues": "https://github.com/vimeo/psalm/issues",
                 "source": "https://github.com/vimeo/psalm"
             },
-            "time": "2024-03-09T19:39:11+00:00"
+            "time": "2024-03-11T20:33:46+00:00"
         },
         {
             "name": "weirdan/doctrine-psalm-plugin",
