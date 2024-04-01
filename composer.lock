@@ -1478,12 +1478,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/iikiti/mfa.git",
-                "reference": "920f6329d651bf24ee5b736ab94ffc123bb8d3b9"
+                "reference": "c54a8c25da8e70b6eecf7e5ff8b5c7de58dee9db"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/iikiti/mfa/zipball/920f6329d651bf24ee5b736ab94ffc123bb8d3b9",
-                "reference": "920f6329d651bf24ee5b736ab94ffc123bb8d3b9",
+                "url": "https://api.github.com/repos/iikiti/mfa/zipball/c54a8c25da8e70b6eecf7e5ff8b5c7de58dee9db",
+                "reference": "c54a8c25da8e70b6eecf7e5ff8b5c7de58dee9db",
                 "shasum": ""
             },
             "require": {
@@ -1528,7 +1528,7 @@
                 "source": "https://github.com/iikiti/mfa/tree/master",
                 "issues": "https://github.com/iikiti/mfa/issues"
             },
-            "time": "2024-03-27T10:26:29+00:00"
+            "time": "2024-04-01T11:02:51+00:00"
         },
         {
             "name": "ivopetkov/html5-dom-document-php",
