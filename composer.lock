@@ -1478,12 +1478,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/iikiti/mfa.git",
-                "reference": "fbcf9d805ce3b260a8db672b3584579d0545a989"
+                "reference": "e0575eb37aa6740243c4545eb9bb49fc88055a81"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/iikiti/mfa/zipball/fbcf9d805ce3b260a8db672b3584579d0545a989",
-                "reference": "fbcf9d805ce3b260a8db672b3584579d0545a989",
+                "url": "https://api.github.com/repos/iikiti/mfa/zipball/e0575eb37aa6740243c4545eb9bb49fc88055a81",
+                "reference": "e0575eb37aa6740243c4545eb9bb49fc88055a81",
                 "shasum": ""
             },
             "require": {
@@ -1528,7 +1528,7 @@
                 "source": "https://github.com/iikiti/mfa/tree/master",
                 "issues": "https://github.com/iikiti/mfa/issues"
             },
-            "time": "2024-04-12T12:10:06+00:00"
+            "time": "2024-04-14T11:42:59+00:00"
         },
         {
             "name": "ivopetkov/html5-dom-document-php",
@@ -8176,16 +8176,16 @@
         },
         {
             "name": "amphp/byte-stream",
-            "version": "v1.8.1",
+            "version": "v1.8.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/amphp/byte-stream.git",
-                "reference": "acbd8002b3536485c997c4e019206b3f10ca15bd"
+                "reference": "4f0e968ba3798a423730f567b1b50d3441c16ddc"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/amphp/byte-stream/zipball/acbd8002b3536485c997c4e019206b3f10ca15bd",
-                "reference": "acbd8002b3536485c997c4e019206b3f10ca15bd",
+                "url": "https://api.github.com/repos/amphp/byte-stream/zipball/4f0e968ba3798a423730f567b1b50d3441c16ddc",
+                "reference": "4f0e968ba3798a423730f567b1b50d3441c16ddc",
                 "shasum": ""
             },
             "require": {
@@ -8201,11 +8201,6 @@
                 "psalm/phar": "^3.11.4"
             },
             "type": "library",
-            "extra": {
-                "branch-alias": {
-                    "dev-master": "1.x-dev"
-                }
-            },
             "autoload": {
                 "files": [
                     "lib/functions.php"
@@ -8229,7 +8224,7 @@
                 }
             ],
             "description": "A stream abstraction to make working with non-blocking I/O simple.",
-            "homepage": "http://amphp.org/byte-stream",
+            "homepage": "https://amphp.org/byte-stream",
             "keywords": [
                 "amp",
                 "amphp",
@@ -8239,9 +8234,8 @@
                 "stream"
             ],
             "support": {
-                "irc": "irc://irc.freenode.org/amphp",
                 "issues": "https://github.com/amphp/byte-stream/issues",
-                "source": "https://github.com/amphp/byte-stream/tree/v1.8.1"
+                "source": "https://github.com/amphp/byte-stream/tree/v1.8.2"
             },
             "funding": [
                 {
@@ -8249,7 +8243,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2021-03-30T17:13:30+00:00"
+            "time": "2024-04-13T18:00:56+00:00"
         },
         {
             "name": "composer/pcre",
