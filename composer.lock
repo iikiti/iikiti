@@ -1481,12 +1481,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/iikiti/mfa.git",
-                "reference": "ea7b222496749d84d6903cb27b645f311934a6c6"
+                "reference": "3aa23b040016dc64973e6b5f7d49372de27d981c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/iikiti/mfa/zipball/ea7b222496749d84d6903cb27b645f311934a6c6",
-                "reference": "ea7b222496749d84d6903cb27b645f311934a6c6",
+                "url": "https://api.github.com/repos/iikiti/mfa/zipball/3aa23b040016dc64973e6b5f7d49372de27d981c",
+                "reference": "3aa23b040016dc64973e6b5f7d49372de27d981c",
                 "shasum": ""
             },
             "require": {
@@ -1531,7 +1531,7 @@
                 "source": "https://github.com/iikiti/mfa/tree/master",
                 "issues": "https://github.com/iikiti/mfa/issues"
             },
-            "time": "2024-05-09T10:40:56+00:00"
+            "time": "2024-05-11T10:54:20+00:00"
         },
         {
             "name": "ivopetkov/html5-dom-document-php",
@@ -7888,16 +7888,16 @@
         },
         {
             "name": "twig/extra-bundle",
-            "version": "v3.9.3",
+            "version": "v3.10.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/twigphp/twig-extra-bundle.git",
-                "reference": "ef6869adf1fdab66f7e495771a7ba01496ffc0d5"
+                "reference": "cdc6e23aeb7f4953c1039568c3439aab60c56454"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/twigphp/twig-extra-bundle/zipball/ef6869adf1fdab66f7e495771a7ba01496ffc0d5",
-                "reference": "ef6869adf1fdab66f7e495771a7ba01496ffc0d5",
+                "url": "https://api.github.com/repos/twigphp/twig-extra-bundle/zipball/cdc6e23aeb7f4953c1039568c3439aab60c56454",
+                "reference": "cdc6e23aeb7f4953c1039568c3439aab60c56454",
                 "shasum": ""
             },
             "require": {
@@ -7946,7 +7946,7 @@
                 "twig"
             ],
             "support": {
-                "source": "https://github.com/twigphp/twig-extra-bundle/tree/v3.9.3"
+                "source": "https://github.com/twigphp/twig-extra-bundle/tree/v3.10.0"
             },
             "funding": [
                 {
@@ -7958,20 +7958,20 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2024-04-18T09:24:21+00:00"
+            "time": "2024-05-11T07:35:57+00:00"
         },
         {
             "name": "twig/twig",
-            "version": "v3.9.3",
+            "version": "v3.10.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/twigphp/Twig.git",
-                "reference": "a842d75fed59cdbcbd3a3ad7fb9eb768fc350d58"
+                "reference": "34422f90043aba75e419dd77ee0a86e1688c28ee"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/twigphp/Twig/zipball/a842d75fed59cdbcbd3a3ad7fb9eb768fc350d58",
-                "reference": "a842d75fed59cdbcbd3a3ad7fb9eb768fc350d58",
+                "url": "https://api.github.com/repos/twigphp/Twig/zipball/34422f90043aba75e419dd77ee0a86e1688c28ee",
+                "reference": "34422f90043aba75e419dd77ee0a86e1688c28ee",
                 "shasum": ""
             },
             "require": {
@@ -8025,7 +8025,7 @@
             ],
             "support": {
                 "issues": "https://github.com/twigphp/Twig/issues",
-                "source": "https://github.com/twigphp/Twig/tree/v3.9.3"
+                "source": "https://github.com/twigphp/Twig/tree/v3.10.0"
             },
             "funding": [
                 {
@@ -8037,7 +8037,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2024-04-18T11:59:33+00:00"
+            "time": "2024-05-11T07:44:16+00:00"
         },
         {
             "name": "webmozart/assert",
@@ -8849,16 +8849,16 @@
         },
         {
             "name": "friendsofphp/php-cs-fixer",
-            "version": "v3.56.0",
+            "version": "v3.56.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/PHP-CS-Fixer/PHP-CS-Fixer.git",
-                "reference": "4429303e62a4ce583ddfe64ff5c34c76bcf74931"
+                "reference": "69c6168ae8bc96dc656c7f6c7271120a68ae5903"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/PHP-CS-Fixer/PHP-CS-Fixer/zipball/4429303e62a4ce583ddfe64ff5c34c76bcf74931",
-                "reference": "4429303e62a4ce583ddfe64ff5c34c76bcf74931",
+                "url": "https://api.github.com/repos/PHP-CS-Fixer/PHP-CS-Fixer/zipball/69c6168ae8bc96dc656c7f6c7271120a68ae5903",
+                "reference": "69c6168ae8bc96dc656c7f6c7271120a68ae5903",
                 "shasum": ""
             },
             "require": {
@@ -8930,7 +8930,7 @@
             ],
             "support": {
                 "issues": "https://github.com/PHP-CS-Fixer/PHP-CS-Fixer/issues",
-                "source": "https://github.com/PHP-CS-Fixer/PHP-CS-Fixer/tree/v3.56.0"
+                "source": "https://github.com/PHP-CS-Fixer/PHP-CS-Fixer/tree/v3.56.1"
             },
             "funding": [
                 {
@@ -8938,7 +8938,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2024-05-07T15:50:05+00:00"
+            "time": "2024-05-10T11:31:15+00:00"
         },
         {
             "name": "myclabs/deep-copy",
