@@ -1481,12 +1481,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/iikiti/mfa.git",
-                "reference": "14ae425d317d6df68204ac520c98bcb24104c2a6"
+                "reference": "e50de993822de4f34e528e027fcd412187e0226a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/iikiti/mfa/zipball/14ae425d317d6df68204ac520c98bcb24104c2a6",
-                "reference": "14ae425d317d6df68204ac520c98bcb24104c2a6",
+                "url": "https://api.github.com/repos/iikiti/mfa/zipball/e50de993822de4f34e528e027fcd412187e0226a",
+                "reference": "e50de993822de4f34e528e027fcd412187e0226a",
                 "shasum": ""
             },
             "require": {
@@ -1531,7 +1531,7 @@
                 "source": "https://github.com/iikiti/mfa/tree/master",
                 "issues": "https://github.com/iikiti/mfa/issues"
             },
-            "time": "2024-07-01T10:32:37+00:00"
+            "time": "2024-07-04T12:54:51+00:00"
         },
         {
             "name": "ivopetkov/html5-dom-document-php",
@@ -9509,16 +9509,16 @@
         },
         {
             "name": "phpstan/phpstan-doctrine",
-            "version": "1.4.4",
+            "version": "1.4.5",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpstan/phpstan-doctrine.git",
-                "reference": "6051e97bf3aa530e0a1d8f8bf5489ee7649396ca"
+                "reference": "c87ee295de7573d9c015c492693e7af7f8cd85dc"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpstan/phpstan-doctrine/zipball/6051e97bf3aa530e0a1d8f8bf5489ee7649396ca",
-                "reference": "6051e97bf3aa530e0a1d8f8bf5489ee7649396ca",
+                "url": "https://api.github.com/repos/phpstan/phpstan-doctrine/zipball/c87ee295de7573d9c015c492693e7af7f8cd85dc",
+                "reference": "c87ee295de7573d9c015c492693e7af7f8cd85dc",
                 "shasum": ""
             },
             "require": {
@@ -9575,9 +9575,9 @@
             "description": "Doctrine extensions for PHPStan",
             "support": {
                 "issues": "https://github.com/phpstan/phpstan-doctrine/issues",
-                "source": "https://github.com/phpstan/phpstan-doctrine/tree/1.4.4"
+                "source": "https://github.com/phpstan/phpstan-doctrine/tree/1.4.5"
             },
-            "time": "2024-06-30T13:08:31+00:00"
+            "time": "2024-07-02T17:02:12+00:00"
         },
         {
             "name": "phpunit/php-code-coverage",
@@ -10050,16 +10050,16 @@
         },
         {
             "name": "psalm/plugin-symfony",
-            "version": "v5.2.4",
+            "version": "v5.2.5",
             "source": {
                 "type": "git",
                 "url": "https://github.com/psalm/psalm-plugin-symfony.git",
-                "reference": "353c9b0be952d7d98a743922570436fa4953ab29"
+                "reference": "fb801a9b3d12ace9fb619febfaa3ae0bc1dbb196"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/psalm/psalm-plugin-symfony/zipball/353c9b0be952d7d98a743922570436fa4953ab29",
-                "reference": "353c9b0be952d7d98a743922570436fa4953ab29",
+                "url": "https://api.github.com/repos/psalm/psalm-plugin-symfony/zipball/fb801a9b3d12ace9fb619febfaa3ae0bc1dbb196",
+                "reference": "fb801a9b3d12ace9fb619febfaa3ae0bc1dbb196",
                 "shasum": ""
             },
             "require": {
@@ -10109,9 +10109,9 @@
             "description": "Psalm Plugin for Symfony",
             "support": {
                 "issues": "https://github.com/psalm/psalm-plugin-symfony/issues",
-                "source": "https://github.com/psalm/psalm-plugin-symfony/tree/v5.2.4"
+                "source": "https://github.com/psalm/psalm-plugin-symfony/tree/v5.2.5"
             },
-            "time": "2024-06-22T08:33:24+00:00"
+            "time": "2024-07-03T11:57:02+00:00"
         },
         {
             "name": "react/cache",
