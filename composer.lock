@@ -1481,12 +1481,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/iikiti/mfa.git",
-                "reference": "a6eaf9a3987325e3c120e375f9d34b3c149165bc"
+                "reference": "43539559a0c593e2484a1d610c5af2c679d36ba0"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/iikiti/mfa/zipball/a6eaf9a3987325e3c120e375f9d34b3c149165bc",
-                "reference": "a6eaf9a3987325e3c120e375f9d34b3c149165bc",
+                "url": "https://api.github.com/repos/iikiti/mfa/zipball/43539559a0c593e2484a1d610c5af2c679d36ba0",
+                "reference": "43539559a0c593e2484a1d610c5af2c679d36ba0",
                 "shasum": ""
             },
             "require": {
@@ -1531,7 +1531,7 @@
                 "source": "https://github.com/iikiti/mfa/tree/master",
                 "issues": "https://github.com/iikiti/mfa/issues"
             },
-            "time": "2024-08-07T23:37:56+00:00"
+            "time": "2024-08-20T11:18:11+00:00"
         },
         {
             "name": "ivopetkov/html5-dom-document-php",
@@ -7343,16 +7343,16 @@
         },
         {
             "name": "symfony/ux-svelte",
-            "version": "v2.19.0",
+            "version": "v2.19.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/ux-svelte.git",
-                "reference": "c5055177dce1316f7bb43e2a484e6deafc4d503a"
+                "reference": "cbd401041a605e14010a82066b378a0be01734e8"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/ux-svelte/zipball/c5055177dce1316f7bb43e2a484e6deafc4d503a",
-                "reference": "c5055177dce1316f7bb43e2a484e6deafc4d503a",
+                "url": "https://api.github.com/repos/symfony/ux-svelte/zipball/cbd401041a605e14010a82066b378a0be01734e8",
+                "reference": "cbd401041a605e14010a82066b378a0be01734e8",
                 "shasum": ""
             },
             "require": {
@@ -7403,7 +7403,7 @@
                 "symfony-ux"
             ],
             "support": {
-                "source": "https://github.com/symfony/ux-svelte/tree/v2.19.0"
+                "source": "https://github.com/symfony/ux-svelte/tree/v2.19.3"
             },
             "funding": [
                 {
@@ -7419,7 +7419,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2024-07-30T19:26:23+00:00"
+            "time": "2024-08-14T04:55:38+00:00"
         },
         {
             "name": "symfony/validator",
@@ -8429,26 +8429,26 @@
         },
         {
             "name": "composer/pcre",
-            "version": "3.2.0",
+            "version": "3.3.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/composer/pcre.git",
-                "reference": "ea4ab6f9580a4fd221e0418f2c357cdd39102a90"
+                "reference": "1637e067347a0c40bbb1e3cd786b20dcab556a81"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/composer/pcre/zipball/ea4ab6f9580a4fd221e0418f2c357cdd39102a90",
-                "reference": "ea4ab6f9580a4fd221e0418f2c357cdd39102a90",
+                "url": "https://api.github.com/repos/composer/pcre/zipball/1637e067347a0c40bbb1e3cd786b20dcab556a81",
+                "reference": "1637e067347a0c40bbb1e3cd786b20dcab556a81",
                 "shasum": ""
             },
             "require": {
                 "php": "^7.4 || ^8.0"
             },
             "conflict": {
-                "phpstan/phpstan": "<1.11.8"
+                "phpstan/phpstan": "<1.11.10"
             },
             "require-dev": {
-                "phpstan/phpstan": "^1.11.8",
+                "phpstan/phpstan": "^1.11.10",
                 "phpstan/phpstan-strict-rules": "^1.1",
                 "phpunit/phpunit": "^8 || ^9"
             },
@@ -8488,7 +8488,7 @@
             ],
             "support": {
                 "issues": "https://github.com/composer/pcre/issues",
-                "source": "https://github.com/composer/pcre/tree/3.2.0"
+                "source": "https://github.com/composer/pcre/tree/3.3.0"
             },
             "funding": [
                 {
@@ -8504,7 +8504,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2024-07-25T09:36:02+00:00"
+            "time": "2024-08-19T19:43:53+00:00"
         },
         {
             "name": "composer/semver",
@@ -9460,16 +9460,16 @@
         },
         {
             "name": "phpstan/phpstan",
-            "version": "1.11.10",
+            "version": "1.11.11",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpstan/phpstan.git",
-                "reference": "640410b32995914bde3eed26fa89552f9c2c082f"
+                "reference": "707c2aed5d8d0075666e673a5e71440c1d01a5a3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpstan/phpstan/zipball/640410b32995914bde3eed26fa89552f9c2c082f",
-                "reference": "640410b32995914bde3eed26fa89552f9c2c082f",
+                "url": "https://api.github.com/repos/phpstan/phpstan/zipball/707c2aed5d8d0075666e673a5e71440c1d01a5a3",
+                "reference": "707c2aed5d8d0075666e673a5e71440c1d01a5a3",
                 "shasum": ""
             },
             "require": {
@@ -9514,20 +9514,20 @@
                     "type": "github"
                 }
             ],
-            "time": "2024-08-08T09:02:50+00:00"
+            "time": "2024-08-19T14:37:29+00:00"
         },
         {
             "name": "phpstan/phpstan-doctrine",
-            "version": "1.5.0",
+            "version": "1.5.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpstan/phpstan-doctrine.git",
-                "reference": "caa046bd6152818e781260fb3a7a96d6b0fadeed"
+                "reference": "a9bb990e0a1ab33078aa925114845769b4abbb96"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpstan/phpstan-doctrine/zipball/caa046bd6152818e781260fb3a7a96d6b0fadeed",
-                "reference": "caa046bd6152818e781260fb3a7a96d6b0fadeed",
+                "url": "https://api.github.com/repos/phpstan/phpstan-doctrine/zipball/a9bb990e0a1ab33078aa925114845769b4abbb96",
+                "reference": "a9bb990e0a1ab33078aa925114845769b4abbb96",
                 "shasum": ""
             },
             "require": {
@@ -9584,9 +9584,9 @@
             "description": "Doctrine extensions for PHPStan",
             "support": {
                 "issues": "https://github.com/phpstan/phpstan-doctrine/issues",
-                "source": "https://github.com/phpstan/phpstan-doctrine/tree/1.5.0"
+                "source": "https://github.com/phpstan/phpstan-doctrine/tree/1.5.1"
             },
-            "time": "2024-08-05T13:47:07+00:00"
+            "time": "2024-08-20T16:55:00+00:00"
         },
         {
             "name": "phpunit/php-code-coverage",
