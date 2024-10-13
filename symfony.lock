@@ -32,9 +32,6 @@
     "doctrine/collections": {
         "version": "1.6.8"
     },
-    "doctrine/common": {
-        "version": "3.3.0"
-    },
     "doctrine/dbal": {
         "version": "2.13.9"
     },
@@ -68,12 +65,12 @@
         ]
     },
     "doctrine/doctrine-migrations-bundle": {
-        "version": "3.2",
+        "version": "3.3",
         "recipe": {
             "repo": "github.com/symfony/recipes",
             "branch": "main",
             "version": "3.1",
-            "ref": "ee609429c9ee23e22d6fa5728211768f51ed2818"
+            "ref": "1d01ec03c6ecbd67c3375c5478c9a423ae5d6a33"
         },
         "files": [
             "config/packages/doctrine_migrations.yaml",
@@ -91,9 +88,6 @@
     },
     "doctrine/lexer": {
         "version": "1.2.3"
-    },
-    "doctrine/migrations": {
-        "version": "3.4.2"
     },
     "doctrine/orm": {
         "version": "2.12.2"

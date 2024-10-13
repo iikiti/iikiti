@@ -20,9 +20,8 @@
         "ext-intl": "*",
         "ext-xml": "*",
         "doctrine/annotations": "*",
-        "doctrine/doctrine-bundle": "^2.12",
-        "doctrine/doctrine-migrations-bundle": "^3.3",
-        "doctrine/orm": "^2.19",
+        "doctrine/doctrine-bundle": "*",
+        "doctrine/doctrine-migrations-bundle": "*",
         "iikiti/mfa": "master",
         "ivopetkov/html5-dom-document-php": "^2.7",
         "phpdocumentor/reflection-docblock": "^5.4",
@@ -65,8 +64,8 @@
         "twig/twig": "^2.12|^3.10"
     },
     "require-dev": {
-        "doctrine/doctrine-fixtures-bundle": "^3.6",
-        "doctrine/persistence": "^3.3",
+        "doctrine/doctrine-fixtures-bundle": "*",
+        "doctrine/persistence": "*",
         "friendsofphp/php-cs-fixer": "^3.57",
         "phpstan/phpstan": "^1.11",
         "phpstan/phpstan-doctrine": "*",
