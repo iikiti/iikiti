@@ -95,11 +95,9 @@ Encore
 
 const webpackConfig = Encore.getWebpackConfig();
 
-/*
 webpackConfig.resolve.conditionNames = (webpackConfig.resolve.conditionNames??[]);
 if(webpackConfig.resolve.conditionNames.indexOf('svelte') < 0) {
 	webpackConfig.resolve.conditionNames.push('svelte');
 }
-*/
 
 module.exports = webpackConfig;
