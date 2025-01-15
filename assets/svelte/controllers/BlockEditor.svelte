@@ -1,11 +1,12 @@
-<script>
+<script lang="ts">
 	import { onMount } from 'svelte';
+	let { children } = $props();
 
-	console.log('BlockEditor');
+	console.log('BlockEditor', children);
 
 	onMount(function() {
 		console.log("BlockEditor Mounted");
 	});
 </script>
 
-<div>Test 2</div>
+<div>{@render children?.()}</div>
