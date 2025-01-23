@@ -69,7 +69,10 @@ Encore
 	*/
 
     // enables Sass/SCSS support
-    .enableSassLoader()
+    .enableSassLoader((options) => {
+		options.api = "modern-compiler";
+		return options;
+	})
 
     // Enable PostCSS loader
     .enablePostCssLoader()
