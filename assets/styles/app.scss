@@ -1,11 +1,8 @@
-@use '~tailwindcss/base';
-@use '~tailwindcss/components';
-@use '~tailwindcss/utilities';
-
+@use "tailwindcss";
 @use "app-dark.scss";
 
-body {
-    background-color: lightgray;
+@theme {
+
 }
 
 .site-margin-top {
