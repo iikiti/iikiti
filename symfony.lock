@@ -101,9 +101,6 @@
     "egulias/email-validator": {
         "version": "3.1.2"
     },
-    "felixfbecker/advanced-json-rpc": {
-        "version": "v3.2.1"
-    },
     "felixfbecker/language-server-protocol": {
         "version": "v1.5.2"
     },
