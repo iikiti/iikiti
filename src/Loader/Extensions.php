@@ -2,6 +2,7 @@
 
 namespace iikiti\CMS\Loader;
 
+use Closure;
 use iikiti\CMS\Kernel;
 use iikiti\CMS\Registry\SiteRegistry;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
@@ -48,14 +49,20 @@ class Extensions
 		$PATH = $kernel->getProjectDir().'/cms/extensions/active/';
 		$fileLoop = new \CallbackFilterIterator(
 			new \DirectoryIterator($PATH),
-			[__CLASS__, '_directoryFilter']
+			function(...$args): bool {
+				return static::_directoryFilter(...$args);
+			}
 		);
 		foreach ($fileLoop as $entry) {
 			/** @var \DirectoryIterator $entry */
-			$bundleNS = (string) json_decode(file_get_contents(
+			$fileData = file_get_contents(
 				$entry->getPath().'/'.$entry->getFilename().
 				'/composer.json'
-			))->name;
+			);
+			$bundleNS =
+				(string) json_decode(
+					$fileData === false ? '' : $fileData
+				)->name;
 			$bundleName = ucwords(
 				implode('', array_slice(explode('/', $bundleNS), -1))
 			);

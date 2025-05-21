@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "9f84aace953987810f8c387644dd7659",
+    "content-hash": "5cb13cc4a87f4fd5457e7c75ed1e464b",
     "packages": [
         {
             "name": "doctrine/annotations",
@@ -1373,12 +1373,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/iikiti/mfa.git",
-                "reference": "3d52a0f4a2cb6e7879dad1831ac91d9bb2a095bb"
+                "reference": "8ab061b4524b519ddf829280d06ea133fd903973"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/iikiti/mfa/zipball/3d52a0f4a2cb6e7879dad1831ac91d9bb2a095bb",
-                "reference": "3d52a0f4a2cb6e7879dad1831ac91d9bb2a095bb",
+                "url": "https://api.github.com/repos/iikiti/mfa/zipball/8ab061b4524b519ddf829280d06ea133fd903973",
+                "reference": "8ab061b4524b519ddf829280d06ea133fd903973",
                 "shasum": ""
             },
             "require": {
@@ -1423,62 +1423,7 @@
                 "source": "https://github.com/iikiti/mfa/tree/master",
                 "issues": "https://github.com/iikiti/mfa/issues"
             },
-            "time": "2025-05-17T00:22:43+00:00"
-        },
-        {
-            "name": "ivopetkov/html5-dom-document-php",
-            "version": "v2.8.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/ivopetkov/html5-dom-document-php.git",
-                "reference": "def94db52e2b8805840923454d00716d71b0f586"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/ivopetkov/html5-dom-document-php/zipball/def94db52e2b8805840923454d00716d71b0f586",
-                "reference": "def94db52e2b8805840923454d00716d71b0f586",
-                "shasum": ""
-            },
-            "require": {
-                "ext-dom": "*",
-                "php": "8.0.*|8.1.*|8.2.*|8.3.*|8.4.*"
-            },
-            "require-dev": {
-                "ivopetkov/docs-generator": "1.*"
-            },
-            "type": "library",
-            "autoload": {
-                "files": [
-                    "autoload.php"
-                ]
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Ivo Petkov",
-                    "email": "ivo@ivopetkov.com",
-                    "homepage": "http://ivopetkov.com"
-                }
-            ],
-            "description": "HTML5 DOMDocument PHP library (extends DOMDocument)",
-            "support": {
-                "issues": "https://github.com/ivopetkov/html5-dom-document-php/issues",
-                "source": "https://github.com/ivopetkov/html5-dom-document-php/tree/v2.8.0"
-            },
-            "funding": [
-                {
-                    "url": "https://www.paypal.me/ivopetkovcom",
-                    "type": "custom"
-                },
-                {
-                    "url": "https://github.com/ivopetkov",
-                    "type": "github"
-                }
-            ],
-            "time": "2025-01-04T21:46:59+00:00"
+            "time": "2025-05-20T21:15:39+00:00"
         },
         {
             "name": "masterminds/html5",
@@ -13190,16 +13135,16 @@
         },
         {
             "name": "vimeo/psalm",
-            "version": "6.10.3",
+            "version": "6.11.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/vimeo/psalm.git",
-                "reference": "90b5b9f5e7c8e441b191d3c82c58214753d7c7c1"
+                "reference": "4ed53b7ccebc09ef60ec4c9e464bf8a01bfd35b0"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/vimeo/psalm/zipball/90b5b9f5e7c8e441b191d3c82c58214753d7c7c1",
-                "reference": "90b5b9f5e7c8e441b191d3c82c58214753d7c7c1",
+                "url": "https://api.github.com/repos/vimeo/psalm/zipball/4ed53b7ccebc09ef60ec4c9e464bf8a01bfd35b0",
+                "reference": "4ed53b7ccebc09ef60ec4c9e464bf8a01bfd35b0",
                 "shasum": ""
             },
             "require": {
@@ -13304,7 +13249,7 @@
                 "issues": "https://github.com/vimeo/psalm/issues",
                 "source": "https://github.com/vimeo/psalm"
             },
-            "time": "2025-05-05T18:23:39+00:00"
+            "time": "2025-05-12T11:30:26+00:00"
         },
         {
             "name": "weirdan/doctrine-psalm-plugin",
@@ -13391,7 +13336,7 @@
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
-        "php": ">=8.3",
+        "php": ">=8.4",
         "ext-ctype": "*",
         "ext-dom": "*",
         "ext-iconv": "*",

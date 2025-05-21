@@ -2,8 +2,11 @@
 
 namespace iikiti\CMS\Filters;
 
+use Dom\Document;
+use Dom\HTMLDocument;
+use Dom\XPath;
+use DOMDocument;
 use iikiti\CMS\Utility\Variable as V;
-use IvoPetkov\HTML5DOMDocument;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\Stopwatch\Stopwatch;
 
@@ -34,10 +37,10 @@ class HtmlFilter extends AbstractFilter
 			return;
 		}
 		$stopwatch->start('html_load');
-		$dom = new HTML5DOMDocument('1.0', 'UTF-8');
-		$dom->loadHTML(
-			(string) $event->getResponse()->getContent(),
-			LIBXML_NOBLANKS | $dom::ALLOW_DUPLICATE_IDS
+		$html = (string) $event->getResponse()->getContent();
+		$dom = HTMLDocument::createFromString(
+			$html,
+			LIBXML_COMPACT | LIBXML_NOERROR
 		);
 		$stopwatch->stop('html_load');
 		$stopwatch->start('html_minify');
@@ -48,9 +51,11 @@ class HtmlFilter extends AbstractFilter
 		$stopwatch->stop('html_save');
 	}
 
-	protected static function minifyHtml(\DOMDocument $dom): void
+	protected static function minifyHtml(\DOMDocument|Document $dom): void
 	{
-		$xpath = new \DOMXPath($dom);
+		$xpath = $dom instanceof DOMDocument ?
+			new \DOMXPath($dom) :
+			new XPath($dom);
 		$nodes = $xpath->query(
 			'//text()[not(parent::script or parent::style or ancestor::pre)]'
 		);
@@ -60,9 +65,11 @@ class HtmlFilter extends AbstractFilter
 				$node->parentNode?->removeChild($node);
 				continue;
 			}
-			$node->textContent = preg_replace_callback(
+			$node->textContent = (string) preg_replace_callback(
 				'/(?:[\h]{2,}|\v+)/u',
-				\Closure::fromCallable([self::class, '__collapseWhitespace_cb']),
+				function(...$args): string {
+					return static::__collapseWhitespace_cb(...$args);
+				},
 				$node->textContent
 			);
 		}
@@ -77,6 +84,8 @@ class HtmlFilter extends AbstractFilter
 			return '';
 		}
 
-		return preg_replace('/(?:\v+|(\h)\h+)/u', '$1', $text[0]);
+		return (string) preg_replace(
+			'/(?:\v+|(\h)\h+)/u', '$1', $text[0]
+		);
 	}
 }
