@@ -2,6 +2,8 @@
 
 namespace iikiti\CMS\Enum;
 
+use Override;
+
 /**
  * Dynamic enumerator allows for an arbitrary number of dynamically defined
  * cases.
@@ -18,11 +20,13 @@ abstract class DynamicEnumerator implements DynamicEnumInterface
 	{
 	}
 
+	#[Override]
 	public static function get(string $name): ?EnumCase
 	{
 		return self::$casesByName[$name] ?? null;
 	}
 
+	#[Override]
 	public static function register(string $name, int|string|null $value = null): EnumCase
 	{
 		if (null !== $value) {
@@ -40,6 +44,7 @@ abstract class DynamicEnumerator implements DynamicEnumInterface
 		;
 	}
 
+	#[Override]
 	public static function cases(bool $byValue = false): array
 	{
 		return $byValue ? self::$cases : self::$casesByName;

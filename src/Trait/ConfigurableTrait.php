@@ -28,6 +28,7 @@ trait ConfigurableTrait
 
 	public function setConfiguration(Configuration $configuration): void
 	{
+		// TODO: Switch to using ObjectProperty instead of just Configuration
 		$this->getProperties()->set(self::CONFIGURATION_KEY, $configuration);
 	}
 }

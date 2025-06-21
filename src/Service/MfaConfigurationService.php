@@ -8,6 +8,7 @@ use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\MfaBundle\Authentication\Enum\ConfigurationTypeEnum;
 use iikiti\MfaBundle\Authentication\Interface\MfaConfigurationServiceInterface;
+use Override;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -24,6 +25,7 @@ class MfaConfigurationService implements MfaConfigurationServiceInterface
 	) {
 	}
 
+	#[Override]
 	public function getMultifactorPreferences(
 		ConfigurationTypeEnum $type,
 		UserInterface $user
@@ -50,6 +52,7 @@ class MfaConfigurationService implements MfaConfigurationServiceInterface
 		return $user->getMultifactorPreferences() ?? [];
 	}
 
+	#[Override]
 	public function setMultifactorPreferences(
 		ConfigurationTypeEnum $type,
 		array $preferences

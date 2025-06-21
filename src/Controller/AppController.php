@@ -2,6 +2,7 @@
 
 namespace iikiti\CMS\Controller;
 
+use Override;
 use Psr\Container\ContainerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -19,6 +20,7 @@ abstract class AppController extends AbstractController
 		$this->container = $container;
 	}
 
+	#[Override]
 	public function setContainer(ContainerInterface $container): ?ContainerInterface
 	{
 		return parent::setContainer($container);

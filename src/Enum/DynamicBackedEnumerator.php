@@ -2,11 +2,14 @@
 
 namespace iikiti\CMS\Enum;
 
+use Override;
+
 /**
  * Abstract class to handle dynamically assigned enumerations.
  */
 abstract class DynamicBackedEnumerator extends DynamicEnumerator implements DynamicBackedEnumInterface
 {
+	#[Override]
 	public static function from(int|string $value): EnumCase
 	{
 		$ref = new \ReflectionClass(static::class);
@@ -14,11 +17,13 @@ abstract class DynamicBackedEnumerator extends DynamicEnumerator implements Dyna
 		return static::$cases[$value] ?? throw new \RuntimeException('"'.$value.'" is not a valid backing value for dynamic enum '.$ref->getShortName());
 	}
 
+	#[Override]
 	public static function tryFrom(int|string $value): ?EnumCase
 	{
 		return static::$cases[$value] ?? null;
 	}
 
+	#[Override]
 	public static function register(string $name, int|string|null $value = null): EnumCase
 	{
 		if (null === $value) {
