@@ -42,3 +42,4 @@ psalm.local.xml
 ###< phpunit/phpunit ###
 
 composer.lock
+package-lock.json
