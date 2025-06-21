@@ -4,6 +4,7 @@ namespace iikiti\CMS\Service;
 
 use iikiti\CMS\Doctrine\Collections\ArrayCollection;
 use iikiti\CMS\Service\Configuration as Config;
+use Override;
 use Psr\Container\ContainerInterface;
 
 /**
@@ -25,6 +26,7 @@ class Configuration implements ContainerInterface
 		return $asObject ? (object) $this->config->toArray() : $this->config->toArray();
 	}
 
+	#[Override]
 	public function get(string $id): mixed
 	{
 		return $this->config->get($id);
@@ -35,6 +37,7 @@ class Configuration implements ContainerInterface
 		$this->config->set($id, $value);
 	}
 
+	#[Override]
 	public function has(string $id): bool
 	{
 		return $this->config->containsKey($id);

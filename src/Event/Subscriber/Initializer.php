@@ -7,6 +7,7 @@ use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Filters\HtmlFilter;
 use iikiti\CMS\Registry\ApplicationRegistry;
 use iikiti\CMS\Registry\SiteRegistry;
+use Override;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\ControllerEvent;
@@ -37,6 +38,7 @@ class Initializer implements EventSubscriberInterface
 	/**
 	 * Identifies subscribed events.
 	 */
+	#[Override]
 	public static function getSubscribedEvents(): array
 	{
 		return [

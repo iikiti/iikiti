@@ -3,6 +3,7 @@
 namespace iikiti\CMS;
 
 use iikiti\CMS\Loader\Extensions;
+use Override;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -25,6 +26,7 @@ class Kernel extends BaseKernel implements CompilerPassInterface
 	/**
 	 * Load configurations.
 	 */
+	#[Override]
 	public function process(ContainerBuilder $container): void
 	{
 		$encoreConfig = Yaml::parseFile(
@@ -57,14 +59,17 @@ class Kernel extends BaseKernel implements CompilerPassInterface
 			$configDir = dirname(
 				(new \ReflectionClass($ext::class))->getFileName()
 			).'/config';
+			$routeEnvConfigs = glob(
+				$configDir.'/{routes}/'.$this->environment.
+				'/*.{php,yaml}',
+				GLOB_BRACE
+			);
+			$customRouteConfigs = glob($configDir.'/{routes}/*.{php,yaml}', GLOB_BRACE);
+			$defaultRouteConfig = glob($configDir.'/routes.{php,yaml}', GLOB_BRACE);
 			$files = array_merge(
-				glob(
-					$configDir.'/{routes}/'.$this->environment.
-					'/*.{php,yaml}',
-					GLOB_BRACE
-				),
-				glob($configDir.'/{routes}/*.{php,yaml}', GLOB_BRACE),
-				glob($configDir.'/routes.{php,yaml}', GLOB_BRACE)
+				$routeEnvConfigs === false ? [] : $routeEnvConfigs,
+				$customRouteConfigs === false ? [] : $customRouteConfigs,
+				$defaultRouteConfig === false ? [] : $defaultRouteConfig
 			);
 			foreach ($files as $filename) {
 				$routes->import($filename);
@@ -72,6 +77,7 @@ class Kernel extends BaseKernel implements CompilerPassInterface
 		}
 	}
 
+	#[Override]
 	public function boot(): void
 	{
 		parent::boot();

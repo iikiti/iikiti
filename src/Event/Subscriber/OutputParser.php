@@ -2,6 +2,7 @@
 
 namespace iikiti\CMS\Event\Subscriber;
 
+use Override;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 
@@ -15,6 +16,7 @@ class OutputParser implements EventSubscriberInterface
 	/**
 	 * Identifies subscribed events.
 	 */
+	#[Override]
 	public static function getSubscribedEvents(): array
 	{
 		return [

@@ -10,6 +10,7 @@ use Doctrine\ORM\Mapping\InheritanceType;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Repository\ObjectRepository;
 use iikiti\CMS\Trait\PropertiedTrait;
+use Override;
 
 /**
  * Database object entity
@@ -96,11 +97,13 @@ class DbObject
 		return $this->creator_id;
 	}
 
+	#[Override]
 	public function getProperties(): Collection
 	{
 		return $this->properties;
 	}
 
+	#[Override]
 	public function setProperties(Collection $properties): void
 	{
 		foreach ($properties as $property) {
@@ -112,6 +115,7 @@ class DbObject
 		}
 	}
 
+	#[Override]
 	public function setProperty(string $name, mixed $value): void
 	{
 		$isProperty = $value instanceof ObjectProperty;
