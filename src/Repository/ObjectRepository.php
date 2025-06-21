@@ -171,10 +171,11 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 						'p',
 						Join::WITH,
 						'p.name = :name AND '.
-							'JSON_CONTAINS(p.value, :value) = 1'
+ 							'JSONB_CONTAINS(p.value, :value) = true'
 					)->
 					setParameter(':name', $n)->
 					setParameter(':value', json_encode($nextValue));
+				dump($qb);
 			}
 		} else {
 			$qb->
@@ -183,7 +184,7 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 					'p',
 					Join::WITH,
 					'p.name = :name AND '.
-						'JSON_CONTAINS(p.value, :value) = 1'
+						'JSONB_CONTAINS(p.value, :value) = true'
 				)->
 				setParameter(':name', $name)->
 				setParameter(':value', json_encode($value));

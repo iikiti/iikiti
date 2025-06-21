@@ -14,7 +14,7 @@ use iikiti\CMS\Repository\ObjectPropertyRepository;
  * @psalm-suppress MissingConstructor
  */
 #[ORM\Entity(repositoryClass: ObjectPropertyRepository::class)]
-#[ORM\Table(name: 'object_properties')]
+#[ORM\Table(name: 'object_properties', schema: "iikiti_iikiti")]
 #[ORM\UniqueConstraint(
 	name: 'object_properties_object_key',
 	columns: ['object_id', 'name']
@@ -22,10 +22,6 @@ use iikiti\CMS\Repository\ObjectPropertyRepository;
 #[ORM\Index(
 	name: 'object_properties_PK',
 	columns: ['id', 'object_id', 'name', 'created' /* DESC */]
-)]
-#[ORM\Index(
-	name: 'object_properties_value',
-	columns: ['object_id', 'name', '(cast(`value_array` as char(255) array))', 'created' /* DESC */]
 )]
 class ObjectProperty
 {
@@ -53,19 +49,6 @@ class ObjectProperty
 	#[ORM\OneToOne(targetEntity: User::class)]
 	#[ORM\JoinColumn(name: 'creator_id', referencedColumnName: 'id')]
 	private ?User $creator;
-
-	#[ORM\Column(
-		type: Types::JSON,
-		columnDefinition: 'AS ('.
-			"(case when (json_type(`value`) <> _utf8mb4'OBJECT') then ".
-				"ifnull(json_extract(`value`,_utf8mb4'$[*]'),json_array(`value`)) else ".
-				'NULL '.
-			'end))',
-		insertable: false,
-		updatable: false,
-		generated: 'ALWAYS'
-	)]
-	private ?array $value_array;
 
 	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
 	private int|float $creator_id;
