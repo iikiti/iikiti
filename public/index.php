@@ -9,13 +9,13 @@ define('PSR4LOADER', require dirname(__DIR__) . '/vendor/autoload.php');
 
 (new Dotenv())->bootEnv(dirname(__DIR__).'/.env');
 
-if ($_SERVER['APP_DEBUG']) {
+if (((bool) ($_SERVER['APP_DEBUG'] ?? '0')) == false) {
     umask(0000);
 
     Debug::enable();
 }
 
-if ($trustedProxies = $_SERVER['TRUSTED_PROXIES'] ?? false) {
+if ($trustedProxies = $_SERVER['TRUSTED_PROXIES'] ?? '') {
     Request::setTrustedProxies(
         explode(',', $trustedProxies),
         Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_PORT |
@@ -23,11 +23,11 @@ if ($trustedProxies = $_SERVER['TRUSTED_PROXIES'] ?? false) {
 );
 }
 
-if ($trustedHosts = $_SERVER['TRUSTED_HOSTS'] ?? false) {
+if ($trustedHosts = ((bool) ($_SERVER['TRUSTED_HOSTS'] ?? false))) {
     Request::setTrustedHosts([$trustedHosts]);
 }
 
-$kernel = new Kernel($_SERVER['APP_ENV'], (bool) $_SERVER['APP_DEBUG']);
+$kernel = new Kernel($_SERVER['APP_ENV'] ?? 'DEV', (bool) ($_SERVER['APP_DEBUG'] ?? false));
 $request = Request::createFromGlobals();
 $response = $kernel->handle($request);
 $response->send();
