@@ -61,7 +61,7 @@
     "require-dev": {
         "doctrine/doctrine-fixtures-bundle": "*",
         "doctrine/persistence": "*",
-        "friendsofphp/php-cs-fixer": "^3.57",
+        "friendsofphp/php-cs-fixer": "^3.75",
         "phpstan/phpstan": "^1.11",
         "phpstan/phpstan-doctrine": "*",
         "phpunit/phpunit": "^10.5",
