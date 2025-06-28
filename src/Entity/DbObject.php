@@ -7,6 +7,7 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\ORM\Mapping\DiscriminatorColumn;
 use Doctrine\ORM\Mapping\InheritanceType;
+use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Repository\ObjectRepository;
 use iikiti\CMS\Trait\PropertiedTrait;
@@ -42,6 +43,10 @@ class DbObject
 
 	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
 	private int|string|null $creator_id;
+
+	#[ORM\OneToOne(targetEntity: Site::class)]
+	#[ORM\JoinColumn(name: 'site_id', referencedColumnName: 'id')]
+	private ?Site $site;
 
 	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
 	private int|string|null $site_id;
@@ -90,6 +95,10 @@ class DbObject
 	public function getCreatorId(): int|string|null
 	{
 		return $this->creator_id;
+	}
+
+	public function getSite(): ?Site {
+		return $this->site;
 	}
 
 	#[Override]
