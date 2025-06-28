@@ -44,7 +44,7 @@ class DbObject
 	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
 	private int|string|null $creator_id;
 
-	#[ORM\OneToOne(targetEntity: Site::class)]
+	#[ORM\ManyToOne(targetEntity: Site::class)]
 	#[ORM\JoinColumn(name: 'site_id', referencedColumnName: 'id')]
 	private ?Site $site;
 
@@ -53,7 +53,7 @@ class DbObject
 
 	private ?string $type;
 
-	#[ORM\OneToOne(targetEntity: User::class)]
+	#[ORM\ManyToOne(targetEntity: User::class)]
 	#[ORM\JoinColumn(name: 'creator_id', referencedColumnName: 'id')]
 	private ?User $creator;
 
@@ -98,7 +98,7 @@ class DbObject
 	}
 
 	public function getSite(): ?Site {
-		return $this->site;
+		return $this instanceof Site ? null : $this->site;
 	}
 
 	#[Override]
