@@ -25,11 +25,6 @@ use Override;
 #[ORM\MappedSuperclass()]
 #[InheritanceType('SINGLE_TABLE')]
 #[DiscriminatorColumn(name: 'type', type: 'string')]
-#[ORM\Index(
-	name: 'objects_type_IDX',
-	columns: ['type', 'site_id', 'creator_id', 'created_date' /* DESC */]
-)]
-#[ORM\UniqueConstraint(name: 'objects_type_IDX', columns: ['id', 'site_id'])]
 class DbObject
 {
 	use PropertiedTrait;
@@ -38,7 +33,7 @@ class DbObject
 	public const SITE_SPECIFIC = true;
 
 	#[ORM\Id()]
-	#[ORM\GeneratedValue()]
+	#[ORM\GeneratedValue(strategy: 'IDENTITY')]
 	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
 	protected int|string|null $id;
 
