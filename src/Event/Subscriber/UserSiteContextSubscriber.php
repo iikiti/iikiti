@@ -7,7 +7,6 @@ use Doctrine\ORM\Events;
 use Doctrine\Persistence\Event\LifecycleEventArgs;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Registry\SiteRegistry;
-use Override;
 
 /**
  * Injects the current site into a User entity after it has been loaded.
