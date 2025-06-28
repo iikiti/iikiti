@@ -14,7 +14,7 @@ use iikiti\CMS\Repository\ObjectPropertyRepository;
  * @psalm-suppress MissingConstructor
  */
 #[ORM\Entity(repositoryClass: ObjectPropertyRepository::class)]
-#[ORM\Table(name: 'object_properties', schema: "iikiti_iikiti")]
+#[ORM\Table(name: 'object_properties')]
 #[ORM\UniqueConstraint(
 	name: 'object_properties_object_key',
 	columns: ['object_id', 'name']
