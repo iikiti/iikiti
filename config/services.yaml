@@ -23,7 +23,7 @@ services:
             - '../src/Tests/'
 
     # Manually configure the SchemaListener to bind the schema parameter.
-    # The #[AsDoctrineListener] attribute handles the autoconfiguration (tagging).
+    # The #[AsDoctrineListener] attribute handles the auto-configuration (tagging).
     # We only need to define the service here to bind the constructor argument.
     iikiti\CMS\Doctrine\SchemaListener:
         bind:
