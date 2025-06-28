@@ -65,6 +65,10 @@ class ObjectProperty
 		$this->value = $value;
 	}
 
+	public function getCreator(): ?User {
+		return $this->creator;
+	}
+
 	public function getCreationDate(): ?\DateTimeInterface
 	{
 		return $this->created;
