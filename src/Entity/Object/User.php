@@ -110,6 +110,7 @@ class User extends DbObject implements
 	#[Override()]
 	public function eraseCredentials(): void
 	{
+		//TODO: Implement eraseCredentials
 	}
 
 	public function registeredToSite(string|int|null $siteId): bool
