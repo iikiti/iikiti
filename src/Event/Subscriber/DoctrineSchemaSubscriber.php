@@ -33,7 +33,7 @@ class DoctrineSchemaSubscriber implements EventSubscriber
             $tableName = $metadata->getTableName();
             if ($schema->hasTable($tableName)) {
                 $table = $schema->getTable($tableName);
-                //$schema->renameTable($table->getName(), $this->schema . '.' . $table->getName());
+                $schema->renameTable($table->getName(), $this->schema . '.' . $table->getName());
             }
         }
     }
