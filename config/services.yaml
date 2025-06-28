@@ -25,6 +25,13 @@ services:
     # Manually configure the SchemaListener to bind the schema parameter.
     # The #[AsDoctrineListener] attribute handles the auto-configuration (tagging).
     # We only need to define the service here to bind the constructor argument.
+    iikiti\CMS\Event\Subscriber\DoctrineSchemaSubscriber:
+        bind:
+            $schema: '%env(DB_SCHEMA)%'
+
+    # Manually configure the SchemaListener to bind the schema parameter.
+    # The #[AsDoctrineListener] attribute handles the auto-configuration (tagging).
+    # We only need to define the service here to bind the constructor argument.
     iikiti\CMS\Doctrine\SchemaListener:
         bind:
             $schema: '%env(DB_SCHEMA)%'

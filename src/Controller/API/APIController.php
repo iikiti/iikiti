@@ -74,4 +74,35 @@ class APIController
 			options: $options
 		);
 	}
+
+	/**
+		* Creates and persists an object.
+		*/
+	public function createObject(DbObject $object): DbObject
+	{
+		$this->emi->getManager()->persist($object);
+		$this->emi->getManager()->flush();
+
+		return $object;
+	}
+
+	/**
+		* Updates an object.
+		*/
+	public function updateObject(DbObject $object): DbObject
+	{
+		$this->emi->getManager()->merge($object);
+		$this->emi->getManager()->flush();
+
+		return $object;
+	}
+
+	/**
+		* Deletes an object.
+		*/
+	public function deleteObject(DbObject $object): void
+	{
+		$this->emi->getManager()->remove($object);
+		$this->emi->getManager()->flush();
+	}
 }

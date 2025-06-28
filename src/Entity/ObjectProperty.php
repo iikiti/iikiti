@@ -15,27 +15,19 @@ use iikiti\CMS\Repository\ObjectPropertyRepository;
  */
 #[ORM\Entity(repositoryClass: ObjectPropertyRepository::class)]
 #[ORM\Table(name: 'object_properties')]
-#[ORM\UniqueConstraint(
-	name: 'object_properties_object_key',
-	columns: ['object_id', 'name']
-)]
-#[ORM\Index(
-	name: 'object_properties_PK',
-	columns: ['id', 'object_id', 'name', 'created' /* DESC */]
-)]
 class ObjectProperty
 {
+	#[ORM\Id()]
+	#[ORM\GeneratedValue(strategy: 'IDENTITY')]
+	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
+	private int|float $id;
+
 	#[ORM\ManyToOne(targetEntity: DbObject::class, inversedBy: 'properties')]
 	#[ORM\JoinColumn(name: 'object_id', referencedColumnName: 'id')]
 	private ?DbObject $object;
 
 	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
 	private int|string|null $object_id;
-
-	#[ORM\Id()]
-	#[ORM\GeneratedValue()]
-	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
-	private int|float $id;
 
 	#[ORM\Column(type: Types::STRING)]
 	private ?string $name;
