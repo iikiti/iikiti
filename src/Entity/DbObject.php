@@ -21,7 +21,7 @@ use Override;
  * @psalm-suppress MissingConstructor
  */
 #[ORM\Entity(repositoryClass: ObjectRepository::class)]
-#[ORM\Table(name: 'objects', schema: "iikiti_iikiti")]
+#[ORM\Table(name: 'objects')]
 #[ORM\MappedSuperclass()]
 #[InheritanceType('SINGLE_TABLE')]
 #[DiscriminatorColumn(name: 'type', type: 'string')]
