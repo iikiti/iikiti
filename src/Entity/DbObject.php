@@ -41,15 +41,9 @@ class DbObject
 	#[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
 	private ?\DateTimeInterface $created_date;
 
-	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
-	private int|string|null $creator_id;
-
 	#[ORM\ManyToOne(targetEntity: Site::class)]
 	#[ORM\JoinColumn(name: 'site_id', referencedColumnName: 'id')]
 	private ?Site $site;
-
-	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
-	private int|string|null $site_id;
 
 	private ?string $type;
 

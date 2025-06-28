@@ -107,10 +107,10 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 			0;
 		if ($criteriaOrBuilder instanceof QueryBuilder) {
 			return $criteriaOrBuilder->setParameter('siteId', $siteId)->
-				andWhere($criteriaOrBuilder->getAllAliases()[0].'.site_id = :siteId');
+				andWhere($criteriaOrBuilder->getAllAliases()[0].'.site = :siteId');
 		}
 
-		return array_merge(['site_id' => $siteId], $criteriaOrBuilder);
+		return array_merge(['site' => $siteId], $criteriaOrBuilder);
 	}
 
 	/**
