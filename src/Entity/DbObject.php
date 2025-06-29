@@ -67,7 +67,7 @@ class DbObject
 
 	public function getLinkedSiteId(): int|string|null
 	{
-		return $this->site_id;
+		return $this->site->getId();
 	}
 
 	public function getType(): ?string
