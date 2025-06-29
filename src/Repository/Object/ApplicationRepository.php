@@ -52,7 +52,7 @@ class ApplicationRepository extends ObjectRepository
 				return $site->getId();
 			});
 
-		return $this->findByProperty(Site::PROPERTY_KEY, $siteIds);
+		return $this->findByProperty($this->getDiscriminatorKey(Site::class), $siteIds);
 	}
 
 	public function getSites(Application $app): array
