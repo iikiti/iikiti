@@ -20,7 +20,6 @@ class Application extends DbObject
 	use ConfigurableTrait;
 
 	public const SITE_SPECIFIC = false;
-	public const PROPERTY_KEY = 'application';
 
 	/**
 	 * @return string[]
