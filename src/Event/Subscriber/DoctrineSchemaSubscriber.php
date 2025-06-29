@@ -2,21 +2,16 @@
 
 namespace iikiti\CMS\Event\Subscriber;
 
-use Doctrine\Common\EventSubscriber;
+use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\ORM\Tools\Event\GenerateSchemaEventArgs;
 use Doctrine\ORM\Tools\ToolEvents;
 
-class DoctrineSchemaSubscriber implements EventSubscriber
+
+#[AsDoctrineListener(ToolEvents::postGenerateSchema)]
+class DoctrineSchemaSubscriber
 {
     public function __construct(private string $schema)
     {
-    }
-
-    public function getSubscribedEvents(): array
-    {
-        return [
-            ToolEvents::postGenerateSchema,
-        ];
     }
 
     public function postGenerateSchema(GenerateSchemaEventArgs $args): void
