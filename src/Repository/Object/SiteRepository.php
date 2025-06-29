@@ -31,9 +31,8 @@ class SiteRepository extends ObjectRepository
 
 	public function getApplicationBySite(Site $site): ?Application
 	{
-		$applicationDiscriminatorKey = $this->getDiscriminatorKey(Application::class);
 		return $this->getEntityManager()->getRepository(Application::class)->find(
-			$site->getProperties()->get($applicationDiscriminatorKey)->getValue()
+			$site->getProperties()->get($this->getDiscriminatorKey(Application::class))->getValue()
 		);
 	}
 
@@ -69,7 +68,7 @@ class SiteRepository extends ObjectRepository
 	public function findByApplication(int|Application|null $application = null): array
 	{
 		return $this->findByProperty(
-			Application::PROPERTY_KEY,
+			$this->getDiscriminatorKey(Application::class),
 			$application instanceof Application ? $application->getId() : $application
 		);
 	}
@@ -80,7 +79,7 @@ class SiteRepository extends ObjectRepository
 	public function findByDomainAndApplication(string $domain, int $appId): array
 	{
 		return $this->findByProperty(
-			[Site::DOMAIN_PROPERTY_KEY, Application::PROPERTY_KEY],
+			[Site::DOMAIN_PROPERTY_KEY, $this->getDiscriminatorKey(Application::class)],
 			[$domain, $appId]
 		);
 	}
