@@ -31,8 +31,9 @@ class SiteRepository extends ObjectRepository
 
 	public function getApplicationBySite(Site $site): ?Application
 	{
+		$applicationDiscriminatorKey = $this->getDiscriminatorKey(Application::class);
 		return $this->getEntityManager()->getRepository(Application::class)->find(
-			$site->getProperties()->get(Application::PROPERTY_KEY)->getValue()
+			$site->getProperties()->get($applicationDiscriminatorKey)->getValue()
 		);
 	}
 
