@@ -91,7 +91,7 @@ class APIController
 		*/
 	public function updateObject(DbObject $object): DbObject
 	{
-		$this->emi->getManager()->merge($object);
+		$this->emi->getManager()->persist($object);
 		$this->emi->getManager()->flush();
 
 		return $object;
