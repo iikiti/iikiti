@@ -20,7 +20,6 @@ class Site extends DbObject
 	use ConfigurableTrait;
 
 	public const SITE_SPECIFIC = false;
-	public const PROPERTY_KEY = 'site';
 	public const DOMAIN_PROPERTY_KEY = 'domain';
 
 	/**

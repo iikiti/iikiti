@@ -3,7 +3,7 @@
 namespace iikiti\CMS\Repository\Object;
 
 use Doctrine\Persistence\ManagerRegistry;
-use iikiti\CMS\Entity\ApiToken;
+use iikiti\CMS\Entity\Object\ApiToken;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\ObjectRepository;
 
