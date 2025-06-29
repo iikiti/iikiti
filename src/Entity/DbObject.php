@@ -47,9 +47,8 @@ class DbObject
 
 	private ?string $type;
 
-	#[ORM\ManyToOne(targetEntity: User::class)]
-	#[ORM\JoinColumn(name: 'creator_id', referencedColumnName: 'id')]
-	private ?User $creator;
+	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
+	private int|string|null $creator_id;
 
 	#[ORM\OneToMany(
 		targetEntity: ObjectProperty::class,
@@ -79,11 +78,6 @@ class DbObject
 	public function getCreatedDate(): ?\DateTimeInterface
 	{
 		return $this->created_date;
-	}
-
-	public function getCreator(): ?User
-	{
-		return $this instanceof User ? null : $this->creator;
 	}
 
 	public function getCreatorId(): int|string|null

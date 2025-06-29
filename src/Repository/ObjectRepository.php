@@ -8,6 +8,7 @@ use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\DbObject;
+use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Interfaces\SearchableRepositoryInterface;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Trait\RepositoryOptionCheckTrait;
@@ -31,6 +32,10 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 		string $entityClass = DbObject::class
 	) {
 		parent::__construct($registry, $entityClass);
+	}
+
+	public function getCreator(DbObject $object): ?User {
+		return $this->getEntityManager()->getRepository(User::class)->findById($object->getCreatorId());
 	}
 
 	public function createQueryBuilder($alias, $indexBy = null, array $options = []): QueryBuilder
@@ -196,6 +201,16 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 	public function search(string $query): mixed
 	{
 		// TODO: Implement search
+	}
+
+	public function getDiscriminatorKey(?string $classname = null): ?string {
+		$cmd = $classname !== null ? $this->getEntityManager()->getClassMetadata($classname) : $this->getClassMetadata();
+		if(!$cmd->isRootEntity()) {
+			$rcmd = $this->getEntityManager()->getClassMetadata($cmd->rootEntityName);
+		} else {
+			$rcmd = $cmd;
+		}
+		return array_find_key($rcmd->discriminatorMap, fn($name) => $name == $cmd->getName());
 	}
 
 	public function __call($method, $arguments): mixed
