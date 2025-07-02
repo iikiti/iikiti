@@ -28,7 +28,7 @@ Encore
      * Each entry will result in one JavaScript file (e.g. app.js)
      * and one CSS file (e.g. app.css) if your JavaScript imports CSS.
      */
-    .addStyleEntry('tailwind', './assets/styles/app.scss')
+    .addStyleEntry('tailwind', './assets/styles/app.css')
 
 	.addEntry('app', './assets/app.js')
     //.addEntry('main', './assets/main.js')
@@ -69,10 +69,10 @@ Encore
 	*/
 
     // enables Sass/SCSS support
-    .enableSassLoader((options) => {
-		options.api = "modern-compiler";
-		return options;
-	})
+    //.enableSassLoader((options) => {
+	//	options.api = "modern-compiler";
+	//	return options;
+	//})
 
     // Enable PostCSS loader
     .enablePostCssLoader()
