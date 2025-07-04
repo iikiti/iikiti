@@ -1,4 +1,4 @@
-<p align="center">
+<p style="text-align:center;">
 	<img src="https://iikiti.github.io/brand/logo/iikiti-logo-128.png" width="128" height="130" alt="Logo with a dark splat. Inside is a circle consisting of various spiraled slices. The slices are made of of various triangular shapes with gradient colors ranging from dark blue at the top to bright yellow at the bottom." />
 </p>
 
@@ -45,7 +45,7 @@ iikiti is a content management system with the goal of making building webpages 
 
 > ### Other Features
 >> 
->> API, import & export, multiple application & site support & management.
+>> API, import & export, multiple application & site support & management, metadata which can be used to replace content on a per-object basis, and shared content.
 
 ## Planned Developer Features
 
