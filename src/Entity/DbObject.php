@@ -2,13 +2,13 @@
 
 namespace iikiti\CMS\Entity;
 
+use ApiPlatform\Metadata\ApiResource;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\ORM\Mapping\DiscriminatorColumn;
 use Doctrine\ORM\Mapping\InheritanceType;
 use iikiti\CMS\Entity\Object\Site;
-use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Repository\ObjectRepository;
 use iikiti\CMS\Trait\PropertiedTrait;
 use Override;
@@ -26,6 +26,7 @@ use Override;
 #[ORM\MappedSuperclass()]
 #[InheritanceType('SINGLE_TABLE')]
 #[DiscriminatorColumn(name: 'type', type: 'string')]
+#[ApiResource]
 class DbObject
 {
 	use PropertiedTrait;
