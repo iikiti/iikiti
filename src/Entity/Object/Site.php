@@ -2,6 +2,7 @@
 
 namespace iikiti\CMS\Entity\Object;
 
+use ApiPlatform\Metadata\ApiResource;
 use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Repository\Object\SiteRepository;
@@ -14,6 +15,7 @@ use iikiti\CMS\Trait\MfaConfigurableTrait;
  */
 #[ORM\Entity(repositoryClass: SiteRepository::class)]
 #[ORM\Table(name: 'objects')]
+#[ApiResource]
 class Site extends DbObject
 {
 	use MfaConfigurableTrait;

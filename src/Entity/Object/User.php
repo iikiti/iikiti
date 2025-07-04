@@ -2,9 +2,9 @@
 
 namespace iikiti\CMS\Entity\Object;
 
+use ApiPlatform\Metadata\ApiResource;
 use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\DbObject;
-use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Manager\UserRoleManager;
 use iikiti\CMS\Repository\Object\UserRepository;
 use iikiti\CMS\Trait\MfaPreferencesTrait;
@@ -19,6 +19,7 @@ use Symfony\Component\Security\Core\User\UserInterface;
  */
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: 'objects')]
+#[ApiResource]
 class User extends DbObject implements
 	PasswordAuthenticatedUserInterface,
 	UserInterface
@@ -90,9 +91,7 @@ class User extends DbObject implements
 	#[Override()]
 	public function getPassword(): ?string
 	{
-		$property = $this->getProperties()->get('password');
-
-		return $property?->getValue();
+        return $this->getProperties()->get('password')?->getValue();
 	}
 
 	/**
@@ -102,9 +101,7 @@ class User extends DbObject implements
      */
 	public function getUsername(): ?string
 	{
-		$property = $this->getProperties()->get('username');
-
-		return $property?->getValue();
+        return $this->getProperties()->get('username')?->getValue();
 	}
 
 	#[Override()]
@@ -115,14 +112,12 @@ class User extends DbObject implements
 
 	public function registeredToSite(string|int|null $siteId): bool
 	{
-		return null === $siteId ?
-			false :
-			count(
-				array_intersect_assoc(
-					UserRoleManager::getAllRoles(),
-					$this->getRegistrationRoles($siteId)
-				)
-			) > 0;
+		return !(null === $siteId) && count(
+                array_intersect_assoc(
+                    UserRoleManager::getAllRoles(),
+                    $this->getRegistrationRoles($siteId)
+                )
+            ) > 0;
 	}
 
 	public function getSiteRoles(string|int $siteId): array
