@@ -35,6 +35,10 @@ iikiti is a content management system with the goal of making building webpages 
 >> 
 >> There are also be inline dynamic tags (also handled via custom HTML tags) that will allow you to add everything from the current year or date to an value from another object.
 
+> ### Full-Text Search
+>>
+>> Other CMSes only include basic text search which is often slow and does not make use of indexes, confusing those who are not familiar with how it works. Plugins often just add some basic functionality (such as using the full-text search types built into some databases) which is faster and a bit more relevant in their results but fails to take into account many other things like synonyms, related terms, or context. There are other gotchas other CMSes and extensions don't account for - like some database full-text search types excluding results that contain a term too often or not enough. iikiti comes with full-text search that does not rely on the limited database. It will break information into indexable pieces, can take into account private or sensitive information that should not be indexed, and uses advanced algorithms (which can be modified) to return more relevant search results. 
+
 > ### AI Prompt Site Building
 >> 
 >> Want to build a site just by writing a text prompt? Now you can! You can write a AI prompt defining what you would like to add and components will be added automatically based on how you describe your site layout.
