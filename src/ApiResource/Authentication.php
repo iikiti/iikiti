@@ -4,6 +4,7 @@ namespace iikiti\CMS\ApiResource;
 
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Post;
+use ApiPlatform\OpenApi\Model\Operation;
 use iikiti\CMS\State\Processor\AuthenticationProcessor;
 use iikiti\CMS\State\Provider\AuthenticationProvider;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -11,10 +12,10 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ApiResource]
 #[Post(
     uriTemplate: '/auth/login',
-    openapi: [
-        'summary' => 'Login to the application',
-        'description' => 'Handles user authentication'
-    ],
+    openapi: new Operation(
+        summary: 'Login to the application',
+        description: 'Handles user authentication'
+    ),
     security: 'is_granted("PUBLIC_ACCESS")',
     name: 'app_api_login',
     provider: AuthenticationProvider::class,
