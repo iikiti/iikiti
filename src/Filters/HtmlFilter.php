@@ -30,8 +30,10 @@ class HtmlFilter extends AbstractFilter
 		$appEnv = $_ENV['APP_ENV'] ?? 'prod';
 		if (
 			('dev' === $appEnv && false == $useHtmlFilter) ||
-			false == $useHtmlFilter ||
-			false == $event->isMainRequest() ||
+			false === $useHtmlFilter ||
+			false === $event->isMainRequest() ||
+			false === $event->getRequest()->attributes->has('_route') ||
+			str_starts_with($event->getRequest()->attributes->get('_route'), '_') ||
 			false == static::isHtmlResponseType($event->getRequest(), $event->getResponse())
 		) {
 			return;
