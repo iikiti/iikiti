@@ -4,8 +4,8 @@ namespace iikiti\CMS\Filters;
 
 use Dom\Document;
 use Dom\HTMLDocument;
-use Dom\XPath;
-use DOMDocument;
+use Dom\Node;
+use DOMNode;
 use iikiti\CMS\Utility\Variable as V;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\Stopwatch\Stopwatch;
@@ -51,29 +51,32 @@ class HtmlFilter extends AbstractFilter
 		$stopwatch->stop('html_save');
 	}
 
-	protected static function minifyHtml(\DOMDocument|Document $dom): void
+	protected static function minifyHtml(Document $dom): void
 	{
-		$xpath = $dom instanceof DOMDocument ?
-			new \DOMXPath($dom) :
-			new XPath($dom);
-		$nodes = $xpath->query(
-			'//text()[not(ancestor::pre)]'
-		);
+		$nodes = $dom->querySelectorAll('*');
 		/** @var \DOMText|\DOMComment $node */
 		foreach ($nodes as $node) {
-			if ($node instanceof \DOMComment) {
-				$node->parentNode?->removeChild($node);
-				continue;
-			} if( in_array($node->parentElement->nodeName, ['SCRIPT', 'STYLE'] ) ) {
-				continue;
+			foreach($node->childNodes as $child) {
+				if($child->nodeType === XML_COMMENT_NODE ) {
+					$child->parentNode?->removeChild($child);
+					continue;
+				} else if($child->nodeType !== XML_TEXT_NODE) {
+					continue;
+				}
+				$ancestor = $child;
+				while($ancestor = $ancestor->parentNode) {
+					if(in_array($ancestor->nodeName, ['PRE', 'SCRIPT', 'STYLE'])) {
+						continue 2;
+					}
+				}
+				$child->textContent = (string) preg_replace_callback(
+					'/(?:[\h]{2,}|\v+)/u',
+					function(...$args): string {
+						return static::__collapseWhitespace_cb(...$args);
+					},
+					$child->textContent
+				);
 			}
-			$node->textContent = (string) preg_replace_callback(
-				'/(?:[\h]{2,}|\v+)/u',
-				function(...$args): string {
-					return static::__collapseWhitespace_cb(...$args);
-				},
-				$node->textContent
-			);
 		}
 	}
 
