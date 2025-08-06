@@ -32,8 +32,6 @@ class HtmlFilter extends AbstractFilter
 			('dev' === $appEnv && false == $useHtmlFilter) ||
 			false === $useHtmlFilter ||
 			false === $event->isMainRequest() ||
-			false === $event->getRequest()->attributes->has('_route') ||
-			str_starts_with($event->getRequest()->attributes->get('_route'), '_') ||
 			false == static::isHtmlResponseType($event->getRequest(), $event->getResponse())
 		) {
 			return;
@@ -59,12 +57,14 @@ class HtmlFilter extends AbstractFilter
 			new \DOMXPath($dom) :
 			new XPath($dom);
 		$nodes = $xpath->query(
-			'//text()[not(parent::script or parent::style or ancestor::pre)]'
+			'//text()[not(ancestor::pre)]'
 		);
 		/** @var \DOMText|\DOMComment $node */
 		foreach ($nodes as $node) {
 			if ($node instanceof \DOMComment) {
 				$node->parentNode?->removeChild($node);
+				continue;
+			} if( in_array($node->parentElement->nodeName, ['SCRIPT', 'STYLE'] ) ) {
 				continue;
 			}
 			$node->textContent = (string) preg_replace_callback(
