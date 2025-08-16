@@ -1,8 +1,3 @@
-# This file is the entry point to configure your own services.
-# Files in the packages/ subdirectory configure your dependencies.
-
-# Put parameters here that don't need to change on each machine where the app is deployed
-# https://symfony.com/doc/current/best_practices/configuration.html#application-related-configuration
 parameters:
 
 services:
@@ -35,3 +30,23 @@ services:
     iikiti\CMS\Doctrine\SchemaListener:
         bind:
             $schema: '%env(DB_SCHEMA)%'
+
+    # Workflow services
+    iikiti\CMS\Workflow\WorkflowManager:
+        arguments:
+            - '@event_dispatcher'
+
+    iikiti\CMS\Workflow\StepSubscriber:
+        arguments:
+            - { type: tagged_iterator, tag: workflow.step_provider }
+        tags:
+            - { name: kernel.event_subscriber }
+
+    # Example step providers
+    iikiti\CMS\Workflow\Example\MfaStepProvider:
+        tags:
+            - { name: workflow.step_provider }
+
+    iikiti\CMS\Workflow\Example\MultiPageFormStepProvider:
+        tags:
+            - { name: workflow.step_provider }
