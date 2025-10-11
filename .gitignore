@@ -44,3 +44,4 @@ psalm.local.xml
 composer.lock
 symfony.lock
 package-lock.json
+bun.lock
