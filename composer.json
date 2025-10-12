@@ -21,7 +21,6 @@
         "api-platform/doctrine-orm": "^4.1",
         "api-platform/graphql": "^4.1",
         "api-platform/symfony": "^4.1",
-        "doctrine/annotations": "*",
         "doctrine/doctrine-bundle": "*",
         "doctrine/doctrine-migrations-bundle": "*",
         "doctrine/orm": "^3.4",
