@@ -19,6 +19,12 @@ framework:
     esi: { enabled: true }
     fragments: { path: /_fragment }
 
+    property_info:
+      with_constructor_extractor: true
+
+    profiler:
+      collect_serializer_data: true
+
 when@test:
     framework:
         test: true
