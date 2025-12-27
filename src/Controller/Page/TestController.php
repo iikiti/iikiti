@@ -5,7 +5,7 @@ namespace iikiti\CMS\Controller\Page;
 use iikiti\CMS\Controller\AppController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\AsController;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * Test controller.
