@@ -41,12 +41,3 @@ services:
             - { type: tagged_iterator, tag: workflow.step_provider }
         tags:
             - { name: kernel.event_subscriber }
-
-    # Example step providers
-    iikiti\CMS\Workflow\Example\MfaStepProvider:
-        tags:
-            - { name: workflow.step_provider }
-
-    iikiti\CMS\Workflow\Example\MultiPageFormStepProvider:
-        tags:
-            - { name: workflow.step_provider }
