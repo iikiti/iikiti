@@ -104,7 +104,6 @@ class User extends DbObject implements
         return $this->getProperties()->get('username')?->getValue();
 	}
 
-	#[Override()]
 	public function eraseCredentials(): void
 	{
 		//TODO: Implement eraseCredentials
