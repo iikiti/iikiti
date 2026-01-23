@@ -15,9 +15,9 @@
         "postcss-import": "^14.1.0",
         "postcss-loader": "^7.3.4",
         "purgecss-webpack-plugin": "^5.0.0",
-        "sass": "^1.97.2",
+        "sass": "^1.97.3",
         "sass-loader": "^14.2.1",
-        "svelte": "^5.46.4",
+        "svelte": "^5.48.0",
         "svelte-loader": "^3.2.4",
         "tailwindcss": "^4.1.18",
         "webpack-notifier": "^1.15.0"
