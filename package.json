@@ -6,7 +6,7 @@
         "@hotwired/stimulus": "^3.2.2",
         "@symfony/stimulus-bridge": "^3.2.3",
         "@symfony/webpack-encore": "^4.7.0",
-        "@tailwindcss/postcss": "^4.1.18",
+        "@tailwindcss/postcss": "^4.2.0",
         "autoprefixer": "^10.4.24",
         "cash-dom": "^8.1.5",
         "copy-webpack-plugin": "^10.2.4",
@@ -17,9 +17,9 @@
         "purgecss-webpack-plugin": "^5.0.0",
         "sass": "^1.97.3",
         "sass-loader": "^14.2.1",
-        "svelte": "^5.50.0",
+        "svelte": "^5.53.1",
         "svelte-loader": "^3.2.4",
-        "tailwindcss": "^4.1.18",
+        "tailwindcss": "^4.2.0",
         "webpack-notifier": "^1.15.0"
     },
     "license": "Apache-2.0",
@@ -32,5 +32,9 @@
     },
     "browserslist": [
         "defaults"
-    ]
+    ],
+    "dependencies": {
+        "baseline-browser-mapping": "^2.10.0",
+        "caniuse-lite": "^1.0.30001770"
+    }
 }
