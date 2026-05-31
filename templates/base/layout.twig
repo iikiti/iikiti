@@ -8,7 +8,7 @@
             {% block meta_favicon %}<link rel="shortcut icon" href="{{ asset('build/images/favicon.png') }}">{% endblock %}
         {% endblock %}
         {% block head_styles %}
-            {{ encore_entry_link_tags('tailwind') }}
+            {{ encore_entry_link_tags('app') }}
             {#{ encore_entry_link_tags('admin') }#}
         {% endblock %}
         <title>{{ (doc.title ?? 'iikiti')|escape('html') }}</title>
