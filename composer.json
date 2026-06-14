@@ -101,7 +101,8 @@
     "autoload": {
         "psr-4": {
             "iikiti\\CMS\\": "src/"
-        }
+        },
+		"classmap": ["config/"]
     },
     "autoload-dev": {
         "psr-4": {
