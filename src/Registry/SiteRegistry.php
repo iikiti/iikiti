@@ -22,14 +22,14 @@ class SiteRegistry
 
 	public function __construct(
 		RequestStack $requestStack,
-		ManagerRegistry $registry
+		ManagerRegistry $registry,
 	) {
 		static::initialize($requestStack, $registry);
 	}
 
 	protected static function initialize(
 		RequestStack $requestStack,
-		ManagerRegistry $registry
+		ManagerRegistry $registry,
 	): void {
 		if (static::$initialized) {
 			return;
@@ -46,14 +46,18 @@ class SiteRegistry
 
 	protected static function populate(
 		RequestStack $requestStack,
-		ManagerRegistry $registry
+		ManagerRegistry $registry,
 	): void {
 		if (static::$populated || !static::$initialized) {
 			return;
 		}
 		$request = $requestStack->getCurrentRequest();
 		if (null === $request) {
-			throw new NotFoundHttpException('Request does not exist.');
+			// No HTTP request (e.g. CLI commands, workers). Leave the stack
+			// empty rather than failing construction of every service that
+			// depends on the registry; callers that actually need the current
+			// site still receive a clear error from getCurrent().
+			return;
 		}
 		$siteRep = $registry->getManager()->getRepository(Site::class);
 		$sites = $siteRep->findByDomain($request->getHost());

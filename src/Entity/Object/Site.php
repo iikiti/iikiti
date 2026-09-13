@@ -27,15 +27,25 @@ class Site extends DbObject
 	/**
 	 * @return string[]
 	 */
-	public function getEnabledExtensions(): array
+	public function getEnabledPlugins(): array
 	{
-		$requiredExtensions = [
-			'iikiti/components/ComponentsBundle',
+		$requiredPlugins = [
+			'iikiti/components',
 		];
 
 		return array_merge(
-			$requiredExtensions,
-			$this->getConfiguration()->getActiveExtensions()
+			$requiredPlugins,
+			$this->getConfiguration()->getActivePlugins()
 		);
+	}
+
+	/**
+	 * @deprecated use getEnabledPlugins(). "Extension" is a legacy alias for "plugin".
+	 *
+	 * @return string[]
+	 */
+	public function getEnabledExtensions(): array
+	{
+		return $this->getEnabledPlugins();
 	}
 }

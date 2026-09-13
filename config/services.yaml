@@ -101,3 +101,38 @@ services:
     iikiti\CMS\Cache\ApiPlatform\ApiPlatformCacheItemExtension:
         tags:
             - { name: api_platform.doctrine.orm.query_extension.item }
+
+    # Plugin subsystem
+    iikiti\CMS\Plugin\PluginRegistry:
+        arguments:
+            $plugins: '%iikiti.plugins%'
+
+    iikiti\CMS\Plugin\PluginValidator: ~
+
+    iikiti\CMS\Plugin\PluginLoader:
+        arguments:
+            $projectDir: '%kernel.project_dir%'
+
+    iikiti\CMS\Plugin\PluginManager:
+        arguments:
+            $environment: '%kernel.environment%'
+            $allowNonApproved: '%iikiti.plugin.allow_non_approved%'
+
+    iikiti\CMS\Plugin\Lifecycle\PluginLifecycleHandler: ~
+
+    iikiti\CMS\Plugin\PluginContainerRebuilder:
+        arguments:
+            $projectDir: '%kernel.project_dir%'
+            $environment: '%kernel.environment%'
+            $enabled: '%iikiti.plugin.auto_rebuild%'
+
+    iikiti\CMS\Plugin\PluginDownloader:
+        arguments:
+            $projectDir: '%kernel.project_dir%'
+            $environment: '%kernel.environment%'
+            $storeUrl: '%iikiti.plugin.store_url%'
+            $allowNonApproved: '%iikiti.plugin.allow_non_approved%'
+            $allowThirdParty: '%iikiti.plugin.allow_third_party_updates%'
+            $requireSignature: '%iikiti.plugin.require_signature%'
+            $storePublicKey: '%iikiti.plugin.store_public_key%'
+            $timeout: '%iikiti.plugin.store_timeout%'

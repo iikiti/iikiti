@@ -17,18 +17,17 @@ use iikiti\CMS\Repository\ObjectPropertyRepository;
 #[ORM\Table(name: 'object_properties')]
 class ObjectProperty
 {
-	/** @var int|string|null */
 	#[ORM\Id()]
 	#[ORM\GeneratedValue(strategy: 'IDENTITY')]
 	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
-	private int|string|null $id;
+	private int|string|null $id = null;
 
 	#[ORM\ManyToOne(targetEntity: DbObject::class, inversedBy: 'properties')]
 	#[ORM\JoinColumn(name: 'object_id', referencedColumnName: 'id')]
-	private ?DbObject $object;
+	private ?DbObject $object = null;
 
 	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
-	private int|string $object_id;
+	private int|string $object_id = 0;
 
 	#[ORM\Column(type: Types::STRING)]
 	private string $name;
@@ -43,11 +42,16 @@ class ObjectProperty
 	private \DateTimeImmutable $created;
 
 	#[ORM\OneToOne(targetEntity: User::class)]
-	#[ORM\JoinColumn(name: 'creator_id', referencedColumnName: 'id')]
-	private ?User $creator;
+	#[ORM\JoinColumn(name: 'creator_id', referencedColumnName: 'id', nullable: true)]
+	private ?User $creator = null;
 
-	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
-	private int|string $creator_id;
+	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true], nullable: true)]
+	private int|string|null $creator_id = null;
+
+	public function __construct()
+	{
+		$this->created = new \DateTimeImmutable();
+	}
 
 	public function getName(): ?string
 	{
@@ -69,7 +73,8 @@ class ObjectProperty
 		$this->value = $value;
 	}
 
-	public function getCreator(): ?User {
+	public function getCreator(): ?User
+	{
 		return $this->creator;
 	}
 
