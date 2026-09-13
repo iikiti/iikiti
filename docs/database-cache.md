@@ -279,6 +279,19 @@ DBAL queries against a `cache_entries` table, and `decorateQuery()` as a no-op
 `DELETE` statements keyed on the entity class tag. Register the strategy the
 same way as any other (DI tag or `register()`).
 
+## Debugging / Symfony Profiler
+
+A dedicated **"Database cache"** profiler panel (`DatabaseCacheDataCollector`,
+dev/test only) surfaces:
+
+- the active **strategy** (name, label, enabled state),
+- the **backend adapter** class (e.g. `FilesystemAdapter`, `RedisAdapter`),
+- **per-entity-class generation counters** (read at request end),
+- the **registered strategies** available for selection.
+
+Pool-level hit/miss statistics are already shown on the built-in **Cache**
+panel.
+
 ## Clearing the cache
 
 Built-in Symfony commands work on the backing pool:

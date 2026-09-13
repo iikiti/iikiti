@@ -44,6 +44,13 @@ services:
         tags:
             - { name: api_platform.doctrine.orm.query_extension.collection, priority: -100 }
 
+    # Symfony Profiler panel for the database query caching layer. Registered
+    # for all environments; it is only rendered where the web profiler is
+    # enabled (dev/test).
+    iikiti\CMS\Profiler\DatabaseCacheDataCollector:
+        tags:
+            - { name: data_collector, id: 'iikiti.database_cache', template: 'bundles/Profiler/cache_database.html.twig' }
+
     # Aliases
     iikiti\CMS\Workflow\WorkflowFactoryInterface:
         alias: iikiti\CMS\Workflow\WorkflowFactory
