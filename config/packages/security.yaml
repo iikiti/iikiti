@@ -20,18 +20,16 @@ security:
             custom_authenticators:
                 - iikiti\CMS\Security\ApiTokenAuthenticator
         main:
-            custom_authenticators:
-                - iikiti\MfaBundle\Authentication\Authenticator
             lazy: true
             form_login:
                 check_path: html_login
                 failure_path: html_login
                 login_path: html_login
                 enable_csrf: true
-                default_target_path: html_login
+                default_target_path: mfa_challenge
             # configure the form authentication as the entry point for unauthenticated users
             entry_point: form_login
-            access_denied_handler: iikiti\MfaBundle\Authentication\AccessHandler
+            access_denied_handler: iikiti\CMS\Security\AccessHandler
             logout:
                 path: html_logout
                 target: /
@@ -53,4 +51,6 @@ security:
         - { path: ^/admin, roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/logout, roles: ROLE_USER }
         - { path: ^/login, roles: PUBLIC_ACCESS }
+        - { path: ^/mfa, roles: PUBLIC_ACCESS }
+        - { path: ^/forms, roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/, roles: PUBLIC_ACCESS }

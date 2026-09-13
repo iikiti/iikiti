@@ -1,0 +1,24 @@
+{% extends 'base/layout.twig' %}
+
+{% block body %}
+	<main class="multi-step-form mx-auto mt-12 w-full max-w-md px-4">
+		<h1 class="mb-2 text-2xl font-semibold">{{ step.name }}</h1>
+
+		{% if workflow.steps|length > 1 %}
+			<p class="mb-4 text-sm opacity-70">
+				Step {{ workflow.currentStepIndex + 1 }} of {{ workflow.steps|length }}
+			</p>
+		{% endif %}
+
+		{{ form_start(form) }}
+			{{ form_errors(form) }}
+			{% for field in form %}
+				{{ form_row(field) }}
+			{% endfor %}
+
+			<button type="submit" class="mt-4 rounded bg-blue-600 px-4 py-2 text-white">
+				Continue
+			</button>
+		{{ form_end(form) }}
+	</main>
+{% endblock %}

@@ -1,0 +1,8 @@
+parameters:
+    # Sender address for multi-factor verification codes. Override MFA_SENDER_EMAIL per environment.
+    mfa.sender_email_fallback: 'no-reply@localhost'
+    mfa.sender_email: '%env(default:mfa.sender_email_fallback:MFA_SENDER_EMAIL)%'
+    # Failed challenges allowed before the user is temporarily locked out.
+    mfa.max_attempts: 5
+    # Length of the lockout window, in seconds.
+    mfa.lockout_seconds: 300
