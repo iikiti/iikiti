@@ -8,6 +8,7 @@ class WorkflowStepEvent extends Event
 {
     private WorkflowInterface $workflow;
     private ?WorkflowStepInterface $step;
+    /** @var array<string,mixed> */
     private array $data = [];
 
     public function __construct(WorkflowInterface $workflow, ?WorkflowStepInterface $step)
@@ -26,11 +27,17 @@ class WorkflowStepEvent extends Event
         return $this->step;
     }
 
+    /**
+     * @return array<string,mixed>
+     */
     public function getData(): array
     {
         return $this->data;
     }
 
+    /**
+     * @param array<string,mixed> $data
+     */
     public function setData(array $data): void
     {
         $this->data = $data;

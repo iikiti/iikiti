@@ -26,21 +26,32 @@ interface WorkflowStepInterface
 
     /**
      * Validate the step data
+     *
+     * @param array<string,mixed> $context
      */
     public function validate(array $context): bool;
 
     /**
      * Process the step data
+     *
+     * @param array<string,mixed> $data
+     * @param array<string,mixed> $context
+     *
+     * @return array<string,mixed>
      */
     public function process(array $data, array $context): array;
 
     /**
      * Get the step configuration
+     *
+     * @return array<string,mixed>
      */
     public function getConfiguration(): array;
 
     /**
      * Check if step is available based on context
+     *
+     * @param array<string,mixed> $context
      */
     public function isAvailable(array $context): bool;
 }

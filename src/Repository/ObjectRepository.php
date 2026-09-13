@@ -4,6 +4,7 @@ namespace iikiti\CMS\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
+use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
@@ -38,6 +39,9 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 		return $this->getEntityManager()->getRepository(User::class)->find($object->getCreatorId());
 	}
 
+	/**
+	 * @param array<string,mixed> $options
+	 */
 	public function createQueryBuilder($alias, $indexBy = null, array $options = []): QueryBuilder
 	{
 		$filterBySite = (bool) $this->_checkOption(
@@ -51,21 +55,39 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 			parent::createQueryBuilder($alias, $indexBy);
 	}
 
-	public function find($id, $lockMode = null, $lockVersion = null, array $options = []): ?DbObject
+	/**
+	 * @param string|int $id
+	 * @param LockMode|int|null $lockMode
+	 * @param array<string,mixed> $options
+	 *
+	 * @return T|null
+	 */
+	public function find($id, $lockMode = null, $lockVersion = null, array $options = []): ?object
 	{
 		$entity = $this->findOneBy([$this->getClassMetadata()->getIdentifier()[0] => $id]);
-		if (null !== $entity && null !== $lockMode && LockMode::NONE !== $lockMode) {
-			$this->getEntityManager()->lock($entity, $lockMode, $lockVersion);
+		if (null !== $entity && null !== $lockMode) {
+			if ($lockMode !== LockMode::NONE && $lockMode !== 0) {
+				$this->getEntityManager()->lock($entity, $lockMode, $lockVersion);
+			}
 		}
 
 		return $entity;
 	}
 
+	/**
+	 * @return array<T>
+	 * @param array<string,mixed> $options
+	 */
 	public function findAll(array $options = []): array
 	{
 		return $this->findBy([], null, null, null, $options);
 	}
 
+	/**
+	 * @param array<string,mixed> $options
+	 *
+	 * @return array<T>
+	 */
 	public function findBy(
 		array $criteria,
 		?array $orderBy = null,
@@ -87,11 +109,16 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 		);
 	}
 
+	/**
+	 * @param array<string,mixed> $options
+	 *
+	 * @return T|null
+	 */
 	public function findOneBy(
 		array $criteria,
 		?array $orderBy = null,
 		array $options = []
-	): ?DbObject {
+	): ?object {
 		$filterBySite = (bool) $this->_checkOption(
 			'filterBySite',
 			$options,
@@ -104,6 +131,11 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 		);
 	}
 
+	/**
+	 * @param array<string,mixed>|QueryBuilder $criteriaOrBuilder
+	 *
+	 * @return array<string,int|string|null>|QueryBuilder
+	 */
 	protected function __filterBySite(
 		array|QueryBuilder $criteriaOrBuilder = []
 	): array|QueryBuilder {
@@ -120,8 +152,10 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 
 	/**
 	 * @param string|array<string> $name
+	 * @param string|int|float|array<array-key,mixed> $value
+	 * @param array<string,mixed> $options
 	 *
-	 * @return array<DbObject>
+	 * @return array<T>
 	 */
 	public function findByProperty(
 		string|array $name,
@@ -131,21 +165,25 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 		return $this->__findByProperty($name, $value, $options)->getQuery()->getResult();
 	}
 
-	/**
+		/**
 	 * @param string|array<string> $name
+	 * @param string|int|float|array<array-key,mixed> $value
+	 * @param array<string,mixed> $options
 	 *
-	 * @return ?DbObject
+	 * @return T|null
 	 */
 	public function findOneByProperty(
 		string|array $name,
 		string|int|float|array $value,
 		array $options = []
-	): ?DbObject {
+	): ?object {
 		return $this->__findByProperty($name, $value, $options)->getQuery()->getOneOrNullResult();
 	}
 
 	/**
 	 * @param string|array<string> $name
+	 * @param string|int|float|array<array-key,mixed> $value
+	 * @param array<string,mixed> $options
 	 */
 	private function __findByProperty(
 		string|array $name,
@@ -202,18 +240,35 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 	}
 
 	public function getDiscriminatorKey(?string $classname = null): ?string {
-		$cmd = $classname !== null ? $this->getEntityManager()->getClassMetadata($classname) : $this->getClassMetadata();
-		if(!$cmd->isRootEntity()) {
-			$rcmd = $this->getEntityManager()->getClassMetadata($cmd->rootEntityName);
+		if ($classname !== null) {
+			/** @var class-string<object> $classname */
+			$cmd = $this->getEntityManager()->getClassMetadata($classname);
+		} else {
+			/** @var ClassMetadata<object> $cmd */
+			$cmd = $this->getClassMetadata();
+		}
+
+		if (!$cmd->isRootEntity()) {
+			/** @var class-string<object> $rootName */
+			$rootName = $cmd->rootEntityName;
+			/** @var ClassMetadata<object> $rcmd */
+			$rcmd = $this->getEntityManager()->getClassMetadata($rootName);
 		} else {
 			$rcmd = $cmd;
 		}
+
 		return array_find_key($rcmd->discriminatorMap, fn($name) => $name == $cmd->getName());
 	}
 
-	public function __call($method, $arguments): mixed
+	/**
+	 * @param string $name
+	 * @param array<int|string> $arguments
+	 *
+	 * @return T|null|array<T>
+	 */
+	public function __call(string $name, array $arguments): mixed
 	{
 		// TODO: Add site filter
-		return parent::__call($method, $arguments);
+		return parent::__call($name, $arguments);
 	}
 }

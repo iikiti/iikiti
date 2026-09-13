@@ -7,6 +7,7 @@ namespace iikiti\CMS\Enum;
  */
 final class UserRoleEnum extends DynamicBackedEnumerator
 {
+	/** @var array<string,EnumCase> */
 	protected static array $defaultRoles = [];
 
 	public static function registerDefault(string|int $role): void
@@ -15,6 +16,9 @@ final class UserRoleEnum extends DynamicBackedEnumerator
 		self::$defaultRoles = array_merge([$role->getName() => $role], self::$defaultRoles);
 	}
 
+	/**
+	 * @return array<string,EnumCase>
+	 */
 	public static function getDefaultRoles(): array
 	{
 		return self::$defaultRoles;

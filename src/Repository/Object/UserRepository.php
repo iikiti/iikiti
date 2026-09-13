@@ -10,6 +10,8 @@ use Symfony\Bridge\Doctrine\Security\User\UserLoaderInterface;
 
 /**
  * Repository for user entities.
+ *
+ * @template-extends ObjectRepository<User>
  */
 class UserRepository extends ObjectRepository implements UserLoaderInterface
 {

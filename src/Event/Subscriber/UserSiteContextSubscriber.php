@@ -18,6 +18,9 @@ class UserSiteContextSubscriber
     {
     }
 
+    /**
+     * @param LifecycleEventArgs<\Doctrine\Persistence\ObjectManager> $args
+     */
     public function postLoad(LifecycleEventArgs $args): void
     {
         $entity = $args->getObject();

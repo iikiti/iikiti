@@ -9,7 +9,6 @@ use iikiti\CMS\Entity\Object\User;
 use iikiti\MfaBundle\Authentication\Enum\ConfigurationTypeEnum;
 use iikiti\MfaBundle\Authentication\Interface\MfaConfigurationServiceInterface;
 use Override;
-use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Core\User\UserInterface;
 
@@ -20,11 +19,13 @@ use Symfony\Component\Security\Core\User\UserInterface;
 class MfaConfigurationService implements MfaConfigurationServiceInterface
 {
 	public function __construct(
-		private EntityManagerInterface $entityManager,
-		private RequestStack $requestStack
+		private EntityManagerInterface $entityManager
 	) {
 	}
 
+	/**
+	 * @return array<string,mixed>
+	 */
 	#[Override]
 	public function getMultifactorPreferences(
 		ConfigurationTypeEnum $type,
@@ -39,10 +40,12 @@ class MfaConfigurationService implements MfaConfigurationServiceInterface
 			ConfigurationTypeEnum::SITE => $siteRep->getCurrent()?->
 				getMultifactorPreferences() ?? [],
 			ConfigurationTypeEnum::USER => self::__checkGetUserPreferences($user),
-			default => throw new \Exception('Unknown configuration type: '.$type->name)
 		};
 	}
 
+	/**
+	 * @return array<string,mixed>
+	 */
 	private static function __checkGetUserPreferences(UserInterface $user): array
 	{
 		if (!($user instanceof User)) {
@@ -52,10 +55,18 @@ class MfaConfigurationService implements MfaConfigurationServiceInterface
 		return $user->getMultifactorPreferences() ?? [];
 	}
 
+	/**
+	 * @param array<string,mixed> $preferences
+	 */
 	#[Override]
 	public function setMultifactorPreferences(
 		ConfigurationTypeEnum $type,
 		array $preferences
 	): void {
+		match ($type) {
+			ConfigurationTypeEnum::APPLICATION => $this->entityManager->getRepository(Application::class)->getCurrentApplication()?->setMultifactorPreferences($preferences),
+			ConfigurationTypeEnum::SITE => $this->entityManager->getRepository(Site::class)->getCurrent()?->setMultifactorPreferences($preferences),
+			ConfigurationTypeEnum::USER => null,
+		};
 	}
 }

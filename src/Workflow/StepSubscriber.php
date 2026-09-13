@@ -6,8 +6,12 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 class StepSubscriber implements EventSubscriberInterface
 {
+    /** @var array<string,array<int,StepProviderInterface>> */
     private array $stepProviders = [];
 
+    /**
+     * @param iterable<StepProviderInterface> $stepProviders
+     */
     public function __construct(iterable $stepProviders = [])
     {
         foreach ($stepProviders as $provider) {
@@ -31,15 +35,16 @@ class StepSubscriber implements EventSubscriberInterface
     {
         $workflow = $event->getWorkflow();
         $workflowName = $workflow->getName();
-        
+
         if (!isset($this->stepProviders[$workflowName])) {
             return;
         }
 
         $context = $workflow->getContext();
-        
+
         foreach ($this->stepProviders[$workflowName] as $provider) {
             if ($provider->supports($context)) {
+                /** @var array<WorkflowStepInterface> $steps */
                 $steps = $provider->provideSteps($workflow, $context);
                 foreach ($steps as $step) {
                     $workflow->addStep($step);

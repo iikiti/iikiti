@@ -9,6 +9,8 @@ use iikiti\CMS\Repository\ObjectRepository;
 
 /**
  * Repository for page entities.
+ *
+ * @template-extends ObjectRepository<Page>
  */
 class PageRepository extends ObjectRepository
 {

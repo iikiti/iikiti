@@ -7,12 +7,17 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 class Workflow implements WorkflowInterface
 {
     private string $name;
+    /** @var array<WorkflowStepInterface> */
     private array $steps = [];
     private int $currentStepIndex = 0;
+    /** @var array<string,mixed> */
     private array $context = [];
     private bool $isComplete = false;
     private EventDispatcherInterface $eventDispatcher;
 
+    /**
+     * @param array<WorkflowStepInterface> $steps
+     */
     public function __construct(
         string $name,
         EventDispatcherInterface $eventDispatcher,
@@ -40,6 +45,9 @@ class Workflow implements WorkflowInterface
         return $this->steps[$this->currentStepIndex];
     }
 
+    /**
+     * @return array<WorkflowStepInterface>
+     */
     public function getSteps(): array
     {
         return $this->steps;
@@ -50,11 +58,17 @@ class Workflow implements WorkflowInterface
         return $this->isComplete;
     }
 
+    /**
+     * @return array<string,mixed>
+     */
     public function getContext(): array
     {
         return $this->context;
     }
 
+    /**
+     * @param array<string,mixed> $context
+     */
     public function setContext(array $context): void
     {
         $this->context = $context;

@@ -13,14 +13,12 @@ class BlockEditorComponent implements ComponentInterface
 	#[Override]
 	public function getContainerList(): array
 	{
-		// TODO: Implement getContainerList() method.
 		return [];
 	}
 
 	#[Override]
 	public function getSettingsFields(): array
 	{
-		// TODO: Implement getSettingsFields() method.
 		return [];
 	}
 }

@@ -10,14 +10,22 @@ trait ExtensionConfigurationTrait {
         return $this->getJson()->extensions ?? new stdClass();
     }
 
+    /**
+     * @return array<string,mixed>
+     */
     public function getActiveExtensions(): array {
         return $this->getExtensionData()->active ?? [];
     }
 
     public function getExtensionConfiguration(?string $extensionSlug): object {
-        return (object)
-            $this->getExtensionData()->configuration->{$extensionSlug} ??
-            new stdClass();
+        $extensions = $this->getExtensionData();
+        $config = $extensions->configuration ?? new stdClass();
+
+        if (isset($config->{$extensionSlug})) {
+            return (object) $config->{$extensionSlug};
+        }
+
+        return new stdClass();
     }
 
 }

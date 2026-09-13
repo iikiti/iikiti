@@ -45,6 +45,9 @@ abstract class DynamicEnumerator implements DynamicEnumInterface
 	}
 
 	#[Override]
+	/**
+	 * @return array<int|string,EnumCase>
+	 */
 	public static function cases(bool $byValue = false): array
 	{
 		return $byValue ? self::$cases : self::$casesByName;

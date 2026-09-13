@@ -5,3 +5,14 @@ parameters:
 		- tests
 	doctrine:
 		objectManagerLoader: tests/object-manager.php
+		allowNullablePropertyForRequiredField: true
+	ignoreErrors:
+		-
+			message: '/Property iikiti\\CMS\\Entity\\DbObject::\$[a-z_]+ is never written, only read\./'
+			path: src/Entity/DbObject.php
+		-
+			message: '/Property iikiti\\CMS\\Entity\\ObjectProperty::\$[a-z_]+ is never written, only read\./'
+			path: src/Entity/ObjectProperty.php
+		-
+			message: '/is never assigned.*so it can be removed from the property type/'
+			path: src/Entity/DbObject.php

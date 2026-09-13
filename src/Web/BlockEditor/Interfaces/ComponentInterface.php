@@ -7,7 +7,13 @@ namespace iikiti\CMS\Web\BlockEditor\Interfaces;
  */
 interface ComponentInterface
 {
+	/**
+	 * @return array<string,mixed>
+	 */
 	public function getContainerList(): array;
 
+	/**
+	 * @return array<string,mixed>
+	 */
 	public function getSettingsFields(): array;
 }

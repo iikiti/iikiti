@@ -33,11 +33,15 @@ interface WorkflowInterface
 
     /**
      * Get the workflow context/data
+     *
+     * @return array<string,mixed>
      */
     public function getContext(): array;
 
     /**
      * Set workflow context/data
+     *
+     * @param array<string,mixed> $context
      */
     public function setContext(array $context): void;
 

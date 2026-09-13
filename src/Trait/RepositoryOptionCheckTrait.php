@@ -8,16 +8,19 @@ namespace iikiti\CMS\Trait;
  */
 trait RepositoryOptionCheckTrait
 {
-	protected function _typeCheck_bool($value, $allowNull = true): bool
+	protected function _typeCheck_bool(mixed $value, bool $allowNull = true): bool
 	{
 		return is_bool($value) || (null === $value && $allowNull);
 	}
 
-	protected function _typeCheck_stringOrArray($value, $allowNull = true): bool
+	protected function _typeCheck_stringOrArray(mixed $value, bool $allowNull = true): bool
 	{
 		return (is_string($value) || is_array($value)) || (null === $value && $allowNull);
 	}
 
+	/**
+	 * @param array<string,mixed> $options
+	 */
 	protected static function _checkOption(
 		string $key,
 		array $options,
@@ -34,6 +37,7 @@ trait RepositoryOptionCheckTrait
 
 	protected static function _defaultOption(string $key): bool|string|null
 	{
+		/** @var array<string,bool|string> $values */
 		static $values = [
 			'filterBySite' => true,
 			'includeRevisions' => false,

@@ -16,6 +16,7 @@ class Extensions
 	public const PREFIX = 'iikiti\\extension\\';
 	public const INITIAL_KEY = 'initial';
 
+	/** @var array<int|string,array<int,object>> */
 	public static array $EXTENSIONS = [];
 
 	public function __construct(private SiteRegistry $siteRegistry)
@@ -25,6 +26,8 @@ class Extensions
 	/**
 	 * Acquires list of enabled extensions and loads them via PSR-4 then
 	 * creates a new instance.
+	 *
+	 * @return \Generator<int,object>
 	 */
 	public function load(Kernel $kernel): \Generator
 	{
@@ -87,6 +90,9 @@ class Extensions
 		return false === $current->isDot() && $current->isDir() && $current->isLink();
 	}
 
+	/**
+	 * @return array<int,object>
+	 */
 	public function getExtensions(): array
 	{
 		return self::$EXTENSIONS[
