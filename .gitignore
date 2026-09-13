@@ -45,3 +45,6 @@ composer.lock
 symfony.lock
 package-lock.json
 bun.lock
+
+/.kilo/plans/
+.tmp.*
