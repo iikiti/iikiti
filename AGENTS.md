@@ -45,3 +45,7 @@ Business logic should be handled by API methods. For instance, a controller for 
   `docs/plugin-api.md`.
 - When changing behaviour here, update the relevant plugin documentation and add
   a `CHANGELOG.md` entry.
+
+## YAML Configuration
+
+Use PHP Attributes where possible then fall back to YAML configuration where it is not.
