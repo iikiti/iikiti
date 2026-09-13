@@ -1,0 +1,5 @@
+parameters:
+    # Default database platform strategy used by the query builder.
+    iikiti_query.default_platform: '%env(string:QUERY_DEFAULT_PLATFORM)%'
+    # Whether inline literal values in expression strings are rejected.
+    iikiti_query.safety_enabled: '%env(bool:QUERY_SAFETY_ENABLED)%'

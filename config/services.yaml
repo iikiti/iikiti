@@ -16,6 +16,9 @@ services:
             - '../src/Entity/'
             - '../src/Kernel.php'
             - '../src/Tests/'
+            # Query builder value objects and expressions are plain objects
+            # instantiated directly by the builder, not services.
+            - '../src/Query/'
 
     # Manually configure the SchemaListener to bind the schema parameter.
     # The #[AsDoctrineListener] attribute handles the auto-configuration (tagging).
@@ -101,6 +104,24 @@ services:
     iikiti\CMS\Cache\ApiPlatform\ApiPlatformCacheItemExtension:
         tags:
             - { name: api_platform.doctrine.orm.query_extension.item }
+
+    # Query builder services
+    iikiti\CMS\Query\DatabasePlatform\PostgreSQL\PostgreSQLPlatformStrategy:
+        tags:
+            - { name: iikiti.query.database_platform }
+
+    iikiti\CMS\Query\DatabasePlatform\DatabasePlatformStrategyInterface:
+        alias: iikiti\CMS\Query\DatabasePlatform\PostgreSQL\PostgreSQLPlatformStrategy
+
+    iikiti\CMS\Query\DatabasePlatform\DatabasePlatformRegistry:
+        arguments:
+            $strategies: !tagged_iterator iikiti.query.database_platform
+            $defaultStrategy: '%iikiti_query.default_platform%'
+
+    iikiti\CMS\Query\QueryBuilderFactory:
+        arguments:
+            $connection: '@doctrine.dbal.default_connection'
+            $safetyEnabled: '%iikiti_query.safety_enabled%'
 
     # Plugin subsystem
     iikiti\CMS\Plugin\PluginRegistry:
