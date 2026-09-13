@@ -50,7 +50,7 @@ class ApplicationRepository extends ObjectRepository
 		$siteIds = (new ArrayCollection($this->__getSiteRepository()->findByDomain($domain)))->
 			map(function (Site $site) {
 				return $site->getId();
-			});
+			})->toArray();
 
 		return $this->findByProperty($this->getDiscriminatorKey(Site::class), $siteIds);
 	}

@@ -35,7 +35,7 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 	}
 
 	public function getCreator(DbObject $object): ?User {
-		return $this->getEntityManager()->getRepository(User::class)->findById($object->getCreatorId());
+		return $this->getEntityManager()->getRepository(User::class)->find($object->getCreatorId());
 	}
 
 	public function createQueryBuilder($alias, $indexBy = null, array $options = []): QueryBuilder
@@ -167,9 +167,8 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 			} elseif (count($name) != count($value)) {
 				throw new \InvalidArgumentException('Size of $name must match size of $comparison');
 			}
-			foreach ($name as $n) {
-				/** @var string|int|float $comp */
-				$nextValue = next($comparison);
+			foreach ($name as $idx => $n) {
+				$nextValue = $value[$idx];
 				$qb->
 					join(
 						'o.properties',
@@ -180,7 +179,6 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 					)->
 					setParameter(':name', $n)->
 					setParameter(':value', json_encode($nextValue));
-				dump($qb);
 			}
 		} else {
 			$qb->
@@ -200,7 +198,7 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 
 	public function search(string $query): mixed
 	{
-		// TODO: Implement search
+		return [];
 	}
 
 	public function getDiscriminatorKey(?string $classname = null): ?string {

@@ -54,7 +54,6 @@ class HtmlFilter extends AbstractFilter
 	protected static function minifyHtml(Document $dom): void
 	{
 		$nodes = $dom->querySelectorAll('*');
-		/** @var \DOMText|\DOMComment $node */
 		foreach ($nodes as $node) {
 			foreach($node->childNodes as $child) {
 				if($child->nodeType === XML_COMMENT_NODE ) {
