@@ -26,3 +26,22 @@ For changes made that require configuration changes or user interaction, make su
 ## API-First
 
 Virtually all CMS data and actions should be available through the API in a secure way.
+
+Business logic should be handled by API methods. For instance, a controller for the web front or back-end should call the necessary API methods unless not strictly required.
+
+## Plugin system
+
+- **"Plugin" is the primary term.** Use `Plugin*` class names, `iikiti:plugin:*`
+  commands and `/api/admin/plugins/*` routes. "Extension" is a legacy alias
+  (e.g. `getEnabledExtensions()`) kept for backward compatibility only.
+- Plugins are full Symfony bundles that extend `iikiti\CMS\Plugin\PluginBundle`
+  and are discovered at compile time from `cms/extensions/active/`.
+- The `iikiti\` vendor namespace is reserved for plugins built by iikiti.
+  Third-party plugins use their own vendor namespace.
+- Every plugin ships a `plugin.json` manifest; see `docs/plugin-development.md`.
+- Installation/updates go through the store and enforce checksum, Ed25519
+  signature, namespace and review-state checks; see `docs/plugin-security.md`.
+- Management is available via `iikiti:plugin:*` commands and the admin API; see
+  `docs/plugin-api.md`.
+- When changing behaviour here, update the relevant plugin documentation and add
+  a `CHANGELOG.md` entry.

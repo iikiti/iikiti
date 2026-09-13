@@ -9,7 +9,6 @@ use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Repository\ObjectRepository;
 use iikiti\CMS\Trait\PropertiedTrait;
-use Override;
 
 /**
  * Database object entity
@@ -48,7 +47,7 @@ class DbObject
 	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
 	private int|string|null $creator_id;
 
-	/** @var \Doctrine\Common\Collections\Collection<string,ObjectProperty> */
+	/** @var Collection<string,ObjectProperty> */
 	#[ORM\OneToMany(
 		targetEntity: ObjectProperty::class,
 		mappedBy: 'object',
@@ -56,7 +55,7 @@ class DbObject
 		cascade: ['persist', 'remove'],
 		orphanRemoval: true
 	)]
-	private \Doctrine\Common\Collections\Collection $properties;
+	private Collection $properties;
 
 	public function getId(): int|string|null
 	{
@@ -83,17 +82,18 @@ class DbObject
 		return $this->creator_id;
 	}
 
-	public function getSite(): ?Site {
+	public function getSite(): ?Site
+	{
 		return $this instanceof Site ? null : $this->site;
 	}
 
-	#[Override]
+	#[\Override]
 	public function getProperties(): Collection
 	{
 		return $this->properties;
 	}
 
-	#[Override]
+	#[\Override]
 	public function setProperties(Collection $properties): void
 	{
 		$this->properties = $properties;
@@ -106,15 +106,13 @@ class DbObject
 		}
 	}
 
-	#[Override]
+	#[\Override]
 	public function setProperty(string $name, mixed $value): void
 	{
 		$isProperty = $value instanceof ObjectProperty;
 		$property = $isProperty ? $value :
 			($this->getProperties()->get($name) ?? new ObjectProperty());
-		if ($property->getName() != $name) {
-			$property->setName($name);
-		}
+		$property->setName($name);
 		$property->setObject($this);
 		if (false == $isProperty) {
 			$property->setValue($value);

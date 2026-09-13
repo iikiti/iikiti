@@ -55,6 +55,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Generation-based cache invalidation: `CacheInvalidationSubscriber` bumps a
   per-entity-class generation on `postFlush` so stale query results become
   unreachable (TTL acts as a safety net).
+- 2026-09-13: Plugin subsystem with compile-time bundle discovery/registration
+  (`PluginBundle`, `PluginLoader`, `PluginRegistry`, `PluginValidator`) and the
+  `plugin.json` manifest + namespace standard.
+- 2026-09-13: Secure plugin downloads with SHA-256 checksum and Ed25519
+  signature verification and store review-state enforcement (`PluginDownloader`,
+  `PluginState`, `PluginSource`, `PluginAutoloader`).
+- 2026-09-13: Plugin lifecycle events and hooks (`PluginEvents`, `PluginEvent`,
+  `PluginLifecycleInterface`, `PluginLifecycleHandler`).
+- 2026-09-13: `iikiti:plugin:*` CLI commands (list/install/update/remove/enable/
+  disable/verify/configure/migrate) and the admin REST API
+  (`/api/admin/plugins/*`, `PluginInfo`, `PluginOperation`).
+- 2026-09-13: `plugin_registry` table (`PluginRecord` entity, repository and
+  migration) for plugin install/version auditing.
+- 2026-09-13: Plugin documentation (`docs/plugin-development.md`,
+  `docs/plugin-api.md`, `docs/plugin-security.md`).
 
 ### Changed
 - MFA is now triggered by an `AuthenticationTokenCreatedEvent` subscriber that wraps
@@ -68,6 +83,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   there after a successful challenge.
 - `MfaCodeMailer` is a lazy service and its sender is env-configurable
   (`MFA_SENDER_EMAIL`).
+- 2026-09-13: Plugin enablement is per-site with batch activation/update across
+  all sites; container rebuilds are batched into a single `cache:clear`.
+- 2026-09-13: Configuration reads the `plugins` key (the `extensions` key is
+  retained as a legacy alias) and `getEnabledPlugins()` supersedes
+  `getEnabledExtensions()`.
+- 2026-09-13: `SiteRegistry` no longer fails when there is no HTTP request, so
+  CLI commands and workers can access the database.
+- 2026-09-13: `CacheInvalidationSubscriber` now listens to Doctrine `onFlush`/
+  `postFlush` with the correct event argument types.
+- 2026-09-13: A plugin can now be enabled/disabled for a subset of sites; the
+  `active/` symlink and container rebuild are correctly applied for scoped
+  operations.
 
 ### Removed
 - `iikiti/mfa` vendor bundle and its VCS repository dependency from `composer.json`;
@@ -77,6 +104,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Replaced `iikiti\MfaBundle\Authentication\Authenticator` as a custom authenticator
   with the workflow-driven controller; replaced the vendor `AccessHandler` with
   `iikiti\CMS\Security\AccessHandler`.
+- 2026-09-13: Removed the legacy `iikiti\CMS\Loader\Extensions` runtime loader and
+  the `ExtensionConfigurationTrait` alias (replaced by the plugin subsystem and
+  `PluginConfigurationTrait`).
 
 ### Fixed
 - `StepSubscriber` step-provider wiring was misconfigured (passed a literal array
@@ -91,9 +121,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Open-redirect hardening on the post-challenge target path.
 - The MFA subscriber skips credential-less authenticators (e.g. the stateless API
   token), so API authorization is unaffected.
+- 2026-09-13: Plugin bundle classes are now autoloaded before Symfony instantiates
+  the cached bundle list, fixing plugins not loading from a warm container cache.
+- 2026-09-13: Plugin admin API now returns `404`/`422` for failed operations
+  instead of a `200` with `success: false`.
+- 2026-09-13: Plugin `installPackage`/`updatePackage` now validate declared
+  dependencies and reject slug-mismatched packages on update.
+- 2026-09-13: `iikiti:plugin:update --version` with no slug is now rejected
+  instead of forcing that version onto every installed plugin.
+- 2026-09-13: `iikiti:plugin:migrate` now merges `extensions` into `plugins`
+  (per-key, `plugins` precedence) rather than skipping sites that already have a
+  `plugins` entry.
+- 2026-09-13: A plugin can no longer be activated on prod without `published`
+  state; manually placed plugins default to `pending_review`.
+- 2026-09-13: `PluginRegistry`/`PluginAutoloader`/`PluginLoader` optimised:
+  single-pass active-site maps for listing, cached filesystem scans,
+  batch/single-flush and symlink-sync fixes, longest-prefix autoload
+  pre-sorted, and early-boot discovery kept metadata-only.
+
 
 ### Security
 - Brute-force protection: failed MFA attempts are counted in a per-user,
   server-side cache lock (default 5 attempts, 300 s lockout).
 - Challenge codes expire (e-mail TTL 300 s) and are single-use per workflow step.
 - E-mail codes are stored only as a one-way hash in the workflow context.
+- 2026-09-13: The `iikiti\` vendor namespace is reserved for first-party plugins;
+  activation symlinks must resolve inside `cms/extensions/installed/`; plugin
+  archives are rejected for zip-slip paths; and third-party store URLs and
+  non-published plugin states are blocked on production.
+- 2026-09-13: `object_properties.creator_id` is now nullable so plugin
+  configuration can be written from CLI/admin contexts without a user; and the
+  `ObjectProperty` creation path was fixed (`DbObject::setProperty`).
+- 2026-09-13: Plugin `PLUGIN_REQUIRE_SIGNATURE` and `PLUGIN_AUTO_REBUILD` are now
+  environment-configurable so production defaults can be set per environment.
+- 2026-09-13: Plugin install audit (`plugin_registry`) now writes via the DBAL
+  connection rather than the ORM unit of work, preventing EM-poisoning of
+  subsequent site-activation flushes.

@@ -2,8 +2,10 @@
 
 namespace iikiti\CMS;
 
-use iikiti\CMS\Loader\Extensions;
-use Override;
+use iikiti\CMS\Plugin\PluginInstallInfo;
+use iikiti\CMS\Plugin\PluginLoader;
+use iikiti\CMS\Plugin\PluginManifest;
+use iikiti\CMS\Plugin\PluginValidator;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -13,6 +15,9 @@ use Symfony\Component\Yaml\Yaml;
 
 /**
  * CMS Kernel.
+ *
+ * Discovers, validates and registers iikiti plugins as full Symfony bundles at
+ * compile time (see {@see PluginLoader}).
  *
  * @uses MicroKernelTrait
  */
@@ -24,9 +29,30 @@ class Kernel extends BaseKernel implements CompilerPassInterface
 	}
 
 	/**
+	 * Plugins discovered during boot.
+	 *
+	 * @var list<array{
+	 *     manifest: PluginManifest,
+	 *     path: string,
+	 *     installInfo: PluginInstallInfo,
+	 *     allowReservedNamespace: bool
+	 * }>
+	 */
+	private array $discoveredPlugins = [];
+
+	/**
+	 * Discovery failures, surfaced to admins without breaking the site.
+	 *
+	 * @var list<string>
+	 */
+	private array $pluginErrors = [];
+
+	private bool $pluginsDiscovered = false;
+
+	/**
 	 * Load configurations.
 	 */
-	#[Override]
+	#[\Override]
 	public function process(ContainerBuilder $container): void
 	{
 		$encoreConfig = Yaml::parseFile(
@@ -36,62 +62,107 @@ class Kernel extends BaseKernel implements CompilerPassInterface
 			'webpack_encore.output_path',
 			$encoreConfig['webpack_encore']['output_path']
 		);
+
+		$plugins = [];
+		foreach ($this->discoveredPlugins as $plugin) {
+			$plugins[$plugin['manifest']->slug] = [
+				'manifest' => $plugin['manifest']->toArray(),
+				'path' => $plugin['path'],
+			];
+		}
+		$container->setParameter('iikiti.plugins', $plugins);
+		$container->setParameter('iikiti.plugins.errors', $this->pluginErrors);
 	}
 
 	/**
-	 * Configure routes for application and extensions.
+	 * Register plugin autoloaders and metadata before Symfony instantiates the
+	 * (possibly cached) bundle list, so plugin bundle classes are always
+	 * loadable and their metadata is available to the container.
+	 */
+	protected function initializeBundles(): void
+	{
+		$this->discoverPlugins();
+
+		parent::initializeBundles();
+	}
+
+	/**
+	 * Configure routes for the application and active plugins.
 	 */
 	protected function configureRoutes(RoutingConfigurator $routes): void
 	{
 		$this->__kernelConfigureRoutes($routes);
-		// TODO: $this->_configureExtensionRoutes($routes);
-	}
 
-	/**
-	 * Loads routes for extensions.
-	 */
-	protected function _configureExtensionRoutes(RoutingConfigurator $routes): void
-	{
-		/** @var Extensions $extensions */
-		$extensions = $this->getContainer()->get('extensions');
-		foreach ($extensions->getExtensions() as $ext) {
-			/** @var \Symfony\Component\HttpKernel\Bundle\AbstractBundle $ext */
-			$configDir = dirname(
-				(new \ReflectionClass($ext::class))->getFileName()
-			).'/config';
-			$routeEnvConfigs = glob(
-				$configDir.'/{routes}/'.$this->environment.
-				'/*.{php,yaml}',
-				GLOB_BRACE
-			);
-			$customRouteConfigs = glob($configDir.'/{routes}/*.{php,yaml}', GLOB_BRACE);
-			$defaultRouteConfig = glob($configDir.'/routes.{php,yaml}', GLOB_BRACE);
-			$files = array_merge(
-				$routeEnvConfigs === false ? [] : $routeEnvConfigs,
-				$customRouteConfigs === false ? [] : $customRouteConfigs,
-				$defaultRouteConfig === false ? [] : $defaultRouteConfig
-			);
-			foreach ($files as $filename) {
-				$routes->import($filename);
+		foreach ($this->discoveredPlugins as $plugin) {
+			$configDir = $plugin['path'].'/config';
+			$imported = false;
+			foreach (['routes.php', 'routes.yaml', 'routes.yml'] as $file) {
+				$path = $configDir.'/'.$file;
+				if (is_file($path)) {
+					$routes->import($path);
+					$imported = true;
+					break;
+				}
+			}
+			if (!$imported && is_dir($configDir.'/routes')) {
+				$routes->import($configDir.'/routes', 'directory');
+			}
+
+			// Plugins may also expose attribute routes directly from their
+			// controllers without any config file.
+			$controllerDir = $plugin['path'].'/src/Controller';
+			if (is_dir($controllerDir)) {
+				$routes->import($controllerDir, 'attribute');
 			}
 		}
 	}
 
-	#[Override]
-	public function boot(): void
-	{
-		parent::boot();
-	}
-
 	/**
-	 * Registers bundles for extensions.
-	 * Will this be needed?
+	 * Registers core bundles and active plugin bundles.
+	 *
+	 * Plugins are discovered from `cms/extensions/active/` (symlinks into
+	 * `cms/extensions/installed/`), validated, and yielded as Symfony bundles so
+	 * they receive full DI, routing and event-subscriber integration.
 	 */
 	public function registerBundles(): iterable
 	{
-		/* @var Extensions $extensions */
-		// $extensions = $this->getContainer()->get('extensions');
 		yield from $this->__kernelRegisterBundles();
-		// TODO: yield from $extensions->load($this);
+
+		$this->discoverPlugins();
+
+		$loader = new PluginLoader(
+			$this->getProjectDir(),
+			new PluginValidator(),
+		);
+
+		foreach ($this->discoveredPlugins as $plugin) {
+			yield $loader->instantiate($plugin);
+		}
+	}
+
+	/**
+	 * Discover active plugins once per kernel boot, tolerating broken plugins.
+	 */
+	private function discoverPlugins(): void
+	{
+		if ($this->pluginsDiscovered) {
+			return;
+		}
+		$this->pluginsDiscovered = true;
+
+		$loader = new PluginLoader(
+			$this->getProjectDir(),
+			new PluginValidator(),
+		);
+
+		try {
+			$this->discoveredPlugins = $loader->discover();
+			$this->pluginErrors = $loader->getErrors();
+		} catch (\Throwable $exception) {
+			// A single broken plugin must never take down the host site. Record
+			// the problem so admins can see it, and boot without the plugins.
+			$this->discoveredPlugins = [];
+			$this->pluginErrors = array_merge($this->pluginErrors, [$exception->getMessage()]);
+		}
 	}
 }

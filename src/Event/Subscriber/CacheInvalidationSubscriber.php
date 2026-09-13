@@ -3,8 +3,9 @@
 namespace iikiti\CMS\Event\Subscriber;
 
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
+use Doctrine\ORM\Event\OnFlushEventArgs;
+use Doctrine\ORM\Event\PostFlushEventArgs;
 use Doctrine\ORM\Events;
-use Doctrine\Persistence\Event\LifecycleEventArgs;
 use iikiti\CMS\Service\DatabaseCacheManager;
 
 /**
@@ -27,10 +28,7 @@ class CacheInvalidationSubscriber
 	) {
 	}
 
-	/**
-	 * @param LifecycleEventArgs<\Doctrine\ORM\EntityManagerInterface> $args
-	 */
-	public function onFlush(LifecycleEventArgs $args): void
+	public function onFlush(OnFlushEventArgs $args): void
 	{
 		$em = $args->getObjectManager();
 		$uow = $em->getUnitOfWork();
@@ -44,10 +42,7 @@ class CacheInvalidationSubscriber
 		$this->affectedClasses = array_values(array_unique(array_filter($classes)));
 	}
 
-	/**
-	 * @param LifecycleEventArgs<\Doctrine\ORM\EntityManagerInterface> $args
-	 */
-	public function postFlush(LifecycleEventArgs $args): void
+	public function postFlush(PostFlushEventArgs $args): void
 	{
 		foreach ($this->affectedClasses as $entityClass) {
 			$this->cacheManager->invalidate($entityClass);

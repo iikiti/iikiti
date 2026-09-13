@@ -1,0 +1,32 @@
+parameters:
+    # Base URL of the plugin store. Third-party (reskinned) stores also route
+    # through the iikiti store infrastructure for review and distribution.
+    iikiti.plugin.store_url_fallback: 'https://store.iikiti.com'
+    iikiti.plugin.store_url: '%env(default:iikiti.plugin.store_url_fallback:PLUGIN_STORE_URL)%'
+
+    # Allow installing/upgrading plugins that the store has not published.
+    # Only honoured in non-production environments.
+    iikiti.plugin.allow_non_approved_fallback: 'false'
+    iikiti.plugin.allow_non_approved: '%env(bool:default:iikiti.plugin.allow_non_approved_fallback:PLUGIN_ALLOW_NON_APPROVED)%'
+
+    # Allow using third-party store URLs. Only honoured in non-production.
+    iikiti.plugin.allow_third_party_updates_fallback: 'false'
+    iikiti.plugin.allow_third_party_updates: '%env(bool:default:iikiti.plugin.allow_third_party_updates_fallback:PLUGIN_ALLOW_THIRD_PARTY_UPDATES)%'
+
+    # Require a valid signature when available from the store. Env-configurable
+    # so development environments can relax it before a store key is provisioned.
+    iikiti.plugin.require_signature_fallback: 'true'
+    iikiti.plugin.require_signature: '%env(bool:default:iikiti.plugin.require_signature_fallback:PLUGIN_REQUIRE_SIGNATURE)%'
+
+    # Ed25519 public key (base64) used to verify plugin package signatures.
+    # Empty disables signature verification except where required.
+    iikiti.plugin.store_public_key_fallback: ''
+    iikiti.plugin.store_public_key: '%env(default:iikiti.plugin.store_public_key_fallback:PLUGIN_STORE_PUBLIC_KEY)%'
+
+    # Timeout (seconds) for store HTTP requests.
+    iikiti.plugin.store_timeout: 30
+
+    # Automatically rebuild the container after plugin files change. Deployments
+    # that clear the cache themselves can disable this via PLUGIN_AUTO_REBUILD.
+    iikiti.plugin.auto_rebuild_fallback: 'true'
+    iikiti.plugin.auto_rebuild: '%env(bool:default:iikiti.plugin.auto_rebuild_fallback:PLUGIN_AUTO_REBUILD)%'
