@@ -3,6 +3,7 @@
 namespace iikiti\CMS\Service;
 
 use Symfony\Contracts\Service\ResetInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Per-request state controlling whether database query caching is active.
@@ -18,8 +19,10 @@ class CacheState implements ResetInterface
 
 	private ?string $overrideStrategy = null;
 
-	public function __construct(bool $enabled = true)
-	{
+	public function __construct(
+		#[Autowire('%iikiti_cache.enabled%')]
+		bool $enabled = true,
+	) {
 		$this->enabled = $enabled;
 	}
 

@@ -2,6 +2,7 @@
 
 namespace iikiti\CMS\Workflow;
 
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 class StepSubscriber implements EventSubscriberInterface
@@ -12,8 +13,10 @@ class StepSubscriber implements EventSubscriberInterface
     /**
      * @param iterable<StepProviderInterface> $stepProviders
      */
-    public function __construct(iterable $stepProviders = [])
-    {
+    public function __construct(
+        #[AutowireIterator('workflow.step_provider')]
+        iterable $stepProviders = []
+    ) {
         foreach ($stepProviders as $provider) {
             $this->addStepProvider($provider);
         }

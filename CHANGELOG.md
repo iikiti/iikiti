@@ -12,10 +12,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 > Last updated: 2026-09-13
 
-### Added
-- 2026-09-13: `/lint-yaml` Kilo command (`.kilo/commands/lint-yaml.md`) that runs
-  `lint:yaml --parse-tags` so Symfony DI tags like `!tagged_iterator` in
-  `config/services.yaml` pass YAML linting.
+### Changed
+- 2026-09-13: Replaced `!tagged_iterator` YAML tags in `config/services.yaml` with
+  PHP `#[AutowireIterator]` attributes on constructors, eliminating IDE/YAML linter
+  "Unresolved tag" errors. Converted remaining `bind`/`arguments` entries to
+  `#[Autowire]` and `#[Autoconfigure]` attributes across 17 service classes.
 - Multi-factor authentication driven by the abstract workflow: a `MfaChallengeController`
   (`/mfa/challenge`) walks the user through `mfa_authentication` workflow steps, each
   rendered with a Symfony form type.

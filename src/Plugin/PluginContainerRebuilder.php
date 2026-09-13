@@ -3,6 +3,7 @@
 namespace iikiti\CMS\Plugin;
 
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Process\Process;
 
 /**
@@ -20,8 +21,11 @@ class PluginContainerRebuilder
 	private bool $lastRebuildSuccessful = true;
 
 	public function __construct(
+		#[Autowire('%kernel.project_dir%')]
 		private readonly string $projectDir,
+		#[Autowire('%kernel.environment%')]
 		private readonly string $environment,
+		#[Autowire('%iikiti.plugin.auto_rebuild%')]
 		private readonly bool $enabled = true,
 		private readonly ?LoggerInterface $logger = null,
 	) {

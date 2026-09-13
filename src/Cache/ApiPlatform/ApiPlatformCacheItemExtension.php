@@ -7,6 +7,7 @@ use ApiPlatform\Doctrine\Orm\Extension\QueryResultItemExtensionInterface;
 use ApiPlatform\Doctrine\Orm\Util\QueryNameGeneratorInterface;
 use ApiPlatform\Metadata\Operation;
 use Doctrine\ORM\QueryBuilder;
+use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 
 /**
  * Caches API Platform item query results through the active caching strategy.
@@ -15,6 +16,7 @@ use Doctrine\ORM\QueryBuilder;
  *
  * @implements QueryResultItemExtensionInterface<T>
  */
+#[AutoconfigureTag('api_platform.doctrine.orm.query_extension.item')]
 class ApiPlatformCacheItemExtension extends ApiPlatformCacheExtension implements
 	QueryItemExtensionInterface,
 	QueryResultItemExtensionInterface

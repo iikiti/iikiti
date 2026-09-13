@@ -6,6 +6,7 @@ use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\ORM\Event\LoadClassMetadataEventArgs;
 use Doctrine\ORM\Events;
 use Doctrine\ORM\Mapping\ClassMetadata;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Doctrine event listener to dynamically set the database schema for entities.
@@ -21,8 +22,10 @@ final class SchemaListener
 	/**
 	 * @param string $schema The database schema to apply to the entities.
 	 */
-	public function __construct(private readonly string $schema = '')
-	{
+	public function __construct(
+		#[Autowire('%env(DB_SCHEMA)%')]
+		private readonly string $schema = ''
+	) {
 	}
 
 	/**
