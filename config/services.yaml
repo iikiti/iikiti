@@ -58,3 +58,46 @@ services:
         bind:
             $maxAttempts: '%mfa.max_attempts%'
             $lockoutSeconds: '%mfa.lockout_seconds%'
+
+    # Database query cache services
+    iikiti\CMS\Cache\CachingStrategyRegistry:
+        arguments:
+            $strategies: !tagged_iterator iikiti.cache_strategy
+            $defaultStrategy: '%iikiti_cache.strategy%'
+
+    iikiti\CMS\Cache\Strategy\DoctrineResultCacheStrategy:
+        arguments:
+            $cachePool: '@cache.database'
+            $defaultTTL: '%iikiti_cache.default_ttl%'
+
+    iikiti\CMS\Service\CacheState:
+        arguments:
+            $enabled: '%iikiti_cache.enabled%'
+        tags:
+            - { name: kernel.reset, method: reset }
+
+    iikiti\CMS\Service\DatabaseCacheManager:
+        arguments:
+            $cachePool: '@cache.database'
+            $defaultTTL: '%iikiti_cache.default_ttl%'
+
+    iikiti\CMS\Event\Subscriber\CacheInvalidationSubscriber: ~
+
+    iikiti\CMS\Event\Subscriber\BatchCacheDisablerSubscriber:
+        arguments:
+            $batchRoutePattern: '%iikiti_cache.batch_route_pattern%'
+
+    iikiti\CMS\Cache\DatabaseConfigStrategyResolver:
+        tags:
+            - { name: kernel.event_subscriber }
+
+    # Collection extension must run after pagination (priority -64) so the
+    # paginator takes precedence for paginated collections.
+    iikiti\CMS\Cache\ApiPlatform\ApiPlatformCacheCollectionExtension:
+        autoconfigure: false
+        tags:
+            - { name: api_platform.doctrine.orm.query_extension.collection, priority: -100 }
+
+    iikiti\CMS\Cache\ApiPlatform\ApiPlatformCacheItemExtension:
+        tags:
+            - { name: api_platform.doctrine.orm.query_extension.item }

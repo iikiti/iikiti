@@ -6,6 +6,7 @@ use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\Object\ApiToken;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\ObjectRepository;
+use iikiti\CMS\Service\DatabaseCacheManager;
 
 /**
  * Repository for API token entities.
@@ -18,8 +19,11 @@ use iikiti\CMS\Repository\ObjectRepository;
  */
 class ApiTokenRepository extends ObjectRepository
 {
-    public function __construct(ManagerRegistry $registry, private SiteRegistry $siteRegistry)
-    {
-        parent::__construct($registry, $siteRegistry, ApiToken::class);
+    public function __construct(
+        ManagerRegistry $registry,
+        private SiteRegistry $siteRegistry,
+        DatabaseCacheManager $cacheManager
+    ) {
+        parent::__construct($registry, $siteRegistry, $cacheManager, ApiToken::class);
     }
 }

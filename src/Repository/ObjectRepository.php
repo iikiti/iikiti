@@ -5,6 +5,7 @@ namespace iikiti\CMS\Repository;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\ORM\Query;
 use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
@@ -12,6 +13,7 @@ use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Interfaces\SearchableRepositoryInterface;
 use iikiti\CMS\Registry\SiteRegistry;
+use iikiti\CMS\Service\DatabaseCacheManager;
 use iikiti\CMS\Trait\RepositoryOptionCheckTrait;
 
 /**
@@ -30,6 +32,7 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 	public function __construct(
 		ManagerRegistry $registry,
 		private SiteRegistry $siteRegistry,
+		private DatabaseCacheManager $cacheManager,
 		string $entityClass = DbObject::class
 	) {
 		parent::__construct($registry, $entityClass);
@@ -64,7 +67,11 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 	 */
 	public function find($id, $lockMode = null, $lockVersion = null, array $options = []): ?object
 	{
-		$entity = $this->findOneBy([$this->getClassMetadata()->getIdentifier()[0] => $id]);
+		$entity = $this->findOneBy(
+			[$this->getClassMetadata()->getIdentifier()[0] => $id],
+			null,
+			$options
+		);
 		if (null !== $entity && null !== $lockMode) {
 			if ($lockMode !== LockMode::NONE && $lockMode !== 0) {
 				$this->getEntityManager()->lock($entity, $lockMode, $lockVersion);
@@ -95,18 +102,30 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 		$offset = null,
 		array $options = []
 	): array {
-		$filterBySite = (bool) $this->_checkOption(
-			'filterBySite',
-			$options,
-			\Closure::fromCallable([$this, '_typeCheck_bool'])
-		);
+		$qb = $this->createQueryBuilder('o', null, $options);
+		$this->_applyCriteriaToQueryBuilder($qb, $criteria);
+		if (null !== $orderBy) {
+			foreach ($orderBy as $field => $direction) {
+				$qb->addOrderBy('o.'.$field, $direction);
+			}
+		}
+		if (null !== $limit) {
+			$qb->setMaxResults((int) $limit);
+		}
+		if (null !== $offset) {
+			$qb->setFirstResult((int) $offset);
+		}
 
-		return parent::findBy(
-			$filterBySite ? $this->__filterBySite($criteria) : $criteria,
-			$orderBy,
-			$limit,
-			$offset
-		);
+		$context = [
+			'operation' => 'findBy',
+			'options' => $options,
+			'criteria' => $criteria,
+			'orderBy' => $orderBy,
+			'limit' => $limit,
+			'offset' => $offset,
+		];
+
+		return $this->_executeAndCache($qb, $context);
 	}
 
 	/**
@@ -119,16 +138,23 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 		?array $orderBy = null,
 		array $options = []
 	): ?object {
-		$filterBySite = (bool) $this->_checkOption(
-			'filterBySite',
-			$options,
-			\Closure::fromCallable([$this, '_typeCheck_bool'])
-		);
+		$qb = $this->createQueryBuilder('o', null, $options);
+		$this->_applyCriteriaToQueryBuilder($qb, $criteria);
+		if (null !== $orderBy) {
+			foreach ($orderBy as $field => $direction) {
+				$qb->addOrderBy('o.'.$field, $direction);
+			}
+		}
+		$qb->setMaxResults(1);
 
-		return parent::findOneBy(
-			$filterBySite ? $this->__filterBySite($criteria) : $criteria,
-			$orderBy
-		);
+		$context = [
+			'operation' => 'findOneBy',
+			'options' => $options,
+			'criteria' => $criteria,
+			'orderBy' => $orderBy,
+		];
+
+		return $this->_executeAndCacheOne($qb, $context);
 	}
 
 	/**
@@ -162,7 +188,14 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 		string|int|float|array $value,
 		array $options = []
 	): array {
-		return $this->__findByProperty($name, $value, $options)->getQuery()->getResult();
+		$context = [
+			'operation' => 'findByProperty',
+			'options' => $options,
+			'name' => $name,
+			'value' => $value,
+		];
+
+		return $this->_executeAndCache($this->__findByProperty($name, $value, $options), $context);
 	}
 
 		/**
@@ -177,7 +210,14 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 		string|int|float|array $value,
 		array $options = []
 	): ?object {
-		return $this->__findByProperty($name, $value, $options)->getQuery()->getOneOrNullResult();
+		$context = [
+			'operation' => 'findOneByProperty',
+			'options' => $options,
+			'name' => $name,
+			'value' => $value,
+		];
+
+		return $this->_executeAndCacheOne($this->__findByProperty($name, $value, $options), $context);
 	}
 
 	/**
@@ -232,6 +272,100 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 		}
 
 		return $qb;
+	}
+
+	/**
+	 * Whether caching should be applied for the given repository options.
+	 *
+	 * @param array<string,mixed> $options
+	 */
+	protected function _shouldCache(array $options): bool
+	{
+		return $this->cacheManager->isCachingEnabled($options);
+	}
+
+	/**
+	 * Resolve the per-query cache TTL from options (null means default).
+	 *
+	 * @param array<string,mixed> $options
+	 */
+	protected function _cacheTTL(array $options): ?int
+	{
+		return $this->_checkOption(
+			'cacheTTL',
+			$options,
+			\Closure::fromCallable([$this, '_typeCheck_positiveInt'])
+		);
+	}
+
+	/**
+	 * Apply the query cache (when enabled) and execute the query.
+	 *
+	 * @param array<string,mixed> $context
+	 *
+	 * @return array<T>
+	 */
+	private function _executeAndCache(QueryBuilder $qb, array $context): array
+	{
+		$query = $qb->getQuery();
+		$this->_applyCache($query, $context);
+
+		return $query->getResult();
+	}
+
+	/**
+	 * Apply the query cache (when enabled) and execute the query.
+	 *
+	 * @param array<string,mixed> $context
+	 *
+	 * @return T|null
+	 */
+	private function _executeAndCacheOne(QueryBuilder $qb, array $context): ?object
+	{
+		$query = $qb->getQuery();
+		$this->_applyCache($query, $context);
+
+		return $query->getOneOrNullResult();
+	}
+
+	/**
+	 * @param Query<array-key,mixed> $query
+	 * @param array<string,mixed>    $context
+	 */
+	private function _applyCache(Query $query, array $context): void
+	{
+		if ($this->_shouldCache($context['options'] ?? [])) {
+			$this->cacheManager->decorateQuery($query, $this->getEntityName(), $context);
+		}
+	}
+
+	/**
+	 * Convert criteria into WHERE conditions on the query builder.
+	 *
+	 * @param array<string,mixed> $criteria
+	 */
+	private function _applyCriteriaToQueryBuilder(QueryBuilder $qb, array $criteria): void
+	{
+		foreach ($criteria as $field => $value) {
+			if ('' === $field) {
+				continue;
+			}
+
+			$parameter = 'crit_'.preg_replace('/[^a-zA-Z0-9_]/', '_', $field);
+			if (is_array($value)) {
+				if ([] === $value) {
+					$qb->andWhere('1 = 0');
+					continue;
+				}
+				$qb->andWhere(sprintf('o.%s IN (:%s)', $field, $parameter));
+				$qb->setParameter($parameter, $value);
+			} elseif (null === $value) {
+				$qb->andWhere(sprintf('o.%s IS NULL', $field));
+			} else {
+				$qb->andWhere(sprintf('o.%s = :%s', $field, $parameter));
+				$qb->setParameter($parameter, $value);
+			}
+		}
 	}
 
 	public function search(string $query): mixed

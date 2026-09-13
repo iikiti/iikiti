@@ -1,0 +1,5 @@
+parameters:
+    iikiti_cache.strategy: '%env(string:CACHE_STRATEGY)%'
+    iikiti_cache.default_ttl: '%env(int:CACHE_DATABASE_TTL)%'
+    iikiti_cache.enabled: '%env(bool:CACHE_DATABASE_ENABLED)%'
+    iikiti_cache.batch_route_pattern: '%env(string:CACHE_DATABASE_BATCH_PATTERN)%'

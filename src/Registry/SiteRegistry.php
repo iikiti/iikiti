@@ -39,6 +39,11 @@ class SiteRegistry
 		static::populate($requestStack, $registry);
 	}
 
+	public static function isInitialized(): bool
+	{
+		return static::$initialized;
+	}
+
 	protected static function populate(
 		RequestStack $requestStack,
 		ManagerRegistry $registry

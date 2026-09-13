@@ -20,6 +20,9 @@ doctrine:
               JSON_EXTRACT_PATH: Scienta\DoctrineJsonFunctions\Query\AST\Functions\Postgresql\JsonExtractPath
               JSON_GET_TEXT: Scienta\DoctrineJsonFunctions\Query\AST\Functions\Postgresql\JsonGetText
               JSONB_CONTAINS: Scienta\DoctrineJsonFunctions\Query\AST\Functions\Postgresql\JsonbContains
-                
+
+        result_cache_driver:
+            type: pool
+            pool: cache.database
 
         filters:
