@@ -12,6 +12,8 @@ use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Interfaces\SearchableRepositoryInterface;
+use iikiti\CMS\ORM\QueryBuilder as OrmQueryBuilder;
+use iikiti\CMS\Query\Identifier\Column;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Service\DatabaseCacheManager;
 use iikiti\CMS\Trait\RepositoryOptionCheckTrait;
@@ -53,9 +55,15 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 			\Closure::fromCallable([$this, '_typeCheck_bool'])
 		);
 
-		return $filterBySite ?
-			$this->__filterBySite(parent::createQueryBuilder($alias, $indexBy)) :
-			parent::createQueryBuilder($alias, $indexBy);
+		// Use the iikiti ORM query builder so criteria predicates inherit the
+		// same inline-value safety contract as the DBAL query builder while
+		// preserving Doctrine entity hydration and result caching. It is-a
+		// Doctrine\ORM\QueryBuilder, so every ORM method and the cache
+		// decorator keep working unchanged.
+		$qb = new OrmQueryBuilder($this->getEntityManager());
+		$qb->select($alias)->from($this->getEntityName(), $alias, $indexBy);
+
+		return $filterBySite ? $this->__filterBySite($qb) : $qb;
 	}
 
 	/**
@@ -106,7 +114,8 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 		$this->_applyCriteriaToQueryBuilder($qb, $criteria);
 		if (null !== $orderBy) {
 			foreach ($orderBy as $field => $direction) {
-				$qb->addOrderBy('o.'.$field, $direction);
+				Column::assertValid((string) $field);
+				$qb->addOrderBy('o.'.((string) $field), $direction);
 			}
 		}
 		if (null !== $limit) {
@@ -142,7 +151,8 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 		$this->_applyCriteriaToQueryBuilder($qb, $criteria);
 		if (null !== $orderBy) {
 			foreach ($orderBy as $field => $direction) {
-				$qb->addOrderBy('o.'.$field, $direction);
+				Column::assertValid((string) $field);
+				$qb->addOrderBy('o.'.((string) $field), $direction);
 			}
 		}
 		$qb->setMaxResults(1);
@@ -346,23 +356,30 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 	 */
 	private function _applyCriteriaToQueryBuilder(QueryBuilder $qb, array $criteria): void
 	{
+		$expr = $qb->expr();
 		foreach ($criteria as $field => $value) {
 			if ('' === $field) {
 				continue;
 			}
 
-			$parameter = 'crit_'.preg_replace('/[^a-zA-Z0-9_]/', '_', $field);
+			Column::assertValid((string) $field);
+			$column = 'o.'.((string) $field);
+			$parameter = 'crit_'.preg_replace('/[^a-zA-Z0-9_]/', '_', (string) $field);
+
 			if (is_array($value)) {
 				if ([] === $value) {
-					$qb->andWhere('1 = 0');
+					$qb->andWhere($expr->andX(
+						$expr->isNull($column),
+						$expr->isNotNull($column)
+					));
 					continue;
 				}
-				$qb->andWhere(sprintf('o.%s IN (:%s)', $field, $parameter));
+				$qb->andWhere($expr->in($column, ':'.$parameter));
 				$qb->setParameter($parameter, $value);
 			} elseif (null === $value) {
-				$qb->andWhere(sprintf('o.%s IS NULL', $field));
+				$qb->andWhere($expr->isNull($column));
 			} else {
-				$qb->andWhere(sprintf('o.%s = :%s', $field, $parameter));
+				$qb->andWhere($expr->eq($column, ':'.$parameter));
 				$qb->setParameter($parameter, $value);
 			}
 		}
