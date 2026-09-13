@@ -8,8 +8,9 @@
 
 `CHANGELOG.md` at this repo's root records every notable change.
 When Kilo makes a code/config change in this workspace, **append a dated entry**
-under the matching section (`Added`, `Changed`, `Removed`, `Fixed`, `Security`)
-within the `## [Unreleased]` block before finishing the task.
+(under the current work date, e.g. `- 2026-09-13: …`) to the matching section
+(`Added`, `Changed`, `Removed`, `Fixed`, `Security`) within the `## [Unreleased]`
+block before finishing the task.
 
 - Prefer one concise line per changed behaviour.
 - If the section does not yet exist, create it.

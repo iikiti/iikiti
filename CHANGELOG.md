@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+> Last updated: 2026-09-13
+
 ### Added
 - Multi-factor authentication driven by the abstract workflow: a `MfaChallengeController`
   (`/mfa/challenge`) walks the user through `mfa_authentication` workflow steps, each
