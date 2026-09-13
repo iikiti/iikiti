@@ -1,5 +1,4 @@
-const Encore = require('@symfony/webpack-encore');
-//const path = require('path');
+import Encore from '@symfony/webpack-encore';
 
 // Manually configure the runtime environment if not already configured yet by the "encore" command.
 // It's useful when you use tools that rely on webpack.config.js file.
@@ -91,7 +90,7 @@ Encore
     //.autoProvidejQuery()
 ;
 
-const webpackConfig = Encore.getWebpackConfig();
+const webpackConfig = await Encore.getWebpackConfig();
 
 webpackConfig.resolve.conditionNames = (webpackConfig.resolve.conditionNames??[]);
 if(webpackConfig.resolve.conditionNames.indexOf('svelte') < 0) {
@@ -121,4 +120,4 @@ webpackConfig.module.rules.push(
 
 //console.log(webpackConfig.module.rules);return;
 
-module.exports = webpackConfig;
+export default webpackConfig;
