@@ -5,10 +5,12 @@ namespace iikiti\CMS\Plugin;
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Plugin\PluginRecord;
+use iikiti\CMS\ORM\QueryBuilder as OrmQueryBuilder;
 use iikiti\CMS\Plugin\Exception\PluginException;
 use iikiti\CMS\Plugin\Exception\PluginNotFoundException;
 use iikiti\CMS\Plugin\Exception\SecurityViolationException;
 use iikiti\CMS\Plugin\Lifecycle\PluginLifecycleHandler;
+use iikiti\CMS\Query\QueryBuilderFactory;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -30,6 +32,7 @@ class PluginManager
 		private readonly PluginRegistry $registry,
 		private readonly PluginLifecycleHandler $lifecycle,
 		private readonly PluginContainerRebuilder $rebuilder,
+		private readonly QueryBuilderFactory $queryBuilderFactory,
 		private readonly EntityManagerInterface $entityManager,
 		private readonly string $environment,
 		private readonly bool $allowNonApproved = false,
@@ -422,9 +425,11 @@ class PluginManager
 		// Use the entity manager directly rather than the Site repository: the
 		// repository depends on SiteRegistry, which requires an HTTP request and
 		// is therefore unavailable in CLI/worker contexts.
+		$qb = new OrmQueryBuilder($this->entityManager);
 		/** @var list<Site> $sites */
-		$sites = $this->entityManager->
-			createQuery('SELECT s FROM '.Site::class.' s')->
+		$sites = $qb->select('s')->
+			from(Site::class, 's')->
+			getQuery()->
 			getResult();
 
 		return $sites;
@@ -699,21 +704,23 @@ class PluginManager
 	/**
 	 * Upsert the system-level install/version record.
 	 *
-	 * Written through the raw DBAL connection (not the ORM unit of work) so a
-	 * failure here can never close the shared EntityManager and break the
-	 * site-activation flush that follows. Best-effort: failures are logged and
-	 * swallowed.
+	 * Written through the iikiti query builder rather than the raw DBAL
+	 * connection so that every identifier and value is validated/bound: table
+	 * and column names are checked against the identifier pattern, and values
+	 * are passed as parameters. Best-effort: failures are logged and swallowed.
 	 */
 	private function recordInstall(PluginManifest $manifest, PluginPackage $package): void
 	{
 		try {
 			$table = $this->registryTableName();
-			$connection = $this->entityManager->getConnection();
 
-			$existing = $connection->fetchAssociative(
-				'SELECT id FROM '.$table.' WHERE slug = ? AND site_id IS NULL',
-				[$manifest->slug],
-			);
+			$exists = $this->queryBuilderFactory->create();
+			$existing = $exists->select('id')->
+				from($table)->
+				where($exists->expr()->eq('slug', $manifest->slug))->
+				andWhere($exists->expr()->isNull('site_id'))->
+				executeQuery()->
+				fetchOne();
 
 			$data = [
 				'slug' => $manifest->slug,
@@ -726,9 +733,20 @@ class PluginManager
 
 			if (false !== $existing) {
 				unset($data['slug'], $data['site_id']);
-				$connection->update($table, $data, ['id' => $existing['id']]);
+				$update = $this->queryBuilderFactory->create();
+				$update->update($table);
+				foreach ($data as $column => $value) {
+					$update->set($column, $update->parameter($value));
+				}
+				$update->where($update->expr()->eq('id', $existing));
+				$update->executeStatement();
 			} else {
-				$connection->insert($table, $data);
+				$insert = $this->queryBuilderFactory->create();
+				$insert->insert($table);
+				foreach ($data as $column => $value) {
+					$insert->setValue($column, $insert->parameter($value));
+				}
+				$insert->executeStatement();
 			}
 		} catch (\Throwable $exception) {
 			$this->logger?->warning('Could not record plugin installation.', [
@@ -741,8 +759,10 @@ class PluginManager
 	private function recordRemove(string $slug): void
 	{
 		try {
-			$connection = $this->entityManager->getConnection();
-			$connection->executeStatement('DELETE FROM '.$this->registryTableName().' WHERE slug = ?', [$slug]);
+			$qb = $this->queryBuilderFactory->create();
+			$qb->delete($this->registryTableName())->
+				where($qb->expr()->eq('slug', $slug))->
+				executeStatement();
 		} catch (\Throwable $exception) {
 			$this->logger?->warning('Could not remove plugin records.', [
 				'plugin' => $slug,

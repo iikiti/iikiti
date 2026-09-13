@@ -19,6 +19,7 @@ services:
             # Query builder value objects and expressions are plain objects
             # instantiated directly by the builder, not services.
             - '../src/Query/'
+            - '../src/ORM/'
 
     # Manually configure the SchemaListener to bind the schema parameter.
     # The #[AsDoctrineListener] attribute handles the auto-configuration (tagging).

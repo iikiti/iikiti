@@ -417,11 +417,40 @@ values through the expression builder.
 | `'JSONB_CONTAINS(p.value, :value) = true'` | `$qb->expr()->jsonContains('p.value', $value)` |
 | `'col ~ :pattern'` | `$qb->expr()->regex('col', $pattern)` |
 
+### Applied to the codebase
+
+- `PluginManager` plugin install-audit queries (`recordInstall`, `recordRemove`)
+  were raw `Connection::executeQuery`/`executeStatement`/`update`/`insert` calls
+  with inline table names and `?`/positional parameters. They now build through
+  the query builder: the table name goes through `from()`/`update()`/`delete()`
+  (and is therefore validated as an identifier), every value is bound via
+  `parameter()`, and `RETURNING`-style upserts could use `returning()` if needed.
+- `ObjectRepository::createQueryBuilder()` now returns an `iikiti\ORM\QueryBuilder`
+  (which extends `Doctrine\ORM\QueryBuilder`), so every repository inherits the
+  same inline-value safety, parameter binding and `Column` validation while
+  preserving Doctrine entity hydration, the result-cache decorator and API
+  Platform integration. Criteria predicates are built through the typed
+  `ExpressionBuilder` (`eq`/`in`/`isNull`) instead of `sprintf`, and each
+  criteria field name is validated with `Column::assertValid()`.
+
+### ORM (Doctrine) module
+
+`iikiti\ORM\QueryBuilder extends Doctrine\ORM\QueryBuilder` provides the same
+safety contract for DQL: `expr()` returns an `iikiti\ORM\ExpressionBuilder`
+(extending `Doctrine\ORM\Query\Expr`) whose comparison helpers bind scalar
+values as parameters rather than inlining them, `where`/`having`/`set` reject
+inline literals, and `getQuery()` reconciles the parameter bag with Doctrine's
+parameter set. Only the DQL-portable predicate set is provided;
+PostgreSQL-only operators (`~`, `@>`, `@@`, `->>`/`->`, `&&`, `::`) have no
+DQL equivalent and are not rendered by the ORM builder -- use the DBAL builder
+for those.
+
 ## Reference
 
 | Class | Purpose |
 | --- | --- |
 | `QueryBuilder` | Base builder: safety, parameters, CTEs, unions, typed statements. |
+| `ORM\QueryBuilder` | ORM-safe builder: extends `Doctrine\ORM\QueryBuilder`. |
 | `PostgreSQLQueryBuilder` | PostgreSQL conveniences (`WITH RECURSIVE`, `RETURNING`). |
 | `QueryBuilderFactory` | Creates builders bound to a connection and platform. |
 | `ExpressionBuilder` | Typed, parameter-binding expression helpers. |

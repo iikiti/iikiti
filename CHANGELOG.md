@@ -13,6 +13,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 > Last updated: 2026-09-13
 
 ### Added
+- 2026-09-13: `/lint-yaml` Kilo command (`.kilo/commands/lint-yaml.md`) that runs
+  `lint:yaml --parse-tags` so Symfony DI tags like `!tagged_iterator` in
+  `config/services.yaml` pass YAML linting.
 - Multi-factor authentication driven by the abstract workflow: a `MfaChallengeController`
   (`/mfa/challenge`) walks the user through `mfa_authentication` workflow steps, each
   rendered with a Symfony form type.
@@ -175,3 +178,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (while still allowing `IS [NOT] NULL`); raw-string table, alias, column and
   `RETURNING` inputs are validated as identifiers, and the `LIKE ... ESCAPE`
   character is bound as a parameter rather than inlined.
+- 2026-09-13: `PluginManager::recordInstall()` and `recordRemove()` now persist
+  through the iikiti query builder instead of raw `Connection` SQL, binding the
+  slug and using validated `plugin_registry` table names; `ObjectRepository`
+  criteria predicates no longer interpolate field names via `sprintf` and
+  validate each field through `Column::assertValid()`.
+- 2026-09-13: Added an ORM-flavoured query builder (`src/ORM/`) that extends
+  `Doctrine\ORM\QueryBuilder`, so `ObjectRepository::createQueryBuilder()` now
+  returns a safe builder (parameter-binding expression helpers, inline-value
+  enforcement and `Column` validation) while preserving entity hydration and the
+  Doctrine result cache. A shared `InlineValueScanner` now powers the inline
+  literal detection for both the DBAL and ORM builders. Criteria `WHERE` and
+  `ORDER BY` field names are validated through `Column::assertValid()`.

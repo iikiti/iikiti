@@ -604,43 +604,6 @@ class QueryBuilder extends DbalQueryBuilder
 	 */
 	private function assertSafe(string $expression): void
 	{
-		if (!$this->safetyEnabled || '' === $expression) {
-			return;
-		}
-
-		// Replace parameter placeholders so the number inside a name such as
-		// `:qp1` is never mistaken for a literal.
-		$stripped = preg_replace('/:[A-Za-z_][A-Za-z0-9_]*/', '', $expression) ?? $expression;
-		$stripped = str_replace('?', '', $stripped);
-
-		if (1 === preg_match("/'[^']*'/", $stripped, $matches)) {
-			throw InlineValueException::forExpression($expression, $matches[0]);
-		}
-
-		if (1 === preg_match('/"[^"]*"/', $stripped, $matches)) {
-			throw InlineValueException::forExpression($expression, $matches[0]);
-		}
-
-		// PostgreSQL dollar-quoted strings (`$$...$$` or `$tag$...$tag$`).
-		if (1 === preg_match('/\$[A-Za-z0-9_]*\$/', $stripped, $matches)) {
-			throw InlineValueException::forExpression($expression, $matches[0]);
-		}
-
-		// Numeric literals, including hexadecimal, octal and binary forms,
-		// digit separators and scientific notation.
-		if (1 === preg_match(
-			'/\b(?:0[xX][0-9A-Fa-f_]+|0[oO][0-7_]+|0[bB][01_]+|\d[\d_]*(?:\.[\d_]*)?(?:[eE][+-]?\d+)?)\b/',
-			$stripped,
-			$matches
-		)) {
-			throw InlineValueException::forExpression($expression, $matches[0]);
-		}
-
-		// Boolean and NULL keyword literals, excluding the `IS [NOT] NULL`
-		// operator forms which are legitimate SQL.
-		$withoutNullChecks = preg_replace('/\bIS\s+(?:NOT\s+)?(?:NULL|TRUE|FALSE)\b/i', '', $stripped) ?? $stripped;
-		if (1 === preg_match('/\b(?:TRUE|FALSE|NULL)\b/i', $withoutNullChecks, $matches)) {
-			throw InlineValueException::forExpression($expression, $matches[0]);
-		}
+		InlineValueScanner::assertSafe($expression, $this->safetyEnabled);
 	}
 }
