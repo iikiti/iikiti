@@ -12,6 +12,8 @@ use iikiti\CMS\Repository\ObjectRepository;
 
 /**
  * Repository for application entities.
+ *
+ * @template-extends ObjectRepository<Application>
  */
 class ApplicationRepository extends ObjectRepository
 {
@@ -29,17 +31,25 @@ class ApplicationRepository extends ObjectRepository
 		return $this->appRegistry->getCurrent();
 	}
 
+	/**
+	 * @return array<string,mixed>|null
+	 */
 	public function getMultifactorPreferences(): ?array
 	{
 		return $this->getCurrentApplication()?->getMultifactorPreferences();
 	}
 
+	/**
+	 * @param array<string,mixed> $preferences
+	 */
 	public function setMultifactorPreferences(array $preferences): void
 	{
-		($app = $this->getCurrentApplication())?->setMultifactorPreferences($preferences);
+		$app = $this->getCurrentApplication();
 		if (null === $app) {
 			throw new \Exception('No current application. Cannot set preferences.');
 		}
+
+		$app->setMultifactorPreferences($preferences);
 	}
 
 	/**
@@ -55,6 +65,9 @@ class ApplicationRepository extends ObjectRepository
 		return $this->findByProperty($this->getDiscriminatorKey(Site::class), $siteIds);
 	}
 
+	/**
+	 * @return array<string,mixed>
+	 */
 	public function getSites(Application $app): array
 	{
 		return $this->__getSiteRepository()->findByApplication($app);

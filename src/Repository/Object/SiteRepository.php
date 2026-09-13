@@ -10,6 +10,8 @@ use iikiti\CMS\Repository\ObjectRepository;
 
 /**
  * Repository for site entities.
+ *
+ * @template-extends ObjectRepository<Site>
  */
 class SiteRepository extends ObjectRepository
 {
@@ -41,17 +43,25 @@ class SiteRepository extends ObjectRepository
 		return $this->siteRegistry::getCurrent();
 	}
 
+	/**
+	 * @return array<string,mixed>|null
+	 */
 	public function getMultifactorPreferences(): ?array
 	{
 		return $this->getCurrent()?->getMultifactorPreferences();
 	}
 
+	/**
+	 * @param array<string,mixed> $preferences
+	 */
 	public function setMultifactorPreferences(array $preferences): void
 	{
-		($site = $this->getCurrent())?->setMultifactorPreferences($preferences);
+		$site = $this->getCurrent();
 		if (null === $site) {
 			throw new \Exception('No current site. Cannot set preferences.');
 		}
+
+		$site->setMultifactorPreferences($preferences);
 	}
 
 	/**

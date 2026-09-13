@@ -5,6 +5,7 @@ namespace iikiti\CMS\Entity\Object;
 use ApiPlatform\Metadata\ApiResource;
 use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\DbObject;
+use iikiti\CMS\Enum\EnumCase;
 use iikiti\CMS\Manager\UserRoleManager;
 use iikiti\CMS\Repository\Object\UserRepository;
 use iikiti\CMS\Trait\MfaPreferencesTrait;
@@ -29,7 +30,6 @@ class User extends DbObject implements
 
 	public const bool SITE_SPECIFIC = false;
 
-	private array $roles = [];
 	private ?Site $currentSite = null;
 
 	/**
@@ -114,6 +114,9 @@ class User extends DbObject implements
             ) > 0;
 	}
 
+	/**
+	 * @return array<string,EnumCase>
+	 */
 	public function getSiteRoles(string|int $siteId): array
 	{
 		$property = $this->getProperties()->get('roles');
@@ -123,6 +126,9 @@ class User extends DbObject implements
 		);
 	}
 
+	/**
+	 * @return array<string,EnumCase>
+	 */
 	public function getGlobalRoles(): array
 	{
 		$property = $this->getProperties()->get('roles');
@@ -132,6 +138,9 @@ class User extends DbObject implements
 		);
 	}
 
+	/**
+	 * @return array<string,EnumCase>
+	 */
 	public function getRegistrationRoles(string|int $siteId): array
 	{
 		return array_merge($this->getGlobalRoles(), $this->getSiteRoles($siteId));

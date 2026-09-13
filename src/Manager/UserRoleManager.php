@@ -14,17 +14,25 @@ class UserRoleManager
 	{
 	}
 
+	/**
+	 * @return array<string,EnumCase>
+	 */
 	public static function getDefaultRoles(): array
 	{
 		return UserRoleEnum::getDefaultRoles();
 	}
 
+	/**
+	 * @return array<int|string,EnumCase>
+	 */
 	public static function getAllRoles(): array
 	{
 		return UserRoleEnum::cases();
 	}
 
 	/**
+	 * @param array<string,int|bool|string> $roles
+	 *
 	 * @return array<string,EnumCase>
 	 */
 	public static function convertStringsToEnums(array $roles): array

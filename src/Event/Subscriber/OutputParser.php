@@ -11,6 +11,7 @@ use Symfony\Component\HttpKernel\Event\ResponseEvent;
  */
 class OutputParser implements EventSubscriberInterface
 {
+	/** @var array<int,mixed> */
 	protected static array $filters = [];
 
 	/**
@@ -26,10 +27,8 @@ class OutputParser implements EventSubscriberInterface
 
 	/**
 	 * Appends a new filter.
-	 *
-	 * @return void
 	 */
-	public static function appendFilter(\Closure $filter)
+	public static function appendFilter(\Closure $filter): void
 	{
 		self::$filters[] = $filter;
 	}
@@ -45,6 +44,7 @@ class OutputParser implements EventSubscriberInterface
 			if (!($filter instanceof \Closure)) {
 				continue;
 			}
+
 			$filter($event);
 		}
 	}

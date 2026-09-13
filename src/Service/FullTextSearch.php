@@ -21,6 +21,9 @@ class FullTextSearch
 	{
 	}
 
+	/**
+	 * @param LifecycleEventArgs<\Doctrine\Persistence\ObjectManager> $args
+	 */
 	public function postPersist(LifecycleEventArgs $args): void
 	{
 		$entity = $args->getObject();

@@ -41,7 +41,7 @@ class Kernel extends BaseKernel implements CompilerPassInterface
 	/**
 	 * Configure routes for application and extensions.
 	 */
-	private function configureRoutes(RoutingConfigurator $routes): void
+	protected function configureRoutes(RoutingConfigurator $routes): void
 	{
 		$this->__kernelConfigureRoutes($routes);
 		// TODO: $this->_configureExtensionRoutes($routes);

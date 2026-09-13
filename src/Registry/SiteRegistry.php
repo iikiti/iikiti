@@ -15,6 +15,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 #[AutoconfigureTag('site_registry')]
 class SiteRegistry
 {
+	/** @var \SplStack<Site> */
 	protected static \SplStack $siteStack;
 	protected static bool $initialized = false;
 	protected static bool $populated = false;
@@ -60,11 +61,17 @@ class SiteRegistry
 		static::$populated = true;
 	}
 
+	/**
+	 * @return \SplStack<Site>
+	 */
 	public static function getStack(): \SplStack
 	{
 		return clone static::$siteStack;
 	}
 
+	/**
+	 * @return array<int,Site>
+	 */
 	public static function getAll(): array
 	{
 		return iterator_to_array(static::$siteStack);

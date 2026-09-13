@@ -7,7 +7,9 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 class WorkflowManager
 {
     private EventDispatcherInterface $eventDispatcher;
+    /** @var array<string,WorkflowInterface> */
     private array $workflows = [];
+    /** @var array<string,array<int,StepProviderInterface>> */
     private array $stepProviders = [];
 
     public function __construct(EventDispatcherInterface $eventDispatcher)
@@ -17,6 +19,8 @@ class WorkflowManager
 
     /**
      * Create a new workflow instance
+     *
+     * @param array<string,mixed> $context
      */
     public function createWorkflow(string $name, array $context = []): WorkflowInterface
     {
@@ -46,6 +50,8 @@ class WorkflowManager
 
     /**
      * Build a workflow with steps from providers
+     *
+     * @param array<string,mixed> $context
      */
     public function buildWorkflow(string $name, array $context = []): WorkflowInterface
     {
@@ -94,6 +100,8 @@ class WorkflowManager
 
     /**
      * Get all registered workflows
+     *
+     * @return array<string,WorkflowInterface>
      */
     public function getWorkflows(): array
     {

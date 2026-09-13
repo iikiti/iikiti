@@ -17,33 +17,37 @@ use iikiti\CMS\Repository\ObjectPropertyRepository;
 #[ORM\Table(name: 'object_properties')]
 class ObjectProperty
 {
+	/** @var int|string|null */
 	#[ORM\Id()]
 	#[ORM\GeneratedValue(strategy: 'IDENTITY')]
 	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
-	private int|float $id;
+	private int|string|null $id;
 
 	#[ORM\ManyToOne(targetEntity: DbObject::class, inversedBy: 'properties')]
 	#[ORM\JoinColumn(name: 'object_id', referencedColumnName: 'id')]
 	private ?DbObject $object;
 
 	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
-	private int|string|null $object_id;
+	private int|string $object_id;
 
 	#[ORM\Column(type: Types::STRING)]
-	private ?string $name;
+	private string $name;
 
+	/**
+	 * @var int|float|string|array<int|string,mixed>|null
+	 */
 	#[ORM\Column(type: Types::JSON)]
 	private int|float|string|array|null $value;
 
 	#[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
-	private ?\DateTimeInterface $created;
+	private \DateTimeImmutable $created;
 
 	#[ORM\OneToOne(targetEntity: User::class)]
 	#[ORM\JoinColumn(name: 'creator_id', referencedColumnName: 'id')]
 	private ?User $creator;
 
 	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
-	private int|float $creator_id;
+	private int|string $creator_id;
 
 	public function getName(): ?string
 	{
@@ -74,7 +78,7 @@ class ObjectProperty
 		return $this->created;
 	}
 
-	public function setCreationDate(\DateTimeInterface $created): void
+	public function setCreationDate(\DateTimeImmutable $created): void
 	{
 		$this->created = $created;
 	}

@@ -14,13 +14,20 @@ class Configuration implements ContainerInterface
 {
 	use Config\ExtensionConfigurationTrait;
 
+	/** @var ArrayCollection<string,mixed> */
 	protected ArrayCollection $config;
 
+	/**
+	 * @param array<string,mixed> $config
+	 */
 	public function __construct(array $config)
 	{
 		$this->config = new ArrayCollection($config);
 	}
 
+	/**
+	 * @return array<string,mixed>
+	 */
 	public function getJson(bool $asObject = false): object|array
 	{
 		return $asObject ? (object) $this->config->toArray() : $this->config->toArray();

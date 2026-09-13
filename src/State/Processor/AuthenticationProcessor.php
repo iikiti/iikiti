@@ -11,6 +11,9 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
 
+/**
+ * @implements ProcessorInterface<mixed, Authentication>
+ */
 #[AutoconfigureTag('api_platform.state_processor')]
 readonly class AuthenticationProcessor implements ProcessorInterface
 {

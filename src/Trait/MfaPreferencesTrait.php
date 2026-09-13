@@ -12,6 +12,9 @@ trait MfaPreferencesTrait
 
 	public const MFA_KEY = 'mfa';
 
+	/**
+	 * @return array<string,mixed>|null
+	 */
 	public function getMultifactorPreferences(): ?array
 	{
 		$mfaConfig = $this->getPreferences()->get(self::MFA_KEY);
@@ -22,6 +25,9 @@ trait MfaPreferencesTrait
 		return $mfaConfig;
 	}
 
+	/**
+	 * @param array<string,mixed> $preferences
+	 */
 	public function setMultifactorPreferences(array $preferences): void
 	{
 		$prefs = $this->getPreferences();

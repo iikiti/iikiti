@@ -28,7 +28,7 @@ class ApiToken
 	private User $user;
 
 	#[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
-	private ?\DateTimeInterface $expiresAt = null;
+	private \DateTimeImmutable $expiresAt;
 
 	public function getId(): int|string|null
 	{
@@ -60,13 +60,13 @@ class ApiToken
 		return $this->expiresAt;
 	}
 
-	public function setExpiresAt(\DateTimeInterface $expiresAt): void
+	public function setExpiresAt(\DateTimeImmutable $expiresAt): void
 	{
 		$this->expiresAt = $expiresAt;
 	}
 
 	public function isExpired(): bool
 	{
-		return null !== $this->expiresAt && $this->expiresAt < new \DateTimeImmutable();
+		return $this->expiresAt < new \DateTimeImmutable();
 	}
 }

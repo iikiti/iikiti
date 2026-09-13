@@ -45,6 +45,9 @@ class ApplicationRegistry
 		return $siteRep->getApplicationBySite($this->siteRegistry::getCurrent());
 	}
 
+	/**
+	 * @return ArrayCollection<int,Application|null>
+	 */
 	public function getAllParents(): Collection
 	{
 		$parents = (new ArrayCollection($this->siteRegistry::getAll()))->map(

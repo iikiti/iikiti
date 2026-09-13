@@ -6,8 +6,6 @@ use ApiPlatform\Metadata\ApiResource;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
-use Doctrine\ORM\Mapping\DiscriminatorColumn;
-use Doctrine\ORM\Mapping\InheritanceType;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Repository\ObjectRepository;
 use iikiti\CMS\Trait\PropertiedTrait;
@@ -23,9 +21,8 @@ use Override;
  */
 #[ORM\Entity(repositoryClass: ObjectRepository::class)]
 #[ORM\Table(name: 'objects')]
-#[ORM\MappedSuperclass()]
-#[InheritanceType('SINGLE_TABLE')]
-#[DiscriminatorColumn(name: 'type', type: 'string')]
+#[ORM\InheritanceType('SINGLE_TABLE')]
+#[ORM\DiscriminatorColumn(name: 'type', type: 'string')]
 #[ApiResource]
 class DbObject
 {
@@ -40,17 +37,18 @@ class DbObject
 	protected int|string|null $id;
 
 	#[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
-	private ?\DateTimeInterface $created_date;
+	private \DateTimeImmutable $created_date;
 
 	#[ORM\ManyToOne(targetEntity: Site::class)]
 	#[ORM\JoinColumn(name: 'site_id', referencedColumnName: 'id')]
 	private ?Site $site;
 
-	private ?string $type;
+	private ?string $type = null;
 
 	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
 	private int|string|null $creator_id;
 
+	/** @var \Doctrine\Common\Collections\Collection<string,ObjectProperty> */
 	#[ORM\OneToMany(
 		targetEntity: ObjectProperty::class,
 		mappedBy: 'object',
@@ -58,8 +56,7 @@ class DbObject
 		cascade: ['persist', 'remove'],
 		orphanRemoval: true
 	)]
-	/** @var Collection<string,ObjectProperty<mixed>> */
-	private Collection $properties;
+	private \Doctrine\Common\Collections\Collection $properties;
 
 	public function getId(): int|string|null
 	{
@@ -99,6 +96,7 @@ class DbObject
 	#[Override]
 	public function setProperties(Collection $properties): void
 	{
+		$this->properties = $properties;
 		foreach ($properties as $property) {
 			$name = $property->getName();
 			if (!is_string($name) || '' == $name) {

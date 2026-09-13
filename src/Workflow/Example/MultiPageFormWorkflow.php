@@ -14,6 +14,7 @@ class MultiPageFormWorkflow
         $this->workflowManager = $workflowManager;
     }
 
+    /** @param array<string,mixed> $formData */
     public function createRegistrationForm(array $formData = []): \iikiti\CMS\Workflow\WorkflowInterface
     {
         $workflow = $this->workflowManager->createWorkflow('registration_form', [
@@ -39,6 +40,7 @@ class PersonalInfoStep extends AbstractWorkflowStep
         parent::__construct('personal_info', 'Personal Information', true, false);
     }
 
+    /** @param array<string,mixed> $context */
     public function validate(array $context): bool
     {
         return isset($context['first_name']) && 
@@ -46,6 +48,9 @@ class PersonalInfoStep extends AbstractWorkflowStep
                isset($context['date_of_birth']);
     }
 
+    /** @param array<string,mixed> $data */
+    /** @param array<string,mixed> $context */
+    /** @return array<string,mixed> */
     public function process(array $data, array $context): array
     {
         return [
@@ -65,6 +70,7 @@ class ContactInfoStep extends AbstractWorkflowStep
         parent::__construct('contact_info', 'Contact Information', true, false);
     }
 
+    /** @param array<string,mixed> $context */
     public function validate(array $context): bool
     {
         return isset($context['email']) && 
@@ -72,6 +78,9 @@ class ContactInfoStep extends AbstractWorkflowStep
                isset($context['address']);
     }
 
+    /** @param array<string,mixed> $data */
+    /** @param array<string,mixed> $context */
+    /** @return array<string,mixed> */
     public function process(array $data, array $context): array
     {
         return [
@@ -91,11 +100,15 @@ class PreferencesStep extends AbstractWorkflowStep
         parent::__construct('preferences', 'Preferences', false, true);
     }
 
+    /** @param array<string,mixed> $context */
     public function validate(array $context): bool
     {
         return true; // Optional step
     }
 
+    /** @param array<string,mixed> $data */
+    /** @param array<string,mixed> $context */
+    /** @return array<string,mixed> */
     public function process(array $data, array $context): array
     {
         return [
@@ -115,11 +128,15 @@ class ReviewStep extends AbstractWorkflowStep
         parent::__construct('review', 'Review & Confirm', true, false);
     }
 
+    /** @param array<string,mixed> $context */
     public function validate(array $context): bool
     {
         return isset($context['confirmed']) && $context['confirmed'] === true;
     }
 
+    /** @param array<string,mixed> $data */
+    /** @param array<string,mixed> $context */
+    /** @return array<string,mixed> */
     public function process(array $data, array $context): array
     {
         return [
@@ -136,11 +153,15 @@ class ConfirmationStep extends AbstractWorkflowStep
         parent::__construct('confirmation', 'Confirmation', true, false);
     }
 
+    /** @param array<string,mixed> $context */
     public function validate(array $context): bool
     {
         return true; // Final step
     }
 
+    /** @param array<string,mixed> $data */
+    /** @param array<string,mixed> $context */
+    /** @return array<string,mixed> */
     public function process(array $data, array $context): array
     {
         return [

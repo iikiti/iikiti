@@ -8,6 +8,9 @@ use iikiti\CMS\ApiResource\Authentication;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
 
+/**
+ * @implements ProviderInterface<Authentication>
+ */
 #[AutoconfigureTag('api_platform.state_provider')]
 readonly class AuthenticationProvider implements ProviderInterface
 {

@@ -9,6 +9,8 @@ use iikiti\CMS\Repository\ObjectRepository;
 
 /**
  * Repository for lexeme entities.
+ *
+ * @template-extends ObjectRepository<Lexeme>
  */
 class LexemeRepository extends ObjectRepository
 {
