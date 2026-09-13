@@ -10,6 +10,7 @@ use iikiti\CMS\Cache\Strategy\NoCacheStrategy;
 use iikiti\CMS\Cache\StrategyMetadata;
 use iikiti\CMS\Registry\SiteRegistry;
 use Psr\Cache\CacheItemPoolInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Coordinates query result caching for repositories and the API Platform
@@ -28,9 +29,11 @@ class DatabaseCacheManager
 	private readonly NoCacheStrategy $fallbackStrategy;
 
 	public function __construct(
+		#[Autowire(service: 'cache.database')]
 		private readonly CacheItemPoolInterface $cachePool,
 		private readonly CacheState $cacheState,
 		private readonly CachingStrategyRegistry $strategyRegistry,
+		#[Autowire('%iikiti_cache.default_ttl%')]
 		private readonly int $defaultTTL = 300,
 	) {
 		$this->fallbackStrategy = new NoCacheStrategy();

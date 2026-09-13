@@ -2,16 +2,20 @@
 
 namespace iikiti\CMS\Authentication\Mail;
 
+use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 
 /**
  * Sends verification codes by e-mail.
  */
+#[Autoconfigure(lazy: true)]
 class MfaCodeMailer implements MfaCodeMailerInterface
 {
 	public function __construct(
 		private readonly MailerInterface $mailer,
+		#[Autowire('%mfa.sender_email%')]
 		private readonly string $senderEmail,
 	) {
 	}

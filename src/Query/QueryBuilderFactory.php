@@ -5,6 +5,7 @@ namespace iikiti\CMS\Query;
 use Doctrine\DBAL\Connection;
 use iikiti\CMS\Query\DatabasePlatform\DatabasePlatformRegistry;
 use iikiti\CMS\Query\DatabasePlatform\DatabasePlatformStrategyInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Creates query builders bound to a connection and a platform strategy.
@@ -21,8 +22,10 @@ use iikiti\CMS\Query\DatabasePlatform\DatabasePlatformStrategyInterface;
 final class QueryBuilderFactory
 {
 	public function __construct(
+		#[Autowire(service: 'doctrine.dbal.default_connection')]
 		private readonly Connection $connection,
 		private readonly DatabasePlatformRegistry $platformRegistry,
+		#[Autowire('%iikiti_query.safety_enabled%')]
 		private readonly bool $safetyEnabled = true,
 	) {
 	}

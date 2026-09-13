@@ -3,6 +3,7 @@
 namespace iikiti\CMS\Authentication;
 
 use Psr\Cache\CacheItemPoolInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Limits repeated multi-factor challenge failures.
@@ -18,7 +19,9 @@ class MfaAttemptLimiter
 
 	public function __construct(
 		private readonly CacheItemPoolInterface $cache,
+		#[Autowire('%mfa.max_attempts%')]
 		private readonly int $maxAttempts = 5,
+		#[Autowire('%mfa.lockout_seconds%')]
 		private readonly int $lockoutSeconds = 300,
 	) {
 	}

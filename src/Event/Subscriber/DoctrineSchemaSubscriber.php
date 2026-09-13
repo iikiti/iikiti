@@ -5,13 +5,16 @@ namespace iikiti\CMS\Event\Subscriber;
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\ORM\Tools\Event\GenerateSchemaEventArgs;
 use Doctrine\ORM\Tools\ToolEvents;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 
 #[AsDoctrineListener(ToolEvents::postGenerateSchema)]
 class DoctrineSchemaSubscriber
 {
-    public function __construct(private string $schema)
-    {
+    public function __construct(
+        #[Autowire('%env(DB_SCHEMA)%')]
+        private string $schema
+    ) {
     }
 
     public function postGenerateSchema(GenerateSchemaEventArgs $args): void

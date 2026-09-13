@@ -21,79 +21,21 @@ services:
             - '../src/Query/'
             - '../src/ORM/'
 
-    # Manually configure the SchemaListener to bind the schema parameter.
-    # The #[AsDoctrineListener] attribute handles the auto-configuration (tagging).
-    # We only need to define the service here to bind the constructor argument.
-    iikiti\CMS\Event\Subscriber\DoctrineSchemaSubscriber:
-        bind:
-            $schema: '%env(DB_SCHEMA)%'
+    # Services excluded from auto-registration live under src/Query/ and
+    # src/ORM/. Their constructor arguments are resolved via PHP attributes
+    # (#[Autowire], #[AutowireIterator]) so only their service IDs are needed here.
 
-    # Manually configure the SchemaListener to bind the schema parameter.
-    # The #[AsDoctrineListener] attribute handles the auto-configuration (tagging).
-    # We only need to define the service here to bind the constructor argument.
-    iikiti\CMS\Doctrine\SchemaListener:
-        bind:
-            $schema: '%env(DB_SCHEMA)%'
+    iikiti\CMS\Query\DatabasePlatform\DatabasePlatformRegistry: ~
 
-    # Workflow services
-    iikiti\CMS\Workflow\WorkflowManager:
-        arguments:
-            - '@event_dispatcher'
+    iikiti\CMS\Query\QueryBuilderFactory: ~
 
-    iikiti\CMS\Workflow\StepSubscriber:
-        arguments:
-            $stepProviders: !tagged_iterator workflow.step_provider
+    # PostgreSQLPlatformStrategy implements DatabasePlatformStrategyInterface
+    # which carries #[AutoconfigureTag('iikiti.query.database_platform')].
+    # The tag is re-declared here because the class is excluded from
+    # auto-registration.
+    iikiti\CMS\Query\DatabasePlatform\PostgreSQL\PostgreSQLPlatformStrategy:
         tags:
-            - { name: kernel.event_subscriber }
-
-    iikiti\CMS\Workflow\WorkflowFactoryInterface:
-        alias: iikiti\CMS\Workflow\WorkflowFactory
-
-    # MFA services
-    iikiti\CMS\Authentication\Mail\MfaCodeMailer:
-        lazy: true
-        bind:
-            $senderEmail: '%mfa.sender_email%'
-
-    iikiti\CMS\Authentication\Mail\MfaCodeMailerInterface:
-        alias: iikiti\CMS\Authentication\Mail\MfaCodeMailer
-
-    iikiti\CMS\Authentication\MfaAttemptLimiter:
-        bind:
-            $maxAttempts: '%mfa.max_attempts%'
-            $lockoutSeconds: '%mfa.lockout_seconds%'
-
-    # Database query cache services
-    iikiti\CMS\Cache\CachingStrategyRegistry:
-        arguments:
-            $strategies: !tagged_iterator iikiti.cache_strategy
-            $defaultStrategy: '%iikiti_cache.strategy%'
-
-    iikiti\CMS\Cache\Strategy\DoctrineResultCacheStrategy:
-        arguments:
-            $cachePool: '@cache.database'
-            $defaultTTL: '%iikiti_cache.default_ttl%'
-
-    iikiti\CMS\Service\CacheState:
-        arguments:
-            $enabled: '%iikiti_cache.enabled%'
-        tags:
-            - { name: kernel.reset, method: reset }
-
-    iikiti\CMS\Service\DatabaseCacheManager:
-        arguments:
-            $cachePool: '@cache.database'
-            $defaultTTL: '%iikiti_cache.default_ttl%'
-
-    iikiti\CMS\Event\Subscriber\CacheInvalidationSubscriber: ~
-
-    iikiti\CMS\Event\Subscriber\BatchCacheDisablerSubscriber:
-        arguments:
-            $batchRoutePattern: '%iikiti_cache.batch_route_pattern%'
-
-    iikiti\CMS\Cache\DatabaseConfigStrategyResolver:
-        tags:
-            - { name: kernel.event_subscriber }
+            - { name: iikiti.query.database_platform }
 
     # Collection extension must run after pagination (priority -64) so the
     # paginator takes precedence for paginated collections.
@@ -102,59 +44,12 @@ services:
         tags:
             - { name: api_platform.doctrine.orm.query_extension.collection, priority: -100 }
 
-    iikiti\CMS\Cache\ApiPlatform\ApiPlatformCacheItemExtension:
-        tags:
-            - { name: api_platform.doctrine.orm.query_extension.item }
+    # Aliases
+    iikiti\CMS\Workflow\WorkflowFactoryInterface:
+        alias: iikiti\CMS\Workflow\WorkflowFactory
 
-    # Query builder services
-    iikiti\CMS\Query\DatabasePlatform\PostgreSQL\PostgreSQLPlatformStrategy:
-        tags:
-            - { name: iikiti.query.database_platform }
+    iikiti\CMS\Authentication\Mail\MfaCodeMailerInterface:
+        alias: iikiti\CMS\Authentication\Mail\MfaCodeMailer
 
     iikiti\CMS\Query\DatabasePlatform\DatabasePlatformStrategyInterface:
         alias: iikiti\CMS\Query\DatabasePlatform\PostgreSQL\PostgreSQLPlatformStrategy
-
-    iikiti\CMS\Query\DatabasePlatform\DatabasePlatformRegistry:
-        arguments:
-            $strategies: !tagged_iterator iikiti.query.database_platform
-            $defaultStrategy: '%iikiti_query.default_platform%'
-
-    iikiti\CMS\Query\QueryBuilderFactory:
-        arguments:
-            $connection: '@doctrine.dbal.default_connection'
-            $safetyEnabled: '%iikiti_query.safety_enabled%'
-
-    # Plugin subsystem
-    iikiti\CMS\Plugin\PluginRegistry:
-        arguments:
-            $plugins: '%iikiti.plugins%'
-
-    iikiti\CMS\Plugin\PluginValidator: ~
-
-    iikiti\CMS\Plugin\PluginLoader:
-        arguments:
-            $projectDir: '%kernel.project_dir%'
-
-    iikiti\CMS\Plugin\PluginManager:
-        arguments:
-            $environment: '%kernel.environment%'
-            $allowNonApproved: '%iikiti.plugin.allow_non_approved%'
-
-    iikiti\CMS\Plugin\Lifecycle\PluginLifecycleHandler: ~
-
-    iikiti\CMS\Plugin\PluginContainerRebuilder:
-        arguments:
-            $projectDir: '%kernel.project_dir%'
-            $environment: '%kernel.environment%'
-            $enabled: '%iikiti.plugin.auto_rebuild%'
-
-    iikiti\CMS\Plugin\PluginDownloader:
-        arguments:
-            $projectDir: '%kernel.project_dir%'
-            $environment: '%kernel.environment%'
-            $storeUrl: '%iikiti.plugin.store_url%'
-            $allowNonApproved: '%iikiti.plugin.allow_non_approved%'
-            $allowThirdParty: '%iikiti.plugin.allow_third_party_updates%'
-            $requireSignature: '%iikiti.plugin.require_signature%'
-            $storePublicKey: '%iikiti.plugin.store_public_key%'
-            $timeout: '%iikiti.plugin.store_timeout%'

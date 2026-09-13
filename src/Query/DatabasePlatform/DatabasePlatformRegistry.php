@@ -4,6 +4,8 @@ namespace iikiti\CMS\Query\DatabasePlatform;
 
 use Doctrine\DBAL\Connection;
 use iikiti\CMS\Query\DatabasePlatform\PostgreSQL\PostgreSQLPlatformStrategy;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 /**
  * Registry of database platform strategies.
@@ -26,7 +28,9 @@ final class DatabasePlatformRegistry
 	 * @param iterable<DatabasePlatformStrategyInterface> $strategies
 	 */
 	public function __construct(
+		#[AutowireIterator('iikiti.query.database_platform')]
 		iterable $strategies = [],
+		#[Autowire('%iikiti_query.default_platform%')]
 		string $defaultStrategy = self::DEFAULT_STRATEGY,
 	) {
 		foreach ($strategies as $strategy) {

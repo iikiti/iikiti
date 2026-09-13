@@ -3,6 +3,7 @@
 namespace iikiti\CMS\Event\Subscriber;
 
 use iikiti\CMS\Service\CacheState;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
@@ -19,6 +20,7 @@ class BatchCacheDisablerSubscriber implements EventSubscriberInterface
 {
 	public function __construct(
 		private readonly CacheState $cacheState,
+		#[Autowire('%iikiti_cache.batch_route_pattern%')]
 		private readonly string $batchRoutePattern = 'batch_',
 	) {
 	}

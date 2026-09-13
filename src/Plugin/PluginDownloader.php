@@ -5,6 +5,7 @@ namespace iikiti\CMS\Plugin;
 use iikiti\CMS\Plugin\Exception\PluginException;
 use iikiti\CMS\Plugin\Exception\PluginNotFoundException;
 use iikiti\CMS\Plugin\Exception\SecurityViolationException;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
@@ -22,13 +23,21 @@ class PluginDownloader
 	public function __construct(
 		private readonly HttpClientInterface $httpClient,
 		private readonly PluginValidator $validator,
+		#[Autowire('%kernel.project_dir%')]
 		private readonly string $projectDir,
+		#[Autowire('%kernel.environment%')]
 		private readonly string $environment,
+		#[Autowire('%iikiti.plugin.store_url%')]
 		private readonly string $storeUrl,
+		#[Autowire('%iikiti.plugin.allow_non_approved%')]
 		private readonly bool $allowNonApproved = false,
+		#[Autowire('%iikiti.plugin.allow_third_party_updates%')]
 		private readonly bool $allowThirdParty = false,
+		#[Autowire('%iikiti.plugin.require_signature%')]
 		private readonly bool $requireSignature = true,
+		#[Autowire('%iikiti.plugin.store_public_key%')]
 		private readonly string $storePublicKey = '',
+		#[Autowire('%iikiti.plugin.store_timeout%')]
 		private readonly int $timeout = 30,
 	) {
 	}

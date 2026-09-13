@@ -2,6 +2,9 @@
 
 namespace iikiti\CMS\Cache;
 
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
+
 /**
  * Registry of available caching strategies.
  *
@@ -23,7 +26,9 @@ class CachingStrategyRegistry
 	 * @param iterable<CachingStrategyInterface> $strategies
 	 */
 	public function __construct(
+		#[AutowireIterator('iikiti.cache_strategy')]
 		iterable $strategies = [],
+		#[Autowire('%iikiti_cache.strategy%')]
 		string $defaultStrategy = self::DEFAULT_STRATEGY,
 	) {
 		foreach ($strategies as $strategy) {

@@ -12,6 +12,7 @@ use iikiti\CMS\Plugin\Exception\SecurityViolationException;
 use iikiti\CMS\Plugin\Lifecycle\PluginLifecycleHandler;
 use iikiti\CMS\Query\QueryBuilderFactory;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * High-level orchestration of the plugin lifecycle.
@@ -34,7 +35,9 @@ class PluginManager
 		private readonly PluginContainerRebuilder $rebuilder,
 		private readonly QueryBuilderFactory $queryBuilderFactory,
 		private readonly EntityManagerInterface $entityManager,
+		#[Autowire('%kernel.environment%')]
 		private readonly string $environment,
+		#[Autowire('%iikiti.plugin.allow_non_approved%')]
 		private readonly bool $allowNonApproved = false,
 		private readonly ?LoggerInterface $logger = null,
 	) {

@@ -6,6 +6,7 @@ use Doctrine\ORM\Query;
 use iikiti\CMS\Cache\CachingStrategyInterface;
 use iikiti\CMS\Service\CacheState;
 use Psr\Cache\CacheItemPoolInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Caches raw DBAL query results using Doctrine ORM's result cache.
@@ -23,8 +24,10 @@ class DoctrineResultCacheStrategy implements CachingStrategyInterface
 	public const NAME = 'doctrine_result_cache';
 
 	public function __construct(
+		#[Autowire(service: 'cache.database')]
 		private readonly CacheItemPoolInterface $cachePool,
 		private readonly CacheState $cacheState,
+		#[Autowire('%iikiti_cache.default_ttl%')]
 		private readonly int $defaultTTL = 300,
 	) {
 	}

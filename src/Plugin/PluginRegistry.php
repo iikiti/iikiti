@@ -2,6 +2,8 @@
 
 namespace iikiti\CMS\Plugin;
 
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+
 /**
  * Runtime registry of plugins loaded into the current kernel.
  *
@@ -18,8 +20,10 @@ class PluginRegistry
 	/**
 	 * @param array<string,mixed> $plugins plugin metadata keyed by slug
 	 */
-	public function __construct(array $plugins = [])
-	{
+	public function __construct(
+		#[Autowire('%iikiti.plugins%')]
+		array $plugins = []
+	) {
 		foreach ($plugins as $plugin) {
 			if (!is_array($plugin) || !isset($plugin['manifest']) || !is_array($plugin['manifest'])) {
 				continue;

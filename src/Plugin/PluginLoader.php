@@ -3,6 +3,7 @@
 namespace iikiti\CMS\Plugin;
 
 use iikiti\CMS\Plugin\Exception\PluginException;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Discovers active plugins on disk and turns them into registered bundles.
@@ -18,6 +19,7 @@ class PluginLoader
 	public const INSTALL_INFO_FILE = '.iikiti-install.json';
 
 	public function __construct(
+		#[Autowire('%kernel.project_dir%')]
 		private readonly string $projectDir,
 		private readonly PluginValidator $validator,
 	) {
