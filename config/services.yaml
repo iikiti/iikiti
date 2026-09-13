@@ -38,6 +38,23 @@ services:
 
     iikiti\CMS\Workflow\StepSubscriber:
         arguments:
-            - { type: tagged_iterator, tag: workflow.step_provider }
+            $stepProviders: !tagged_iterator workflow.step_provider
         tags:
             - { name: kernel.event_subscriber }
+
+    iikiti\CMS\Workflow\WorkflowFactoryInterface:
+        alias: iikiti\CMS\Workflow\WorkflowFactory
+
+    # MFA services
+    iikiti\CMS\Authentication\Mail\MfaCodeMailer:
+        lazy: true
+        bind:
+            $senderEmail: '%mfa.sender_email%'
+
+    iikiti\CMS\Authentication\Mail\MfaCodeMailerInterface:
+        alias: iikiti\CMS\Authentication\Mail\MfaCodeMailer
+
+    iikiti\CMS\Authentication\MfaAttemptLimiter:
+        bind:
+            $maxAttempts: '%mfa.max_attempts%'
+            $lockoutSeconds: '%mfa.lockout_seconds%'

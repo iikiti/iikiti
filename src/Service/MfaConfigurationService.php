@@ -3,12 +3,11 @@
 namespace iikiti\CMS\Service;
 
 use Doctrine\ORM\EntityManagerInterface;
+use iikiti\CMS\Authentication\Enum\ConfigurationTypeEnum;
+use iikiti\CMS\Authentication\MfaConfigurationServiceInterface;
 use iikiti\CMS\Entity\Object\Application;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\User;
-use iikiti\MfaBundle\Authentication\Enum\ConfigurationTypeEnum;
-use iikiti\MfaBundle\Authentication\Interface\MfaConfigurationServiceInterface;
-use Override;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Core\User\UserInterface;
 
@@ -19,17 +18,17 @@ use Symfony\Component\Security\Core\User\UserInterface;
 class MfaConfigurationService implements MfaConfigurationServiceInterface
 {
 	public function __construct(
-		private EntityManagerInterface $entityManager
+		private EntityManagerInterface $entityManager,
 	) {
 	}
 
 	/**
 	 * @return array<string,mixed>
 	 */
-	#[Override]
+	#[\Override]
 	public function getMultifactorPreferences(
 		ConfigurationTypeEnum $type,
-		UserInterface $user
+		UserInterface $user,
 	): array {
 		$appRep = $this->entityManager->getRepository(Application::class);
 		$siteRep = $this->entityManager->getRepository(Site::class);
@@ -48,7 +47,7 @@ class MfaConfigurationService implements MfaConfigurationServiceInterface
 	 */
 	private static function __checkGetUserPreferences(UserInterface $user): array
 	{
-		if (!($user instanceof User)) {
+		if (!$user instanceof User) {
 			throw new AuthenticationException('User is invalid');
 		}
 
@@ -58,10 +57,10 @@ class MfaConfigurationService implements MfaConfigurationServiceInterface
 	/**
 	 * @param array<string,mixed> $preferences
 	 */
-	#[Override]
+	#[\Override]
 	public function setMultifactorPreferences(
 		ConfigurationTypeEnum $type,
-		array $preferences
+		array $preferences,
 	): void {
 		match ($type) {
 			ConfigurationTypeEnum::APPLICATION => $this->entityManager->getRepository(Application::class)->getCurrentApplication()?->setMultifactorPreferences($preferences),
