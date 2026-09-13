@@ -22,6 +22,11 @@ interface WorkflowInterface
     public function getSteps(): array;
 
     /**
+     * Add a step to the workflow
+     */
+    public function addStep(WorkflowStepInterface $step): void;
+
+    /**
      * Check if the workflow is complete
      */
     public function isComplete(): bool;

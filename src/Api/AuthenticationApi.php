@@ -4,12 +4,9 @@ namespace iikiti\CMS\Api;
 
 use iikiti\CMS\ApiResource\Authentication;
 use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class AuthenticationApi
 {
-    private HttpClientInterface $client;
-
     public function __construct(private readonly AuthenticationUtils $authenticationUtils)
     {
     }

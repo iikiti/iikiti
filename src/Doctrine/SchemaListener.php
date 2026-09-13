@@ -6,7 +6,6 @@ use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\ORM\Event\LoadClassMetadataEventArgs;
 use Doctrine\ORM\Events;
 use Doctrine\ORM\Mapping\ClassMetadata;
-use Exception;
 
 /**
  * Doctrine event listener to dynamically set the database schema for entities.
@@ -40,9 +39,6 @@ final class SchemaListener
 		}
 
 		if ($this->schema && !$metadata->isMappedSuperclass && !isset($metadata->table['schema'])) {
-			if($this->schema === '') {
-				throw new Exception('Schema is not defined.');
-			}
 			$metadata->table['schema'] = $this->schema;
 		}
 	}

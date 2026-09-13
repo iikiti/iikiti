@@ -47,9 +47,11 @@ class ApplicationRegistry
 
 	public function getAllParents(): Collection
 	{
-		return (new ArrayCollection($this->siteRegistry::getAll()))->map(
+		$parents = (new ArrayCollection($this->siteRegistry::getAll()))->map(
 			fn (Site $site): ?Application => $this->em->getRepository(Site::class)->
 				getApplicationBySite($site)
-		)->unique();
+		);
+
+		return (new ArrayCollection($parents->toArray()))->unique();
 	}
 }

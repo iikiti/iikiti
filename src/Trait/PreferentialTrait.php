@@ -27,5 +27,7 @@ trait PreferentialTrait
 
 	public function setPreferences(Preferences $preferences): void
 	{
+		$this->preferences = $preferences;
+		$this->setProperty(self::PREFERENCES_KEY, $preferences->getJson());
 	}
 }

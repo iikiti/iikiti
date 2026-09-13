@@ -104,11 +104,6 @@ class User extends DbObject implements
         return $this->getProperties()->get('username')?->getValue();
 	}
 
-	public function eraseCredentials(): void
-	{
-		//TODO: Implement eraseCredentials
-	}
-
 	public function registeredToSite(string|int|null $siteId): bool
 	{
 		return !(null === $siteId) && count(
