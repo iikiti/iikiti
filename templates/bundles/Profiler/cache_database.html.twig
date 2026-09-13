@@ -1,0 +1,94 @@
+{% extends '@WebProfiler/Profiler/layout.html.twig' %}
+
+{% block toolbar %}
+    {% if collector.strategy %}
+        {% set icon %}
+            {{ source('@WebProfiler/Icon/cache.svg') }}
+            <span class="sf-toolbar-value">{{ collector.strategy.name }}</span>
+        {% endset %}
+
+        {% set text %}
+        <div class="sf-toolbar-info-piece">
+            <b>DB cache</b>
+            <span>{{ collector.strategy.label }}</span>
+        </div>
+        <div class="sf-toolbar-info-piece">
+            <b>State</b>
+            <span>{{ collector.strategy.enabled ? 'enabled' : 'disabled' }}</span>
+        </div>
+        {% endset %}
+
+        {{ include('@WebProfiler/Profiler/toolbar_item.html.twig', {link: profiler_url}) }}
+    {% endif %}
+{% endblock %}
+
+{% block menu %}
+    <span class="label">
+        <span class="icon" aria-hidden="true">
+            {{ source('@WebProfiler/Icon/cache.svg') }}
+        </span>
+        <strong>Database cache</strong>
+    </span>
+{% endblock %}
+
+{% block panel %}
+    <h2>Database cache</h2>
+
+    {% set strategy = collector.strategy %}
+
+    <h3>Active strategy</h3>
+    <table>
+        <tr><th>Name</th><td><code>{{ strategy.name }}</code></td></tr>
+        <tr><th>Label</th><td>{{ strategy.label }}</td></tr>
+        <tr><th>Enabled (this request)</th><td><span class="{{ strategy.enabled ? 'success' : 'error' }}">{{ strategy.enabled ? 'yes' : 'no' }}</span></td></tr>
+        <tr><th>Backend adapter</th><td><code>{{ collector.poolClass }}</code></td></tr>
+    </table>
+
+    {% if collector.poolStats %}
+        <h3>Pool statistics (this request)</h3>
+        {% set s = collector.poolStats %}
+        <table>
+            <tr><th>Hits</th><td>{{ s.hits }}</td></tr>
+            <tr><th>Misses</th><td>{{ s.misses }}</td></tr>
+            <tr><th>Reads</th><td>{{ s.reads }}</td></tr>
+            <tr><th>Writes</th><td>{{ s.writes }}</td></tr>
+            <tr><th>Deletes</th><td>{{ s.deletes }}</td></tr>
+        </table>
+        <p class="text-muted">Pool-level stats also appear on the built-in Cache panel.</p>
+    {% else %}
+        <p class="text-muted">No pool statistics are available for this adapter.</p>
+    {% endif %}
+
+    <h3>Generation counters (last sample)</h3>
+    <table>
+        <thead>
+            <tr><th>Entity class</th><th>Generation</th></tr>
+        </thead>
+        <tbody>
+        {% for entityClass, generation in collector.generations %}
+            <tr>
+                <td><code>{{ entityClass }}</code></td>
+                <td>{{ generation }}</td>
+            </tr>
+        {% else %}
+            <tr><td colspan="2">No tracked entities.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <p class="text-muted">A write to a tracked entity class bumps its generation, which changes
+        the cache-key version so previously cached results are bypassed.</p>
+
+    <h3>Registered strategies</h3>
+    <table>
+        <thead>
+            <tr><th>Name</th><th>Label</th></tr>
+        </thead>
+        <tbody>
+        {% for strategy in collector.availableStrategies %}
+            <tr><td><code>{{ strategy.name }}</code></td><td>{{ strategy.label }}</td></tr>
+        {% else %}
+            <tr><td colspan="2">No strategies registered.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

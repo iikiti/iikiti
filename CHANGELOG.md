@@ -59,6 +59,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Generation-based cache invalidation: `CacheInvalidationSubscriber` bumps a
   per-entity-class generation on `postFlush` so stale query results become
   unreachable (TTL acts as a safety net).
+- Symfony Profiler "Database cache" panel (`DatabaseCacheDataCollector`)
+  showing the active strategy, backend adapter, per-entity-class generation
+  counters and registered strategies (dev/test).
 - 2026-09-13: Plugin subsystem with compile-time bundle discovery/registration
   (`PluginBundle`, `PluginLoader`, `PluginRegistry`, `PluginValidator`) and the
   `plugin.json` manifest + namespace standard.
