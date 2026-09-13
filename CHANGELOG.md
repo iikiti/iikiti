@@ -70,6 +70,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   migration) for plugin install/version auditing.
 - 2026-09-13: Plugin documentation (`docs/plugin-development.md`,
   `docs/plugin-api.md`, `docs/plugin-security.md`).
+- 2026-09-13: Safety-first database query builder (`src/Query/`) extending
+  Doctrine DBAL's query builder for `SELECT`, `UPDATE` and `DELETE` statements
+  with typed identifiers, parameter binding, common table expressions
+  (including `WITH RECURSIVE`) and unions. Inline literal values in expression
+  strings are rejected by default (`InlineValueException`); trusted SQL must
+  opt in through `expr()->raw()`. Database syntax is abstracted behind
+  `DatabasePlatformStrategyInterface` with a PostgreSQL strategy by default, so
+  additional database strategies can be registered through the
+  `iikiti.query.database_platform` DI tag or at runtime via
+  `DatabasePlatformRegistry::register()`. New `QueryBuilderFactory` service
+  (`QUERY_DEFAULT_PLATFORM`, `QUERY_SAFETY_ENABLED` configuration) and developer
+  guide (`docs/query-builder.md`).
 
 ### Changed
 - MFA is now triggered by an `AuthenticationTokenCreatedEvent` subscriber that wraps
@@ -157,3 +169,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - 2026-09-13: Plugin install audit (`plugin_registry`) now writes via the DBAL
   connection rather than the ORM unit of work, preventing EM-poisoning of
   subsequent site-activation flushes.
+- 2026-09-13: Query builder inline-value enforcement now also rejects
+  dollar-quoted string literals, hexadecimal/octal/binary, digit-separated and
+  scientific-notation numeric literals, and boolean/`NULL` keyword literals
+  (while still allowing `IS [NOT] NULL`); raw-string table, alias, column and
+  `RETURNING` inputs are validated as identifiers, and the `LIKE ... ESCAPE`
+  character is bound as a parameter rather than inlined.
