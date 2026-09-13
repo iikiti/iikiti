@@ -18,3 +18,7 @@ block before finishing the task.
   dated release block only as part of an explicit release step.
 
 This rule is enforced as part of Kilo's own work-checklist for this workspace.
+
+## Documentation
+
+For changes made that require configuration changes or user interaction, make sure to add or update existing documentation under /docs and include description of the feature, a walkthrough of any relevant workflows, and installation or configuration steps required to be completed.
