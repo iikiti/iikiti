@@ -33,6 +33,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Configuration parameters (`config/packages/mfa.yaml`): `mfa.sender_email`,
   `mfa.max_attempts`, `mfa.lockout_seconds`.
 - `CHANGELOG.md`, `/docs/mfa-workflow.md`, and project `AGENTS.md`.
+- Database query result caching layer (Doctrine ORM result cache backed by the
+  `cache.database` Symfony cache pool): repository methods (`find`, `findBy`,
+  `findOneBy`, `findAll`, `findByProperty`, `findOneByProperty`) and API
+  Platform collection/item queries are cached for reads.
+- Pluggable caching strategy architecture (`CachingStrategyInterface`) with
+  `DoctrineResultCacheStrategy` (default), `NoCacheStrategy`, compile-time
+  registration via the `iikiti.cache_strategy` DI tag and runtime registration
+  through `CachingStrategyRegistry::register()`; strategies are enumerable via
+  `getAvailableStrategies()` for admin UIs.
+- Per-request cache disable for batch processing: `CacheState::disable()` is
+  triggered by the `_disable_db_cache` request attribute, routes matching the
+  configured batch pattern, console commands using `DisablesDatabaseCache`,
+  and a `_cache_strategy` request attribute can override the active strategy.
+- Per-query cache disable via repository `$options` (`cache: false`, and
+  `cacheTTL` to override the default lifetime).
+- Strategy selection through configuration (`iikiti_cache.strategy`),
+  environment variables (`CACHE_STRATEGY`, `CACHE_DATABASE_TTL`,
+  `CACHE_DATABASE_ENABLED`, `CACHE_DATABASE_BATCH_PATTERN`), and dynamically
+  from a database configuration value via `DatabaseConfigStrategyResolver`.
+- Generation-based cache invalidation: `CacheInvalidationSubscriber` bumps a
+  per-entity-class generation on `postFlush` so stale query results become
+  unreachable (TTL acts as a safety net).
 
 ### Changed
 - MFA is now triggered by an `AuthenticationTokenCreatedEvent` subscriber that wraps

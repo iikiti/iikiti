@@ -6,6 +6,7 @@ use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\ObjectRepository;
+use iikiti\CMS\Service\DatabaseCacheManager;
 use Symfony\Bridge\Doctrine\Security\User\UserLoaderInterface;
 
 /**
@@ -18,9 +19,10 @@ class UserRepository extends ObjectRepository implements UserLoaderInterface
 	public function __construct(
 		ManagerRegistry $registry,
 		SiteRegistry $siteRegistry,
+		DatabaseCacheManager $cacheManager,
 		string $entityClass = User::class
 	) {
-		parent::__construct($registry, $siteRegistry, $entityClass);
+		parent::__construct($registry, $siteRegistry, $cacheManager, $entityClass);
 	}
 
 	public function loadUserByIdentifier(string $identifier): ?User

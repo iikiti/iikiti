@@ -7,6 +7,7 @@ use iikiti\CMS\Entity\Object\Application;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\ObjectRepository;
+use iikiti\CMS\Service\DatabaseCacheManager;
 
 /**
  * Repository for site entities.
@@ -18,9 +19,10 @@ class SiteRepository extends ObjectRepository
 	public function __construct(
 		ManagerRegistry $registry,
 		private SiteRegistry $siteRegistry,
+		DatabaseCacheManager $cacheManager,
 		string $entityClass = Site::class
 	) {
-		parent::__construct($registry, $siteRegistry, $entityClass);
+		parent::__construct($registry, $siteRegistry, $cacheManager, $entityClass);
 	}
 
 	public function getApplicationRepository(): ApplicationRepository

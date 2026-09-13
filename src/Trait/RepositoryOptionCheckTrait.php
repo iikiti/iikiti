@@ -18,6 +18,11 @@ trait RepositoryOptionCheckTrait
 		return (is_string($value) || is_array($value)) || (null === $value && $allowNull);
 	}
 
+	protected function _typeCheck_positiveInt(mixed $value, bool $allowNull = true): bool
+	{
+		return (is_int($value) && $value > 0) || (null === $value && $allowNull);
+	}
+
 	/**
 	 * @param array<string,mixed> $options
 	 */
@@ -35,12 +40,14 @@ trait RepositoryOptionCheckTrait
 		return $value ?? $default;
 	}
 
-	protected static function _defaultOption(string $key): bool|string|null
+	protected static function _defaultOption(string $key): bool|string|int|null
 	{
-		/** @var array<string,bool|string> $values */
+		/** @var array<string,bool|string|int|null> $values */
 		static $values = [
 			'filterBySite' => true,
 			'includeRevisions' => false,
+			'cache' => null,
+			'cacheTTL' => null,
 		];
 
 		return $values[$key] ?? null;
