@@ -25,7 +25,14 @@ final class UserRoleEnum extends DynamicBackedEnumerator
 	}
 }
 
+UserRoleEnum::register('Non-Member', 'ROLE_NON_MEMBER');
+UserRoleEnum::register('Member', 'ROLE_MEMBER');
+UserRoleEnum::register('Author', 'ROLE_AUTHOR');
+UserRoleEnum::register('Editor', 'ROLE_EDITOR');
+UserRoleEnum::register('Manager', 'ROLE_MANAGER');
+UserRoleEnum::register('Site Manager', 'ROLE_SITE_MANAGER');
+UserRoleEnum::register('Admin', 'ROLE_ADMIN');
+UserRoleEnum::register('System', 'ROLE_SYSTEM');
 UserRoleEnum::register('User', 'ROLE_USER');
 UserRoleEnum::registerDefault('ROLE_USER');
-UserRoleEnum::register('Administrator', 'ROLE_ADMIN');
 UserRoleEnum::register('Super Administrator', 'ROLE_SUPER_ADMIN');

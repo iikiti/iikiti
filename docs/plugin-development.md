@@ -138,3 +138,31 @@ Admins can manage values with `iikiti:plugin:configure`.
 Install/upgrade commands and the admin API are documented in
 [plugin-api.md](plugin-api.md); the trust model is documented in
 [plugin-security.md](plugin-security.md).
+
+## Contributing to the Admin UI
+
+Plugins can add menu items and API resources to the administration UI by
+implementing `iikiti\CMS\Admin\AdminExtensionInterface`. See
+[admin-extensibility.md](admin-extensibility.md) for full details.
+
+```php
+class AcmeAdminExtension implements AdminExtensionInterface
+{
+    public function getMenuItems(): array
+    {
+        return [
+            AdminMenuItem::create('Acme', '/acme', 'package', 100),
+        ];
+    }
+
+    public function getResources(): array
+    {
+        return [
+            AdminApiResource::create('acme', 'api_acme_get_collection', 'Acme Content'),
+        ];
+    }
+}
+```
+
+The service is auto-tagged with `iikiti.admin.extension` when auto-registration
+is enabled. The admin SPA will display the menu item and route automatically.

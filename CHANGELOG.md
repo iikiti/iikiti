@@ -58,6 +58,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   to `SearchService`.
 - 2026-09-19: Documentation: `docs/full-text-search.md` (developer guide) and
   `docs/search-admin.md` (admin guide).
+- 2026-09-19: Administration UI: Svelte 5 (runes mode) SPA at `/admin/*` with
+  client-side routing, sidebar navigation from `/api/admin/menu`, and list/detail
+  views for users, user groups, roles, applications, sites, site groups.
+- 2026-09-19: Default roles seeded via migration: System, Admin, Site Manager,
+  Manager, Editor, Author, Member, Non-Member — each with immutable default
+  permissions and non-deletable. Editor and Author can be hidden by admins.
+  New roles are registered in `UserRoleEnum` and the role hierarchy in `security.yaml`
+  extends from `ROLE_NON_MEMBER` up to `ROLE_SYSTEM`.
+- 2026-09-19: ACL (Access Control List) system: `PermissionChecker` service
+  resolves permissions by checking user roles (via Role entities) and user group
+  memberships (via UserGroup ACL permissions). Object-type-level granularity
+  with wildcards (`*` for any object type or any action).
+- 2026-09-19: `Role` entity with `default_permissions` (immutable) and
+  `custom_permissions` (editable). `UserGroup` and `SiteGroup` DbObject entities
+  added for the `objects` table (types `user_group` and `site_group`) with
+  repositories.
+- 2026-09-19: Audit logging: `AuditLogEntry` entity + `AuditLogger` service +
+  `AuditSubscriber` Doctrine listener that automatically records all entity
+  inserts, updates, and deletes with before/after state. Extended context in
+  debug mode (stack traces, request details).
+- 2026-09-19: `AdminExtensionInterface`, `AdminMenuRegistry`, `CoreAdminExtension`,
+  `AdminMenuItem`, `AdminApiResource` — plugin extensibility framework for the
+  admin UI. Plugins contribute menu items and API resources via the
+  `iikiti.admin.extension` DI tag.
+- 2026-09-19: Admin API resources under `/api/admin/*`: user-group CRUD,
+  site-group CRUD, role read/write (custom permissions only), audit log listing,
+  admin menu aggregation.
+- 2026-09-19: `ApiTokenManager` service for ephemeral API tokens, enabling the
+  admin SPA to call stateless `/api` endpoints while authenticated via session.
+- 2026-09-19: Documentation: `docs/admin-ui.md`, `docs/roles-and-acls.md`,
+  `docs/audit-logging.md`, `docs/admin-extensibility.md`.
 
 ### Changed
 - 2026-09-19: `ObjectRepository` constructor now accepts an optional `SearchService`

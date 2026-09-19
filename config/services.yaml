@@ -73,3 +73,15 @@ services:
 
     iikiti\CMS\Query\DatabasePlatform\DatabasePlatformStrategyInterface:
         alias: iikiti\CMS\Query\DatabasePlatform\PostgreSQL\PostgreSQLPlatformStrategy
+
+    # Auto-tag any service implementing AdminExtensionInterface so plugins
+    # can contribute admin menu items by simply implementing the interface.
+    _instanceof:
+        iikiti\CMS\Admin\AdminExtensionInterface:
+            tags: ['iikiti.admin.extension']
+
+    # Security services that may be accessed directly by plugins
+    iikiti\CMS\Security\PermissionChecker:
+        public: true
+    iikiti\CMS\Audit\AuditLogger:
+        public: true

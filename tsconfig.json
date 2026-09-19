@@ -1,5 +1,29 @@
 {
 	"include": [
-		"src/"
-	]
+		"src/",
+		"assets/"
+	],
+	"exclude": [
+		"node_modules/",
+		"public/build/"
+	],
+	"compilerOptions": {
+		"target": "ES2020",
+		"module": "ESNext",
+		"moduleResolution": "node",
+		"lib": ["ES2020", "DOM"],
+		"strict": true,
+		"esModuleInterop": true,
+		"allowSyntheticDefaultImports": true,
+		"skipLibCheck": true,
+		"baseUrl": ".",
+		"paths": {
+			"$lib/*": ["assets/svelte/admin/lib/*"],
+			"$types": ["assets/svelte/admin/types/index.ts"],
+			"$types/*": ["assets/svelte/admin/types/*"],
+			"$lib": ["assets/svelte/admin/lib"],
+			"$components/*": ["assets/svelte/admin/components/*"],
+			"$routes/*": ["assets/svelte/admin/routes/*"]
+		}
+	}
 }

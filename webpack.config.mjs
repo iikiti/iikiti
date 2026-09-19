@@ -1,4 +1,8 @@
 import Encore from '@symfony/webpack-encore';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Manually configure the runtime environment if not already configured yet by the "encore" command.
 // It's useful when you use tools that rely on webpack.config.js file.
@@ -30,8 +34,7 @@ Encore
     .addStyleEntry('tailwind', './assets/styles/app.css')
 
 	.addEntry('app', './assets/app.js')
-    //.addEntry('main', './assets/main.js')
-    //.addEntry('admin', './assets/admin.js')
+    .addEntry('admin', './assets/admin.js')
 
     // When enabled, Webpack "splits" your files into smaller pieces for greater optimization.
     .splitEntryChunks()
@@ -91,6 +94,15 @@ Encore
 ;
 
 const webpackConfig = await Encore.getWebpackConfig();
+
+webpackConfig.resolve = webpackConfig.resolve || {};
+webpackConfig.resolve.alias = {
+	...webpackConfig.resolve.alias,
+	'$lib': path.resolve(__dirname, 'assets/svelte/admin/lib'),
+	'$types': path.resolve(__dirname, 'assets/svelte/admin/types/index.ts'),
+	'$components': path.resolve(__dirname, 'assets/svelte/admin/components'),
+	'$routes': path.resolve(__dirname, 'assets/svelte/admin/routes'),
+};
 
 webpackConfig.resolve.conditionNames = (webpackConfig.resolve.conditionNames??[]);
 if(webpackConfig.resolve.conditionNames.indexOf('svelte') < 0) {
