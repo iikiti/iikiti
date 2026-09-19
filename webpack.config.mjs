@@ -102,6 +102,7 @@ webpackConfig.resolve.alias = {
 	'$types': path.resolve(__dirname, 'assets/svelte/admin/types/index.ts'),
 	'$components': path.resolve(__dirname, 'assets/svelte/admin/components'),
 	'$routes': path.resolve(__dirname, 'assets/svelte/admin/routes'),
+	'@iikiti/admin': path.resolve(__dirname, 'assets/svelte/admin/components/index.ts'),
 };
 
 webpackConfig.resolve.conditionNames = (webpackConfig.resolve.conditionNames??[]);

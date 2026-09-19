@@ -66,6 +66,39 @@ All admin API endpoints are under `/api/admin/` and require `ROLE_ADMIN`.
 | GET | `/api/admin/site-groups` | List site groups |
 | GET | `/api/admin/audit-logs` | List audit log entries |
 | GET | `/api/admin/menu` | Get admin navigation menu |
+| GET | `/api/admin/screens` | Get admin screen manifest (dynamic routing table) |
+
+## Routing Model
+
+The admin SPA uses **hash-based dynamic routing**. On startup it fetches two
+endpoints:
+
+1. `/api/admin/menu` — sidebar navigation (menu items).
+2. `/api/admin/screens` — screen manifest (route → component mapping).
+
+The SPA builds its route table from the screen manifest. Screens fall into
+three categories:
+
+- **Generic screens** (`type: list|detail|form`) — rendered by core
+  `GenericListPage`, `GenericDetailPage`, and `GenericFormPage` components
+  driven by the screen's `apiPath` and `config` (column/field definitions).
+- **Core custom screens** (`type: custom`, `component` set, no `bundle`) —
+  resolved from the `CORE_COMPONENTS` registry (statically bundled).
+- **Plugin custom screens** (`type: custom`, `bundle` + `component` set) —
+  the plugin's JS bundle is dynamically `import()`ed and the named component
+  is cached for reuse.
+
+See [admin-extensibility.md](admin-extensibility.md) for the full component
+library reference and plugin screen development workflow.
+
+## Core Component Library
+
+The admin UI ships with a library of reusable Svelte 5 components exported
+under the `@iikiti/admin` import alias. These include `AdminLayout`, `DataTable`,
+`PageHeader`, `Button`, `Badge`, `Dialog`, `Tabs`, `Breadcrumb`, `Pagination`,
+`SearchForm`, `Form`, `DetailView`, `Card`, and input components
+(`TextInput`, `TextareaInput`, `SelectInput`, `CheckboxInput`, `ToggleInput`).
+Plugins can import these components in their own UI bundles.
 
 ## List Views
 

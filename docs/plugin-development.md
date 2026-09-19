@@ -141,17 +141,38 @@ Install/upgrade commands and the admin API are documented in
 
 ## Contributing to the Admin UI
 
-Plugins can add menu items and API resources to the administration UI by
-implementing `iikiti\CMS\Admin\AdminExtensionInterface`. See
-[admin-extensibility.md](admin-extensibility.md) for full details.
+Plugins can add menu items, API resources, and **admin screens** to the
+administration UI by implementing `iikiti\CMS\Admin\AdminExtensionInterface`.
+See [admin-extensibility.md](admin-extensibility.md) for full details.
 
 ```php
 class AcmeAdminExtension implements AdminExtensionInterface
 {
+    use iikiti\CMS\Admin\AdminExtensionTrait;
+
     public function getMenuItems(): array
     {
         return [
             AdminMenuItem::create('Acme', '/acme', 'package', 100),
+        ];
+    }
+
+    public function getAdminScreens(): array
+    {
+        return [
+            // Generic list screen (no custom JS required)
+            new AdminScreen(
+                path: '/acme',
+                title: 'Acme Content',
+                type: 'list',
+                apiPath: '/admin/acme',
+                config: [
+                    'columns' => [
+                        ['key' => 'id', 'label' => 'ID'],
+                        ['key' => 'name', 'label' => 'Name'],
+                    ],
+                ],
+            ),
         ];
     }
 
@@ -165,4 +186,42 @@ class AcmeAdminExtension implements AdminExtensionInterface
 ```
 
 The service is auto-tagged with `iikiti.admin.extension` when auto-registration
-is enabled. The admin SPA will display the menu item and route automatically.
+is enabled. The admin SPA will display the menu item and render the screen
+automatically.
+
+### Custom Screens with Plugin UI Bundles
+
+For complex workflows requiring custom Svelte components, plugins can ship a
+compiled JS bundle. Add `admin_ui` to `plugin.json`:
+
+```json
+{
+    "admin_ui": {
+        "entry": "dist/admin.js"
+    }
+}
+```
+
+The bundle is served at `/admin-plugins/{slug}/dist/admin.js` and is loaded on
+demand via dynamic `import()` when the user navigates to the screen's path.
+Plugins can import core components from `@iikiti/admin`:
+
+```svelte
+<script>
+    import { PageHeader, DataTable } from '@iikiti/admin';
+</script>
+
+<PageHeader title="Acme Dashboard" />
+```
+
+Register the custom screen in `getAdminScreens()`:
+
+```php
+new AdminScreen(
+    path: '/acme/dashboard',
+    title: 'Acme Dashboard',
+    type: 'custom',
+    bundle: '/admin-plugins/acme-blog/dist/admin.js',
+    component: 'AcmeDashboard',
+),
+```

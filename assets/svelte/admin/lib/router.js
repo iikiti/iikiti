@@ -4,7 +4,7 @@
  * The router uses hash-based routing (e.g. /admin/#/users) so that server-side
  * routing always falls back to the SPA. Path state is managed via the
  * `currentPath` $state in App.svelte; this module provides utilities
- * for finding menu items by path.
+ * for finding menu items and screens by path.
  */
 
 /** @param {any[]} menu @param {string} path */
@@ -17,6 +17,16 @@ export function findMenuItem(menu, path) {
 		}
 	}
 	return null;
+}
+
+/**
+ * Find a screen descriptor by exact path from the screens manifest.
+ *
+ * @param {any[]} screens
+ * @param {string} path
+ */
+export function findScreenByPath(screens, path) {
+	return screens.find((s) => s.path === path) ?? null;
 }
 
 export function getCurrentPath() {

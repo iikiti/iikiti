@@ -23,7 +23,9 @@
 			"$types/*": ["assets/svelte/admin/types/*"],
 			"$lib": ["assets/svelte/admin/lib"],
 			"$components/*": ["assets/svelte/admin/components/*"],
-			"$routes/*": ["assets/svelte/admin/routes/*"]
+			"$routes/*": ["assets/svelte/admin/routes/*"],
+			"@iikiti/admin": ["assets/svelte/admin/components/index.ts"],
+			"@iikiti/admin/*": ["assets/svelte/admin/components/*"]
 		}
 	}
 }

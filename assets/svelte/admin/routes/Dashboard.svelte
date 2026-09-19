@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import PageHeader from '../components/PageHeader.svelte';
+	import LoadingState from '../components/LoadingState.svelte';
+	import ErrorBoundary from '../components/ErrorBoundary.svelte';
 
 	interface Props {
 		api: any;
@@ -10,6 +13,7 @@
 
 	let summary: Record<string, any> | null = $state(null);
 	let loading = $state(true);
+	let error: string | null = $state(null);
 
 	async function load() {
 		loading = true;
@@ -23,7 +27,7 @@
 				siteGroupCount: siteGroups.totalItems,
 			};
 		} catch (e: any) {
-			summary = null;
+			error = e.message ?? 'Failed to load dashboard';
 		} finally {
 			loading = false;
 		}
@@ -32,8 +36,12 @@
 	onMount(load);
 </script>
 
-{#if loading}
-	<div class="text-center py-8 text-gray-500">Loading dashboard…</div>
+<PageHeader title="Dashboard" description="System overview and quick actions." />
+
+{#if error}
+	<ErrorBoundary message={error} onRetry={load} />
+{:else if loading}
+	<LoadingState label="Loading dashboard…" />
 {:else if summary}
 	<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 		<div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">

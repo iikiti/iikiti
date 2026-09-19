@@ -62,6 +62,16 @@ export class ApiClient {
 		return data.items ?? data;
 	}
 
+	async getScreens() {
+		const data = await this.request('/admin/screens');
+		return data.items ?? data;
+	}
+
+	async getResources() {
+		const data = await this.request('/admin/resources');
+		return data.items ?? data.items ?? data;
+	}
+
 	async getUsers(params) {
 		const query = new URLSearchParams(params || {}).toString();
 		const path = query ? `/admin/users?${query}` : '/admin/users';

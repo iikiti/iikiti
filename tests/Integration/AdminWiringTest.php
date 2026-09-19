@@ -6,8 +6,11 @@ namespace iikiti\CMS\Tests\Integration;
 
 use iikiti\CMS\Admin\AdminMenuRegistry;
 use iikiti\CMS\Admin\CoreAdminExtension;
+use iikiti\CMS\ApiResource\AdminScreenResource;
+use iikiti\CMS\Controller\Page\PluginAssetController;
 use iikiti\CMS\Security\ApiTokenManager;
 use iikiti\CMS\Security\PermissionChecker;
+use iikiti\CMS\State\Provider\AdminScreenProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class AdminWiringTest extends KernelTestCase
@@ -75,6 +78,8 @@ final class AdminWiringTest extends KernelTestCase
 			'admin_roles_list' => '/api/admin/roles',
 			'admin_audit_logs_list' => '/api/admin/audit-logs',
 			'admin_menu_list' => '/api/admin/menu',
+			'admin_screens_list' => '/api/admin/screens',
+			'admin_plugin_asset' => '/admin-plugins/{slug}/{path}',
 		];
 
 		foreach ($expectedRoutes as $name => $path) {
@@ -82,5 +87,41 @@ final class AdminWiringTest extends KernelTestCase
 			self::assertNotNull($route, "Route {$name} should exist");
 			self::assertSame($path, $route->getPath());
 		}
+	}
+
+	public function testScreenProviderIsRegistered(): void
+	{
+		self::bootKernel();
+		$container = self::getContainer();
+
+		self::assertInstanceOf(AdminScreenProvider::class, $container->get(AdminScreenProvider::class));
+		self::assertInstanceOf(
+			AdminScreenResource::class,
+			new AdminScreenResource(),
+		);
+	}
+
+	public function testCoreAdminExtensionProvidesScreens(): void
+	{
+		self::bootKernel();
+		$container = self::getContainer();
+
+		$registry = $container->get(AdminMenuRegistry::class);
+		$screens = $registry->getScreens();
+
+		$paths = array_map(fn ($s): string => $s->path, $screens);
+		self::assertContains('/dashboard', $paths);
+		self::assertContains('/users', $paths);
+		self::assertContains('/plugins', $paths);
+		self::assertContains('/roles', $paths);
+		self::assertContains('/audit-log', $paths);
+	}
+
+	public function testPluginAssetControllerIsRegistered(): void
+	{
+		self::bootKernel();
+		$container = self::getContainer();
+
+		self::assertInstanceOf(PluginAssetController::class, $container->get(PluginAssetController::class));
 	}
 }

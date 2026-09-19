@@ -87,4 +87,76 @@
  * @property {(string|number)[]} siteIds
  */
 
-export {};
+/**
+ * @typedef {Object} ApplicationResource
+ * @property {number} id
+ * @property {string} name
+ * @property {Object<string,*>|null} configuration
+ */
+
+/**
+ * @typedef {Object} SiteResource
+ * @property {number} id
+ * @property {string|null} domain
+ * @property {string|null} name
+ * @property {Object<string,*>|null} configuration
+ */
+
+/**
+ * @typedef {Object} PluginResource
+ * @property {string} name
+ * @property {string} slug
+ * @property {string} version
+ * @property {boolean} enabled
+ * @property {boolean} installed
+ * @property {string|null} description
+ */
+
+/**
+ * @typedef {Object} AdminScreen
+ * @property {string} path
+ * @property {string} title
+ * @property {string} type
+ * @property {string|null} [apiPath]
+ * @property {string|null} [bundle]
+ * @property {string|null} [component]
+ * @property {string|null} [permission]
+ * @property {string|null} [icon]
+ * @property {string|null} [description]
+ * @property {Object<string,*>} [config]
+ * @property {string|null} [resource]
+ */
+
+/**
+ * @template T
+ * @typedef {Object} Column
+ * @property {string} key
+ * @property {string} label
+ * @property {boolean} [sortable]
+ * @property {function(*, T): string} [render]
+ * @property {string} [width]
+ * @property {('left'|'center'|'right')} [align]
+ */
+
+/**
+ * @template T
+ * @typedef {Object} ActionItem
+ * @property {string} label
+ * @property {string} icon
+ * @property {function(T): void} onClick
+ * @property {string|null} [permission]
+ */
+
+/** @typedef {'sm'|'md'|'lg'} ComponentSize */
+/** @typedef {'primary'|'secondary'|'danger'|'ghost'|'icon'} ComponentVariant */
+/** @typedef {'success'|'warning'|'danger'|'info'|'primary'} ComponentStatus */
+
+/**
+ * @template T
+ * @typedef {Object} ScreenConfig
+ * @property {Array<Column<T>>} [columns]
+ * @property {Array<*>} [fields]
+ * @property {Array<ActionItem<T>>} [actions]
+ */
+
+export type { AdminScreen, Column, ActionItem, ScreenConfig, ComponentSize, ComponentVariant, ComponentStatus };

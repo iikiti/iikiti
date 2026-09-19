@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import DataTable from '../components/DataTable.svelte';
+	import PageHeader from '../components/PageHeader.svelte';
+	import LoadingState from '../components/LoadingState.svelte';
+	import ErrorBoundary from '../components/ErrorBoundary.svelte';
 	import type { PagedResult, ApplicationResource } from '../types/index';
 
 	interface Props {
@@ -24,7 +27,7 @@
 		error = null;
 		try {
 			apps = await api.getApplications();
-		} catch (e) {
+		} catch (e: any) {
 			error = e.message ?? 'Failed to load applications';
 		} finally {
 			loading = false;
@@ -34,22 +37,16 @@
 	onMount(load);
 </script>
 
-<div>
-	<div class="mb-4">
-		<h2 class="text-xl font-semibold text-gray-900 dark:text-white">Applications</h2>
-		<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-			Manage application-level configurations.
-		</p>
-	</div>
+<PageHeader title="Applications" description="Manage application-level configurations." />
 
-	{#if error}
-		<div class="mb-4 p-3 bg-red-100 text-red-800 rounded-lg">{error}</div>
-	{/if}
-
+{#if error}
+	<ErrorBoundary message={error} onRetry={load} />
+{:else if loading}
+	<LoadingState label="Loading applications…" />
+{:else}
 	<DataTable
 		data={apps ?? { members: [], totalItems: 0, itemsPerPage: 25, currentPage: 1 }}
 		{columns}
 		onRowClick={() => {}}
-		loading={loading}
 	/>
-</div>
+{/if}

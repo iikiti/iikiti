@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import DataTable from '../components/DataTable.svelte';
+	import PageHeader from '../components/PageHeader.svelte';
+	import LoadingState from '../components/LoadingState.svelte';
+	import ErrorBoundary from '../components/ErrorBoundary.svelte';
 	import type { PagedResult, UserResource } from '../types/index';
 
 	interface Props {
@@ -44,22 +47,16 @@
 	onMount(load);
 </script>
 
-<div>
-	<div class="mb-4">
-		<h2 class="text-xl font-semibold text-gray-900 dark:text-white">Users</h2>
-		<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-			List of all user accounts in the system.
-		</p>
-	</div>
+<PageHeader title="Users" description="List of all user accounts in the system." />
 
-	{#if error}
-		<div class="mb-4 p-3 bg-red-100 text-red-800 rounded-lg">{error}</div>
-	{/if}
-
+{#if error}
+	<ErrorBoundary message={error} onRetry={load} />
+{:else if loading}
+	<LoadingState label="Loading users…" />
+{:else}
 	<DataTable
 		data={users ?? { members: [], totalItems: 0, itemsPerPage: 25, currentPage: 1 }}
 		{columns}
-		onRowClick={(row: UserResource) => {}}
-		loading={loading}
+		onRowClick={(_row: UserResource) => {}}
 	/>
-</div>
+{/if}

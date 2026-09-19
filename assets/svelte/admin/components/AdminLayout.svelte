@@ -5,12 +5,11 @@
 		menu: MenuItem[];
 		api: any;
 		debug?: boolean;
+		currentPath?: string;
 		onNavigate?: (path: string) => void;
 	}
 
-	let { menu, api, debug = false, onNavigate, children }: Props = $props();
-
-	let currentPath = $state<string>(window.location.hash.slice(1) || '/');
+	let { menu, api, debug = false, currentPath = '/', onNavigate, children }: Props = $props();
 
 	const title = $derived(findMenuItem(menu, currentPath)?.label ?? 'Dashboard');
 
@@ -26,7 +25,6 @@
 	}
 
 	function handleNavigate(path: string) {
-		currentPath = path;
 		onNavigate?.(path);
 	}
 

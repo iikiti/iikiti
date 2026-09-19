@@ -4,7 +4,7 @@ namespace iikiti\CMS\Admin;
 
 use iikiti\CMS\ApiResource\AdminApiResource;
 use iikiti\CMS\ApiResource\AdminMenuItem;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use iikiti\CMS\ApiResource\AdminScreen;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 /**
@@ -55,8 +55,30 @@ class AdminMenuRegistry
 			}
 		}
 
-		usort($resources, static fn (AdminApiResource $a, AdminApiResource $b): int => $a->label <=> $b->label);
+		usort($resources, static fn (AdminApiResource $a, $b): int => $a->label <=> $b->label);
 
 		return $resources;
+	}
+
+	/**
+	 * Aggregates admin screens from all registered extensions.
+	 *
+	 * Screens are sorted by path for deterministic output to the SPA.
+	 *
+	 * @return list<AdminScreen>
+	 */
+	public function getScreens(): array
+	{
+		$screens = [];
+
+		foreach ($this->adminExtensions as $extension) {
+			foreach ($extension->getAdminScreens() as $screen) {
+				$screens[] = $screen;
+			}
+		}
+
+		usort($screens, static fn (AdminScreen $a, AdminScreen $b): int => $a->path <=> $b->path);
+
+		return $screens;
 	}
 }

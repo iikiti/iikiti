@@ -7,82 +7,213 @@ Plugins can extend the admin UI by implementing the
 automatically tagged with `iikiti.admin.extension` and collected by the
 `AdminMenuRegistry`.
 
-## Implementing an Admin Extension
+Beyond menu items and API resource descriptors, plugins can now contribute
+**admin screens** — full page views that appear in the admin navigation and
+are dynamically loaded by the SPA. Screens can be:
 
-### 1. Create the extension class
+1. **Generic** — built from metadata (API path, column/field definitions)
+   using core component templates (list, detail, form). No custom JavaScript
+   required.
+2. **Custom** — a plugin-supplied Svelte component loaded on demand via
+   dynamic `import()`, built using the **core admin component library**
+   (`@iikiti/admin`).
+
+## Core Component Library
+
+The admin SPA exposes a set of reusable Svelte 5 components under the
+`@iikiti/admin` import alias. Both the core CMS and plugins can import these
+components to build consistent UI.
+
+### Available Components
+
+| Component | Purpose |
+|-----------|---------|
+| `AdminLayout` | Sidebar navigation + header + content outlet |
+| `DataTable` | Paginated, sortable table with configurable columns |
+| `PageHeader` | Page title + description + action buttons |
+| `LoadingState` | Spinner with optional label |
+| `ErrorBoundary` | Error display with retry |
+| `EmptyState` | Empty results message |
+| `Button` | Button with variants (primary/secondary/danger/ghost/icon) |
+| `Badge` | Status badges (success/warning/danger/primary) |
+| `Tabs` | Tab navigation |
+| `Breadcrumb` | Breadcrumb trail |
+| `Pagination` | Page navigation controls |
+| `SearchForm` | Search + filter input bar |
+| `Dialog` | Modal overlay |
+| `DetailView` | Key-value detail display |
+| `Card` | Bordered container with optional header/footer |
+| `Form` | Form wrapper with field rendering from schema |
+| `FormField` | Label + control + error wrapper |
+| `TextInput` | Text input |
+| `TextareaInput` | Textarea |
+| `SelectInput` | Single/multi select |
+| `CheckboxInput` | Checkbox with label |
+| `ToggleInput` | On/off toggle |
+
+### Importing Core Components
+
+In your plugin's Svelte source:
+
+```ts
+import { DataTable, PageHeader, Button } from '@iikiti/admin';
+```
+
+Configure your build to resolve `@iikiti/admin` to the core component
+barrel export (`assets/svelte/admin/components/index.ts`). See
+`webpack.config.mjs` in the core project for the alias configuration:
+
+```js
+// webpack.config.mjs (in your plugin)
+module.exports = {
+    resolve: {
+        alias: {
+            '@iikiti/admin': '/path/to/core/assets/svelte/admin/components/index.ts',
+        },
+    },
+    // Use webpack externals so your bundle stays small:
+    // externals: { '@iikiti/admin': 'iikitiAdmin' }
+};
+```
+
+## Screen Registry
+
+### Screen Types
+
+| Type | Behavior |
+|------|----------|
+| `list` | Renders `GenericListPage` — fetches paginated data from `apiPath`, renders `DataTable` with columns from `config` |
+| `detail` | Renders `GenericDetailPage` — fetches a single record from `apiPath/{id}`, renders `DetailView` |
+| `form` | Renders `GenericFormPage` — renders a `Form` from `config.fields`, POSTs/PUTs to `apiPath` |
+| `custom` | Renders a core component (via `component` name with no `bundle`) or a plugin-loaded component (via `bundle` + `component`) |
+
+### Implementing Admin Screens in a Plugin
+
+Add `getAdminScreens()` to your `AdminExtensionInterface` implementation. Use
+the `AdminExtensionTrait` if your plugin only contributes menu items (the
+trait provides an empty default for `getAdminScreens()`):
 
 ```php
+<?php
+
 namespace Acme\Plugin\Blog\Admin;
 
 use iikiti\CMS\Admin\AdminExtensionInterface;
-use iikiti\CMS\ApiResource\AdminApiResource;
-use iikiti\CMS\ApiResource\AdminMenuItem;
+use iikiti\CMS\Admin\AdminExtensionTrait;
+use iikiti\CMS\ApiResource\AdminScreen;
 
 class BlogAdminExtension implements AdminExtensionInterface
 {
-    public function getMenuItems(): array
-    {
-        return [
-            AdminMenuItem::create(
-                label: 'Blog',
-                path: '/blog',
-                icon: 'edit-3',
-                priority: 200,
-                children: [
-                    AdminMenuItem::create('All Posts', '/blog/posts'),
-                    AdminMenuItem::create('Categories', '/blog/categories'),
-                    AdminMenuItem::create('Tags', '/blog/tags'),
-                ],
-            ),
-        ];
-    }
+	use AdminExtensionTrait;
 
-    public function getResources(): array
-    {
-        return [
-            AdminApiResource::create(
-                name: 'posts',
-                path: 'api_blog_posts_get_collection',
-                label: 'Blog Posts',
-                icon: 'edit-3',
-            ),
-        ];
-    }
+	public function getMenuItems(): array
+	{
+		return [
+			AdminMenuItem::create('Blog', '/blog', 'edit-3', 200, [
+				AdminMenuItem::create('All Posts', '/blog/posts'),
+				AdminMenuItem::create('Categories', '/blog/categories'),
+			]),
+		];
+	}
+
+	public function getAdminScreens(): array
+	{
+		return [
+			// Generic list screen — no custom JavaScript needed
+			new AdminScreen(
+				path: '/blog/posts',
+				title: 'Posts',
+				type: 'list',
+				apiPath: '/admin/blog/posts',
+				config: [
+					'columns' => [
+						['key' => 'id', 'label' => 'ID'],
+						['key' => 'title', 'label' => 'Title'],
+						['key' => 'status', 'label' => 'Status'],
+					],
+				],
+			),
+			// Custom screen — loads a plugin-bundled Svelte component
+			new AdminScreen(
+				path: '/blog',
+				title: 'Blog Dashboard',
+				type: 'custom',
+				bundle: '/admin-plugins/acme-blog/dist/admin.js',
+				component: 'BlogDashboard',
+			),
+		];
+	}
+
+	public function getResources(): array
+	{
+		return [];
+	}
 }
 ```
 
-### 2. Register as a service
+### Screen Descriptor Fields
 
-If your plugin uses auto-registration (standard for Symfony bundles), the
-service is auto-tagged via the `#[AutoconfigureTag]` attribute on
-`AdminExtensionInterface`.
+| Field | Type | Description |
+|-------|------|-------------|
+| `path` | string | Hash route path (e.g. `/blog/posts`) |
+| `title` | string | Page title for the header |
+| `type` | string | `list`, `detail`, `form`, or `custom` |
+| `apiPath` | string? | REST endpoint for generic screens |
+| `bundle` | string? | JS bundle URL for custom screens |
+| `component` | string? | Component name (core registry key or plugin export) |
+| `permission` | string? | Permission required (`ROLE_*` or `{objectType}:{action}`) |
+| `icon` | string? | Sidebar icon |
+| `description` | string? | Page subtitle |
+| `config` | array | Columns (list), fields (detail/form), actions |
+| `resource` | string? | Resource name from plugin metadata |
 
-Explicit registration (if auto-registration is disabled):
+### How the SPA Resolves Screens
 
-```yaml
-# config/services.yaml in your plugin bundle
-services:
-    Acme\Plugin\Blog\Admin\BlogAdminExtension:
-        tags: ['iikiti.admin.extension']
-```
+On startup, the admin SPA:
 
-### 3. Provide API resources
+1. Fetches `/api/admin/menu` for navigation items.
+2. Fetches `/api/admin/screens` for the screen manifest (all registered screens).
+3. When the user navigates to a path:
+   - Finds the matching `AdminScreen` by `path`.
+   - If the screen has `bundle` + `component`: dynamically `import()`s the
+     plugin's JS bundle and resolves the named component.
+   - If the screen has `component` but no `bundle`: resolves from the
+     `CORE_COMPONENTS` registry (statically bundled core route components).
+   - If the screen has no `bundle` and a `type` of `list`/`detail`/`form`:
+     renders the corresponding generic page component.
+4. Loaded plugin components are cached for subsequent navigations.
 
-Your plugin should also provide API Platform resources for any admin
-endpoints you expose. These can be standard `#[ApiResource]` entities or
-custom DTOs with providers/processors.
+### Plugin UI Bundles
 
-```php
-#[ApiResource]
-class BlogPostResource
+To ship custom Svelte components:
+
+1. Create `plugin.json` with an `admin_ui` entry:
+
+```json
 {
-    #[ApiResource\GetCollection(
-        uriTemplate: '/admin/blog/posts',
-        security: 'is_granted("ROLE_ADMIN") or object.can("BlogPost", "read")',
-    )]
-    public function getPosts(): array { ... }
+    "admin_ui": {
+        "entry": "dist/admin.js"
+    }
 }
 ```
+
+2. Build your Svelte bundle (using the same Svelte 5 + TypeScript toolchain).
+   Your `dist/admin.js` should export named components:
+
+```svelte
+<!-- src/BlogDashboard.svelte -->
+<script>
+    import { PageHeader, Card } from '@iikiti/admin';
+</script>
+
+<PageHeader title="Blog Dashboard" description="Overview of your blog." />
+<Card>
+    <p>Your blog analytics go here.</p>
+</Card>
+```
+
+3. The `PluginAssetController` serves your bundle at
+   `/admin-plugins/{slug}/dist/admin.js` (protected by `ROLE_ADMIN`).
 
 ## Menu Item Properties
 
@@ -108,42 +239,16 @@ Plugins should use priorities to position their sections:
 | 0–99 | Low-priority extensions |
 | -100+ | Utility sections |
 
-## Svelte 5 Route Components
+## Registering as a Service
 
-The admin SPA uses hash-based routing. Plugin routes are automatically
-registered when the admin app starts (by reading the menu and matching paths).
+If your plugin uses auto-registration (standard for Symfony bundles), the
+service is auto-tagged with `iikiti.admin.extension` via the
+`#[AutoconfigureTag]` attribute on `AdminExtensionInterface`.
 
-To provide a list view for your plugin's entity:
+Explicit registration (if auto-registration is disabled):
 
-1. Create a Svelte component at
-   `assets/svelte/admin/routes/BlogPosts.svelte`
-2. The component receives `api` (ApiClient) and `debug` (boolean) as props
-3. Fetch data from your plugin's API endpoints
-
-```svelte
-<script lang="ts">
-    import { onMount } from 'svelte';
-    import DataTable from '../components/DataTable.svelte';
-
-    let { api, debug = false }: { api: any; debug?: boolean } = $props();
-    let posts = $state(null);
-    let loading = $state(true);
-
-    const columns = [
-        { key: 'id', label: 'ID' },
-        { key: 'title', label: 'Title' },
-        { key: 'status', label: 'Status' },
-    ];
-
-    onMount(async () => {
-        loading = true;
-        posts = await api.request('/admin/blog/posts');
-        loading = false;
-    });
-</script>
-
-<div>
-    <h2 class="text-xl font-semibold mb-4">Blog Posts</h2>
-    <DataTable data={posts} columns={columns} loading={loading} />
-</div>
+```yaml
+services:
+    Acme\Plugin\Blog\Admin\BlogAdminExtension:
+        tags: ['iikiti.admin.extension']
 ```

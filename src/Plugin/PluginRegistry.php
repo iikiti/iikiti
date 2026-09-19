@@ -17,19 +17,24 @@ class PluginRegistry
 	/** @var array<string,PluginManifest> */
 	private array $manifests = [];
 
+	/** @var array<string,string> */
+	private array $paths = [];
+
 	/**
 	 * @param array<string,mixed> $plugins plugin metadata keyed by slug
 	 */
 	public function __construct(
 		#[Autowire('%iikiti.plugins%')]
-		array $plugins = []
+		array $plugins = [],
 	) {
 		foreach ($plugins as $plugin) {
 			if (!is_array($plugin) || !isset($plugin['manifest']) || !is_array($plugin['manifest'])) {
 				continue;
 			}
 			try {
-				$this->add(PluginManifest::fromArray($plugin['manifest']));
+				$manifest = PluginManifest::fromArray($plugin['manifest']);
+				$this->manifests[$manifest->slug] = $manifest;
+				$this->paths[$manifest->slug] = (string) ($plugin['path'] ?? '');
 			} catch (\Throwable) {
 				// Invalid manifests are rejected earlier by the loader; ignore
 				// here so a broken entry cannot break the whole container.
@@ -51,5 +56,18 @@ class PluginRegistry
 	public function count(): int
 	{
 		return count($this->manifests);
+	}
+
+	/**
+	 * Returns the filesystem path of an active plugin, or null if the
+	 * plugin is not active.
+	 */
+	public function getPath(string $slug): ?string
+	{
+		if (!$this->has($slug)) {
+			return null;
+		}
+
+		return $this->paths[$slug] ?: null;
 	}
 }

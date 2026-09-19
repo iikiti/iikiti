@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import DataTable from '../components/DataTable.svelte';
+	import PageHeader from '../components/PageHeader.svelte';
+	import LoadingState from '../components/LoadingState.svelte';
+	import ErrorBoundary from '../components/ErrorBoundary.svelte';
 	import type { PagedResult, SiteResource } from '../types/index';
 
 	interface Props {
@@ -25,7 +28,7 @@
 		error = null;
 		try {
 			sites = await api.getSites();
-		} catch (e) {
+		} catch (e: any) {
 			error = e.message ?? 'Failed to load sites';
 		} finally {
 			loading = false;
@@ -35,22 +38,16 @@
 	onMount(load);
 </script>
 
-<div>
-	<div class="mb-4">
-		<h2 class="text-xl font-semibold text-gray-900 dark:text-white">Sites</h2>
-		<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-			Manage site configurations and domain mappings.
-		</p>
-	</div>
+<PageHeader title="Sites" description="Manage site configurations and domain mappings." />
 
-	{#if error}
-		<div class="mb-4 p-3 bg-red-100 text-red-800 rounded-lg">{error}</div>
-	{/if}
-
+{#if error}
+	<ErrorBoundary message={error} onRetry={load} />
+{:else if loading}
+	<LoadingState label="Loading sites…" />
+{:else}
 	<DataTable
 		data={sites ?? { members: [], totalItems: 0, itemsPerPage: 25, currentPage: 1 }}
 		{columns}
 		onRowClick={() => {}}
-		loading={loading}
 	/>
-</div>
+{/if}

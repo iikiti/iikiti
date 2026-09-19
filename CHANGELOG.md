@@ -89,6 +89,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   admin SPA to call stateless `/api` endpoints while authenticated via session.
 - 2026-09-19: Documentation: `docs/admin-ui.md`, `docs/roles-and-acls.md`,
   `docs/audit-logging.md`, `docs/admin-extensibility.md`.
+- 2026-09-19: Core admin component library with typed reusable Svelte 5 components
+  (`AdminLayout`, `DataTable`, `PageHeader`, `LoadingState`, `ErrorBoundary`, `EmptyState`,
+  `Button`, `Badge`, `Tabs`, `Breadcrumb`, `Pagination`, `SearchForm`, `Dialog`,
+  `DetailView`, `Card`, `Form`, `FormField`, `TextInput`, `TextareaInput`,
+  `SelectInput`, `CheckboxInput`, `ToggleInput`) with barrel exports under
+  `@iikiti/admin` import alias.
+- 2026-09-19: Dynamic screen registry — `AdminExtensionInterface::getAdminScreens()`
+  lets plugins declare admin screens; SPA fetches `/api/admin/screens` to build
+  its route table instead of using a hardcoded map.
+- 2026-09-19: Generic list/detail/form page components (`GenericListPage`,
+  `GenericDetailPage`, `GenericFormPage`) rendered from screen metadata (columns,
+  fields, API path) so plugins can add fully functional admin pages without
+  writing custom Svelte.
+- 2026-09-19: Plugin UI bundle support — plugins can ship compiled Svelte bundles
+  served via `PluginAssetController` at `/admin-plugins/{slug}/...` and loaded
+  on demand by the SPA via dynamic `import()`, using core components from
+  `@iikiti/admin`.
+- 2026-09-19: `AdminExtensionTrait` providing an empty default
+  `getAdminScreens()` implementation for plugins that only contribute menu items.
+
+### Changed
+- 2026-09-19: `AdminExtensionInterface` now requires `getAdminScreens()`; existing
+  implementations should use `AdminExtensionTrait` to avoid a breaking change.
+- 2026-09-19: `AdminLayout` accepts `currentPath` as a prop, fixing a duplicate-state
+  race condition between the layout and the root `App.svelte`.
+- 2026-09-19: `App.svelte` route resolution is now driven by the `/api/admin/screens`
+  manifest fetched at runtime; static route imports are fallback-resolved via a
+  `CORE_COMPONENTS` registry.
+- 2026-09-19: `AdminMenuRegistry::getScreens()` aggregates and sorts screen
+  descriptors from all registered extensions.
+- 2026-09-19: `PluginRegistry` now exposes `getPath(string $slug): ?string` to
+  resolve an active plugin's filesystem path for asset serving.
+- 2026-09-19: `webpack.config.mjs` adds `@iikiti/admin` alias pointing to the
+  component barrel export; `tsconfig.json` gains matching path mappings.
+
+### Deprecated
+- 2026-09-19: `AdminExtensionInterface::getResources()` — use `getAdminScreens()`
+  instead, which provides richer screen descriptors including component type, API
+  path, and column/field config.
 
 ### Changed
 - 2026-09-19: `ObjectRepository` constructor now accepts an optional `SearchService`

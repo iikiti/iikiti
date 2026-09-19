@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Tests\Admin;
 
+use iikiti\CMS\Admin\AdminMenuRegistry;
 use iikiti\CMS\Admin\CoreAdminExtension;
+use iikiti\CMS\ApiResource\AdminScreen;
 use PHPUnit\Framework\TestCase;
 
 final class AdminMenuRegistryTest extends TestCase
@@ -45,11 +47,11 @@ final class AdminMenuRegistryTest extends TestCase
 
 		$items = $extension->getMenuItems();
 
-		$dashboard = array_values(array_filter($items, fn ($i): bool => $i->path === '/dashboard'));
+		$dashboard = array_values(array_filter($items, fn ($i): bool => '/dashboard' === $i->path));
 		self::assertCount(1, $dashboard);
 		self::assertSame(0, $dashboard[0]->priority);
 
-		$users = array_values(array_filter($items, fn ($i): bool => $i->path === '/users'));
+		$users = array_values(array_filter($items, fn ($i): bool => '/users' === $i->path));
 		self::assertSame(100, $users[0]->priority);
 	}
 
@@ -60,10 +62,38 @@ final class AdminMenuRegistryTest extends TestCase
 		$items = $extension->getMenuItems();
 
 		foreach ($items as $item) {
-			if ($item->path === '/dashboard') {
+			if ('/dashboard' === $item->path) {
 				continue;
 			}
 			self::assertNotNull($item->icon, "Item {$item->label} should have an icon");
 		}
+	}
+
+	public function testRegistryCollectsScreens(): void
+	{
+		$extension = new CoreAdminExtension();
+		$registry = new AdminMenuRegistry([$extension]);
+
+		$screens = $registry->getScreens();
+
+		self::assertNotEmpty($screens);
+		$paths = array_map(fn (AdminScreen $s): string => $s->path, $screens);
+		self::assertContains('/dashboard', $paths);
+		self::assertContains('/users', $paths);
+		self::assertContains('/plugins', $paths);
+		self::assertContains('/audit-log', $paths);
+	}
+
+	public function testScreensAreSortedByPath(): void
+	{
+		$extension = new CoreAdminExtension();
+		$registry = new AdminMenuRegistry([$extension]);
+
+		$screens = $registry->getScreens();
+
+		$paths = array_map(fn (AdminScreen $s): string => $s->path, $screens);
+		$sorted = $paths;
+		sort($sorted);
+		self::assertSame($sorted, $paths);
 	}
 }

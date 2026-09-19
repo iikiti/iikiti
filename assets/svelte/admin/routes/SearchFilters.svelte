@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import DataTable from '../components/DataTable.svelte';
-	import PageHeader from '../components/PageHeader.svelte';
 	import LoadingState from '../components/LoadingState.svelte';
 	import ErrorBoundary from '../components/ErrorBoundary.svelte';
-	import type { PagedResult, SiteGroupResource } from '../types/index';
+	import PageHeader from '../components/PageHeader.svelte';
+	import type { PagedResult } from '../types/index';
 
 	interface Props {
 		api: any;
@@ -13,28 +13,26 @@
 
 	let { api, debug = false }: Props = $props();
 
-	let groups: PagedResult<SiteGroupResource> | null = $state(null);
+	let filters: PagedResult<any> | null = $state(null);
 	let loading = $state(true);
 	let error: string | null = $state(null);
 
 	const columns = [
 		{ key: 'id', label: 'ID' },
 		{ key: 'name', label: 'Name' },
-		{ key: 'label', label: 'Label' },
-		{
-			key: 'siteIds',
-			label: 'Sites',
-			render: (val: any) => Array.isArray(val) ? val.join(', ') : '',
-		},
+		{ key: 'visibility', label: 'Visibility' },
 	];
 
 	async function load() {
 		loading = true;
 		error = null;
 		try {
-			groups = await api.getSiteGroups();
+			filters = await api.request('/admin/search/filters');
+			if (filters && !filters.members) {
+				filters = api.parsePaged(filters);
+			}
 		} catch (e: any) {
-			error = e.message ?? 'Failed to load site groups';
+			error = e.message ?? 'Failed to load search filters';
 		} finally {
 			loading = false;
 		}
@@ -43,15 +41,15 @@
 	onMount(load);
 </script>
 
-<PageHeader title="Site Groups" description="Manage groups of sites for collective configuration." />
+<PageHeader title="Search Filters" description="Manage custom search filters." />
 
 {#if error}
 	<ErrorBoundary message={error} onRetry={load} />
 {:else if loading}
-	<LoadingState label="Loading site groups…" />
-{:else}
+	<LoadingState label="Loading search filters…" />
+{:else if filters}
 	<DataTable
-		data={groups ?? { members: [], totalItems: 0, itemsPerPage: 25, currentPage: 1 }}
+		data={filters ?? { members: [], totalItems: 0, itemsPerPage: 25, currentPage: 1 }}
 		{columns}
 		onRowClick={() => {}}
 	/>
