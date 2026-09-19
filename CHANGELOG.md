@@ -10,9 +10,60 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-> Last updated: 2026-09-13
+> Last updated: 2026-09-19
+
+### Added
+- 2026-09-19: Full-text search feature with PostgreSQL `tsvector` + GIN index engine
+  as the default, abstracted behind `SearchEngineInterface` + `SearchEngineRegistry`
+  for future Elasticsearch support (`src/Search/Strategy/`).
+- 2026-09-19: Search index configuration entities (`SearchIndex`, `SearchIndexField`,
+  `SearchAnalyzerLayer`, `SearchFilter`, `SearchConfigGroup`, `SiteGroup`) with
+  Doctrine ORM mappings, repositories, and migrations (schema-qualified).
+- 2026-09-19: Default frontend and admin search index configurations seeded via
+  migration: frontend (deletable), admin (system-locked, non-deletable, fields
+  editable), plus a default analyzer with lowercase/stop/stemmer layers.
+- 2026-09-19: Lucene/ElasticSearch-inspired analyzer layers (tokenizer, charfilter,
+  tokenfilter, ngram, edgengram, lowercase, uppercase, stop, stemmer, synonym,
+  normalizer) with type enum and JSON options column.
+- 2026-09-19: Index field source types: `column` (objects table), `property`
+  (ObjectProperty store), `virtual` (custom SQL), and `alias` (field mapping).
+- 2026-09-19: Custom search filters with visibility controls (public frontend,
+  admin-only, role-restricted) and mode (query-time/index-time). Filter
+  implementations via `SearchFilterInterface` + `iikiti.search_filter` DI tag.
+- 2026-09-19: Site grouping: `SiteGroup` and `SearchConfigGroup` entities allow
+  assigning search configurations to sites or site groups as a unit.
+- 2026-09-19: Admin UI API Platform resources: CRUD on search indexes, fields,
+  layers, filters, config groups, and site groups. System-locked protection
+  enforced on delete and engine changes. Index operations (create/drop/rebuild)
+  exposed as custom operations.
+- 2026-09-19: CLI commands: `iikiti:search:config:init`, `iikiti:search:config:list`,
+  `iikiti:search:index:create`, `iikiti:search:index:drop`, `iikiti:search:index:rebuild`,
+  `iikiti:search:rebuild-all`, `iikiti:search:engines`.
+- 2026-09-19: `SearchIndexListener` Doctrine lifecycle listener (onFlush/postFlush)
+  keeps search index tables in sync when `DbObject` entities are persisted, updated
+  or removed. Failures are logged, never thrown.
+- 2026-09-19: `SearchService` orchestrates search: resolves site-scoped configs,
+  applies filters by visibility/role, dispatches lifecycle events for plugin hooks.
+- 2026-09-19: `IndexManager` manages index lifecycle (create/drop/rebuild/sync).
+- 2026-09-19: PostgreSQL function catalog extended: `TO_TSVECTOR`, `TS_RANK`,
+  `TS_RANK_CD`, `TS_HEADLINE`, `SETWEIGHT` added to the platform strategy.
+- 2026-09-19: `SearchExpressionBuilder` for building tsvector expressions, ranking,
+  and highlighting via the query builder API.
+- 2026-09-19: Search events: `iikiti.search.search`, `iikiti.search.autocomplete`,
+  `iikiti.search.filter_resolve`, `iikiti.search.filter_apply`,
+  `iikiti.search.index_created`, `iikiti.search.index_dropped`,
+  `iikiti.search.index_rebuilt`.
+- 2026-09-19: `SearchableRepositoryInterface::search()` updated with `$options`
+  parameter and `SearchResult` return type; `ObjectRepository::search()` delegates
+  to `SearchService`.
+- 2026-09-19: Documentation: `docs/full-text-search.md` (developer guide) and
+  `docs/search-admin.md` (admin guide).
 
 ### Changed
+- 2026-09-19: `ObjectRepository` constructor now accepts an optional `SearchService`
+  dependency; all 6 concrete repositories updated to pass it through.
+- 2026-09-19: `FullTextSearch` service stub deprecated; replaced by
+  `SearchIndexListener` in `src/Search/Listener/`.
 - 2026-09-13: Replaced `!tagged_iterator` YAML tags in `config/services.yaml` with
   PHP `#[AutowireIterator]` attributes on constructors, eliminating IDE/YAML linter
   "Unresolved tag" errors. Converted remaining `bind`/`arguments` entries to

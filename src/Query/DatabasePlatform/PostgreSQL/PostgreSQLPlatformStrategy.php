@@ -88,6 +88,11 @@ class PostgreSQLPlatformStrategy extends AbstractPlatformStrategy
 			'plaintoTsquery' => 'PLAINTO_TSQUERY',
 			'toTsquery' => 'TO_TSQUERY',
 			'websearchToTsquery' => 'WEBSEARCH_TO_TSQUERY',
+			'to_tsvector' => 'TO_TSVECTOR',
+			'ts_rank' => 'TS_RANK',
+			'ts_rank_cd' => 'TS_RANK_CD',
+			'ts_headline' => 'TS_HEADLINE',
+			'setweight' => 'SETWEIGHT',
 		];
 	}
 

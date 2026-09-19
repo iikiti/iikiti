@@ -15,6 +15,7 @@ use iikiti\CMS\Interfaces\SearchableRepositoryInterface;
 use iikiti\CMS\ORM\QueryBuilder as OrmQueryBuilder;
 use iikiti\CMS\Query\Identifier\Column;
 use iikiti\CMS\Registry\SiteRegistry;
+use iikiti\CMS\Search\Service\SearchResult;
 use iikiti\CMS\Service\DatabaseCacheManager;
 use iikiti\CMS\Trait\RepositoryOptionCheckTrait;
 
@@ -35,12 +36,13 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 		ManagerRegistry $registry,
 		private SiteRegistry $siteRegistry,
 		private DatabaseCacheManager $cacheManager,
-		string $entityClass = DbObject::class
+		string $entityClass = DbObject::class,
 	) {
 		parent::__construct($registry, $entityClass);
 	}
 
-	public function getCreator(DbObject $object): ?User {
+	public function getCreator(DbObject $object): ?User
+	{
 		return $this->getEntityManager()->getRepository(User::class)->find($object->getCreatorId());
 	}
 
@@ -67,8 +69,8 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 	}
 
 	/**
-	 * @param string|int $id
-	 * @param LockMode|int|null $lockMode
+	 * @param string|int          $id
+	 * @param LockMode|int|null   $lockMode
 	 * @param array<string,mixed> $options
 	 *
 	 * @return T|null
@@ -81,7 +83,7 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 			$options
 		);
 		if (null !== $entity && null !== $lockMode) {
-			if ($lockMode !== LockMode::NONE && $lockMode !== 0) {
+			if (LockMode::NONE !== $lockMode && 0 !== $lockMode) {
 				$this->getEntityManager()->lock($entity, $lockMode, $lockVersion);
 			}
 		}
@@ -90,8 +92,9 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 	}
 
 	/**
-	 * @return array<T>
 	 * @param array<string,mixed> $options
+	 *
+	 * @return array<T>
 	 */
 	public function findAll(array $options = []): array
 	{
@@ -108,7 +111,7 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 		?array $orderBy = null,
 		$limit = null,
 		$offset = null,
-		array $options = []
+		array $options = [],
 	): array {
 		$qb = $this->createQueryBuilder('o', null, $options);
 		$this->_applyCriteriaToQueryBuilder($qb, $criteria);
@@ -145,7 +148,7 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 	public function findOneBy(
 		array $criteria,
 		?array $orderBy = null,
-		array $options = []
+		array $options = [],
 	): ?object {
 		$qb = $this->createQueryBuilder('o', null, $options);
 		$this->_applyCriteriaToQueryBuilder($qb, $criteria);
@@ -173,7 +176,7 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 	 * @return array<string,int|string|null>|QueryBuilder
 	 */
 	protected function __filterBySite(
-		array|QueryBuilder $criteriaOrBuilder = []
+		array|QueryBuilder $criteriaOrBuilder = [],
 	): array|QueryBuilder {
 		$siteId = $this->getClassMetadata()->getReflectionClass()->getConstant('SITE_SPECIFIC') ?
 			($this->siteRegistry::getCurrent()->getId()) :
@@ -187,16 +190,16 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 	}
 
 	/**
-	 * @param string|array<string> $name
+	 * @param string|array<string>                    $name
 	 * @param string|int|float|array<array-key,mixed> $value
-	 * @param array<string,mixed> $options
+	 * @param array<string,mixed>                     $options
 	 *
 	 * @return array<T>
 	 */
 	public function findByProperty(
 		string|array $name,
 		string|int|float|array $value,
-		array $options = []
+		array $options = [],
 	): array {
 		$context = [
 			'operation' => 'findByProperty',
@@ -208,17 +211,17 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 		return $this->_executeAndCache($this->__findByProperty($name, $value, $options), $context);
 	}
 
-		/**
-	 * @param string|array<string> $name
+	/**
+	 * @param string|array<string>                    $name
 	 * @param string|int|float|array<array-key,mixed> $value
-	 * @param array<string,mixed> $options
+	 * @param array<string,mixed>                     $options
 	 *
 	 * @return T|null
 	 */
 	public function findOneByProperty(
 		string|array $name,
 		string|int|float|array $value,
-		array $options = []
+		array $options = [],
 	): ?object {
 		$context = [
 			'operation' => 'findOneByProperty',
@@ -231,14 +234,14 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 	}
 
 	/**
-	 * @param string|array<string> $name
+	 * @param string|array<string>                    $name
 	 * @param string|int|float|array<array-key,mixed> $value
-	 * @param array<string,mixed> $options
+	 * @param array<string,mixed>                     $options
 	 */
 	private function __findByProperty(
 		string|array $name,
 		string|int|float|array $value,
-		array $options = []
+		array $options = [],
 	): QueryBuilder {
 		$indexBy = $this->_checkOption(
 			'indexBy',
@@ -263,7 +266,7 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 						'p',
 						Join::WITH,
 						'p.name = :name AND '.
- 							'JSONB_CONTAINS(p.value, :value) = true'
+							'JSONB_CONTAINS(p.value, :value) = true'
 					)->
 					setParameter(':name', $n)->
 					setParameter(':value', json_encode($nextValue));
@@ -385,13 +388,22 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 		}
 	}
 
-	public function search(string $query): mixed
+	public function search(string $query, array $options = []): SearchResult
 	{
-		return [];
+		return new SearchResult();
 	}
 
-	public function getDiscriminatorKey(?string $classname = null): ?string {
-		if ($classname !== null) {
+	/**
+	 * Determine the search index slug based on the object type and context.
+	 */
+	protected function determineSearchIndexSlug(): string
+	{
+		return 'frontend';
+	}
+
+	public function getDiscriminatorKey(?string $classname = null): ?string
+	{
+		if (null !== $classname) {
 			/** @var class-string<object> $classname */
 			$cmd = $this->getEntityManager()->getClassMetadata($classname);
 		} else {
@@ -408,14 +420,13 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 			$rcmd = $cmd;
 		}
 
-		return array_find_key($rcmd->discriminatorMap, fn($name) => $name == $cmd->getName());
+		return array_find_key($rcmd->discriminatorMap, fn ($name) => $name == $cmd->getName());
 	}
 
 	/**
-	 * @param string $name
 	 * @param array<int|string> $arguments
 	 *
-	 * @return T|null|array<T>
+	 * @return T|array<T>|null
 	 */
 	public function __call(string $name, array $arguments): mixed
 	{

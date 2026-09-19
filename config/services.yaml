@@ -37,6 +37,19 @@ services:
         tags:
             - { name: iikiti.query.database_platform }
 
+    # PostgreSQLSearchEngine implements SearchEngineInterface which carries
+    # #[AutoconfigureTag('iikiti.search_engine')]. The tag is re-declared here
+    # explicitly so the default PostgreSQL engine is always registered, even if
+    # auto-registration settings change.
+    iikiti\CMS\Search\Strategy\PostgreSQL\PostgreSQLSearchEngine:
+        tags:
+            - { name: iikiti.search_engine }
+
+    # SearchEngineInterface aliased to the default PostgreSQL implementation
+    # for direct DI injection where a specific engine is not required.
+    iikiti\CMS\Search\Strategy\SearchEngineInterface:
+        alias: iikiti\CMS\Search\Strategy\PostgreSQL\PostgreSQLSearchEngine
+
     # Collection extension must run after pagination (priority -64) so the
     # paginator takes precedence for paginated collections.
     iikiti\CMS\Cache\ApiPlatform\ApiPlatformCacheCollectionExtension:

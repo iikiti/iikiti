@@ -1,0 +1,6 @@
+parameters:
+    iikiti_search.default_engine: '%env(string:FTS_DEFAULT_ENGINE)%'
+    iikiti_search.enabled: '%env(bool:FTS_ENABLED)%'
+    iikiti_search.index_prefix: '%env(string:FTS_INDEX_PREFIX)%'
+    iikiti_search.auto_index: '%env(bool:FTS_AUTO_INDEX)%'
+    iikiti_search.default_language: '%env(string:FTS_DEFAULT_LANGUAGE)%'

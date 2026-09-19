@@ -28,7 +28,7 @@ class FullTextSearch
 	{
 		$entity = $args->getObject();
 
-		if (!($entity instanceof DbObject)) {
+		if (!$entity instanceof DbObject) {
 			return;
 		}
 
