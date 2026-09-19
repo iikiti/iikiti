@@ -48,4 +48,5 @@ package-lock.json
 bun.lock
 
 /.kilo/plans/
+/.kilo/worktrees/
 .tmp.*
