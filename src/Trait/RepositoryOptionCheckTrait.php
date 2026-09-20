@@ -31,7 +31,7 @@ trait RepositoryOptionCheckTrait
 		array $options,
 		?\Closure $typeCheck
 	): mixed {
-		$default = self::_defaultOption($key);
+		$default = static::_defaultOption($key);
 		$value = $options[$key] ?? null;
 		if (null !== $typeCheck && !$typeCheck($value)) {
 			throw new \InvalidArgumentException('Type is incorrect for key: '.$key);

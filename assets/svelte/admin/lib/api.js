@@ -57,19 +57,40 @@ export class ApiClient {
 		};
 	}
 
+	/**
+	 * Extracts items from an API Platform response, handling both Hydra
+	 * collection wrapping (hydra:member) and direct items-array responses.
+	 *
+	 * @returns {any[]}
+	 */
+	extractItems(data) {
+		if (data && typeof data === 'object' && data['hydra:member']) {
+			const member = data['hydra:member'][0];
+			// Wrapped resource: { items: [...] } inside the Hydra member,
+			// or the member array itself if items are returned directly.
+			return member?.items ?? data['hydra:member'];
+		}
+
+		if (data && typeof data === 'object' && Array.isArray(data.items)) {
+			return data.items;
+		}
+
+		return Array.isArray(data) ? data : [];
+	}
+
 	async getMenu() {
 		const data = await this.request('/admin/menu');
-		return data.items ?? data;
+		return this.extractItems(data);
 	}
 
 	async getScreens() {
 		const data = await this.request('/admin/screens');
-		return data.items ?? data;
+		return this.extractItems(data);
 	}
 
 	async getResources() {
 		const data = await this.request('/admin/resources');
-		return data.items ?? data.items ?? data;
+		return this.extractItems(data);
 	}
 
 	async getUsers(params) {

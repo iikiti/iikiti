@@ -22,7 +22,6 @@ use iikiti\CMS\State\Provider\AdminMenuProvider;
 			security: 'is_granted("ROLE_ADMIN")',
 		),
 	],
-	normalizationContext: ['groups' => ['menu:read']],
 )]
 class AdminMenuResource
 {

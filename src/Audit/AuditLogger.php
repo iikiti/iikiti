@@ -37,6 +37,9 @@ class AuditLogger
 	 * @param array<string,mixed>|null $afterState   Snapshot after the action
 	 * @param string             $actorType    'user' or 'system'
 	 * @param array<string,mixed> $extraContext  Additional context data
+	 * @param bool               $flush        Whether to flush immediately (pass
+	 *                                         false when called from an onFlush event
+	 *                                         handler to avoid recursive dispatch)
 	 */
 	public function log(
 		string $action,
@@ -46,6 +49,7 @@ class AuditLogger
 		?array $afterState = null,
 		string $actorType = 'user',
 		array $extraContext = [],
+		bool $flush = true,
 	): void {
 		$user = $this->resolveUser();
 
@@ -85,7 +89,10 @@ class AuditLogger
 		}
 
 		$this->entityManager->persist($entry);
-		$this->entityManager->flush();
+
+		if ($flush) {
+			$this->entityManager->flush();
+		}
 	}
 
 	/**
@@ -98,8 +105,9 @@ class AuditLogger
 		int|string|null $objectId = null,
 		?array $afterState = null,
 		array $extraContext = [],
+		bool $flush = true,
 	): void {
-		$this->log($action, $objectType, $objectId, null, $afterState, 'system', $extraContext);
+		$this->log($action, $objectType, $objectId, null, $afterState, 'system', $extraContext, $flush);
 	}
 
 	private function resolveUser(): ?User

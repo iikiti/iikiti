@@ -15,6 +15,9 @@ use iikiti\CMS\Repository\Object\ApiTokenRepository;
 #[ORM\Table(name: 'api_tokens')]
 class ApiToken
 {
+	/** @var bool SITE_SPECIFIC */
+	public const SITE_SPECIFIC = false;
+
 	#[ORM\Id()]
 	#[ORM\GeneratedValue(strategy: 'IDENTITY')]
 	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]

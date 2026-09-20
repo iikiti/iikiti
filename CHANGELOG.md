@@ -249,6 +249,48 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `PluginConfigurationTrait`).
 
 ### Fixed
+- 2026-09-20: `ApiTokenRepository` no longer applies the default `site` filter
+  on queries, fixing a DQL parse error (`has no field or association named site`)
+  when accessing `/admin`. `ApiToken` does not extend `DbObject` and has no
+  `site` association, so `filterBySite` now defaults to `false` for its repository.
+  Also changed `RepositoryOptionCheckTrait::_checkOption` to use `static::`
+  (late static binding) instead of `self::` so repository subclasses can override
+  `_defaultOption`.
+- 2026-09-20: `migration Version20260920074000` creates the `api_tokens` table
+  for the `ApiToken` entity (token, expires_at, user_id) with FK to `objects(id)`.
+  Also adds the missing primary key on the `objects` table that `DbObject`
+  declares via `@Id`.
+- 2026-09-20: `migration Version20260920075000` creates the `audit_log_entries`
+  table for the `AuditLogEntry` entity (with indexes on object_type/object_id,
+  user_id, created_at, and FK to `objects.id`).
+- 2026-09-20: Fixed `migration Version20260919140000` — added schema qualification
+  (missing when the migration was previously broken) and corrected PostgreSQL
+  boolean binding (`'true'`/`'false'` strings instead of PHP booleans that
+  arrived as empty strings).
+- 2026-09-20: `AuditSubscriber::onFlush()` now calls `$unitOfWork->computeChangeSets()`
+  after persisting audit entries, ensuring changesets for newly-persisted
+  `AuditLogEntry` entities are computed before the outer `flush()` executes INSERTs.
+  Without this, Doctrine's `prepareInsertData()` produced empty parameter arrays
+  ("bind message supplies 0 parameters").
+- 2026-09-20: `AuditLogger::log()` no longer calls `flush()` when invoked from
+  `AuditSubscriber::onFlush()`, fixing an infinite recursion (onFlush → log →
+  flush → onFlush) triggered by the first `ApiToken` insert on `/admin`.
+  Added a `$flush` parameter (default `true`) to `log()` and `logSystemAction()`;
+  the subscriber passes `false` so the outer flush persists audit entries
+  alongside the original entities.
+- 2026-09-20: Removed `normalizationContext` groups from `AdminMenuResource` and
+  `AdminScreenResource` so their `items` property is included in API responses.
+  The groups (`menu:read`, `screens:read`) had no matching `#[Groups]` annotations
+  on the properties, causing the entire payload to be serialized as `{}`.
+- 2026-09-20: Frontend `ApiClient.extractItems()` now handles API Platform's Hydra
+  collection wrapping (`hydra:member`) for `getMenu()`, `getScreens()`, and
+  `getResources()`, fixing "items is not iterable" and "find is not a function"
+  runtime errors in the admin SPA.
+- 2026-09-20: Admin SPA now renders a fixed full-screen loading overlay ("Loading
+  administration…") until menu and screen data is fetched, replacing the previous
+  behaviour where the server-rendered spinner persisted alongside the mounted app.
+  `admin.js` also clears the target element before `mount()` since Svelte 5
+  appends rather than replaces.
 - `StepSubscriber` step-provider wiring was misconfigured (passed a literal array
   instead of a tagged iterator), so no workflow ever received steps; rewired in
   `config/services.yaml`.

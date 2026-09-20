@@ -26,7 +26,6 @@ use iikiti\CMS\State\Provider\AdminScreenProvider;
 			security: 'is_granted("ROLE_ADMIN")',
 		),
 	],
-	normalizationContext: ['groups' => ['screens:read']],
 )]
 class AdminScreenResource
 {

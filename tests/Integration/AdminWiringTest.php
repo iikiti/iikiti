@@ -124,4 +124,24 @@ final class AdminWiringTest extends KernelTestCase
 
 		self::assertInstanceOf(PluginAssetController::class, $container->get(PluginAssetController::class));
 	}
+
+	public function testApiTokenRepositoryDefaultsFilterBySiteToFalse(): void
+	{
+		// Reflection is used (rather than constructing the repository through
+		// the container) to avoid triggering SiteRegistry static-state
+		// initialisation, which would interfere with RepositoryCacheTest's
+		// reliance on SiteRegistry being uninitialised when its setUp runs.
+		$method = new \ReflectionMethod(\iikiti\CMS\Repository\Object\ApiTokenRepository::class, '_defaultOption');
+		$result = $method->invoke(null, 'filterBySite');
+
+		self::assertFalse($result);
+	}
+
+	public function testObjectRepositoryDefaultsFilterBySiteToTrue(): void
+	{
+		$method = new \ReflectionMethod(\iikiti\CMS\Repository\ObjectRepository::class, '_defaultOption');
+		$result = $method->invoke(null, 'filterBySite');
+
+		self::assertTrue($result);
+	}
 }

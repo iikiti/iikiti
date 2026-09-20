@@ -36,6 +36,7 @@
 	let menu: MenuItem[] = $state<MenuItem[]>([]);
 	let screens: AdminScreen[] = $state<AdminScreen[]>([]);
 	let componentCache: Record<string, any> = $state<Record<string, any>>({});
+	let loading = $state(true);
 
 	/**
 	 * Core components that are statically bundled with the SPA.
@@ -132,6 +133,8 @@
 			screens = [];
 		}
 
+		loading = false;
+
 		if (typeof window !== 'undefined') {
 			const handler = () => {
 				currentPath = window.location.hash.slice(1) || '/';
@@ -153,12 +156,21 @@
 	});
 </script>
 
-<AdminLayout {menu} {api} {debug} {currentPath} onNavigate={navigateTo}>
-	{#if CurrentComponent === NotFoundRoute}
-		<CurrentComponent currentPath={currentPath} />
-	{:else if CurrentComponent === GenericListPage || CurrentComponent === GenericDetailPage || CurrentComponent === GenericFormPage}
-		<CurrentComponent {api} {debug} screen={currentScreen} />
-	{:else}
-		<CurrentComponent {api} {debug} />
-	{/if}
-</AdminLayout>
+{#if loading}
+	<div class="fixed inset-0 bg-gray-50 dark:bg-gray-900 flex items-center justify-center z-50">
+		<div class="text-center">
+			<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+			<p class="text-gray-600 dark:text-gray-400">Loading administration…</p>
+		</div>
+	</div>
+{:else}
+	<AdminLayout {menu} {api} {debug} {currentPath} onNavigate={navigateTo}>
+		{#if CurrentComponent === NotFoundRoute}
+			<CurrentComponent currentPath={currentPath} />
+		{:else if CurrentComponent === GenericListPage || CurrentComponent === GenericDetailPage || CurrentComponent === GenericFormPage}
+			<CurrentComponent {api} {debug} screen={currentScreen} />
+		{:else}
+			<CurrentComponent {api} {debug} />
+		{/if}
+	</AdminLayout>
+{/if}

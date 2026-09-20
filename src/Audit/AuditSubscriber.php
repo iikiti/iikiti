@@ -12,11 +12,15 @@ use iikiti\CMS\Entity\DbObject;
 /**
  * Automatically logs entity lifecycle changes to the audit log.
  *
- * Hooks into Doctrine's {@see Events::OnFlush} event to capture inserts,
+ * Hooks into Doctrine's {@see Events::onFlush} event to capture inserts,
  * updates, and deletes with their before/after state. The {@see AuditLogger}
  * service records each change.
  *
  * Audit log entries themselves are excluded from logging to prevent recursion.
+ * Because these log entries are persisted during onFlush (before SQL is
+ * executed), they must not call flush() again — doing so would re-trigger
+ * onFlush and create an infinite loop. Passing $flush=false lets the outer
+ * flush() persist both the original entities and the audit entries.
  */
 #[AsDoctrineListener(event: Events::onFlush, priority: 500)]
 class AuditSubscriber
@@ -34,6 +38,11 @@ class AuditSubscriber
 		$this->logInsertions($unitOfWork);
 		$this->logUpdates($unitOfWork);
 		$this->logDeletions($unitOfWork);
+
+		// Entities persisted above (audit log entries) were not part of the
+		// changesets computed before onFlush was dispatched. Recompute so the
+		// outer flush() can insert them with proper column data.
+		$unitOfWork->computeChangeSets();
 	}
 
 	/**
@@ -54,6 +63,7 @@ class AuditSubscriber
 				$this->extractState($entity),
 				'user',
 				['source' => 'doctrine_listener'],
+				false,
 			);
 		}
 	}
@@ -77,6 +87,7 @@ class AuditSubscriber
 				$afterState,
 				'user',
 				['source' => 'doctrine_listener', 'changes' => $this->flattenChangeSet($changeSet)],
+				false,
 			);
 		}
 	}
@@ -96,6 +107,7 @@ class AuditSubscriber
 				null,
 				'user',
 				['source' => 'doctrine_listener'],
+				false,
 			);
 		}
 	}
