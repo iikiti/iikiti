@@ -2,7 +2,7 @@
 
 namespace iikiti\CMS\Plugin;
 
-use Symfony\Component\HttpKernel\Bundle\BundleInterface;
+use Symfony\Component\DependencyInjection\Kernel\BundleInterface;
 
 /**
  * Contract every iikiti plugin bundle must satisfy.

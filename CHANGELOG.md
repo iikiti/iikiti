@@ -280,6 +280,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `PluginConfigurationTrait`).
 
 ### Fixed
+- 2026-09-23: `PluginBundleInterface` now extends
+  `Symfony\Component\DependencyInjection\Kernel\BundleInterface` instead of
+  the deprecated `Symfony\Component\HttpKernel\Bundle\BundleInterface`.
+- 2026-09-23: `SearchService` now type-hints
+  `Symfony\Contracts\EventDispatcher\EventDispatcherInterface` instead of the
+  deprecated `Symfony\Component\EventDispatcher\EventDispatcherInterface` alias.
 - 2026-09-20: `ApiTokenRepository` no longer applies the default `site` filter
   on queries, fixing a DQL parse error (`has no field or association named site`)
   when accessing `/admin`. `ApiToken` does not extend `DbObject` and has no

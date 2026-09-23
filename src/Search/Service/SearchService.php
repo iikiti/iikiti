@@ -13,7 +13,7 @@ use iikiti\CMS\Search\Repository\SearchIndexRepository;
 use iikiti\CMS\Search\Strategy\SearchEngineRegistry;
 use iikiti\CMS\Search\Strategy\SearchFilterRegistry;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Orchestrates search queries across the configured indexes.
