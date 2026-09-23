@@ -23,6 +23,19 @@ final class UserRoleEnum extends DynamicBackedEnumerator
 	{
 		return self::$defaultRoles;
 	}
+
+	/**
+	 * Enforces the role value naming convention: must start with ROLE_ and
+	 * contain only uppercase letters, digits, and underscores.
+	 *
+	 * @throws \InvalidArgumentException when the value does not match /^ROLE_[A-Z0-9_]+$/
+	 */
+	protected static function validateValue(string $name, int|string $value): void
+	{
+		if (!is_string($value) || !preg_match('/^ROLE_[A-Z0-9_]+$/', $value)) {
+			throw new \InvalidArgumentException(sprintf('Role value "%s" must start with "ROLE_" and contain only uppercase letters, digits, and underscores.', $value));
+		}
+	}
 }
 
 UserRoleEnum::register('Non-Member', 'ROLE_NON_MEMBER');

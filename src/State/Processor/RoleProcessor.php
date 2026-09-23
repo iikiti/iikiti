@@ -7,6 +7,7 @@ use ApiPlatform\State\ProcessorInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\ApiResource\RoleResource;
 use iikiti\CMS\Entity\Role;
+use iikiti\CMS\Plugin\PluginContainerRebuilder;
 use iikiti\CMS\Repository\RoleRepository;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
@@ -26,8 +27,9 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 readonly class RoleProcessor implements ProcessorInterface
 {
 	public function __construct(
-		private RoleRepository $roleRepository,
-		private EntityManagerInterface $entityManager,
+		private readonly RoleRepository $roleRepository,
+		private readonly EntityManagerInterface $entityManager,
+		private readonly PluginContainerRebuilder $containerRebuilder,
 	) {
 	}
 
@@ -74,6 +76,11 @@ readonly class RoleProcessor implements ProcessorInterface
 		// Check if any users have this role assigned
 		$this->entityManager->remove($role);
 		$this->entityManager->flush();
+
+		// A custom role was removed — schedule a container rebuild so the
+		// compiled role hierarchy no longer includes it. Rebuilds are flushed
+		// once at the end of the request to avoid multiple cache clears.
+		$this->containerRebuilder->schedule();
 
 		return null;
 	}

@@ -50,3 +50,6 @@ bun.lock
 /.kilo/plans/
 /.kilo/worktrees/
 .tmp.*
+/config/secrets/
+!/config/secrets/*list.php
+!/config/secrets/*public.php

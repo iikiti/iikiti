@@ -2,6 +2,7 @@
 
 namespace iikiti\CMS;
 
+use iikiti\CMS\DependencyInjection\Compiler\DynamicRoleHierarchyPass;
 use iikiti\CMS\Plugin\PluginInstallInfo;
 use iikiti\CMS\Plugin\PluginLoader;
 use iikiti\CMS\Plugin\PluginManifest;
@@ -72,6 +73,16 @@ class Kernel extends BaseKernel implements CompilerPassInterface
 		}
 		$container->setParameter('iikiti.plugins', $plugins);
 		$container->setParameter('iikiti.plugins.errors', $this->pluginErrors);
+	}
+
+	/**
+	 * Register compiler passes for container compilation.
+	 */
+	public function build(ContainerBuilder $container): void
+	{
+		parent::build($container);
+
+		$container->addCompilerPass(new DynamicRoleHierarchyPass());
 	}
 
 	/**

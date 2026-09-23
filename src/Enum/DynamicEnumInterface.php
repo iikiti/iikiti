@@ -11,6 +11,10 @@ interface DynamicEnumInterface
 
 	public static function register(string $name, int|string|null $value = null): EnumCase;
 
+	public static function has(string|int $value): bool;
+
+	public static function hasName(string $name): bool;
+
 	/**
 	 * @return array<int|string,EnumCase>
 	 */

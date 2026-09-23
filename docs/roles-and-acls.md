@@ -40,17 +40,90 @@ In `config/packages/security.yaml`:
 
 ```yaml
 role_hierarchy:
-    ROLE_SYSTEM: [ROLE_SUPER_ADMIN]
-    ROLE_SUPER_ADMIN: [ROLE_ADMIN]
-    ROLE_ADMIN: [ROLE_SITE_MANAGER]
-    ROLE_SITE_MANAGER: [ROLE_MANAGER]
-    ROLE_MANAGER: [ROLE_EDITOR]
-    ROLE_EDITOR: [ROLE_AUTHOR]
-    ROLE_AUTHOR: [ROLE_MEMBER]
-    ROLE_MEMBER: [ROLE_USER]
-    ROLE_USER: [ROLE_NON_MEMBER]
+    # Core role chain (explicit inheritance)
     ROLE_NON_MEMBER: []
+    ROLE_USER: [ROLE_NON_MEMBER]
+    ROLE_MEMBER: [ROLE_USER]
+    ROLE_AUTHOR: [ROLE_MEMBER]
+    ROLE_EDITOR: [ROLE_AUTHOR]
+    ROLE_MANAGER: [ROLE_EDITOR]
+    ROLE_SITE_MANAGER: [ROLE_MANAGER]
+    ROLE_ADMIN: [ROLE_SITE_MANAGER]
+    ROLE_SUPER_ADMIN: [ROLE_ADMIN]
+    ROLE_SYSTEM: [ROLE_SUPER_ADMIN]
+
+    # Wildcard patterns (Symfony 8.2 native) — pattern keys grant parent
+    # roles to any matching dynamic or database-defined role.
+    'ROLE_*': [ROLE_USER]
+    'ROLE_PLUGIN_*': [ROLE_ADMIN]
+    'ROLE_SITE_*': [ROLE_SITE_MANAGER]
+    'ROLE_CONTENT_*': [ROLE_EDITOR]
+    'ROLE_MOD_*': [ROLE_MODERATOR]
+    'ROLE_BLOG_*': [ROLE_BLOG_READER]
+    'ROLE_*_MODERATOR': [ROLE_MODERATOR]
+    'ROLE_MEMBER_*': [ROLE_MEMBER]
+    'ROLE_AUTHOR_*': [ROLE_AUTHOR]
+    'ROLE_EDITOR_*': [ROLE_EDITOR]
+    'ROLE_MANAGER_*': [ROLE_MANAGER]
+    'ROLE_USER_*': [ROLE_USER]
 ```
+
+### Wildcard Role Hierarchy
+
+Symfony 8.2 introduces native wildcard support in the role hierarchy. Wildcard
+patterns are used as **keys** (never as parent-role values). The `*` character
+is only treated as a wildcard when:
+
+- Wrapped by underscores: `ROLE_*_MODERATOR`
+- Placed after an underscore at the end: `ROLE_BLOG_*`
+
+Keys like `ROLE_BLOG*` (no underscore before `*`) are treated as literal role
+names, not wildcards.
+
+#### How wildcards work
+
+A pattern key grants its listed parent roles to **any** role that matches the
+pattern — including roles not explicitly listed in the configuration. For
+example, `ROLE_PLUGIN_*` grants `ROLE_ADMIN` to every role matching that
+pattern, so a user with `ROLE_PLUGIN_SEOPACK` automatically inherits all
+permissions from `ROLE_ADMIN` and below.
+
+Roles don't need to be listed in the hierarchy to match a wildcard. This means
+dynamically-registered plugin roles and database-defined `Role` entities are
+matched automatically at runtime.
+
+#### Compile-time hierarchy construction
+
+The hierarchy is built at container compile time by
+`DynamicRoleHierarchyPass`, which uses the `DynamicRoleHierarchy` class as the
+single source of truth. This class defines both the static core chain and the
+wildcard patterns as structured PHP constants (not just YAML), enabling:
+
+- Validation of the hierarchy structure
+- Programmatic introspection
+- Unit testing without a running container
+
+The compiler pass sets the `security.role_hierarchy.roles` parameter, which
+Symfony's native `RoleHierarchy` reads to resolve role inheritance.
+
+## Debugging the Role Hierarchy
+
+Symfony 8.2 provides the native `debug:roles` command for inspecting the role
+hierarchy, including wildcard expansion:
+
+```bash
+# Full hierarchy with all reachable roles
+php bin/console debug:roles
+
+# Detailed reachable roles for a specific role
+php bin/console debug:roles ROLE_MANAGER
+
+# Tree view showing why each role is granted (including wildcard matches)
+php bin/console debug:roles ROLE_MANAGER --tree
+```
+
+The Security panel of the Symfony profiler also displays the role hierarchy as
+a graph diagram.
 
 ## Permission Model
 
@@ -221,12 +294,41 @@ Create a user group with ACL permissions.
 
 ## Registering Custom Roles
 
+### Role Naming Convention
+
+All role values must follow the pattern `ROLE_[A-Z0-9_]+` — they must start with
+`ROLE_` and contain only uppercase letters, digits, and underscores. This
+convention is enforced at registration time in `UserRoleEnum::register()`.
+
+### Dynamic Role Registration
+
 Plugins can register new roles at boot time:
 
 ```php
 // In your plugin's boot/initialize method
 UserRoleEnum::register('Publisher', 'ROLE_PUBLISHER');
 ```
+
+### Scoped Dynamic Roles
+
+Roles that follow a scoped naming pattern (e.g. `ROLE_PLUGIN_*`, `ROLE_SITE_*`)
+automatically inherit permissions from their tier's parent role via the
+wildcard hierarchy:
+
+| Naming Pattern | Inherits From | Description |
+|----------------|---------------|-------------|
+| `ROLE_PLUGIN_*` | `ROLE_ADMIN` | Plugin-specific roles get full admin access |
+| `ROLE_SITE_*` | `ROLE_SITE_MANAGER` | Site-specific roles inherit site management permissions |
+| `ROLE_CONTENT_*` | `ROLE_EDITOR` | Content-scoped roles inherit editor permissions |
+| `ROLE_MOD_*` | `ROLE_MODERATOR` | Moderation roles |
+| `ROLE_BLOG_*` | `ROLE_BLOG_READER` | Blog-specific roles |
+| `ROLE_*_MODERATOR` | `ROLE_MODERATOR` | Suffix-pattern moderator roles |
+
+For example, registering `UserRoleEnum::register('SEO Pack', 'ROLE_PLUGIN_SEOPACK')`
+gives the `ROLE_PLUGIN_SEOPACK` role all permissions of `ROLE_ADMIN` (and all
+roles below it in the hierarchy) without explicitly listing them.
+
+### Creating Role Entities
 
 To make a role non-deletable with default permissions, create a Role entity
 record (typically via a migration):

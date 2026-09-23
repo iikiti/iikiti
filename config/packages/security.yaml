@@ -41,6 +41,7 @@ security:
             # https://symfony.com/doc/current/security/impersonating_user.html
             # switch_user: true
     role_hierarchy:
+        # Core role chain (explicit inheritance)
         ROLE_NON_MEMBER: []
         ROLE_USER: [ROLE_NON_MEMBER]
         ROLE_MEMBER: [ROLE_USER]
@@ -51,6 +52,21 @@ security:
         ROLE_ADMIN: [ROLE_SITE_MANAGER]
         ROLE_SUPER_ADMIN: [ROLE_ADMIN]
         ROLE_SYSTEM: [ROLE_SUPER_ADMIN]
+
+        # Wildcard patterns (Symfony 8.2 native) — pattern keys grant parent
+        # roles to any matching dynamic or database-defined role.
+        'ROLE_*': [ROLE_USER]
+        'ROLE_PLUGIN_*': [ROLE_ADMIN]
+        'ROLE_SITE_*': [ROLE_SITE_MANAGER]
+        'ROLE_CONTENT_*': [ROLE_EDITOR]
+        'ROLE_MOD_*': [ROLE_MODERATOR]
+        'ROLE_BLOG_*': [ROLE_BLOG_READER]
+        'ROLE_*_MODERATOR': [ROLE_MODERATOR]
+        'ROLE_MEMBER_*': [ROLE_MEMBER]
+        'ROLE_AUTHOR_*': [ROLE_AUTHOR]
+        'ROLE_EDITOR_*': [ROLE_EDITOR]
+        'ROLE_MANAGER_*': [ROLE_MANAGER]
+        'ROLE_USER_*': [ROLE_USER]
 
     # Easy way to control access for large sections of your site
     # Note: Only the *first* access control that matches will be used

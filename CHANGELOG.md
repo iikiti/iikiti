@@ -10,7 +10,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-> Last updated: 2026-09-19
+> Last updated: 2026-09-22
+
+### Added
+- 2026-09-22: Wildcard role hierarchy patterns (`ROLE_*`, `ROLE_PLUGIN_*`,
+  `ROLE_SITE_*`, `ROLE_CONTENT_*`, `ROLE_MOD_*`, `ROLE_BLOG_*`, `ROLE_*_MODERATOR`,
+  and tier-scoped variants) in `config/packages/security.yaml`, resolved by
+  Symfony 8.2's native `RoleHierarchy` at runtime.
+- 2026-09-22: `DynamicRoleHierarchy` structured config class
+  (`src/Security/DynamicRoleHierarchy.php`) encapsulating the static role chain
+  and wildcard pattern definitions as PHP constants with expansion and validation
+  methods.
+- 2026-09-22: `DynamicRoleHierarchyPass` compiler pass
+  (`src/DependencyInjection/Compiler/DynamicRoleHierarchyPass.php`) that merges
+  static + wildcard hierarchy with enum-registered roles into the
+  `security.role_hierarchy.roles` container parameter at compile time.
+- 2026-09-22: `has()` and `hasName()` query methods on
+  `DynamicEnumInterface` and `DynamicBackedEnumInterface` for checking role
+  registration by value or name.
+- 2026-09-22: `validateValue()` hook in `DynamicBackedEnumerator` with
+  `ROLE_[A-Z0-9_]+` naming enforcement in `UserRoleEnum`.
+
+### Changed
+- 2026-09-22: Symfony dependency baseline upgraded from 8.1 to 8.2
+  (`composer.json` and all `symfony/*` constraints).
+- 2026-09-22: `PermissionChecker` now injects `RoleHierarchyInterface` and
+  expands user roles via `getReachableRoleNames()` before permission resolution,
+  ensuring inherited and wildcard-matched roles are checked consistently.
+- 2026-09-22: `RoleProcessor::delete()` now schedules a container rebuild via
+  `PluginContainerRebuilder` after removing a custom `Role` entity, so the
+  compiled role hierarchy stays in sync with DB state.
+- 2026-09-22: Documentation for wildcard role hierarchy, `debug:roles` command,
+  and dynamic role naming conventions added to `docs/roles-and-acls.md`.
 
 ### Added
 - 2026-09-19: Full-text search feature with PostgreSQL `tsvector` + GIN index engine

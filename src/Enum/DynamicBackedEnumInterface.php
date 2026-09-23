@@ -14,4 +14,8 @@ interface DynamicBackedEnumInterface
 	public static function from(int|string $value): EnumCase;
 
 	public static function tryFrom(int|string $value): ?EnumCase;
+
+	public static function has(string|int $value): bool;
+
+	public static function hasName(string $name): bool;
 }
