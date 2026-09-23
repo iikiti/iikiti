@@ -43,10 +43,10 @@ final class TemplateRenderer
 		}
 
 		$vars = [
-			'iakitti_editor_mode' => $context->editorMode,
-			'iakitti_regions' => $regions,
-			'iakitti_settings' => $settings ?: $template->getSettings(),
-			'iakitti_site' => $context->site,
+			'iikiti_editor_mode' => $context->editorMode,
+			'iikiti_regions' => $regions,
+			'iikiti_settings' => $settings ?: $template->getSettings(),
+			'iikiti_site' => $context->site,
 		];
 
 		foreach ($regions as $region) {
@@ -94,7 +94,7 @@ final class TemplateRenderer
 				htmlspecialchars($message, ENT_QUOTES).'</main>';
 		}
 
-		return '<div class="iikiti-editor__no-main" data-iakitti-editor-error="no_main_region">'.
+		return '<div class="iikiti-editor__no-main" data-iikiti-editor-error="no_main_region">'.
 			htmlspecialchars($message, ENT_QUOTES).
 			'</div>';
 	}

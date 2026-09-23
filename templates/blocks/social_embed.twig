@@ -1,9 +1,9 @@
 {% set url = content.url ?? '' %}
 {% set ratio = content.aspectRatio ?? 'original' %}
-<div class="iakitti-social-embed" data-aspect-ratio="{{ ratio|e }}">
+<div class="iikiti-social-embed" data-aspect-ratio="{{ ratio|e }}">
     {% if not url %}
-        <span class="iakitti-social-embed--placeholder">Social URL missing.</span>
+        <span class="iikiti-social-embed--placeholder">Social URL missing.</span>
     {% else %}
-        {{ iakitti_embed(url)|raw }}
+        {{ iikiti_embed(url)|raw }}
     {% endif %}
 </div>

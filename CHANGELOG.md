@@ -280,6 +280,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `PluginConfigurationTrait`).
 
 ### Fixed
+- 2026-09-23: `TemplateResolverTest` now stubs `EntityManagerInterface` (returning
+  an `EntityRepository` stub) instead of passing an `ObjectRepository` directly,
+  fixing 4 `TypeError` errors when constructing `TemplateResolver`.
+- 2026-09-23: Removed deprecated `ReflectionProperty::setAccessible(true)` calls
+  in `DraftPublishWorkflowTest`, `TemplateRendererTest`, and
+  `TemplateResolverTest` (no-op since PHP 8.1, deprecated in PHP 8.5).
 - 2026-09-23: `PluginBundleInterface` now extends
   `Symfony\Component\DependencyInjection\Kernel\BundleInterface` instead of
   the deprecated `Symfony\Component\HttpKernel\Bundle\BundleInterface`.
@@ -430,3 +436,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 - 2026-09-23: `SelectInput` Svelte 5 incompatibility (dynamic `multiple` with
   `bind:value`) — now uses static-`multiple` branches.
+
+### Added
+- 2026-09-23: Front-end workflow engine: `WorkflowSchemaExtractor` (FormType →
+  JSON field schema), `/flow/{flow}/step` step-schema API, and a dynamic
+  `Workflow.svelte` component loaded by iikiti when a `data-flow` marker is
+  present (progressive enhancement of MFA / multi-step forms).

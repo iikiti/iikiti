@@ -11,7 +11,7 @@ use iikiti\CMS\Security\PermissionChecker;
 use Symfony\Bundle\SecurityBundle\Security;
 
 /**
- * Builds the front-end editor bootstrap config (`window.iakitti.config`) for the
+ * Builds the front-end editor bootstrap config (`window.iikiti.config`) for the
  * page being rendered. Returns `null` when the current user is not authorised to
  * edit, so the live page stays clean (no editor markup/JS for visitors).
  */

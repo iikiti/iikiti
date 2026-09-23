@@ -49,6 +49,7 @@ bun.lock
 
 /.kilo/plans/
 /.kilo/worktrees/
+/.kilo/rules/local.*
 .tmp.*
 /config/secrets/
 !/config/secrets/*list.php

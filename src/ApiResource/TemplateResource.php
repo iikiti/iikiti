@@ -11,6 +11,7 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Post;
 use ApiPlatform\Metadata\Put;
 use iikiti\CMS\Entity\Object\Template;
+use iikiti\CMS\State\Provider\TemplateStateProvider;
 
 /**
  * @experimental Front-end editor template management is API-first. Write
@@ -23,21 +24,27 @@ use iikiti\CMS\Entity\Object\Template;
 		new GetCollection(
 			uriTemplate: '/admin/templates',
 			name: 'admin_template_list',
+			provider: TemplateStateProvider::class,
+			security: 'is_granted("ROLE_ADMIN")',
 			normalizationContext: ['groups' => ['template:read']],
 		),
 		new Get(
 			uriTemplate: '/admin/templates/{id}',
 			name: 'admin_template_get',
+			provider: TemplateStateProvider::class,
+			security: 'is_granted("ROLE_ADMIN")',
 			normalizationContext: ['groups' => ['template:read']],
 		),
 		new Post(
 			uriTemplate: '/admin/templates',
 			name: 'admin_template_create',
+			security: 'is_granted("ROLE_ADMIN")',
 			normalizationContext: ['groups' => ['template:read']],
 		),
 		new Put(
 			uriTemplate: '/admin/templates/{id}',
 			name: 'admin_template_update',
+			security: 'is_granted("ROLE_ADMIN")',
 			normalizationContext: ['groups' => ['template:read']],
 		),
 	],

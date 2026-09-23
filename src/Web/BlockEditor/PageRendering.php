@@ -50,17 +50,16 @@ final class PageRendering
 
 		$template = $this->resolver->resolve($context) ?? $this->defaultTemplate();
 		$user = $this->security->getUser();
-		$draft = $request->query->has('edit') && $user instanceof User;
-
-		$config = $draft ?
-			$this->configProvider->build(
+		$authorized = $request->query->has('edit') && $user instanceof User;
+		$config = $authorized
+			? $this->configProvider->build(
 				contextId: (int) ($template->getId() ?? 0),
 				contextType: 'template',
 				user: $user,
-			) :
-			null;
+			)
+			: null;
 		$editorMode = null !== $config;
-		$regionTrees = ($editorMode ? $template->getBlocksDraft() : $template->getBlocks()) ?: [];
+		$regionTrees = ($editorMode && $template->getBlocksDraft() ? $template->getBlocksDraft() : ($template->getBlocks() ?: []));
 		$dynamicBlocks = $this->dynamicBlocksFor($object, $editorMode);
 
 		$renderContext = new BlockRenderContext(
@@ -75,9 +74,9 @@ final class PageRendering
 
 		return new Response($this->twig->render('base/layout.twig', [
 			'doc' => ['title' => $template->getTitle() ?? 'iikiti'],
-			'iakitti_page_body' => $pageHtml,
+			'iikiti_page_body' => $pageHtml,
 			'iikiti_editor_mode' => $editorMode,
-			'iakitti_config' => $config,
+			'iikiti_config' => $config,
 		]));
 	}
 

@@ -1,7 +1,10 @@
 {% extends 'base/layout.twig' %}
 
 {% block body %}
-	<main class="multi-step-form mx-auto mt-12 w-full max-w-md px-4">
+	<main class="multi-step-form mx-auto mt-12 w-full max-w-md px-4"
+		data-flow="multistep"
+		data-flow-action="{{ path('multi_step_form', {'workflow': workflow.name }) }}"
+		data-flow-csrf="{{ csrf_token('multistep') }}">
 		<h1 class="mb-2 text-2xl font-semibold">{{ step.name }}</h1>
 
 		{% if workflow.steps|length > 1 %}
@@ -10,15 +13,17 @@
 			</p>
 		{% endif %}
 
-		{{ form_start(form) }}
-			{{ form_errors(form) }}
-			{% for field in form %}
-				{{ form_row(field) }}
-			{% endfor %}
+		<div class="native-form">
+			{{ form_start(form) }}
+				{{ form_errors(form) }}
+				{% for field in form %}
+					{{ form_row(field) }}
+				{% endfor %}
 
-			<button type="submit" class="mt-4 rounded bg-blue-600 px-4 py-2 text-white">
-				Continue
-			</button>
-		{{ form_end(form) }}
+				<button type="submit" class="mt-4 rounded bg-blue-600 px-4 py-2 text-white">
+					Continue
+				</button>
+			{{ form_end(form) }}
+		</div>
 	</main>
 {% endblock %}

@@ -2,17 +2,17 @@
  * Default front-end layout (theme template) for the block editor.
 
  * Declares the page's editable regions. Each region is emitted through the
- * `iakitti_region()` Twig helper, which adds editor metadata (data-component /
+ * `iikiti_region()` Twig helper, which adds editor metadata (data-component /
  * data-region-*) in editor mode and stays clean HTML in public mode. The block
  * trees for each region are passed by {@see TemplateRenderer} as `region_<id>`.
  #}
 
-{{ iakitti_region('header', 'header', 'Header', ['heading', 'text', 'image', 'container'], region_header|default('')) }}
+{{ iikiti_region('header', 'header', 'Header', ['heading', 'text', 'image', 'container'], region_header|default('')) }}
 
-{{ iakitti_region('main', 'main', 'Main content', ['heading', 'text', 'image', 'video_embed', 'social_embed', 'query', 'container', 'dynamic'], region_main|default('')) }}
+{{ iikiti_region('main', 'main', 'Main content', ['heading', 'text', 'image', 'video_embed', 'social_embed', 'query', 'container', 'dynamic'], region_main|default('')) }}
 
-{{ iakitti_region('aside-left', 'sidebar', 'Left sidebar', ['heading', 'text', 'image', 'container'], region_aside_left|default('')) }}
+{{ iikiti_region('aside-left', 'sidebar', 'Left sidebar', ['heading', 'text', 'image', 'container'], region_aside_left|default('')) }}
 
-{{ iakitti_region('aside-right', 'sidebar', 'Right sidebar', ['heading', 'text', 'image', 'container'], region_aside_right|default('')) }}
+{{ iikiti_region('aside-right', 'sidebar', 'Right sidebar', ['heading', 'text', 'image', 'container'], region_aside_right|default('')) }}
 
-{{ iakitti_region('footer', 'footer', 'Footer', ['heading', 'text', 'container'], region_footer|default('')) }}
+{{ iikiti_region('footer', 'footer', 'Footer', ['heading', 'text', 'container'], region_footer|default('')) }}

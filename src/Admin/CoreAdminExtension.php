@@ -27,6 +27,7 @@ class CoreAdminExtension implements AdminExtensionInterface
 			AdminMenuItem::create('Roles & Permissions', '/roles', 'shield', 80),
 			AdminMenuItem::create('Applications', '/applications', 'server', 70),
 			AdminMenuItem::create('Sites', '/sites', 'globe', 60),
+			AdminMenuItem::create('Templates', '/admin/templates', 'layout-template', 35),
 			AdminMenuItem::create('Site Groups', '/site-groups', 'layers', 50),
 			AdminMenuItem::create('Plugins', '/plugins', 'puzzle', 40, [
 				AdminMenuItem::create('Installed', '/plugins'),
@@ -90,6 +91,13 @@ class CoreAdminExtension implements AdminExtensionInterface
 					['key' => 'id', 'label' => 'ID'],
 					['key' => 'domain', 'label' => 'Domain'],
 					['key' => 'name', 'label' => 'Name'],
+				],
+			]),
+			new AdminScreen(path: '/admin/templates', title: 'Templates', type: 'list', apiPath: '/api/admin/templates', config: [
+				'columns' => [
+					['key' => 'id', 'label' => 'ID'],
+					['key' => 'title', 'label' => 'Title'],
+					['key' => 'layout', 'label' => 'Layout'],
 				],
 			]),
 			new AdminScreen(path: '/site-groups', title: 'Site Groups', type: 'list', apiPath: '/admin/site-groups', config: [

@@ -19,10 +19,8 @@ final class DraftPublishWorkflowTest extends TestCase
 	{
 		$t = new Template();
 		$ref = (new \ReflectionClass(DbObject::class))->getProperty('properties');
-		$ref->setAccessible(true);
 		$ref->setValue($t, new ArrayCollection());
 		$idProp = (new \ReflectionClass(DbObject::class))->getProperty('id');
-		$idProp->setAccessible(true);
 		$idProp->setValue($t, $id);
 
 		return $t;

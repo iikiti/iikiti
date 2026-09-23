@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Web\Template;
 
-use Doctrine\Persistence\ObjectRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\Object\Template;
-use iikiti\CMS\Repository\Object\TemplateRepository;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 /**
@@ -18,12 +16,10 @@ use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 final class TemplateResolver
 {
 	/**
-	 * @param ObjectRepository<Template>      $repository
 	 * @param iterable<TemplateRuleInterface> $rules
 	 */
 	public function __construct(
-		#[Autowire(service: TemplateRepository::class)]
-		private readonly ObjectRepository $repository,
+		private readonly EntityManagerInterface $em,
 		#[AutowireIterator('iikiti.cms.template_rule')]
 		private readonly iterable $rules = [],
 	) {
@@ -34,21 +30,26 @@ final class TemplateResolver
 	 */
 	public function resolve(TemplateResolutionContext $context): ?Template
 	{
-		// Explicit per-object override takes precedence.
 		if (null !== $context->object) {
 			$templateId = $context->object->getProperties()->get('template_id')?->getValue();
 			if (null !== $templateId) {
-				$resolved = $this->repository->find((int) $templateId);
+				$resolved = $this->em->find(Template::class, (int) $templateId);
 				if ($resolved instanceof Template) {
 					return $resolved;
 				}
 			}
 		}
 
-		/** @var list<Template> $candidates */
-		$candidates = null !== $context->site ?
-			$this->repository->findBy(['site' => $context->site]) :
-			$this->repository->findAll();
+		// DQL (not the ObjectRepository query builder, whose type filter does not
+		// match the stored short discriminator).
+		if (null !== $context->site) {
+			/** @var list<Template> $candidates */
+			$candidates = $this->em->createQuery('SELECT t FROM ' . Template::class . ' t WHERE t.site = :site')
+				->setParameter('site', $context->site)
+				->getResult();
+		} else {
+			$candidates = $this->em->getRepository(Template::class)->findAll();
+		}
 
 		$best = null;
 		$bestPriority = -1;

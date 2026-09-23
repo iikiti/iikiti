@@ -40,7 +40,6 @@ final class TemplateRendererTest extends TestCase
 	{
 		$t = new Template();
 		$i = (new \ReflectionClass(DbObject::class))->getProperty('properties');
-		$i->setAccessible(true);
 		$i->setValue($t, new ArrayCollection());
 		$t->setLayout($layout);
 		$t->setRegions($regions);

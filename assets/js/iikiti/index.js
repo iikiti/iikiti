@@ -33,6 +33,7 @@ if (!window.iikiti) {
 }
 
 domReady().then(() => {
+	document.documentElement.classList.add('js');
 	startPlugins().catch(() => undefined);
 
 	if (config['canEdit'] === true) {
@@ -41,7 +42,20 @@ domReady().then(() => {
 			void launchEditor();
 		}
 	}
+
+	wireWorkflows();
 });
+
+async function wireWorkflows() {
+	const host = document.querySelector('[data-flow]');
+	if (!host) return;
+	try {
+		const mod = await import('../../svelte/editor/workflows/mount.js');
+		mod.launchWorkflow(host);
+	} catch (e) {
+		console.error('iikti workflow engine failed to load', e);
+	}
+}
 
 function wireEditIcons() {
 	const regions = document.querySelectorAll('[data-component="BlockEditorComponent"][data-region-id]');

@@ -14,7 +14,7 @@
     {% endblock %}
 </head>
 <body class="text-black bg-white dark:text-white dark:bg-gray-900 {% if iikiti_editor_mode %}iikiti-editor-body{% endif %}">
-    {% block body_before %}{% endblock %}
+	{% block body_before %}{% endblock %}
     {% block body %}{{ iikiti_page_body|default('')|raw }}{% endblock %}
     {% if iikiti_editor_mode and iikiti_config %}
         <script id="iikiti-config" type="application/json">{{ iikiti_config|json_encode|raw }}</script>

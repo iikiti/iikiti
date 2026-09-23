@@ -14,9 +14,9 @@ use Twig\TwigFunction;
 
 /**
  * Twig helpers for rendering blocks in theme/layout templates:
- * - `iakitti_embed(url, options)`        -> resolved embed HTML (cached, allowlisted)
- * - `iakitti_query(definition)`          -> list of result rows for a query block
- * - `iakitti_region(id, role, name, allowed, html)` -> region wrapper markup
+ * - `iikiti_embed(url, options)`        -> resolved embed HTML (cached, allowlisted)
+ * - `iikiti_query(definition)`          -> list of result rows for a query block
+ * - `iikiti_region(id, role, name, allowed, html)` -> region wrapper markup
  */
 final class BlockTwigExtension extends AbstractExtension
 {
@@ -29,10 +29,10 @@ final class BlockTwigExtension extends AbstractExtension
 	public function getFunctions(): array
 	{
 		return [
-			new TwigFunction('iakitti_embed', [$this, 'embed'], ['is_safe' => ['html']]),
-			new TwigFunction('iakitti_query', [$this, 'query']),
+			new TwigFunction('iikiti_embed', [$this, 'embed'], ['is_safe' => ['html']]),
+			new TwigFunction('iikiti_query', [$this, 'query']),
 			new TwigFunction(
-				'iakitti_region',
+				'iikiti_region',
 				[$this, 'region'],
 				['is_safe' => ['html'], 'needs_environment' => true]
 			),
@@ -73,14 +73,14 @@ final class BlockTwigExtension extends AbstractExtension
 		array $allowedTypes = [],
 		string $html = '',
 	): string {
-		$classes = ['iakitti-region', 'iakitti-region--'.$this->sanitize($id)];
+		$classes = ['iikiti-region', 'iikiti-region--'.$this->sanitize($id)];
 		if ('' !== $role) {
-			$classes[] = 'iakitti-region--role-'.$this->sanitize($role);
+			$classes[] = 'iikiti-region--role-'.$this->sanitize($role);
 		}
 
 		$attributes = 'class="'.htmlspecialchars(implode(' ', $classes), ENT_QUOTES).'"';
 
-		if ($twig->getGlobals()['iakitti_editor_mode'] ?? false) {
+		if ($twig->getGlobals()['iikiti_editor_mode'] ?? false) {
 			$attributes .= ' data-component="BlockEditorComponent"';
 			$attributes .= ' data-region-id="'.htmlspecialchars($id, ENT_QUOTES).'"';
 			$attributes .= ' data-region-role="'.htmlspecialchars($role, ENT_QUOTES).'"';
@@ -89,7 +89,7 @@ final class BlockTwigExtension extends AbstractExtension
 				htmlspecialchars(implode(',', $allowedTypes), ENT_QUOTES).'"';
 		}
 
-		return '<section'.$attributes.'>'.$html.'</section>';
+		return '<section '.$attributes.'>'.$html.'</section>';
 	}
 
 	private function sanitize(string $value): string

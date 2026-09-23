@@ -107,5 +107,5 @@
 	.iikiti-inspector { max-width: 360px; max-height: 80vh; overflow: auto; }
 	.iikiti-inspector__title { margin: 0 0 8px; font-weight: 600; }
 	.iikiti-inspector__tabs { display: flex; gap: 4px; margin-bottom: 8px; }
-	.iikita-inspector__tabs button.selected { text-decoration: underline; font-weight: 600; }
+	.iikiti-inspector__tabs button.selected { text-decoration: underline; font-weight: 600; }
 </style>

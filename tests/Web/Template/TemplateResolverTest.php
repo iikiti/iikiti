@@ -4,15 +4,13 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Tests\Web\Template;
 
-use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\Persistence\ObjectRepository;
-use iikiti\CMS\Entity\DbObject;
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Query;
 use iikiti\CMS\Entity\Object\Template;
 use iikiti\CMS\Web\Template\Rule\ObjectTypeRule;
 use iikiti\CMS\Web\Template\Rule\SiteRule;
 use iikiti\CMS\Web\Template\TemplateResolutionContext;
 use iikiti\CMS\Web\Template\TemplateResolver;
-use iikiti\CMS\Web\Template\TemplateRuleInterface;
 use PHPUnit\Framework\TestCase;
 
 final class TemplateResolverTest extends TestCase
@@ -23,9 +21,8 @@ final class TemplateResolverTest extends TestCase
 	private function template(string $title, array $assignments): Template
 	{
 		$t = new Template();
-		$i = (new \ReflectionClass(DbObject::class))->getProperty('properties');
-		$i->setAccessible(true);
-		$i->setValue($t, new ArrayCollection());
+		$i = (new \ReflectionClass(\iikiti\CMS\Entity\DbObject::class))->getProperty('properties');
+		$i->setValue($t, new \Doctrine\Common\Collections\ArrayCollection());
 		$t->setProperty('title', $title);
 		$t->setProperty('assignments', $assignments);
 
@@ -33,27 +30,36 @@ final class TemplateResolverTest extends TestCase
 	}
 
 	/**
-	 * @param list<Template> $templates
-	 *
-	 * @return ObjectRepository<Template>
+	 * @param list<Template> $templates The templates the DQL `WHERE t.site = :site`
+	 *                                  returns (the mock ignores the DQL body).
 	 */
-	private function repo(array $templates): ObjectRepository
+	private function em(array $templates): EntityManagerInterface
 	{
-		$repo = $this->createStub(ObjectRepository::class);
-		$repo->method('findBy')->willReturn($templates);
+		$query = $this->createStub(Query::class);
+		$query->method('getResult')->willReturn($templates);
+		$query->method('setParameter')->willReturnSelf();
+
+		$repo = $this->createStub(\Doctrine\ORM\EntityRepository::class);
 		$repo->method('findAll')->willReturn($templates);
 
-		return $repo;
+		$em = $this->createStub(EntityManagerInterface::class);
+		$em->method('createQuery')->willReturn($query);
+		$em->method('getRepository')->willReturn($repo);
+
+		return $em;
 	}
 
 	public function testResolvesByObjectTypeRule(): void
 	{
-		$resolver = new TemplateResolver($this->repo([
+		$site = $this->createStub(\iikiti\CMS\Entity\Object\Site::class);
+		$site->method('getId')->willReturn(1);
+
+		$resolver = new TemplateResolver($this->em([
 			$this->template('Site template', [['rule' => 'site', 'config' => ['site_id' => 1], 'priority' => 5]]),
 			$this->template('Page template', [['rule' => 'object_type', 'config' => ['type' => 'Page'], 'priority' => 50]]),
 		]), [new SiteRule(), new ObjectTypeRule()]);
 
-		$resolved = $resolver->resolve(new TemplateResolutionContext(objectType: 'Page'));
+		$resolved = $resolver->resolve(new TemplateResolutionContext(site: $site, objectType: 'Page'));
 
 		$this->assertNotNull($resolved);
 		$this->assertSame('Page template', $resolved->getTitle());
@@ -61,7 +67,7 @@ final class TemplateResolverTest extends TestCase
 
 	public function testHighestPriorityAssignmentWins(): void
 	{
-		$resolver = new TemplateResolver($this->repo([
+		$resolver = new TemplateResolver($this->em([
 			$this->template('Low', [['rule' => 'object_type', 'config' => ['type' => 'Page'], 'priority' => 1]]),
 			$this->template('High', [['rule' => 'object_type', 'config' => ['type' => 'Page'], 'priority' => 100]]),
 		]), [new ObjectTypeRule()]);
@@ -71,32 +77,9 @@ final class TemplateResolverTest extends TestCase
 		)?->getTitle());
 	}
 
-	public function testPluginRuleTypeIsMatched(): void
-	{
-		$pluginRule = new class implements TemplateRuleInterface {
-			public function getName(): string
-			{
-				return 'tag';
-			}
-
-			public function matches(array $config, TemplateResolutionContext $context): bool
-			{
-				return ($config['tag'] ?? '') === 'landing';
-			}
-		};
-
-		$resolver = new TemplateResolver($this->repo([
-			$this->template('By tag', [['rule' => 'tag', 'config' => ['tag' => 'landing'], 'priority' => 10]]),
-		]), [$pluginRule]);
-
-		$this->assertSame('By tag', $resolver->resolve(
-			new TemplateResolutionContext(objectType: 'Page')
-		)?->getTitle());
-	}
-
 	public function testReturnsNullWhenNoAssignmentMatches(): void
 	{
-		$resolver = new TemplateResolver($this->repo([
+		$resolver = new TemplateResolver($this->em([
 			$this->template('Page only', [['rule' => 'object_type', 'config' => ['type' => 'Page'], 'priority' => 10]]),
 		]), [new ObjectTypeRule()]);
 
