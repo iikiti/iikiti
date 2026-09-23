@@ -1,0 +1,16 @@
+{% set url = content.url ?? '' %}
+{% set ratio = content.aspectRatio ?? '16:9' %}
+<div class="iikiti-video" data-aspect-ratio="{{ ratio|e }}">
+    {% if not url %}
+        <span class="iikiti-video-placeholder">Video URL missing.</span>
+    {% else %}
+        <iframe
+            src="{{ url|e }}"
+            class="iikiti-video__iframe"
+            allowfullscreen
+            loading="lazy"
+            referrerpolicy="no-referrer"
+            title="Video content"
+        ></iframe>
+    {% endif %}
+</div>

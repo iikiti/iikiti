@@ -33,7 +33,10 @@ Encore
      */
     .addStyleEntry('tailwind', './assets/styles/app.css')
 
-	.addEntry('app', './assets/app.js')
+    .addEntry('iikiti', './assets/js/iikiti/index.js')
+    // `admin` is the standalone admin SPA (loaded on /admin). The front-end
+    // editor chunk is produced on demand by webpack code-splitting when
+    // `iikiti` dynamically imports `./svelte/editor/mount`.
     .addEntry('admin', './assets/admin.js')
 
     // When enabled, Webpack "splits" your files into smaller pieces for greater optimization.
@@ -102,6 +105,8 @@ webpackConfig.resolve.alias = {
 	'$types': path.resolve(__dirname, 'assets/svelte/admin/types/index.ts'),
 	'$components': path.resolve(__dirname, 'assets/svelte/admin/components'),
 	'$routes': path.resolve(__dirname, 'assets/svelte/admin/routes'),
+	'$editor': path.resolve(__dirname, 'assets/svelte/editor'),
+	'$framework': path.resolve(__dirname, 'assets/js/iikiti'),
 	'@iikiti/admin': path.resolve(__dirname, 'assets/svelte/admin/components/index.ts'),
 };
 
@@ -113,16 +118,17 @@ if(webpackConfig.resolve.conditionNames.indexOf('svelte') < 0) {
 webpackConfig.resolve.conditionNames.push('svelte', 'browser');
 
 webpackConfig.module.rules.push(
-	{
+    {
         test: /\.svelte\.ts$/,
-        use: [ "svelte-loader", { loader: "ts-loader", options: { transpileOnly: true } }],
+        use: [ "svelte-loader", { loader: "ts-loader", options: { transpileOnly: true, configFile: path.resolve(__dirname, 'tsconfig.json') } }],
     },
     // This is the config for other .ts files - the regex makes sure to not process .svelte.ts files twice
     {
         test: /(?<!\.svelte)\.ts$/,
         loader: "ts-loader",
         options: {
-          transpileOnly: true, // you should use svelte-check for type checking
+            transpileOnly: true, // you should use svelte-check for type checking
+            configFile: path.resolve(__dirname, 'tsconfig.json'),
         }
     },
     {

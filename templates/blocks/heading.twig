@@ -1,0 +1,4 @@
+{% set level = content.level ?? 2 %}
+<h{{ level }} class="iikiti-heading">
+    {{ content.text|default('')|e }}
+</h{{ level }}>

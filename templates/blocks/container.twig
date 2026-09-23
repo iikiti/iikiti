@@ -1,0 +1,6 @@
+{% set layout = content.layout ?? 'block' %}
+{% set gap = content.gap ?? content.padding ?? '' %}
+<div class="iikiti-container iikiti-container--{{ layout }}"
+     data-block-children>
+    {{ children_html|raw }}
+</div>

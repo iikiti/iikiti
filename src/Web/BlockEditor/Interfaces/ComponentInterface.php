@@ -1,19 +1,28 @@
 <?php
 
+declare(strict_types=1);
+
 namespace iikiti\CMS\Web\BlockEditor\Interfaces;
 
 /**
- * Ensures block component classes implement the required methods.
+ * Editor-facing block metadata contract (registry-backed).
+ *
+ * Prefer {@see \iikiti\CMS\Web\BlockEditor\BlockType\BlockTypeRegistry} for new
+ * code; this interface is the stable facade used by the editor pipeline.
  */
 interface ComponentInterface
 {
 	/**
-	 * @return array<string,mixed>
+	 * Block types that accept children (containers), with their allowed children.
+	 *
+	 * @return list<array{type:string, label:string, allowed_child_types:list<string>|null}>
 	 */
 	public function getContainerList(): array;
 
 	/**
-	 * @return array<string,mixed>
+	 * Merged content + style field schema for a block type.
+	 *
+	 * @return list<array<string,mixed>>|null
 	 */
-	public function getSettingsFields(): array;
+	public function getSettingsFields(string $blockType): ?array;
 }

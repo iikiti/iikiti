@@ -8,24 +8,18 @@
             {% block meta_favicon %}<link rel="shortcut icon" href="{{ asset('build/images/favicon.png') }}">{% endblock %}
         {% endblock %}
         {% block head_styles %}
-            {{ encore_entry_link_tags('app') }}
-            {#{ encore_entry_link_tags('admin') }#}
+            {{ encore_entry_link_tags('tailwind') }}
         {% endblock %}
         <title>{{ (doc.title ?? 'iikiti')|escape('html') }}</title>
-        {% block head_js %}
-            {{ encore_entry_script_tags('app') }}
-            {#{ encore_entry_script_tags('admin',
-                attributes={
-                    defer: true
-                }
-            ) }#}
-        {% endblock %}
     {% endblock %}
-	<!-- comment -->
 </head>
-<body class="text-black bg-white dark:text-white dark:bg-gray-900">
+<body class="text-black bg-white dark:text-white dark:bg-gray-900 {% if iikiti_editor_mode %}iikiti-editor-body{% endif %}">
     {% block body_before %}{% endblock %}
-    {% block body %}{% endblock %}
+    {% block body %}{{ iikiti_page_body|default('')|raw }}{% endblock %}
+    {% if iikiti_editor_mode and iikiti_config %}
+        <script id="iikiti-config" type="application/json">{{ iikiti_config|json_encode|raw }}</script>
+    {% endif %}
+    {{ encore_entry_script_tags('iikiti') }}
     {% block body_after %}{% endblock %}
 </body>
 </html>

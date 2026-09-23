@@ -38,7 +38,37 @@ final class PluginManifest
 		public readonly array $capabilities = [],
 		/** @var array<string,array<string,mixed>> */
 		public readonly array $permissions = [],
+		/** @var array<string,mixed>|null */
+		public readonly ?array $adminUi = null,
+		/** @var array<string,mixed>|null */
+		public readonly ?array $editorUi = null,
+		/** @var array<string,mixed>|null */
+		public readonly ?array $siteUi = null,
 	) {
+	}
+
+	/**
+	 * @return array<string,mixed>|null
+	 */
+	public function getAdminUi(): ?array
+	{
+		return $this->adminUi;
+	}
+
+	/**
+	 * @return array<string,mixed>|null
+	 */
+	public function getEditorUi(): ?array
+	{
+		return $this->editorUi;
+	}
+
+	/**
+	 * @return array<string,mixed>|null
+	 */
+	public function getSiteUi(): ?array
+	{
+		return $this->siteUi;
 	}
 
 	/**
@@ -111,7 +141,31 @@ final class PluginManifest
 			dependencies: $dependencies,
 			capabilities: is_array($data['capabilities'] ?? null) ? $data['capabilities'] : [],
 			permissions: is_array($data['permissions'] ?? null) ? $data['permissions'] : [],
+			adminUi: self::parseUi($data['admin_ui'] ?? null),
+			editorUi: self::parseUi($data['editor_ui'] ?? null),
+			siteUi: self::parseUi($data['site_ui'] ?? null),
 		);
+	}
+
+	/**
+	 * @param array<string,mixed>|null $ui decoded `admin_ui`/`editor_ui`/`site_ui` object
+	 *
+	 * @return array<string,mixed>|null
+	 */
+	private static function parseUi(mixed $ui): ?array
+	{
+		if (!is_array($ui)) {
+			return null;
+		}
+		$parsed = ['entry' => (string) ($ui['entry'] ?? '')];
+		if (isset($ui['css']) && is_string($ui['css'])) {
+			$parsed['css'] = $ui['css'];
+		}
+		if (isset($ui['strategy']) && is_string($ui['strategy'])) {
+			$parsed['strategy'] = $ui['strategy'];
+		}
+
+		return '' !== $parsed['entry'] ? $parsed : null;
 	}
 
 	/**
@@ -162,6 +216,9 @@ final class PluginManifest
 			'dependencies' => $this->dependencies,
 			'capabilities' => $this->capabilities,
 			'permissions' => $this->permissions,
+			'admin_ui' => $this->adminUi,
+			'editor_ui' => $this->editorUi,
+			'site_ui' => $this->siteUi,
 		];
 	}
 

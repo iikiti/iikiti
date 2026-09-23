@@ -74,11 +74,33 @@ services:
     iikiti\CMS\Query\DatabasePlatform\DatabasePlatformStrategyInterface:
         alias: iikiti\CMS\Query\DatabasePlatform\PostgreSQL\PostgreSQLPlatformStrategy
 
-    # Auto-tag any service implementing AdminExtensionInterface so plugins
-    # can contribute admin menu items by simply implementing the interface.
+    # Auto-tag block editor extensibility interfaces so plugins (and core) register
+    # block types / embed providers / query sources / save workflows / transports
+    # simply by implementing the interface.
     _instanceof:
         iikiti\CMS\Admin\AdminExtensionInterface:
             tags: ['iikiti.admin.extension']
+        iikiti\CMS\Web\BlockEditor\BlockType\BlockTypeInterface:
+            tags: ['iikiti.cms.block_type']
+        iikiti\CMS\Web\BlockEditor\Embed\EmbedProviderInterface:
+            tags: ['iikiti.cms.embed_provider']
+        iikiti\CMS\Web\BlockEditor\Query\QuerySourceInterface:
+            tags: ['iikiti.cms.query_source']
+        iikiti\CMS\Web\Template\TemplateRuleInterface:
+            tags: ['iikiti.cms.template_rule']
+        iikiti\CMS\Web\BlockEditor\Workflow\SaveWorkflowInterface:
+            tags: ['iikiti.cms.save_workflow']
+        iikiti\CMS\Web\BlockEditor\Collaboration\CollaborationTransportInterface:
+            tags: ['iikiti.cms.collaboration_transport']
+
+    # EmbedResolver + ObjectsQuerySource cache via the database-backed pool.
+    iikiti\CMS\Web\BlockEditor\Embed\EmbedResolver:
+        arguments:
+            $cache: '@cache.database'
+
+    iikiti\CMS\Web\BlockEditor\Query\ObjectsQuerySource:
+        arguments:
+            $cache: '@cache.database'
 
     # Security services that may be accessed directly by plugins
     iikiti\CMS\Security\PermissionChecker:

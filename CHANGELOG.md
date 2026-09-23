@@ -394,3 +394,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Doctrine result cache. A shared `InlineValueScanner` now powers the inline
   literal detection for both the DBAL and ORM builders. Criteria `WHERE` and
   `ORDER BY` field names are validated through `Column::assertValid()`.
+
+### Added
+- 2026-09-23: Front-end block editor backend: `BlockType` registry + core blocks
+  (container, dynamic, heading/text, image, video_embed, social_embed, query),
+  `BlockRenderer` (Twig, editor-metadata gating), embed resolver (YouTube/Vimeo +
+  oEmbed social providers) and a safe, parameterized query executor
+  (`src/Web/BlockEditor/`).
+
+### Added
+- 2026-09-23: `Template` entity + `TemplateRuleInterface` (object/objectType/site rules)
+  + `TemplateResolver` + `TemplateRenderer` (region validation — a `main` content
+  region is required or an error is shown) + `PageRendering` live-page pipeline;
+  `HomeController` and `/{slug}` object-page route render through the pipeline.
+
+### Added
+- 2026-09-23: Editor API (`/api/editor/context`, `save`, `publish`, `render-block`)
+  and a WebSocket room-admission gate; draft/publish save workflow with ETag
+  concurrency; cache-backed presence store.
+
+### Added
+- 2026-09-23: `iikiti` JS framework entry (dependency+version-aware loader with
+  `domReady`/`onLoad` promises, notifications, plugin auto-loading) and the
+  `editor` Svelte 5 (runes) entry that mounts on `?edit` for authorised editors.
+
+### Added
+- 2026-09-23: Plugin manifest `editor_ui`/`site_ui` keys +
+  `PluginRegistry::getManifests()`.
+
+### Changed
+- 2026-09-23: `base/layout.twig` loads the `iikiti` framework on all pages and
+  the editor chunk only in edit mode; editor bootstrap config is injected via
+  `FrontendConfigProvider` only when the user can edit.
+
+### Fixed
+- 2026-09-23: `SelectInput` Svelte 5 incompatibility (dynamic `multiple` with
+  `bind:value`) — now uses static-`multiple` branches.

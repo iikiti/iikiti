@@ -1,40 +1,18 @@
-{% block body_header %}
-    <section data-component='BlockEditorComponent' id="site-header" is="header" data-region-id="header" data-region-name="Header" data-allowed-types='["hero","text"]' class="col-span-full sticky full-width site-margin-left site-margin-right">
-        Header
-        {% block body_header_content %}
-            {% block body_header_nav %}
-                <section data-component='BlockEditorComponent' is="nav">
-                    {% block body_header_nav_content %}Nav{% endblock %}
-                </section>
-            {% endblock %}
-        {% endblock %}
-    </section>
-{% endblock %}
-<section data-component='BlockEditorComponent' is="section" id="site-content-wrapper" class="col-span-full grid grid-cols-1 lg:grid-cols-12 gap-4 gap-y-0 overflow-hidden site-margin-left site-margin-right">
-    {% block body_main %}
-        <section data-component='BlockEditorComponent' is="section" id="content" data-region-id="main" data-region-name="Main Content" class="order-2 lg:col-start-3 col-span-full grid grid-cols-1 lg:grid-cols-12 gap-4">
-            {% block body_main_content %}Main{% endblock %}
-        </section>
-    {% endblock %}
-    {% block body_asides %}
-        {% block body_aside_left %}
-            <section data-component='BlockEditorComponent' is="aside" data-region-id="aside-left" data-region-name="Left Sidebar" class="order-1 left relative col-span-2 lg:col-span-auto">
-                <section data-component='BlockEditorComponent' is="section">
-                    {% block body_aside_left_content %}Left{% endblock %}
-                </section>
-            </section>
-        {% endblock %}
-        {% block body_aside_right %}
-            <section data-component='BlockEditorComponent' is="aside" data-region-id="aside-right" data-region-name="Right Sidebar" class="order-3 right relative col-span-2 lg:col-span-auto">
-                <section data-component='BlockEditorComponent' is="section">
-                    {% block body_aside_right_content %}Right{% endblock %}
-                </section>
-            </section>
-        {% endblock %}
-    {% endblock %}
-</section>
-{% block body_footer %}
-    <section data-component='BlockEditorComponent' is="footer" id="site-footer" data-region-id="footer" data-region-name="Footer" class="col-span-full site-margin-left site-margin-right">
-        {% block body_footer_content %}Footer{% endblock %}
-    </section>
-{% endblock %}
+{#
+ * Default front-end layout (theme template) for the block editor.
+
+ * Declares the page's editable regions. Each region is emitted through the
+ * `iakitti_region()` Twig helper, which adds editor metadata (data-component /
+ * data-region-*) in editor mode and stays clean HTML in public mode. The block
+ * trees for each region are passed by {@see TemplateRenderer} as `region_<id>`.
+ #}
+
+{{ iakitti_region('header', 'header', 'Header', ['heading', 'text', 'image', 'container'], region_header|default('')) }}
+
+{{ iakitti_region('main', 'main', 'Main content', ['heading', 'text', 'image', 'video_embed', 'social_embed', 'query', 'container', 'dynamic'], region_main|default('')) }}
+
+{{ iakitti_region('aside-left', 'sidebar', 'Left sidebar', ['heading', 'text', 'image', 'container'], region_aside_left|default('')) }}
+
+{{ iakitti_region('aside-right', 'sidebar', 'Right sidebar', ['heading', 'text', 'image', 'container'], region_aside_right|default('')) }}
+
+{{ iakitti_region('footer', 'footer', 'Footer', ['heading', 'text', 'container'], region_footer|default('')) }}

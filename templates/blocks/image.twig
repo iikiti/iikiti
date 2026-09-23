@@ -1,0 +1,12 @@
+{% set source = content.source ?? {} %}
+{% set url = source.url ?? '' %}
+{% set alt = content.alt ?? '' %}
+{% set caption = content.caption ?? '' %}
+{% if not url %}
+    <span class="iikiti-image-placeholder">Image URL missing.</span>
+{% else %}
+    {% if content.link %}<a href="{{ content.link|e }}" class="iikiti-image-link">{% endif %}
+    <img src="{{ url|e }}" alt="{{ alt|e }}" class="iikiti-image">
+    {% if content.link %}</a>{% endif %}
+    {% if caption %}<figcaption class="iikiti-image-caption">{{ caption|raw }}</figcaption>{% endif %}
+{% endif %}

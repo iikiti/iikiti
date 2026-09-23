@@ -59,6 +59,14 @@ class PluginRegistry
 	}
 
 	/**
+	 * @return array<string,PluginManifest>
+	 */
+	public function getManifests(): array
+	{
+		return $this->manifests;
+	}
+
+	/**
 	 * Returns the filesystem path of an active plugin, or null if the
 	 * plugin is not active.
 	 */

@@ -1,0 +1,15 @@
+{% set items = iakitti_query(content|default({})) %}
+{% set layout = content.layout ?? 'list' %}
+{% if items is empty %}
+    <div class="iakitti-query--empty">No results found.</div>
+{% else %}
+    <div class="iakitti-query iakitti-query--{{ layout }}" data-layout="{{ layout|e }}">
+        {% for item in items %}
+            <div class="iakitti-query__item">
+                <span class="iakitti-query__id">#{{ item.id ?? '—' }}</span>
+                <span class="iakitti-query__type">{{ item.type ?? 'object' }}</span>
+                {% if item.createdDate %}<time class="iakitti-query__date" datetime="{{ item.createdDate|date('c') }}">{{ item.createdDate|date('M j, Y') }}</time>{% endif %}
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
