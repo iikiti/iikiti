@@ -401,6 +401,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   literal detection for both the DBAL and ORM builders. Criteria `WHERE` and
   `ORDER BY` field names are validated through `Column::assertValid()`.
 
+### Fixed
+- 2026-09-23: Removed `DbObject::setProperties()` override that called `setProperty()` for each
+  property during collection iteration, causing `ArrayCollection::set()` to leave stale entries
+  at wrong indices (properties from other objects appearing at Template property keys like
+  "assignments", "blocks", "draft_version"). The override also reassigned `ObjectProperty.object`
+  via `setObject()` without syncing the `object_id` column. Doctrine's own back-reference
+  hydration (`PersistentCollection::hydrateSet`) handles this correctly.
+- 2026-09-23: Added `DynamicDiscriminatorMapListener` (`src/Event/Listener/`) that dynamically
+  registers all `DbObject` STI subclasses (Template, Site, User, Page, Application, Lexeme,
+  SiteGroup, UserGroup, and plugin-defined subclasses) into the discriminator map at metadata
+  load time. Without an explicit `DiscriminatorMap`, Doctrine's auto-discovery could produce a
+  stale or incomplete map, causing STI collection hydration to load properties from unrelated
+  objects (e.g. Site/User properties leaking into a Template's `properties` collection).
+- 2026-09-23: Migration `Version20260923054500` fixes duplicate IDs in the `object_properties`
+  table (the `id` column lacked a primary key constraint, allowing the same `id` to be
+  shared across properties belonging to different objects). Duplicate rows are reassigned
+  to fresh identity-generated IDs and a `PRIMARY KEY (id)` constraint is added, preventing
+  the identity-map collisions that caused `ObjectProperty` entities from the wrong owner
+  to be returned when loading a Template's properties.
+
 ### Added
 - 2026-09-23: Front-end block editor backend: `BlockType` registry + core blocks
   (container, dynamic, heading/text, image, video_embed, social_embed, query),

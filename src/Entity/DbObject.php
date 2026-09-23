@@ -97,13 +97,6 @@ class DbObject
 	public function setProperties(Collection $properties): void
 	{
 		$this->properties = $properties;
-		foreach ($properties as $property) {
-			$name = $property->getName();
-			if (!is_string($name) || '' == $name) {
-				throw new \Exception('Property name is missing.');
-			}
-			$this->setProperty($name, $property);
-		}
 	}
 
 	#[\Override]
