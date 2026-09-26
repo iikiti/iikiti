@@ -19,6 +19,14 @@ block before finishing the task.
 
 This rule is enforced as part of Kilo's own work-checklist for this workspace.
 
+Keep the changelog split in separate files (per day) or per version in the workspace directory "changelog".
+Keep only the latest 5 days or versions in the top level CHANGELOG.md.
+
+## Testing
+
+You can access the database and run queries through the doctrine CLI commands. For a list, use command `php bin/console list doctrine`.
+You can use action `dbal:run-sql` ro run SQL directly on the database. Use this only on local or development environments.
+
 ## Documentation
 
 For changes made that require configuration changes or user interaction, make sure to add or update existing documentation under /docs and include description of the feature, a walkthrough of any relevant workflows, and installation or configuration steps required to be completed.
