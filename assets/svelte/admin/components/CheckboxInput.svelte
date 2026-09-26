@@ -10,14 +10,14 @@
 </script>
 
 <label class="flex items-center gap-2 cursor-pointer">
-	<input
-		type="checkbox"
-		class="h-4 w-4 text-blue-600 rounded"
-		checked={value}
-		{disabled}
-		onchange={(e) => onchange?.(e.currentTarget.checked)}
-	/>
-	{#if label}
-		<span class="text-sm text-gray-700 dark:text-gray-300">{label}</span>
-	{/if}
+		<input
+			type="checkbox"
+			class="h-4 w-4 text-accent rounded"
+			checked={value}
+			{disabled}
+			onchange={(e) => onchange?.(e.currentTarget.checked)}
+		/>
+		{#if label}
+			<span class="text-sm text-text">{label}</span>
+		{/if}
 </label>

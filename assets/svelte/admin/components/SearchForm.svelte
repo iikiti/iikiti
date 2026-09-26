@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Icon from './Icon.svelte';
+
 	interface Props {
 		value?: string;
 		placeholder?: string;
@@ -29,5 +31,7 @@
 		placeholder={placeholder}
 		bind:value={inputValue}
 	/>
-	<div class="absolute left-3 top-2.5 text-gray-400 dark:text-gray-500">🔍</div>
+	<div class="absolute left-3 top-2.5 text-text-muted">
+		<Icon name="search" size={16} />
+	</div>
 </div>

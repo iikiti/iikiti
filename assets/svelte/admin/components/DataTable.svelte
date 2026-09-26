@@ -44,27 +44,27 @@
 </script>
 
 {#if loading}
-	<div class="text-center py-8 text-gray-500">Loading…</div>
+	<div class="text-center py-8 text-text-muted">Loading…</div>
 {:else}
-	<div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
-		<table class="admin-table min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+	<div class="overflow-x-auto rounded-lg border border-border">
+		<table class="admin-table min-w-full divide-y divide-border">
 			<thead>
 				<tr>
 					{#each columns as column (column.key)}
-						<th class="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+						<th>
 							{column.label}
 						</th>
 					{/each}
 				</tr>
 			</thead>
-			<tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+			<tbody class="divide-y divide-border">
 				{#each paginatedItems as row, i (i)}
 					<tr
-						class="hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
+						class="hover:bg-surface-hover cursor-pointer transition-colors"
 						onclick={() => onRowClick?.(row)}
 					>
 						{#each columns as column (column.key)}
-							<td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">
+							<td>
 								{getCellValue(row, column)}
 							</td>
 						{/each}
@@ -75,7 +75,7 @@
 	</div>
 
 	{#if totalItems > 0}
-		<div class="mt-4 text-sm text-gray-500 dark:text-gray-400">
+		<div class="mt-4 text-sm text-text-muted">
 			Page {currentPage} of {totalPages}, {totalItems} total
 		</div>
 	{/if}

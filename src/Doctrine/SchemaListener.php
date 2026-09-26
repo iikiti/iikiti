@@ -55,6 +55,9 @@ final class SchemaListener
 	 */
 	private function isAppEntity(ClassMetadata $metadata): bool
 	{
-		return str_starts_with($metadata->getName(), 'iikiti\\CMS\\Entity\\');
+		// First-party entities may live in any `iikiti\CMS\<domain>\Entity\`
+		// namespace (e.g. `iikiti\CMS\Entity`, `iikiti\CMS\Search\Entity`).
+		return str_starts_with($metadata->getName(), 'iikiti\\CMS\\')
+			&& str_contains($metadata->getName(), '\\Entity\\');
 	}
 }

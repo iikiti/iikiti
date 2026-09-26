@@ -14,6 +14,7 @@ if (root) {
         props: {
             apiToken: root.dataset.apiToken ?? '',
             apiBase: root.dataset.apiBase ?? '/api',
+            currentUser: root.dataset.currentUser ?? '',
             debug: root.dataset.debug === 'true',
         },
     });

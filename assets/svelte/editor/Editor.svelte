@@ -57,8 +57,7 @@
 </script>
 
 <div class="iikti-editor" data-iikti-editor>
-	<nav class="iikti-editor__toolbar" role="toolbar" aria-label="Block editor">
-		<button class="iikti-btn" onclick={undo}>Undo</button>
+	<div class="iikti-editor__toolbar" role="toolbar" tabindex="-1" aria-label="Block editor">		<button class="iikti-btn" onclick={undo}>Undo</button>
 		<button class="iikti-btn" onclick={redo}>Redo</button>
 		<button class="iikti-btn iikti-btn--primary" onclick={onSave}>Save draft</button>
 		{#if $canPublish}
@@ -66,7 +65,7 @@
 		{/if}
 		<span class="iikti-toolbar__spacer"></span>
 		<a class="iikti-btn" href={window.location.pathname} target="_blank" rel="noopener noreferrer">View live</a>
-	</nav>
+	</div>
 
 	<div class="iikiti-editor__canvas">
 		{#each $regions as r (r.id)}
@@ -99,7 +98,6 @@
 	}
 	.iikti-btn--primary { background: #2563eb; color: #fff; }
 	.iikti-btn--success { background: #16a34a; color: #fff; }
-	.iikti-editor__canvas { margin-top: 52px; padding: 16px; }
 	.iikiti-region-frame { margin: 0 auto 16px; max-width: 1280px; }
 
 	/* Dark theme: Tailwind `dark:` uses `prefers-color-scheme` here. */

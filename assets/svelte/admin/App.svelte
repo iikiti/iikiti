@@ -26,10 +26,11 @@
 	interface Props {
 		apiToken: string;
 		apiBase?: string;
+		currentUser?: string;
 		debug?: boolean;
 	}
 
-	let { apiToken, apiBase = '/api', debug = false }: Props = $props();
+	let { apiToken, apiBase = '/api', currentUser = '', debug = false }: Props = $props();
 
 	const api = $derived(new ApiClient(apiToken, apiBase, debug));
 
@@ -135,6 +136,14 @@
 
 		loading = false;
 
+		// Default to the first menu entry (the Dashboard) when no route is
+		// selected so a bare /admin never lands on "Page Not Found".
+		if (typeof window !== 'undefined' && (window.location.hash === '' || window.location.hash === '#' || window.location.hash === '#/')) {
+			const fallback = menu.find((item) => item.path)?.path ?? '/dashboard';
+			window.location.hash = fallback;
+			currentPath = fallback;
+		}
+
 		if (typeof window !== 'undefined') {
 			const handler = () => {
 				currentPath = window.location.hash.slice(1) || '/';
@@ -157,14 +166,14 @@
 </script>
 
 {#if loading}
-	<div class="fixed inset-0 bg-gray-50 dark:bg-gray-900 flex items-center justify-center z-50">
+	<div class="fixed inset-0 flex items-center justify-center bg-bg z-50">
 		<div class="text-center">
-			<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-			<p class="text-gray-600 dark:text-gray-400">Loading administration…</p>
+			<div class="animate-spin rounded-full h-10 w-10 border-2 border-transparent border-t-accent mb-4"></div>
+			<p class="text-text-muted">Loading administration…</p>
 		</div>
 	</div>
 {:else}
-	<AdminLayout {menu} {api} {debug} {currentPath} onNavigate={navigateTo}>
+		<AdminLayout {menu} {api} {debug} {currentUser} {currentPath} onNavigate={navigateTo}>
 		{#if CurrentComponent === NotFoundRoute}
 			<CurrentComponent currentPath={currentPath} />
 		{:else if CurrentComponent === GenericListPage}

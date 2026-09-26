@@ -50,7 +50,7 @@
 						placeholder={field.placeholder ?? '[]'}
 						bind:value={formData[field.key]}
 					></textarea>
-					<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Enter valid JSON.</p>
+					<p class="mt-1 text-xs text-text-muted">Enter valid JSON.</p>
 				{:else if field.type === 'select'}
 					<select
 						id={field.key}
@@ -62,12 +62,12 @@
 						{/each}
 					</select>
 				{:else if field.type === 'checkbox'}
-					<input
-						type="checkbox"
-						class="h-4 w-4 text-blue-600 rounded"
-						checked={formData[field.key]}
-						onchange={(e) => (formData[field.key] = e.currentTarget.checked)}
-					/>
+						<input
+							type="checkbox"
+							class="h-4 w-4 text-accent rounded"
+							checked={formData[field.key]}
+							onchange={(e) => (formData[field.key] = e.currentTarget.checked)}
+						/>
 				{:else if field.type === 'toggle'}
 					<button
 						type="button"

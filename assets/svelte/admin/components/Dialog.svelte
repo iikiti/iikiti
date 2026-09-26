@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Icon from './Icon.svelte';
+
 	interface Props {
 		open?: boolean;
 		title?: string;
@@ -17,19 +19,20 @@
 </script>
 
 {#if open}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onmousedown={(e) => e.target === e.currentTarget && onClose?.()}>
 		<div
-			class="bg-white dark:bg-gray-800 rounded-lg shadow-xl {sizeClasses[size]} w-full mx-4"
+			class="rounded-lg border bg-surface text-text shadow-xl {sizeClasses[size]} w-full mx-4"
 		>
 			{#if title || showClose}
-				<div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-					{#if title}<h3 class="font-medium text-gray-900 dark:text-white">{title}</h3>{/if}
+				<div class="admin-card-header">
+					{#if title}<h3 class="font-medium text-text">{title}</h3>{/if}
 					{#if showClose}
 						<button
-							class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+							class="text-text-subtle hover:text-text"
+							aria-label="Close"
 							onclick={() => onClose?.()}
 						>
-							✕
+							<Icon name="x" size={18} />
 						</button>
 					{/if}
 				</div>
@@ -38,7 +41,7 @@
 				{@render children?.()}
 			</div>
 			{#if footer}
-				<div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+				<div class="admin-card-footer">
 					{@render footer?.()}
 				</div>
 			{/if}

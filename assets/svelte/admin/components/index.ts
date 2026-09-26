@@ -10,6 +10,7 @@
  */
 
 export { default as AdminLayout } from './AdminLayout.svelte';
+export { default as Icon } from './Icon.svelte';
 export { default as DataTable } from './DataTable.svelte';
 export { default as PageHeader } from './PageHeader.svelte';
 export { default as LoadingState } from './LoadingState.svelte';

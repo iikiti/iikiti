@@ -1,10 +1,59 @@
 @import "tailwindcss";
 @import "./app-dark.css";
 
-
-.site-margin-top {
-    margin-top: 0;
+/* Shared layout component theme tokens (neutral defaults; admin.css overrides
+   these to the 2027 palette). Used by the iikiti components library
+   (assets/js/iikiti/components). */
+:root {
+    --ik-panel-bg: #F9F7F2;
+    --ik-panel-border: #DDD6CB;
+    --ik-panel-text: #3A3830;
+    --ik-panel-text-muted: #7A7669;
+    --ik-accent: #A6613C;
+    --ik-accent-hover: #945231;
+    --ik-radius: .75rem;
+    --ik-transition: 150ms ease;
 }
+.dark {
+    --ik-panel-bg: #2C2B27;
+    --ik-panel-border: #47433D;
+    --ik-panel-text: #DED9D2;
+    --ik-panel-text-muted: #9B978D;
+    --ik-accent: #C97B52;
+    --ik-accent-hover: #D4895F;
+}
+
+/* Shared component behaviour + neutral styling (framework-agnostic) */
+/* NOTE: shared components are behavioural controllers — the host provides
+   colour via Tailwind utilities or the `--ik-*` theme vars. We intentionally
+   do NOT force a background/border/text here so we never clobber a host's
+   own palette (e.g. the admin's 2027 colors). */
+.iikiti-hidden { display: none !important; }
+.iikiti-header--hidden { transform: translateY(-100%); transition: transform var(--ik-transition); }
+.iikiti-footer--hidden { transform: translateY(100%); transition: transform var(--ik-transition); }
+.iikiti-sidebar__overlay {
+    position: fixed; inset: 0; background: rgba(0, 0, 0, .4);
+    opacity: 0; visibility: hidden; transition: opacity var(--ik-transition);
+    z-index: 40;
+}
+.iikiti-sidebar__overlay:not([style*="display: none"]) {
+    opacity: 1; visibility: visible;
+}
+.iikiti-sidebar--mobile {
+    position: fixed !important; inset: 0 auto 0 0 !important;
+    max-width: 20rem; width: 80vw; max-width: 90vw; height: 100vh;
+    z-index: 50; box-shadow: 2px 0 8px rgba(0,0,0,.15);
+    transition: transform var(--ik-transition);
+}
+.iikiti-sidebar--mobile:not(.iikiti-sidebar--open) { transform: translateX(-100%); }
+.iikiti-sidebar--collapsed { width: 4rem !important; }
+.iikiti-sidebar--collapsed [data-iikiti-sidebar-label] { display: none; }
+.iikiti-banner__dismiss {
+    position: absolute; top: .5rem; right: .5rem;
+    background: transparent; border: none; color: var(--ik-panel-text-muted);
+    cursor: pointer; padding: .25rem;
+}
+
 
 .site-margin-bottom {
     margin-bottom: 0;

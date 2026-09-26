@@ -16,7 +16,6 @@ use iikiti\CMS\State\Provider\AuditLogProvider;
 			security: 'is_granted("ROLE_ADMIN")',
 		),
 	],
-	normalizationContext: ['groups' => ['audit:read']],
 )]
 class AuditLogResource
 {

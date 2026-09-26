@@ -2,6 +2,8 @@ import { loader, loadWithStrategy, onInteraction } from './loader.js';
 import { domReady, onLoad } from './domready.js';
 import { notifications, settings as notificationSettings } from './notifications.js';
 import { pluginRegistry, startPlugins } from './plugins.js';
+import { components } from './components/registry.js';
+import { applyStoredTheme, toggleTheme, resolveTheme, STORAGE_THEME_KEY } from './components/base.js';
 
 const configEl = document.getElementById('iikiti-config');
 const config = configEl ? JSON.parse((configEl.textContent || '{}') || '{}') : {};
@@ -14,22 +16,29 @@ if (notif) {
 }
 
 if (!window.iikiti) {
-	window.iikiti = {
-		config,
-		loader: {
-			loadScript: (name, opts) => loadWithStrategy(name, opts),
-			loadStyle: (url) => loader.loadStyle(url),
-			registerLibrary: (name, spec) => loader.registerLibrary(name, spec),
-		},
-		domReady,
-		onLoad,
-		plugins: {
-			register: (def) => pluginRegistry.register(def),
-			list: () => pluginRegistry.list(),
-		},
-		notifications,
-		editor: undefined,
-	};
+  window.iikiti = {
+    config,
+    loader: {
+      loadScript: (name, opts) => loadWithStrategy(name, opts),
+      loadStyle: (url) => loader.loadStyle(url),
+      registerLibrary: (name, spec) => loader.registerLibrary(name, spec),
+    },
+    domReady,
+    onLoad,
+    plugins: {
+      register: (def) => pluginRegistry.register(def),
+      list: () => pluginRegistry.list(),
+    },
+    notifications,
+    editor: undefined,
+    components,
+    theme: {
+      apply: applyStoredTheme,
+      toggle: toggleTheme,
+      get: resolveTheme,
+      STORAGE_THEME_KEY,
+    },
+  };
 }
 
 domReady.then(() => {

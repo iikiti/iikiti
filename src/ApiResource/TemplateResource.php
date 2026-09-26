@@ -27,28 +27,24 @@ use iikiti\CMS\State\Provider\TemplateStateProvider;
 			name: 'admin_template_list',
 			provider: TemplateStateProvider::class,
 			security: 'is_granted("ROLE_ADMIN")',
-			normalizationContext: ['groups' => ['template:read']],
 		),
 		new Get(
 			uriTemplate: '/admin/templates/{id}',
 			name: 'admin_template_get',
 			provider: TemplateStateProvider::class,
 			security: 'is_granted("ROLE_ADMIN")',
-			normalizationContext: ['groups' => ['template:read']],
 		),
 		new Post(
 			uriTemplate: '/admin/templates',
 			name: 'admin_template_create',
 			processor: TemplateProcessor::class,
 			security: 'is_granted("ROLE_ADMIN")',
-			normalizationContext: ['groups' => ['template:read']],
 		),
 		new Put(
 			uriTemplate: '/admin/templates/{id}',
 			name: 'admin_template_update',
 			processor: TemplateProcessor::class,
 			security: 'is_granted("ROLE_ADMIN")',
-			normalizationContext: ['groups' => ['template:read']],
 		),
 	],
 )]

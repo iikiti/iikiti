@@ -39,7 +39,6 @@ use iikiti\CMS\State\Provider\RoleProvider;
 			security: 'is_granted("ROLE_ADMIN")',
 		),
 	],
-	normalizationContext: ['groups' => ['role:read']],
 )]
 class RoleResource
 {

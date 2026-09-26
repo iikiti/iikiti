@@ -60,7 +60,6 @@ use iikiti\CMS\Search\State\Provider\SearchActionProvider;
 			security: 'is_granted("ROLE_ADMIN")',
 		),
 	],
-	normalizationContext: ['groups' => ['search:action:read']],
 )]
 class SearchActionResource
 {

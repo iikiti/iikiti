@@ -8,26 +8,22 @@
 
 	let { status = 'primary', outline = false, children }: Props = $props();
 
-	const variantClasses: Record<string, string> = {
-		success: 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200',
-		warning: 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200',
-		danger: 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200',
-		info: 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200',
-		primary: 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200',
+	const solidClass: Record<string, string> = {
+		success: 'admin-badge-success',
+		warning: 'admin-badge-warning',
+		danger: 'admin-badge-danger',
+		info: 'admin-badge-info',
+		primary: 'admin-badge-primary',
 	};
-
-	const outlineClasses: Record<string, string> = {
-		success: 'bg-transparent border border-green-600 text-green-600',
-		warning: 'bg-transparent border border-yellow-600 text-yellow-600',
-		danger: 'bg-transparent border border-red-600 text-red-600',
-		info: 'bg-transparent border border-blue-600 text-blue-600',
-		primary: 'bg-transparent border border-blue-600 text-blue-600',
+	const outlineClass: Record<string, string> = {
+		success: 'admin-badge-outline-success',
+		warning: 'admin-badge-outline-warning',
+		danger: 'admin-badge-outline-danger',
+		info: 'admin-badge-outline-info',
+		primary: 'admin-badge-outline-primary',
 	};
 </script>
 
-<span
-	class="admin-badge {outline ? outlineClasses[status] : variantClasses[status]}"
-	class:text-xs={outline}
->
+<span class="admin-badge {outline ? outlineClass[status] : solidClass[status]}">
 	{@render children?.()}
 </span>

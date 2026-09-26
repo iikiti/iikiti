@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import Icon from './Icon.svelte';
 
 	interface Props {
 		id: string;
@@ -13,25 +13,27 @@
 	let { id, message, type = 'info', duration = 10, action, onDismiss }: Props = $props();
 
 	const icons: Record<string, string> = {
-		info: 'ℹ',
-		success: '✓',
-		warning: '⚠',
-		error: '✕',
+		info: 'info',
+		success: 'check-circle',
+		warning: 'alert-circle',
+		error: 'alert-circle',
 	};
 
 	let timer: ReturnType<typeof setTimeout> | null = null;
-	if (duration != null && duration > 0) {
-		timer = setTimeout(() => onDismiss(id), duration * 1000);
-	}
 
-	onDestroy(() => {
-		if (timer) clearTimeout(timer);
+	$effect(() => {
+		if (duration != null && duration > 0) {
+			timer = setTimeout(() => onDismiss(id), duration * 1000);
+		}
+		return () => {
+			if (timer) clearTimeout(timer);
+		};
 	});
 </script>
 
 <div class={`iikiti-toast iikiti-toast--${type}`} role="status" aria-live={type === 'error' ? 'assertive' : 'polite'}>
-	<span class="iikiti-toast__icon" aria-hidden="true">{icons[type] ?? icons.info}</span>
+	<span class="iikiti-toast__icon" aria-hidden="true"><Icon name={icons[type] ?? icons.info} size={16} /></span>
 	<span class="iikiti-toast__message">{message}</span>
 	{#if action}<button class="iikiti-toast__action" onclick={action.run}>{action.label}</button>{/if}
-	<button class="iikiti-toast__dismiss" aria-label="Dismiss" onclick={() => onDismiss(id)}>✕</button>
+	<button class="iikiti-toast__dismiss" aria-label="Dismiss" onclick={() => onDismiss(id)}><Icon name="x" size={14} /></button>
 </div>

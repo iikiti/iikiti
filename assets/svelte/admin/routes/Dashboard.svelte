@@ -44,17 +44,17 @@
 	<LoadingState label="Loading dashboard…" />
 {:else if summary}
 	<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-		<div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-			<span class="text-2xl font-bold text-gray-900 dark:text-white">{summary.userCount}</span>
-			<p class="text-sm text-gray-500 dark:text-gray-400">Users</p>
+		<div class="admin-card p-4">
+			<span class="text-2xl font-bold text-accent">{summary.userCount}</span>
+			<p class="text-sm text-text-muted">Users</p>
 		</div>
-		<div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-			<span class="text-2xl font-bold text-gray-900 dark:text-white">{summary.roleCount}</span>
-			<p class="text-sm text-gray-500 dark:text-gray-400">Roles</p>
+		<div class="admin-card p-4">
+			<span class="text-2xl font-bold text-accent">{summary.roleCount}</span>
+			<p class="text-sm text-text-muted">Roles</p>
 		</div>
-		<div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-			<span class="text-2xl font-bold text-gray-900 dark:text-white">{summary.siteGroupCount}</span>
-			<p class="text-sm text-gray-500 dark:text-gray-400">Site Groups</p>
+		<div class="admin-card p-4">
+			<span class="text-2xl font-bold text-accent">{summary.siteGroupCount}</span>
+			<p class="text-sm text-text-muted">Site Groups</p>
 		</div>
 	</div>
 {/if}

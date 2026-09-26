@@ -94,11 +94,87 @@ library reference and plugin screen development workflow.
 ## Core Component Library
 
 The admin UI ships with a library of reusable Svelte 5 components exported
-under the `@iikiti/admin` import alias. These include `AdminLayout`, `DataTable`,
-`PageHeader`, `Button`, `Badge`, `Dialog`, `Tabs`, `Breadcrumb`, `Pagination`,
-`SearchForm`, `Form`, `DetailView`, `Card`, and input components
+under the `@iikiti/admin` import alias. These include `AdminLayout`, `Icon`,
+`DataTable`, `PageHeader`, `Button`, `Badge`, `Dialog`, `Tabs`, `Breadcrumb`,
+`Pagination`, `SearchForm`, `Form`, `DetailView`, `Card`, and input components
 (`TextInput`, `TextareaInput`, `SelectInput`, `CheckboxInput`, `ToggleInput`).
 Plugins can import these components in their own UI bundles.
+
+### Icons
+
+`Icon` renders Lucide icons by kebab-case name and is the standard way to
+display icons in admin screens (menu items already emit Lucide names from the
+backend):
+
+```svelte
+<script>
+  import { Icon } from '@iikiti/admin';
+</script>
+
+<Icon name="users" size={18} />
+```
+
+Unknown names fall back to the `search` icon, so a missing mapping never
+breaks rendering.
+
+## Visual Theme
+
+The admin uses the **2027 color palette** with light and dark variants. All
+colors are CSS custom properties defined in `assets/styles/admin.css`; they
+flip automatically under the `.dark` class on `<html>`.
+
+| Token | Light | Dark | Palette source |
+|---|---|---|---|
+| `--primary` | `#998B7F` | `#B0A398` | Common Ground (2027 neutral) |
+| `--accent` | `#A6613C` | `#C97B52` | Deep Rooted (CTAs, active nav) |
+| `--info` | `#7A8F97` | `#9BB7C3` | Cottage Door |
+| `--sidebar` | `#5E5C50` | `#2C2B27` | Grounded (dark anchor) |
+| `--bg` / `--surface` | `#EFEBE3` / `#F9F7F2` | `#21201E` / `#2C2B27` | warm neutrals |
+| `--success` / `--warning` / `--danger` | universal red/amber/green | | status semantics only |
+
+Utility classes (`bg-surface`, `text-accent`, `border-border`, …) are
+generated from these tokens by Tailwind CSS v4 (`@theme inline`), so a single
+class works in both themes. Reusable `admin-*` component classes
+(`.admin-btn`, `.admin-nav-item`, `.admin-badge`, `.admin-card`, `.admin-input`,
+`.admin-table`, `.admin-tab`, `.iikiti-popover`, `.iikiti-toast*`) live in
+`assets/styles/admin.css` under `@layer components`.
+
+### Theme Toggle (dark mode)
+
+The header includes a sun/moon toggle. Selection is stored in
+`localStorage('theme')` and defaults to the OS `prefers-color-scheme`.
+An inline script in `templates/admin/layout.twig` applies the stored theme
+before the stylesheet loads, so there is no flash of the wrong theme.
+Plugins should never hard-code light-only colors — use the semantic tokens
+above (they flip for free).
+
+### Shared Layout Components (front-end framework)
+
+Banner/header/footer/sidebar components live in the iikiti front-end
+framework (`assets/js/iikiti/components/`) and work on **both** the public
+front-end and the admin, because `iikiti.js` is loaded on every page.
+
+```html
+<!-- Declarative (public front-end, auto-wired on domReady) -->
+<header data-component="header" data-sticky="scroll" data-sticky-toggle="#menu">…</header>
+<aside data-component="sidebar" data-sticky="scroll,edge,button"
+       data-sticky-toggle="#sidebar-toggle">…</aside>
+```
+
+```js
+// Imperative (admin SPA, plugin bundles)
+window.iikiti.components.create('sidebar', el, {
+  sticky: ['scroll', 'edge', 'button'],
+  toggleSelector: '#sidebar-toggle',
+});
+window.iikiti.components.on('banner:update', fn);   // pub/sub for dynamic content
+```
+
+Positioning modes: `data-position="static|sticky|absolute"`.
+Sticky triggers (composable): `scroll` (hide on down-scroll), `edge`
+(reveal near the viewport edge), `hover-target` (`data-sticky-target`),
+`button` (`data-sticky-toggle`). All panels accept `setContent()` /
+`refresh()` (`data-iikiti-source`) for dynamic content updates.
 
 ## List Views
 

@@ -54,8 +54,8 @@
 {:else if loading}
 	<LoadingState label="Loading roles…" />
 {:else}
-	<div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
-		<table class="admin-table min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+	<div class="overflow-x-auto rounded-lg border border-border">
+		<table class="admin-table min-w-full divide-y divide-border">
 			<thead>
 				<tr>
 					<th class="px-4 py-2">Role</th>
@@ -66,17 +66,17 @@
 					<th class="px-4 py-2">Hidden</th>
 				</tr>
 			</thead>
-			<tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+			<tbody class="divide-y divide-border">
 				{#each roles as role (role.id)}
 					<tr>
-						<td class="px-4 py-2 font-medium">{role.name}</td>
-						<td class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">{role.value}</td>
-						<td class="px-4 py-2 text-xs text-gray-500 dark:text-gray-400">
+						<td class="px-4 py-2 font-medium text-text">{role.name}</td>
+						<td class="px-4 py-2 text-sm text-text-muted">{role.value}</td>
+						<td class="px-4 py-2 text-xs text-text-muted">
 							{permissionString(role.defaultPermissions)}
 						</td>
 						<td class="px-4 py-2">
 							<button
-								class="text-xs text-blue-600 hover:text-blue-800"
+								class="text-xs text-accent hover:text-accent-hover"
 								onclick={() => api.updateRole(role.id, { ...role, customPermissions: { ...role.customPermissions, profile: ['read'] } })}
 							>
 								Edit custom permissions
@@ -86,13 +86,13 @@
 						<td class="px-4 py-2">
 							{#if !role.isDefault}
 								<button
-									class="text-xs text-gray-600 hover:text-gray-800"
+									class="text-xs text-text-muted hover:text-text"
 									onclick={() => toggleHidden(role)}
 								>
 									{role.isHidden ? 'Show' : 'Hide'}
 								</button>
 							{:else}
-								—
+								&mdash;
 							{/if}
 						</td>
 					</tr>

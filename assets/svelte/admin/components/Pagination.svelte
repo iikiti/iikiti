@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Icon from './Icon.svelte';
+
 	interface Props {
 		currentPage?: number;
 		totalPages?: number;
@@ -28,8 +30,8 @@
 
 {#if totalItems > 0}
 	<div class="flex items-center justify-between mt-4">
-		<div class="text-sm text-gray-500 dark:text-gray-400">
-			Showing {startItem}–{endItem} of {totalItems} items
+		<div class="text-sm text-text-muted">
+			Showing {startItem}-{endItem} of {totalItems} items
 		</div>
 		{#if totalPages > 1}
 			<div class="flex gap-1">
@@ -38,6 +40,7 @@
 					disabled={currentPage <= 1}
 					onclick={() => gotoPage(currentPage - 1)}
 				>
+					<Icon name="chevron-left" size={16} />
 					Prev
 				</button>
 				{#each Array.from({ length: totalPages }, (_, i) => i + 1) as page}
@@ -56,6 +59,7 @@
 					onclick={() => gotoPage(currentPage + 1)}
 				>
 					Next
+					<Icon name="chevron-right" size={16} />
 				</button>
 			</div>
 		{/if}

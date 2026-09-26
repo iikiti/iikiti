@@ -17,7 +17,10 @@
 		oninput,
 	}: Props = $props();
 
-	let inputValue = $state(value ?? '');
+	let inputValue = $state('');
+	$effect(() => {
+		inputValue = value ?? '';
+	});
 
 	function handleInput(e: Event) {
 		const target = e.target as HTMLTextAreaElement;

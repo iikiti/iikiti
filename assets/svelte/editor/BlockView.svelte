@@ -29,7 +29,11 @@
 	class:selected={isSelected}
 	class="iikiti-block-preview"
 	data-block-node
+	tabindex="0"
+	role="button"
+	aria-label="Select block"
 	onclick={pick}
+	onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(e); } }}
 >
 	{#if node.type === 'text'}
 		{@html node.content?.content ?? ''}
@@ -44,7 +48,7 @@
 			{#each node.children ?? [] as child (child.id)}<BlockView node={child} />{/each}
 		</div>
 	{:else if node.type === 'video_embed'}
-		<iframe src={node.content?.url} class="iikiti-embed__iframe" allowfullscreen loading="lazy"></iframe>
+		<iframe src={node.content?.url} title="Embedded content" class="iikiti-embed__iframe" allowfullscreen loading="lazy"></iframe>
 	{:else if node.type === 'social_embed'}
 		{#if node.content?.url}<a href={node.content.url} class="iikiti-embed--link-card">{node.content.url}</a>{/if}
 	{:else if node.type === 'query'}

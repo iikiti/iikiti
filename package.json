@@ -38,6 +38,7 @@
         "defaults"
     ],
     "dependencies": {
+        "@lucide/svelte": "^1.48.0",
         "baseline-browser-mapping": "^2.11.23",
         "caniuse-lite": "^1.0.30001810"
     }

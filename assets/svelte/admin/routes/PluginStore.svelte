@@ -33,11 +33,11 @@
 <PageHeader title="Plugin Store" description="Browse and install plugins from the iikiti store." />
 
 {#if error}
-	<div class="p-3 bg-red-100 text-red-800 rounded-lg">{error}</div>
+	<div class="p-3 bg-danger-subtle text-danger rounded-lg">{error}</div>
 {:else if loading}
 	<LoadingState label="Loading plugin store…" />
 {:else}
-	<div class="text-gray-500 dark:text-gray-400">
+	<div class="text-text-muted">
 		The plugin store is not configured. Set the store URL in `config/packages/plugins.yaml`.
 	</div>
 {/if}

@@ -29,6 +29,7 @@ components to build consistent UI.
 | Component | Purpose |
 |-----------|---------|
 | `AdminLayout` | Sidebar navigation + header + content outlet |
+| `Icon` | Lucide icon by kebab-case name (e.g. `users`, `puzzle`) |
 | `DataTable` | Paginated, sortable table with configurable columns |
 | `PageHeader` | Page title + description + action buttons |
 | `LoadingState` | Spinner with optional label |

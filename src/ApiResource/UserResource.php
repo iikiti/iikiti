@@ -26,7 +26,7 @@ use iikiti\CMS\State\Provider\UserProvider;
 			security: 'is_granted("ROLE_ADMIN")',
 		),
 	],
-	normalizationContext: ['groups' => ['user:read']],
+			normalizationContext: ['attributes' => ['id', 'username', 'emails', 'groupIds']],
 )]
 class UserResource
 {

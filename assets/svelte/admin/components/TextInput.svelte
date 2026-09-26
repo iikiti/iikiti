@@ -17,7 +17,11 @@
 		oninput,
 	}: Props = $props();
 
-	let inputValue = $state(value ?? '');
+	let inputValue = $state('');
+	// Keep the visible value in sync if the parent updates the `value` prop.
+	$effect(() => {
+		inputValue = value ?? '';
+	});
 
 	function handleInput(e: Event) {
 		const target = e.target as HTMLInputElement;

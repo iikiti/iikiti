@@ -35,7 +35,8 @@ final class TemplatesAdminScreenTest extends TestCase
 
 		self::assertNotNull($list);
 		self::assertSame('list', $list->type);
-		self::assertSame('/api/admin/templates', $list->apiPath);
+		// apiPath is relative to the SPA's `/api` base (ApiClient prepends it).
+		self::assertSame('/admin/templates', $list->apiPath);
 		self::assertSame('/admin/templates/edit', $list->config['editPath'] ?? null);
 	}
 

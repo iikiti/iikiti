@@ -49,10 +49,23 @@ final class AdminMenuRegistryTest extends TestCase
 
 		$dashboard = array_values(array_filter($items, fn ($i): bool => '/dashboard' === $i->path));
 		self::assertCount(1, $dashboard);
-		self::assertSame(0, $dashboard[0]->priority);
+		// The registry sorts descending by priority (higher sorts first), so
+		// the Dashboard carries the highest priority to lead the navigation.
+		self::assertSame(1000, $dashboard[0]->priority);
 
 		$users = array_values(array_filter($items, fn ($i): bool => '/users' === $i->path));
 		self::assertSame(100, $users[0]->priority);
+	}
+
+	public function testDashboardSortsFirstInRegistry(): void
+	{
+		$extension = new CoreAdminExtension();
+		$registry = new AdminMenuRegistry([$extension]);
+
+		$items = $registry->getMenu();
+
+		self::assertNotEmpty($items);
+		self::assertSame('Dashboard', $items[0]->label);
 	}
 
 	public function testMenuItemsHaveIcons(): void

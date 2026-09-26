@@ -18,6 +18,21 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-09-26: Shared layout component library on the iikiti front-end framework
+  (`assets/js/iikiti/components/`): banner/header/footer/sidebar/panel with
+  `StickyController` (static / sticky / absolute positioning; scroll, edge,
+  hover-target and button triggers) and dynamic content via `setContent()` /
+  `refresh()` / `iikiti.components` pub-sub. Wired onto `window.iikiti`.
+- 2026-09-26: Admin dark theme with sun/moon toggle in the header
+  (localStorage-persisted, OS-preference default, no FOUC via inline
+  `layout.twig` script) using the 2027 color palette
+  (Common Ground / Deep Rooted / Cottage Door / Grounded).
+- 2026-09-26: `Icon` Svelte component (`@lucide/svelte`) exported from the
+  `@iikiti/admin` barrel; menu icons now render as SVGs instead of raw text.
+- 2026-09-26: Admin user menu with logout link and responsive mobile sidebar
+  drawer (overlay + `aria-expanded` toggle) in `AdminLayout`.
+- 2026-09-26: Admin defaults to the Dashboard route (`/` redirects to the
+  first menu entry) and the Dashboard sorts first in the sidebar.
 - 2026-09-26: `TemplateProcessor` (create/update) state processor backing the
   admin Templates POST/PUT operations on `TemplateResource`.
 - 2026-09-26: Admin Templates `form` screen descriptors (edit + new) and
@@ -27,6 +42,37 @@ The top-level file keeps the latest 5 dated entries; older entries live in
   (`Form.svelte` exposes `onsubmit(data)` + children slot) and loads the
   existing record on edit with `json`-typed field encode/decode
   (`GenericFormPage.svelte`, `Form.svelte`).
+
+### Changed
+
+- 2026-09-26: Admin restyled with Tailwind CSS v4 (`@import "tailwindcss"` +
+  `@theme` palette tokens + `@custom-variant dark`); all `admin-*` component
+  classes are now defined in `assets/styles/admin.css` (`@layer components`)
+  and every admin component/route uses semantic palette tokens.
+- 2026-09-26: `AdminMenuItem` Dashboard priority raised to 1000 so it sorts
+  first under the registry's descending-priority ordering.
+
+### Fixed
+
+- 2026-09-26: Admin SPA never loaded — `templates/base/layout.twig` had no
+  `head_js` block, so the admin entry scripts were silently dropped.
+- 2026-09-26: Admin API responses returned only `@id`/`@type` because
+  `normalizationContext: ['groups' => …]` was set without matching serializer
+  groups on resource properties (`UserResource`, `RoleResource`,
+  `AuditLogResource`, `TemplateResource`, `SearchActionResource`); lists now
+  serialize their fields.
+- 2026-09-26: Admin API client missed API Platform 4's `member` collection key
+  (`ApiClient::parsePaged()`/`extractItems()`), which rendered empty tables.
+- 2026-09-26: Editor toolbar/sidebar `a11y` lint warnings (replaced the
+  non-interactive `<nav role="toolbar">` with a `<div role="toolbar">`, gave the
+  block preview `<div>` a keyboard toggle + `aria-label`, added an iframe
+  `title`, and removed the unused `.iikti-editor__canvas` selector).
+- 2026-09-26: Sidebar title strip used the light `admin-header` class against a
+  light sidebar text color — moved to a dedicated `admin-sidebar-header`
+  (kept on `var(--sidebar)`) so the title is readable in both themes.
+- 2026-09-26: Removed the `edge` (mouse-proximity) hide trigger from the
+  sidebar so it no longer collapses when the cursor leaves the left edge;
+  sidebar now hides only on scroll-down and reveals on scroll-up / toggle.
 - 2026-09-23: Front-end block editor backend: `BlockType` registry + core blocks
   (container, dynamic, heading/text, image, video_embed, social_embed, query),
   `BlockRenderer` (Twig, editor-metadata gating), embed resolver (YouTube/Vimeo +

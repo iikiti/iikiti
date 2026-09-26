@@ -44,7 +44,7 @@ export class ApiClient {
 	}
 
 	parsePaged(data) {
-		const members = data['hydra:member'] ?? data.members ?? data;
+		const members = data['hydra:member'] ?? data.members ?? data.member ?? data;
 		const total = data['hydra:totalItems'] ?? data.totalItems ?? members.length;
 		const perPage = data['hydra:itemsPerPage'] ?? data.itemsPerPage ?? 25;
 		const page = data['hydra:view']?.['hydra:page'] ?? 1;
@@ -69,6 +69,10 @@ export class ApiClient {
 			// Wrapped resource: { items: [...] } inside the Hydra member,
 			// or the member array itself if items are returned directly.
 			return member?.items ?? data['hydra:member'];
+		}
+
+		if (data && typeof data === 'object' && Array.isArray(data.member)) {
+			return data.member;
 		}
 
 		if (data && typeof data === 'object' && Array.isArray(data.items)) {
@@ -135,7 +139,7 @@ export class ApiClient {
 
 	async getRoles() {
 		const data = await this.request('/admin/roles');
-		return data['hydra:member'] ?? data;
+		return data['hydra:member'] ?? data.member ?? data;
 	}
 
 	async getRole(id) {

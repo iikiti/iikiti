@@ -21,7 +21,7 @@ class CoreAdminExtension implements AdminExtensionInterface
 	public function getMenuItems(): array
 	{
 		return [
-			AdminMenuItem::create('Dashboard', '/dashboard', 'layout-dashboard', 0),
+			AdminMenuItem::create('Dashboard', '/dashboard', 'layout-dashboard', 1000),
 			AdminMenuItem::create('Users', '/users', 'users', 100),
 			AdminMenuItem::create('User Groups', '/user-groups', 'users', 90),
 			AdminMenuItem::create('Roles & Permissions', '/roles', 'shield', 80),
@@ -33,7 +33,7 @@ class CoreAdminExtension implements AdminExtensionInterface
 				AdminMenuItem::create('Installed', '/plugins'),
 				AdminMenuItem::create('Store', '/plugins/store'),
 			]),
-			AdminMenuItem::create('Search', '/search', 'search', 30, [
+			AdminMenuItem::create('Search', '/search/indexes', 'search', 30, [
 				AdminMenuItem::create('Indexes', '/search/indexes'),
 				AdminMenuItem::create('Filters', '/search/filters'),
 				AdminMenuItem::create('Site Groups', '/search/site-groups'),
@@ -93,7 +93,7 @@ class CoreAdminExtension implements AdminExtensionInterface
 					['key' => 'name', 'label' => 'Name'],
 				],
 			]),
-			new AdminScreen(path: '/admin/templates', title: 'Templates', type: 'list', apiPath: '/api/admin/templates', config: [
+			new AdminScreen(path: '/admin/templates', title: 'Templates', type: 'list', apiPath: '/admin/templates', config: [
 				'columns' => [
 					['key' => 'id', 'label' => 'ID'],
 					['key' => 'title', 'label' => 'Title'],
@@ -101,7 +101,7 @@ class CoreAdminExtension implements AdminExtensionInterface
 				],
 				'editPath' => '/admin/templates/edit',
 			]),
-			new AdminScreen(path: '/admin/templates/edit', title: 'Template', type: 'form', apiPath: '/api/admin/templates', config: [
+			new AdminScreen(path: '/admin/templates/edit', title: 'Template', type: 'form', apiPath: '/admin/templates', config: [
 				'editPath' => '/admin/templates/edit',
 				'fields' => [
 					['key' => 'title', 'label' => 'Title', 'type' => 'text', 'required' => true],
@@ -110,7 +110,7 @@ class CoreAdminExtension implements AdminExtensionInterface
 					['key' => 'assignments', 'label' => 'Assignments (JSON)', 'type' => 'json'],
 				],
 			]),
-			new AdminScreen(path: '/admin/templates/new', title: 'New Template', type: 'form', apiPath: '/api/admin/templates', config: [
+			new AdminScreen(path: '/admin/templates/new', title: 'New Template', type: 'form', apiPath: '/admin/templates', config: [
 				'editPath' => '/admin/templates/edit',
 				'fields' => [
 					['key' => 'title', 'label' => 'Title', 'type' => 'text', 'required' => true],

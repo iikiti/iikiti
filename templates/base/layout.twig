@@ -11,6 +11,7 @@
             {{ encore_entry_link_tags('tailwind') }}
         {% endblock %}
         <title>{{ (doc.title ?? 'iikiti')|escape('html') }}</title>
+        {% block head_js %}{% endblock %}
     {% endblock %}
 </head>
 <body class="text-black bg-white dark:text-white dark:bg-gray-900 {% if iikiti_editor_mode %}iikiti-editor-body{% endif %}">

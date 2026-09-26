@@ -2,6 +2,18 @@
 
 {% block head_styles %}
     {{ parent() }}
+    <script>
+    (function () {
+        var KEY = 'theme';
+        var d = document.documentElement;
+        var stored = (typeof localStorage !== 'undefined') ? localStorage.getItem(KEY) : null;
+        var dark;
+        if (stored === 'dark') { dark = true; }
+        else if (stored === 'light') { dark = false; }
+        else if (window.matchMedia) { dark = window.matchMedia('(prefers-color-scheme: dark)').matches; }
+        if (dark) d.classList.add('dark');
+    })();
+    </script>
     {{ encore_entry_link_tags('admin') }}
 {% endblock %}
 
@@ -13,11 +25,12 @@
     <div id="admin-app"
         data-api-token="{{ api_token }}"
         data-api-base="{{ api_base }}"
+        data-current-user="{{ app.user.username ?? '' }}"
         data-debug="{{ debug }}">
-        <div class="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div class="min-h-screen flex items-center justify-center bg-bg">
             <div class="text-center">
-                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p class="text-gray-600 dark:text-gray-400">Loading administration…</p>
+                <div class="animate-spin rounded-full h-10 w-10 border-2 border-transparent border-t-accent mb-4"></div>
+                <p class="text-text-muted">Loading administration…</p>
             </div>
         </div>
     </div>
