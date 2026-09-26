@@ -1,0 +1,60 @@
+{#
+    Overrides Symfony's built-in Cache profiler panel
+    (@WebProfiler/Collector/cache.html.twig) to append the ikiti database
+    query-cache diagnostics. The `@!` prefix extends the *original* vendor
+    template (avoiding the infinite recursion that occurs when extending an
+    overridden template by its own logical name — see Symfony docs).
+
+    The ikiti data is exposed by a tabless data collector
+    (iikiti.database_cache), reachable via profile.getCollector(...) — the same
+    cross-collector access pattern the WebProfiler layout itself uses.
+#}
+{% extends '@!WebProfiler/Collector/cache.html.twig' %}
+
+{% block panel %}
+    {{ parent() }}
+
+    {% if profile is defined and profile.hascollector('iikiti.database_cache') %}
+        {% set ikiti = profile.getcollector('iikiti.database_cache') %}
+        <h2>iikiti database cache</h2>
+
+        {% set strategy = ikiti.ikitiStrategy() %}
+        <h3>Active strategy</h3>
+        <table>
+            <tbody>
+                <tr><th>Name</th><td><code>{{ strategy.name }}</code></td></tr>
+                <tr><th>Label</th><td>{{ strategy.label }}</td></tr>
+                <tr><th>Enabled (this request)</th><td><span class="{{ strategy.enabled ? 'success' : 'error' }}">{{ strategy.enabled ? 'yes' : 'no' }}</span></td></tr>
+            </tbody>
+        </table>
+
+        <h3>Generation counters (last sample)</h3>
+        <table>
+            <thead>
+                <tr><th>Entity class</th><th>Generation</th></tr>
+            </thead>
+            <tbody>
+            {% for entityClass, generation in ikiti.ikitiGenerations() %}
+                <tr><td><code>{{ entityClass }}</code></td><td>{{ generation }}</td></tr>
+            {% else %}
+                <tr><td colspan="2">No tracked entities.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <p class="text-muted">A write to a tracked entity class bumps its generation, changing the cache-key version so previously cached results are bypassed. The 300s TTL is a safety net; pool-level hit/miss stats are shown above in the Pools section.</p>
+
+        <h3>Registered strategies</h3>
+        <table>
+            <thead>
+                <tr><th>Name</th><th>Label</th></tr>
+            </thead>
+            <tbody>
+            {% for item in ikiti.ikitiAvailableStrategies() %}
+                <tr><td><code>{{ item.name }}</code></td><td>{{ item.label }}</td></tr>
+            {% else %}
+                <tr><td colspan="2">No strategies registered.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+{% endblock %}

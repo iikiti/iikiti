@@ -10,14 +10,21 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\DataCollector\DataCollector;
 
 /**
- * Symfony Profiler data collector for the database query caching layer.
+ * Profiler integration for the database query-cache layer.
  *
- * Shows the active strategy, the per-request CacheState and the registered
- * strategies. Pool-level hit/miss statistics are surfaced by the built-in
- * Cache profiler panel; this collector focuses on the iikiti cache layer
- * (strategy resolution + backend adapter).
+ * This is a *tabless* data collector: it is collected and stored by the profiler
+ * (so its snapshot is reachable from other panels via `profile.getCollector(
+ * 'iikiti.database_cache')`) but it carries no `template` tag, so
+ * Symfony\Component\WebProfilerBundle\Profiler\TemplateManager skips it when
+ * building the profiler tab list (`getNames()` discards null templates). Its data
+ * is therefore surfaced exclusively inside the built-in Cache panel, via the
+ * overridden `templates/bundles/WebProfilerBundle/Collector/cache.html.twig`.
  *
- * Registered only in dev/test environments.
+ * Collected data is snapshotted into $this->data during collect() and read back
+ * from $this->data at render time. This is render-safe because
+ * DataCollector::__serialize() only serializes $this->data; the service
+ * dependencies (CacheState, DatabaseCacheManager) are not serialized and are not
+ * accessed by any of the getters below.
  */
 final class DatabaseCacheDataCollector extends DataCollector
 {
@@ -33,7 +40,7 @@ final class DatabaseCacheDataCollector extends DataCollector
 
 	public function __construct(
 		private readonly CacheState $cacheState,
-		private readonly DatabaseCacheManager $cacheManager
+		private readonly DatabaseCacheManager $cacheManager,
 	) {
 	}
 
@@ -42,87 +49,55 @@ final class DatabaseCacheDataCollector extends DataCollector
 		return 'iikiti.database_cache';
 	}
 
-	/**
-	 * Snapshot lightweight data at the end of the request so the panel can
-	 * render without re-invoking services.
-	 */
 	public function collect(Request $request, Response $response, ?\Throwable $exception = null): void
 	{
 		$strategy = $this->cacheManager->getStrategy();
-		$pool = $this->cacheManager->getPool();
+
 		$this->data = [
-			'strategy_name' => $strategy->getName(),
-			'strategy_label' => $strategy->getLabel(),
-			'enabled' => $this->cacheState->isEnabled(),
+			'strategy' => [
+				'name' => $strategy->getName(),
+				'label' => $strategy->getLabel(),
+				'enabled' => $this->cacheState->isEnabled(),
+			],
+			'generations' => $this->sampleGenerations(),
 			'available_strategies' => array_map(
 				static fn (StrategyMetadata $metadata): array => [
 					'name' => $metadata->name,
 					'label' => $metadata->label,
 				],
-				$this->cacheManager->getAvailableStrategies()
+				$this->cacheManager->getAvailableStrategies(),
 			),
-			'pool_class' => null !== $pool ? $this->safeClassName($pool) : 'n/a',
-			'pool_stats' => $this->cacheManager->getPoolStats(),
-			'generations' => $this->sampleGenerations(),
 		];
 	}
 
 	/**
 	 * @return array{name:string,label:string,enabled:bool}
 	 */
-	public function strategy(): array
+	public function ikitiStrategy(): array
 	{
-		return [
-			'name' => $this->data['strategy_name'] ?? 'none',
-			'label' => $this->data['strategy_label'] ?? 'None',
-			'enabled' => (bool) ($this->data['enabled'] ?? false),
-		];
-	}
+		$strategy = $this->data['strategy'] ?? null;
 
-	/**
-	 * @return list<array{name:string,label:string}>
-	 */
-	public function availableStrategies(): array
-	{
-		return array_values($this->data['available_strategies'] ?? []);
+		return is_array($strategy) ? $strategy : ['name' => 'none', 'label' => 'None', 'enabled' => false];
 	}
 
 	/**
 	 * @return array<string,int>
 	 */
-	public function generations(): array
+	public function ikitiGenerations(): array
 	{
-		return $this->data['generations'] ?? [];
-	}
+		$generations = $this->data['generations'] ?? null;
 
-	public function poolClass(): string
-	{
-		return $this->data['pool_class'] ?? 'n/a';
+		return is_array($generations) ? $generations : [];
 	}
 
 	/**
-	 * @return array<string,int>|null
+	 * @return list<array{name:string,label:string}>
 	 */
-	public function poolStats(): ?array
+	public function ikitiAvailableStrategies(): array
 	{
-		return $this->data['pool_stats'] ?? null;
-	}
+		$strategies = $this->data['available_strategies'] ?? null;
 
-	public const TEMPLATE = 'bundles/Profiler/cache_database.html.twig';
-
-	/**
-	 * Path to the Twig template backing this collector's profiler panel.
-	 * The matching service definition declares the same template via the
-	 * `data_collector` tag for completeness.
-	 */
-	public static function getTemplate(): string
-	{
-		return static::TEMPLATE;
-	}
-
-	public function reset(): void
-	{
-		$this->data = [];
+		return array_values(is_array($strategies) ? $strategies : []);
 	}
 
 	/**
@@ -136,14 +111,5 @@ final class DatabaseCacheDataCollector extends DataCollector
 		}
 
 		return $generations;
-	}
-
-	private function safeClassName(object $object): string
-	{
-		try {
-			return get_class($object);
-		} catch (\Throwable) {
-			return 'unknown';
-		}
 	}
 }

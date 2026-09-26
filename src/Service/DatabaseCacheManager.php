@@ -162,47 +162,6 @@ class DatabaseCacheManager
 		return $this->strategyRegistry->getAvailableStrategies();
 	}
 
-	/**
-	 * The underlying cache pool (used, e.g., by the profiler), or null when no
-	 * pool is injected.
-	 */
-	public function getPool(): ?CacheItemPoolInterface
-	{
-		return $this->cachePool;
-	}
-
-	/**
-	 * @return array<string,int>|null
-	 */
-	public function getPoolStats(): ?array
-	{
-		$pool = $this->cachePool;
-		if (!method_exists($pool, 'getStats')) {
-			return null;
-		}
-
-		try {
-			$stats = $pool->getStats();
-		} catch (\Throwable) {
-			return null;
-		}
-
-		if (!is_array($stats)) {
-			return null;
-		}
-
-		$hits = (int) ($stats['hits'] ?? $stats['hit'] ?? 0);
-		$misses = (int) ($stats['misses'] ?? $stats['miss'] ?? 0);
-
-		return [
-			'hits' => $hits,
-			'misses' => $misses,
-			'reads' => (int) ($stats['reads'] ?? $hits + $misses),
-			'writes' => (int) ($stats['writes'] ?? $stats['writings'] ?? 0),
-			'deletes' => (int) ($stats['deletes'] ?? 0),
-		];
-	}
-
 	private function resolve(string $name): CachingStrategyInterface
 	{
 		$strategy = $this->strategyRegistry->getStrategy($name);

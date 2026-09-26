@@ -57,12 +57,13 @@ services:
         tags:
             - { name: api_platform.doctrine.orm.query_extension.collection, priority: -100 }
 
-    # Symfony Profiler panel for the database query caching layer. Registered
-    # for all environments; it is only rendered where the web profiler is
-    # enabled (dev/test).
-    iikiti\CMS\Profiler\DatabaseCacheDataCollector:
-        tags:
-            - { name: data_collector, id: 'iikiti.database_cache', template: 'bundles/Profiler/cache_database.html.twig' }
+    # Database query-cache diagnostics. Registered via the iikiti\CMS\: resource
+    # above and auto-wired; it is auto-tagged `data_collector` because it
+    # implements DataCollectorInterface. It carries NO `template` tag, so
+    # Symfony's TemplateManager renders no profiler tab for it — its data is
+    # surfaced inside the built-in Cache panel via
+    # profile.getCollector('iikiti.database_cache') (getName()). dev/test only.
+    iikiti\CMS\Profiler\DatabaseCacheDataCollector: ~
 
     # Aliases
     iikiti\CMS\Workflow\WorkflowFactoryInterface:

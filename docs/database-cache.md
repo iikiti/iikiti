@@ -281,16 +281,31 @@ same way as any other (DI tag or `register()`).
 
 ## Debugging / Symfony Profiler
 
-A dedicated **"Database cache"** profiler panel (`DatabaseCacheDataCollector`,
-dev/test only) surfaces:
+The iikiti database query-cache diagnostics are surfaced inside Symfony's
+built-in **Cache** profiler panel (dev/test only). `DatabaseCacheDataCollector` is
+registered as a *tabless* data collector — tagged `data_collector` with no
+`template`, so it does not get its own profiler tab — and is reached from the Cache
+panel via `profile.getCollector('iikiti.database_cache')`, the same cross-collector
+access pattern the WebProfiler layout itself uses. The shared Cache panel template
+is overridden at `templates/bundles/WebProfilerBundle/Collector/cache.html.twig`
+(it extends `@!WebProfiler/Collector/cache.html.twig`; the `!` prefix avoids the
+recursion error when extending an overridden template) and appends an
+**iikiti database cache** subsection below the inherited pool stats. That
+subsection reports:
 
-- the active **strategy** (name, label, enabled state),
-- the **backend adapter** class (e.g. `FilesystemAdapter`, `RedisAdapter`),
+- the active **strategy** (name, label, enabled state for the current request),
 - **per-entity-class generation counters** (read at request end),
 - the **registered strategies** available for selection.
 
-Pool-level hit/miss statistics are already shown on the built-in **Cache**
-panel.
+Pool-level hit/miss/time statistics and the **backend adapter** class (e.g.
+`FilesystemAdapter`, `RedisAdapter`) are *not* duplicated here — they come from the
+standard cache-pool tracing shown in the Cache panel's **Pools** section,
+populated per-request by Symfony's `TraceableAdapter`. Do not decorate
+`data_collector.cache` to achieve this: Symfony's `CacheCollectorPass` gates on
+`hasDefinition('data_collector.cache')`, which is false for a decorated (aliased)
+service, so decorating it silently disables pool tracing. The per-entity generation
+values change the cache key version, so a write to a tracked entity class makes
+previously cached results unreachable until they expire by TTL.
 
 ## Clearing the cache
 

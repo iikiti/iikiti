@@ -166,6 +166,13 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Changed
 
+- 2026-09-26: Database query-cache profiler diagnostics moved out of the
+  standalone "Database cache" panel and into Symfony's built-in Cache panel.
+  `DatabaseCacheDataCollector` is now a tabless data collector (no `template`
+  tag) rendered via an overridden `@WebProfiler/Collector/cache.html.twig` that
+  appends strategy/generation/registered-strategy info; Symfony's pool stats are
+  no longer duplicated. `DatabaseCacheManager::getPool()`/`getPoolStats()` were
+  removed as redundant with the profiler's per-request `TraceableAdapter` stats.
 - 2026-09-26: Changelog split into per-day files under `changelog/`; the top-level
   `CHANGELOG.md` now retains only the latest 5 dated sections, older sections are
   archived in `changelog/<date>.md`.
