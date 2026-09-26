@@ -19,9 +19,17 @@ use Twig\Environment;
  * - Block *content* is rendered from the block type's Twig template; containers
  *   render their children recursively into a `children_html` placeholder.
  */
-final class BlockRenderer
+	final class BlockRenderer
 {
 	private const WRAPPER_TAG = 'div';
+
+	/**
+	 * Seeded editor-mode hint rendered as the default `main` region text block.
+	 * It is instructional content: visible to editors (so they can replace it)
+	 * but must never leak to public visitors, so {@see renderNode()} suppresses
+	 * this exact block when not in editor mode.
+	 */
+	private const EDIT_HINT = '<p>Edit this page with <code>?edit</code>.</p>';
 
 	public function __construct(
 		private readonly BlockTypeRegistry $registry,
@@ -62,6 +70,13 @@ final class BlockRenderer
 
 		$content = is_array($node['content'] ?? null) ? $node['content'] : [];
 		$children = $node['children'] ?? [];
+
+		// The seeded "Edit this page with ?edit" hint is instructional content for
+		// editors only; suppress it from visitors who cannot edit (so it only
+		// appears to logged-in editors, with or without `?edit`).
+		if (!$context->canEdit && 'text' === $type && ($content['content'] ?? '') === self::EDIT_HINT) {
+			return '';
+		}
 
 		// `dynamic` blocks source their children from the object's per-object
 		// dynamic block storage (keyed by the block id) rather than the template tree.

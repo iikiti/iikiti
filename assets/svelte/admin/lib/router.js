@@ -20,13 +20,29 @@ export function findMenuItem(menu, path) {
 }
 
 /**
- * Find a screen descriptor by exact path from the screens manifest.
+ * Find a screen descriptor by path from the screens manifest.
+ *
+ * Matches on the pathname only (the leading path before any `?query`), so
+ * dynamic-id screens such as `/admin/templates/edit?id=26` resolve against a
+ * screen declared with `path: '/admin/templates/edit'`.
  *
  * @param {any[]} screens
- * @param {string} path
+ * @param {string} hashPath
  */
-export function findScreenByPath(screens, path) {
-	return screens.find((s) => s.path === path) ?? null;
+export function findScreenByPath(screens, hashPath) {
+	const pathname = (hashPath || '/').split('?', 1)[0];
+
+	return screens.find((s) => s.path === pathname) ?? null;
+}
+
+/**
+ * Extract a single `id` path/query parameter from the current hash path.
+ *
+ * @param {string} hashPath
+ */
+export function getRouteId(hashPath) {
+	const query = (hashPath || '').split('?', 2)[1] ?? '';
+	return new URLSearchParams(query).get('id') ?? null;
 }
 
 export function getCurrentPath() {

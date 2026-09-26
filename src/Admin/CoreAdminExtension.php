@@ -99,6 +99,25 @@ class CoreAdminExtension implements AdminExtensionInterface
 					['key' => 'title', 'label' => 'Title'],
 					['key' => 'layout', 'label' => 'Layout'],
 				],
+				'editPath' => '/admin/templates/edit',
+			]),
+			new AdminScreen(path: '/admin/templates/edit', title: 'Template', type: 'form', apiPath: '/api/admin/templates', config: [
+				'editPath' => '/admin/templates/edit',
+				'fields' => [
+					['key' => 'title', 'label' => 'Title', 'type' => 'text', 'required' => true],
+					['key' => 'layout', 'label' => 'Layout', 'type' => 'text'],
+					['key' => 'regions', 'label' => 'Regions (JSON)', 'type' => 'json'],
+					['key' => 'assignments', 'label' => 'Assignments (JSON)', 'type' => 'json'],
+				],
+			]),
+			new AdminScreen(path: '/admin/templates/new', title: 'New Template', type: 'form', apiPath: '/api/admin/templates', config: [
+				'editPath' => '/admin/templates/edit',
+				'fields' => [
+					['key' => 'title', 'label' => 'Title', 'type' => 'text', 'required' => true],
+					['key' => 'layout', 'label' => 'Layout', 'type' => 'text'],
+					['key' => 'regions', 'label' => 'Regions (JSON)', 'type' => 'json'],
+					['key' => 'assignments', 'label' => 'Assignments (JSON)', 'type' => 'json'],
+				],
 			]),
 			new AdminScreen(path: '/site-groups', title: 'Site Groups', type: 'list', apiPath: '/admin/site-groups', config: [
 				'columns' => [

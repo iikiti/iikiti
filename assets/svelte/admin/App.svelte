@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { ApiClient } from '$lib/api';
+	import { findScreenByPath, getRouteId } from '$lib/router';
 	import AdminLayout from './components/AdminLayout.svelte';
 	import DashboardRoute from './routes/Dashboard.svelte';
 	import UsersRoute from './routes/Users.svelte';
@@ -59,8 +60,14 @@
 		SearchSiteGroups: SearchSiteGroupsRoute,
 	};
 
+	// Match against the pathname only so dynamic-id screens (e.g.
+	// `/admin/templates/edit?id=26`) resolve to their declared `path`.
+	const currentScreen = $derived.by(() => findScreenByPath(screens, currentPath) ?? null);
+	/** id query param for detail/form screens (`?id=N`), or null. */
+	const currentId = $derived.by(() => getRouteId(currentPath));
+
 	const CurrentComponent = $derived.by(() => {
-		const screen = screens.find((s) => s.path === currentPath);
+		const screen = currentScreen;
 		if (!screen) {
 			return NotFoundRoute;
 		}
@@ -88,13 +95,6 @@
 		}
 
 		return LoadingRoute;
-	});
-
-	/**
-	 * The screen descriptor for the current path, passed to generic routes.
-	 */
-	const currentScreen = $derived.by(() => {
-		return screens.find((s) => s.path === currentPath) ?? null;
 	});
 
 	async function resolveScreen(screen: AdminScreen): Promise<void> {
@@ -149,7 +149,7 @@
 
 	// When the path changes, kick off the dynamic import for custom screens
 	$effect(() => {
-		const screen = screens.find((s) => s.path === currentPath);
+		const screen = currentScreen;
 		if (screen && screen.bundle && !componentCache[screen.path]) {
 			resolveScreen(screen);
 		}
@@ -167,8 +167,15 @@
 	<AdminLayout {menu} {api} {debug} {currentPath} onNavigate={navigateTo}>
 		{#if CurrentComponent === NotFoundRoute}
 			<CurrentComponent currentPath={currentPath} />
-		{:else if CurrentComponent === GenericListPage || CurrentComponent === GenericDetailPage || CurrentComponent === GenericFormPage}
-			<CurrentComponent {api} {debug} screen={currentScreen} />
+		{:else if CurrentComponent === GenericListPage}
+			<CurrentComponent {api} {debug} screen={currentScreen} onRowClick={(row: any) => {
+				const editPath = currentScreen?.config?.editPath;
+				if (editPath && row?.id != null) {
+					navigateTo(`${editPath}?id=${row.id}`);
+				}
+			}} />
+		{:else if CurrentComponent === GenericFormPage || CurrentComponent === GenericDetailPage}
+			<CurrentComponent {api} {debug} screen={currentScreen} id={currentId} />
 		{:else}
 			<CurrentComponent {api} {debug} />
 		{/if}

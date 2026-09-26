@@ -51,6 +51,7 @@ final class PageRendering
 		$template = $this->resolver->resolve($context) ?? $this->defaultTemplate();
 		$user = $this->security->getUser();
 		$authorized = $request->query->has('edit') && $user instanceof User;
+		$canEdit = $this->configProvider->canEdit($user);
 		$config = $authorized
 			? $this->configProvider->build(
 				contextId: (int) ($template->getId() ?? 0),
@@ -64,6 +65,7 @@ final class PageRendering
 
 		$renderContext = new BlockRenderContext(
 			editorMode: $editorMode,
+			canEdit: $canEdit,
 			site: $site,
 			object: $object,
 			request: $request,
@@ -71,6 +73,9 @@ final class PageRendering
 		);
 
 		$pageHtml = $this->templateRenderer->render($template, $renderContext, $regionTrees);
+
+		$this->twig->addGlobal('iikiti_editor_mode', $editorMode);
+		$this->twig->addGlobal('iikiti_config', $config);
 
 		return new Response($this->twig->render('base/layout.twig', [
 			'doc' => ['title' => $template->getTitle() ?? 'iikiti'],

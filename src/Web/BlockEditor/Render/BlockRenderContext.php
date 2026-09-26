@@ -16,9 +16,13 @@ final class BlockRenderContext
 	/**
 	 * @param array<string,list<array<string,mixed>>> $dynamicBlocks Per-object
 	 *                                                               dynamic-block children keyed by dynamic-block id (for `dynamic` blocks)
+	 * @param bool $canEdit Whether the current user is logged in and authorised to
+	 *                      edit the current page/template (independent of `?edit`),
+	 *                      used to gate editor-only placeholder content.
 	 */
 	public function __construct(
 		public readonly bool $editorMode,
+		public readonly bool $canEdit = false,
 		public readonly ?Site $site = null,
 		public readonly ?DbObject $object = null,
 		public readonly ?Request $request = null,
@@ -28,6 +32,6 @@ final class BlockRenderContext
 
 	public function withEditorMode(bool $editorMode): self
 	{
-		return new self($editorMode, $this->site, $this->object, $this->request, $this->dynamicBlocks);
+		return new self($editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks);
 	}
 }

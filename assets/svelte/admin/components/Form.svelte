@@ -4,7 +4,7 @@
 	interface FieldConfig {
 		key: string;
 		label: string;
-		type: 'text' | 'textarea' | 'select' | 'checkbox' | 'toggle' | 'number';
+		type: 'text' | 'textarea' | 'json' | 'select' | 'checkbox' | 'toggle' | 'number';
 		required?: boolean;
 		placeholder?: string;
 		options?: Array<{ value: string; label: string }>;
@@ -15,10 +15,11 @@
 		values?: Record<string, any>;
 		errors?: Record<string, string>;
 		onchange?: (values: Record<string, any>) => void;
-		onsubmit?: () => void;
+		onsubmit?: (data: Record<string, any>) => void | boolean;
+		children?: any;
 	}
 
-	let { fields, values = {}, errors = {}, onchange, onsubmit }: Props = $props();
+	let { fields, values = {}, errors = {}, onchange, onsubmit, children }: Props = $props();
 
 	let formData = $state<Record<string, any>>({});
 
@@ -31,7 +32,7 @@
 	});
 </script>
 
-<form onsubmit={(e) => { e.preventDefault(); onsubmit?.(); }}>
+<form onsubmit={(e) => { e.preventDefault(); onsubmit?.(formData); }}>
 	<div class="space-y-4">
 		{#each fields as field (field.key)}
 			<FormField {field} error={errors[field.key]}>
@@ -42,6 +43,14 @@
 						placeholder={field.placeholder}
 						bind:value={formData[field.key]}
 					></textarea>
+				{:else if field.type === 'json'}
+					<textarea
+						id={field.key}
+						class="admin-input w-full font-mono text-sm resize-y"
+						placeholder={field.placeholder ?? '[]'}
+						bind:value={formData[field.key]}
+					></textarea>
+					<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Enter valid JSON.</p>
 				{:else if field.type === 'select'}
 					<select
 						id={field.key}
@@ -80,5 +89,8 @@
 				{/if}
 			</FormField>
 		{/each}
+	</div>
+	<div class="mt-4 flex justify-end gap-2">
+		{@render children?.()}
 	</div>
 </form>

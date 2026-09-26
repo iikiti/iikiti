@@ -85,7 +85,7 @@ class EditorStateController extends AppController
 		}
 		$payload = $this->payload($request);
 		$node = is_array($payload['block'] ?? null) ? (array) $payload['block'] : ['type' => 'unknown'];
-		$html = $blockRenderer->renderNode($node, new BlockRenderContext(editorMode: true));
+		$html = $blockRenderer->renderNode($node, new BlockRenderContext(editorMode: true, canEdit: true));
 
 		return new Response($html, Response::HTTP_OK, ['Content-Type' => 'text/html; charset=utf-8']);
 	}

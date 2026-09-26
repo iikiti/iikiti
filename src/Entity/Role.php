@@ -228,6 +228,7 @@ class Role
 	public function can(string $objectType, string $action): bool
 	{
 		$permissions = $this->getAllPermissions();
+		$objectType = strtolower($objectType);
 
 		if (isset($permissions['*']) && in_array('*', $permissions['*'], true)) {
 			return true;

@@ -140,6 +140,7 @@ class UserGroup extends DbObject
 	public function can(string $objectType, string $action, ?string $objectId = null): bool
 	{
 		$permissions = $this->getPermissions();
+		$objectType = strtolower($objectType);
 
 		/** @var array<string|int,array<string>>|null $wildcardPerms */
 		$wildcardPerms = $permissions['*'] ?? null;

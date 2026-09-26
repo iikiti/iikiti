@@ -30,6 +30,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   registration by value or name.
 - 2026-09-22: `validateValue()` hook in `DynamicBackedEnumerator` with
   `ROLE_[A-Z0-9_]+` naming enforcement in `UserRoleEnum`.
+- 2026-09-26: `TemplateProcessor` (create/update) state processor backing the
+  admin Templates POST/PUT operations on `TemplateResource`.
+- 2026-09-26: Admin Templates `form` screen descriptors (edit + new) and
+  list→edit row navigation wired in the admin SPA (`App.svelte`,
+  `lib/router.js`).
+- 2026-09-26: Generic admin form component now round-trips edited values
+  (`Form.svelte` exposes `onsubmit(data)` + children slot) and loads the
+  existing record on edit with `json`-typed field encode/decode
+  (`GenericFormPage.svelte`, `Form.svelte`).
 
 ### Changed
 - 2026-09-22: Symfony dependency baseline upgraded from 8.1 to 8.2
@@ -40,8 +49,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - 2026-09-22: `RoleProcessor::delete()` now schedules a container rebuild via
   `PluginContainerRebuilder` after removing a custom `Role` entity, so the
   compiled role hierarchy stays in sync with DB state.
-- 2026-09-22: Documentation for wildcard role hierarchy, `debug:roles` command,
+- 2026-09-26: Documentation for wildcard role hierarchy, `debug:roles` command,
   and dynamic role naming conventions added to `docs/roles-and-acls.md`.
+
+### Fixed
+- 2026-09-26: Live-page template resolution now matches the seeded `Default`
+  template — root cause was duplicate object IDs in the `objects` table.
+- 2026-09-26: `DbObject::getId()` returns null instead of throwing on a
+  transient (non-persisted) entity.
+- 2026-09-26: `DynamicDiscriminatorMapListener` phpstan level-6 errors
+  (redundant `ClassMetadata` guard, generic type annotation, `EntityManager`
+  cast before `getConfiguration()`).
+- 2026-09-26: Front-end crash `l is not a function` on the live page — the
+  `iikiti` framework exposed `domReady`/`onLoad` as promises, but
+  `index.js` invoked `domReady()` as a function; fixed to `domReady.then()`.
+- 2026-09-26: `Variable "iikiti_editor_mode" does not exist` on `/login` and
+  any page rendered outside `PageRendering` — `iikiti_editor_mode`/`iikiti_config`
+  are now registered as Twig globals (defaulting to `false`/`null`) and set
+  per-request by `PageRendering`/`TemplateRenderer`.
+- 2026-09-26: The seeded "Edit this page with `?edit`" demo text block no longer
+  leaks to public visitors — `BlockRenderer` suppresses that placeholder block
+  outside editor mode (it remains visible to editors so they can replace it).
+- 2026-09-26: Editor mode never activated for non-`ROLE_SYSTEM` admins (the
+  "Edit this page" hint stayed hidden) — `Role::can()`/`UserGroup::can()` now
+  match permission keys case-insensitively: keys are stored lowercase (`page`)
+  but callers pass the entity type capitalised (`Page`/`Template`).
+- 2026-09-26: `login.twig` no longer returns HTTP 500 on a failed login — the
+  `error` variable is a string message (set as `AuthenticationException::getMessage()`),
+  rendered directly instead of via `error.messageKey`.
+- 2026-09-26: Editor presence probe no longer 404s — `Editor.svelte` now builds the
+  room URL from `contextType`/`contextId` (`/api/editor/room/template/26`) instead of
+  reusing the `config.room` WebSocket channel name (`room/template:26`), which produced
+  `/api/editor/room/room/template:26`.
+- 2026-09-26: Editor toolbar banner now has readable button text (`#111827` on the
+  light-gray button) and a dark theme (dark background, light text) via
+  `prefers-color-scheme`/`.dark`.
 
 ### Added
 - 2026-09-19: Full-text search feature with PostgreSQL `tsvector` + GIN index engine

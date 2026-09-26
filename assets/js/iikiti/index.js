@@ -32,7 +32,7 @@ if (!window.iikiti) {
 	};
 }
 
-domReady().then(() => {
+domReady.then(() => {
 	document.documentElement.classList.add('js');
 	startPlugins().catch(() => undefined);
 

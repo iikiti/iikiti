@@ -17,7 +17,7 @@
 
 	let { api, debug = false, screen, id }: Props = $props();
 
-	let formData: Record<string, any> = $state({});
+	let values: Record<string, any> = $state({});
 	let loading = $state(false);
 	let error: string | null = $state(null);
 
@@ -35,8 +35,66 @@
 		})),
 	);
 
-	async function handleSubmit() {
-		if (!screen?.apiPath) return;
+	async function load() {
+		if (!screen?.apiPath || !id) {
+			return;
+		}
+
+		loading = true;
+		error = null;
+		try {
+			const record: any = await api.request(`${screen.apiPath}/${id}`);
+			const patch: Record<string, any> = {};
+			for (const f of formFields) {
+				const v = record[f.key];
+				if (f.type === 'json' && (Array.isArray(v) || (v && typeof v === 'object'))) {
+					patch[f.key] = JSON.stringify(v, null, 2);
+				} else if (v !== undefined && v !== null) {
+					patch[f.key] = v;
+				}
+			}
+			values = patch;
+		} catch (e: any) {
+			error = e.message ?? 'Failed to load record';
+		} finally {
+			loading = false;
+		}
+	}
+
+	onMount(() => {
+		if (!isCreate) {
+			load();
+		}
+	});
+
+	$effect(() => {
+		if (id && !isCreate) {
+			load();
+		}
+	});
+
+	function preparePayload(data: Record<string, any>): Record<string, any> | null {
+		const payload: Record<string, any> = { ...data };
+		for (const f of formFields) {
+			if (f.type === 'json' && typeof payload[f.key] === 'string' && payload[f.key] !== '') {
+				try {
+					payload[f.key] = JSON.parse(payload[f.key]);
+				} catch {
+					error = `Invalid JSON in ${f.label}`;
+
+					return null;
+				}
+			}
+		}
+
+		return payload;
+	}
+
+	async function handleSubmit(data: Record<string, any>) {
+		const payload = preparePayload(data);
+		if (!payload || !screen?.apiPath) {
+			return;
+		}
 
 		loading = true;
 		error = null;
@@ -44,12 +102,12 @@
 			if (isCreate) {
 				await api.request(screen.apiPath, {
 					method: 'POST',
-					body: JSON.stringify(formData),
+					body: JSON.stringify(payload),
 				});
 			} else {
 				await api.request(`${screen.apiPath}/${id}`, {
 					method: 'PUT',
-					body: JSON.stringify(formData),
+					body: JSON.stringify(payload),
 				});
 			}
 		} catch (e: any) {
@@ -62,6 +120,9 @@
 
 {#if !screen}
 	<ErrorBoundary message="No screen configuration found." />
+{:else if loading}
+	<PageHeader title={isCreate ? `New ${screen.title}` : `Edit ${screen.title}`} description={screen.description} />
+	<LoadingState label="Loading…" />
 {:else}
 	<div class="mb-4">
 		<Breadcrumb
@@ -75,15 +136,13 @@
 	<PageHeader title={isCreate ? `New ${screen.title}` : `Edit ${screen.title}`} description={screen.description} />
 
 	{#if error}
-		<ErrorBoundary message={error} onRetry={handleSubmit} />
+		<ErrorBoundary message={error} onRetry={isCreate ? undefined : load} />
 	{/if}
 
-	<Form fields={formFields} values={formData} onsubmit={handleSubmit} />
-
-	<div class="mt-6 flex justify-end gap-2">
+	<Form fields={formFields} values={values} onsubmit={handleSubmit}>
 		<Button variant="secondary" onclick={() => history.back()}>Cancel</Button>
-		<Button variant="primary" type="submit" disabled={loading} onclick={handleSubmit}>
+		<Button variant="primary" type="submit" disabled={loading}>
 			{loading ? 'Saving…' : (isCreate ? 'Create' : 'Save')}
 		</Button>
-	</div>
+	</Form>
 {/if}

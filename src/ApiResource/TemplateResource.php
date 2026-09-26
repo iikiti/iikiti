@@ -11,6 +11,7 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Post;
 use ApiPlatform\Metadata\Put;
 use iikiti\CMS\Entity\Object\Template;
+use iikiti\CMS\State\Processor\TemplateProcessor;
 use iikiti\CMS\State\Provider\TemplateStateProvider;
 
 /**
@@ -38,12 +39,14 @@ use iikiti\CMS\State\Provider\TemplateStateProvider;
 		new Post(
 			uriTemplate: '/admin/templates',
 			name: 'admin_template_create',
+			processor: TemplateProcessor::class,
 			security: 'is_granted("ROLE_ADMIN")',
 			normalizationContext: ['groups' => ['template:read']],
 		),
 		new Put(
 			uriTemplate: '/admin/templates/{id}',
 			name: 'admin_template_update',
+			processor: TemplateProcessor::class,
 			security: 'is_granted("ROLE_ADMIN")',
 			normalizationContext: ['groups' => ['template:read']],
 		),

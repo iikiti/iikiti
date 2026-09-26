@@ -59,6 +59,8 @@ final class TemplateRenderer
 			$vars[$var] = $this->blockRenderer->renderTree($tree, $context);
 		}
 
+		$this->twig->addGlobal('iikiti_editor_mode', $context->editorMode);
+
 		try {
 			return $this->twig->render($template->getLayout(), $vars);
 		} catch (LoaderError|RuntimeError|SyntaxError $e) {

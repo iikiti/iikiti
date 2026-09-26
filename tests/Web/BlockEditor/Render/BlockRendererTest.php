@@ -72,6 +72,35 @@ final class BlockRendererTest extends TestCase
 		$this->assertStringNotContainsString('data-block-type', $html);
 	}
 
+	public function testEditHintBlockIsHiddenFromPublicButShownToEditors(): void
+	{
+		$tree = [
+			[
+				'type' => 'text',
+				'content' => ['content' => '<p>Edit this page with <code>?edit</code>.</p>'],
+				'style' => ['base' => []],
+			],
+			[
+				'type' => 'text',
+				'content' => ['content' => '<p>Public content</p>'],
+				'style' => ['base' => []],
+			],
+		];
+
+		$public = $this->renderer->renderTree($tree, new BlockRenderContext(editorMode: false, canEdit: false));
+		$editor = $this->renderer->renderTree($tree, new BlockRenderContext(editorMode: true, canEdit: true));
+
+		// Public output: instructional hint is suppressed for non-editors,
+		// real content survives.
+		self::assertStringNotContainsString('Edit this page with', $public);
+		self::assertStringContainsString('Public content', $public);
+		self::assertStringNotContainsString('data-block-', $public);
+
+		// Editor output (logged-in editor): hint is visible and hydratable.
+		self::assertStringContainsString('Edit this page with', $editor);
+		self::assertStringContainsString('data-block-type="text"', $editor);
+	}
+
 	/**
 	 * @return list<array<string,mixed>>
 	 */

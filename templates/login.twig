@@ -3,7 +3,7 @@
 {% block body %}
     <form method="post" action="{{ path('html_login') }}">
         {% if error %}
-            <div class="alert alert-danger">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
+            <div class="alert alert-danger">{{ error }}</div>
         {% endif %}
 	
 		{% for label, messages in app.flashes() %}

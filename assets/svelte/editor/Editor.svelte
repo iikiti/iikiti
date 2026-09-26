@@ -36,9 +36,13 @@
 		init(config, blockTypesList);
 
 		// Best-effort presence probe for the realtime room (Yjs relay is a Node sidecar).
-		const room = config['room'] as string | undefined;
-		if (room) {
-			const url = `${config['apiBase'] ?? '/api'}/editor/room/${encodeURIComponent(room)}?token=${encodeURIComponent(token ?? '')}`;
+		// The room endpoint is /api/editor/room/{contextType}/{contextId}; do NOT reuse
+		// `config.room` (a WebSocket channel name like "room/template:26"), which would
+		// produce a doubled `room/` segment and a 404.
+		const contextType = config['contextType'] as string | undefined;
+		const contextId = config['contextId'] as string | number | undefined;
+		if (contextType && contextId !== undefined && contextId !== null) {
+			const url = `${config['apiBase'] ?? '/api'}/editor/room/${encodeURIComponent(contextType)}/${encodeURIComponent(String(contextId))}?token=${encodeURIComponent(token ?? '')}`;
 			fetch(url, { credentials: 'same-origin' }).catch(() => undefined);
 		}
 	});
@@ -89,9 +93,34 @@
 		border-bottom: 1px solid #e5e7eb; z-index: 10000;
 	}
 	.iikti-toolbar__spacer { flex: 1; }
-	.iikti-btn { padding: 5px 10px; border: 1px solid #d1d5db; border-radius: 4px; background: #f9fafb; cursor: pointer; }
+	.iikti-btn {
+		padding: 5px 10px; border: 1px solid #d1d5db; border-radius: 4px;
+		background: #f9fafb; color: #111827; cursor: pointer;
+	}
 	.iikti-btn--primary { background: #2563eb; color: #fff; }
 	.iikti-btn--success { background: #16a34a; color: #fff; }
 	.iikti-editor__canvas { margin-top: 52px; padding: 16px; }
 	.iikiti-region-frame { margin: 0 auto 16px; max-width: 1280px; }
+
+	/* Dark theme: Tailwind `dark:` uses `prefers-color-scheme` here. */
+	@media (prefers-color-scheme: dark) {
+		:global(body.iikiti-editor-body) .iikti-editor__toolbar {
+			background: rgba(17, 24, 39, 0.96);
+			border-bottom-color: #374151;
+		}
+		:global(body.iikiti-editor-body) .iikti-btn {
+			background: #1f2937;
+			border-color: #374151;
+			color: #f3f4f6;
+		}
+	}
+	:global(.dark body.iikiti-editor-body) .iikti-editor__toolbar {
+		background: rgba(17, 24, 39, 0.96);
+		border-bottom-color: #374151;
+	}
+	:global(.dark body.iikiti-editor-body) .iikti-btn {
+		background: #1f2937;
+		border-color: #374151;
+		color: #f3f4f6;
+	}
 </style>

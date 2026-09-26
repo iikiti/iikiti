@@ -59,7 +59,7 @@ class DbObject
 
 	public function getId(): int|string|null
 	{
-		return $this->id;
+		return $this->id ?? null;
 	}
 
 	public function getLinkedSiteId(): int|string|null

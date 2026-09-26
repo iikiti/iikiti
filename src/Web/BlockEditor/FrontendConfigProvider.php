@@ -9,6 +9,7 @@ use iikiti\CMS\Plugin\PluginRegistry;
 use iikiti\CMS\Security\ApiTokenManager;
 use iikiti\CMS\Security\PermissionChecker;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\Security\Core\User\UserInterface;
 
 /**
  * Builds the front-end editor bootstrap config (`window.iikiti.config`) for the
@@ -43,10 +44,7 @@ final class FrontendConfigProvider
 			return null;
 		}
 
-		$canEdit = $this->permissionChecker->canAccess($user, 'Page', 'write') ||
-			$this->permissionChecker->canAccess($user, 'Template', 'write');
-
-		if (!$canEdit) {
+		if (!$this->canEdit($user)) {
 			return null;
 		}
 
@@ -63,6 +61,24 @@ final class FrontendConfigProvider
 			'notifications' => $this->notifications($user),
 			'plugins' => $this->pluginEditorUis(),
 		];
+	}
+
+	/**
+	 * Whether the given (or current) user may author pages/templates. Used both to
+	 * decide whether to emit the editor bootstrap config and — separately — to gate
+	 * editor-only placeholder content (e.g. the "Edit this page with ?edit" hint)
+	 * regardless of whether `?edit` is in the URL.
+	 */
+	public function canEdit(?UserInterface $user = null): bool
+	{
+		$user ??= $this->security->getUser();
+
+		if (!$user instanceof User) {
+			return false;
+		}
+
+		return $this->permissionChecker->canAccess($user, 'Page', 'write')
+			|| $this->permissionChecker->canAccess($user, 'Template', 'write');
 	}
 
 	private function roomChannel(string $contextType, int $contextId): string
