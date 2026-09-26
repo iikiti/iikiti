@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-> Last updated: 2026-09-22
+> Last updated: 2026-09-26
 
 ### Added
 - 2026-09-22: Wildcard role hierarchy patterns (`ROLE_*`, `ROLE_PLUGIN_*`,
@@ -53,7 +53,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   and dynamic role naming conventions added to `docs/roles-and-acls.md`.
 
 ### Fixed
-- 2026-09-26: Live-page template resolution now matches the seeded `Default`
+- 2026-09-26: Logout via direct navigation to `/logout` no longer rejects with a
+  "no CSRF token" error — CSRF protection disabled on the logout endpoint in
+  `config/packages/security.yaml`; the firewall's `LogoutListener` no longer
+  requires a `_token` query parameter.
   template — root cause was duplicate object IDs in the `objects` table.
 - 2026-09-26: `DbObject::getId()` returns null instead of throwing on a
   transient (non-persisted) entity.

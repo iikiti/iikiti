@@ -33,7 +33,6 @@ security:
             logout:
                 path: html_logout
                 target: /
-                enable_csrf: true
 
             # activate different ways to authenticate
             # https://symfony.com/doc/current/security.html#firewalls-authentication
