@@ -20,7 +20,8 @@ block before finishing the task.
 This rule is enforced as part of Kilo's own work-checklist for this workspace.
 
 Keep the changelog split in separate files (per day) or per version in the workspace directory "changelog".
-Keep only the latest 5 days or versions in the top level CHANGELOG.md.
+Keep only the latest 5 sections (dated or versioned) in the top level CHANGELOG.md.
+Older sections are archived in `changelog/<date>.md`.
 
 ## Testing
 
