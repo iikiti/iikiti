@@ -47,9 +47,7 @@ symfony.lock
 package-lock.json
 bun.lock
 
-/.kilo/plans/
-/.kilo/worktrees/
-/.kilo/rules/local.*
+/.kilo/
 .tmp.*
 /config/secrets/
 !/config/secrets/*list.php
