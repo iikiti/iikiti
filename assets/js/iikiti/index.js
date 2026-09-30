@@ -41,6 +41,18 @@ if (!window.iikiti) {
   };
 }
 
+const isTouchDevice = () => {
+	if (typeof window === 'undefined') return false;
+	return window.matchMedia('(hover: none), (pointer: coarse)').matches ||
+		('ontouchstart' in window);
+};
+
+if (isTouchDevice()) {
+	document.body.classList.add('iikiti-touch');
+} else {
+	document.body.classList.add('iikiti-hover');
+}
+
 domReady.then(() => {
 	document.documentElement.classList.add('js');
 	startPlugins().catch(() => undefined);
@@ -69,33 +81,39 @@ async function wireWorkflows() {
 function wireEditIcons() {
 	const regions = document.querySelectorAll('[data-component="BlockEditorComponent"][data-region-id]');
 	regions.forEach((region) => {
-		const id = region.dataset.regionId || '';
 		if (region.querySelector('.iikiti-edit-trigger')) return;
+		const id = region.dataset.regionId || '';
 		const btn = document.createElement('button');
 		btn.className = 'iikiti-edit-trigger';
 		btn.setAttribute('aria-label', `Edit ${id || 'content'}`);
 		btn.title = `Edit ${id || 'content'}`;
-		btn.innerHTML = '✏';
+		btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L19 5a2.85 2.85 0 0 1 4 4L7.5 20.5"></path></svg>';
 		btn.onclick = (e) => {
+			e.preventDefault();
 			e.stopPropagation();
-			void launchEditor();
+			goToEditMode();
 		};
 		region.style.position = region.style.position || 'relative';
 		region.prepend(btn);
 	});
 }
 
-	let editorLaunched = false;
-	function launchEditor() {
-		if (editorLaunched) return Promise.resolve();
-		editorLaunched = true;
+function goToEditMode() {
+	const url = new URL(window.location);
+	url.searchParams.set('edit', '');
+	window.location = url;
+}
 
-		return Promise.resolve().then(async () => {
-			const mod = await import('../../svelte/editor/mount.js');
-			await mod.launchEditor(document.body, config);
-		});
-	}
+let editorLaunched = false;
+async function launchEditor() {
+	if (editorLaunched) return;
+	editorLaunched = true;
 
-window.iikiti.editor = { launch: launchEditor };
+	await loader.loadStyle('/build/editor.css');
+	const mod = await import('../../svelte/editor/mount.js');
+	await mod.launchEditor(document.body, config);
+}
+
+window.iikiti.editor = { launch: () => void launchEditor() };
 
 export { startPlugins };

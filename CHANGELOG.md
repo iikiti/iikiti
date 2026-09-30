@@ -14,7 +14,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ## [Unreleased]
 
-> Last updated: 2026-09-26
+> Last updated: 2026-09-29
 
 ### Added
 
@@ -41,7 +41,20 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 - 2026-09-26: Generic admin form component now round-trips edited values
   (`Form.svelte` exposes `onsubmit(data)` + children slot) and loads the
   existing record on edit with `json`-typed field encode/decode
-  (`GenericFormPage.svelte`, `Form.svelte`).
+   (`GenericFormPage.svelte`, `Form.svelte`).
+- 2026-09-29: Front-end block editor add-block UI — `BlockPalette.svelte` component
+  that shows available block types (filtered by region/container `allowed_types`)
+  and inserts a default block node into the tree. `Region.svelte` renders an
+  “Add block” button (hover/tap to reveal); `BlockView.svelte` adds an “Add child”
+  context-menu option for container blocks.
+- 2026-09-29: Editor `state.js` tree operations — `addBlock`, `deleteBlock`,
+  `moveBlock`, `searchNode`, `allowedChildTypes`, `defaultContentFor` exports;
+  `window.__iikitiSearch` wired in `init()` so `Inspector.svelte` can resolve
+  the selected node.
+- 2026-09-29: `editor.css` webpack style entry — edit-trigger hover/touch reveal,
+  block hover/active outlines, context-menu and block-palette styles.
+- 2026-09-29: Touch device detection in `iikiti/index.js` — adds a `iikiti-touch`
+  body class so CSS can show edit icons persistently (no hover dependency).
 
 ### Changed
 
@@ -50,7 +63,14 @@ The top-level file keeps the latest 5 dated entries; older entries live in
   classes are now defined in `assets/styles/admin.css` (`@layer components`)
   and every admin component/route uses semantic palette tokens.
 - 2026-09-26: `AdminMenuItem` Dashboard priority raised to 1000 so it sorts
-  first under the registry's descending-priority ordering.
+   first under the registry's descending-priority ordering.
+- 2026-09-29: `PageRendering::render()` builds the editor config whenever the user
+  `canEdit` (not only when `?edit`); `BlockTwigExtension::region()` emits
+  `data-component`/region attrs on `canEdit`; `layout.twig` loads `editor.css` and
+  emits `iikiti-can-edit`; config included for any authorised editor, not just
+  `?edit`; `editorMode` still gates `data-block-*` metadata.
+- 2026-09-29: `iikiti/index.js` edit-trigger click navigates to `?edit` (full editor
+  mode); touch device detection adds `iikiti-touch` body class.
 
 ### Fixed
 

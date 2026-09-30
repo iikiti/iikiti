@@ -4,7 +4,7 @@
 
 	let {
 		anchor,
-		open = false,
+		open = true,
 		placement = 'bottom',
 		flip = true,
 		closeOnOutside = true,
@@ -22,9 +22,13 @@
 		children: Snippet;
 	} = $props();
 
-	let self: HTMLDivElement;
-	let active = $state(open);
+	let self = $state<HTMLElement | null>(null);
+	let active = $state(false);
 	let style = $state<Record<string, string>>({});
+
+	$effect(() => {
+		active = open;
+	});
 
 	function position() {
 		tick().then(() => {
@@ -33,7 +37,7 @@
 				return;
 			}
 			const rect = anchor.getBoundingClientRect();
-			const box = self.getBoundingClientRect();
+			const box = self?.getBoundingClientRect() ?? { height: 0, width: 0 };
 			const offset = 8;
 			let top = 0;
 			let left = 0;

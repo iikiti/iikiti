@@ -80,7 +80,9 @@ final class BlockTwigExtension extends AbstractExtension
 
 		$attributes = 'class="'.htmlspecialchars(implode(' ', $classes), ENT_QUOTES).'"';
 
-		if ($twig->getGlobals()['iikiti_editor_mode'] ?? false) {
+		$canEdit = $twig->getGlobals()['iikiti_can_edit'] ?? false;
+
+		if ($canEdit) {
 			$attributes .= ' data-component="BlockEditorComponent"';
 			$attributes .= ' data-region-id="'.htmlspecialchars($id, ENT_QUOTES).'"';
 			$attributes .= ' data-region-role="'.htmlspecialchars($role, ENT_QUOTES).'"';

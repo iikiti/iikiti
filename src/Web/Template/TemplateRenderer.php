@@ -44,6 +44,7 @@ final class TemplateRenderer
 
 		$vars = [
 			'iikiti_editor_mode' => $context->editorMode,
+			'iikiti_can_edit' => $context->canEdit,
 			'iikiti_regions' => $regions,
 			'iikiti_settings' => $settings ?: $template->getSettings(),
 			'iikiti_site' => $context->site,
@@ -59,6 +60,7 @@ final class TemplateRenderer
 			$vars[$var] = $this->blockRenderer->renderTree($tree, $context);
 		}
 
+		$this->twig->addGlobal('iikiti_can_edit', $context->canEdit);
 		$this->twig->addGlobal('iikiti_editor_mode', $context->editorMode);
 
 		try {

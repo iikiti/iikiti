@@ -101,6 +101,33 @@ final class BlockRendererTest extends TestCase
 		self::assertStringContainsString('data-block-type="text"', $editor);
 	}
 
+	public function testCanEditWithoutEditorModeShowsContentButNoMetadata(): void
+	{
+		// Pre-editor mode: user is logged in and can edit, but ?edit is not in
+		// the URL. Blocks should be visible (edit hint shown) but data-block-*
+		// metadata must be absent — it is only emitted in editorMode.
+		$tree = [
+			[
+				'type' => 'text',
+				'content' => ['content' => '<p>Edit this page with <code>?edit</code>.</p>'],
+				'style' => ['base' => []],
+			],
+			[
+				'type' => 'text',
+				'content' => ['content' => '<p>Public content</p>'],
+				'style' => ['base' => []],
+			],
+		];
+
+		$html = $this->renderer->renderTree($tree, new BlockRenderContext(editorMode: false, canEdit: true));
+
+		// Edit hint is visible to editors even without ?edit.
+		self::assertStringContainsString('Edit this page with', $html);
+		self::assertStringContainsString('Public content', $html);
+		// No block metadata — only emitted in editorMode.
+		self::assertStringNotContainsString('data-block-', $html);
+	}
+
 	/**
 	 * @return list<array<string,mixed>>
 	 */

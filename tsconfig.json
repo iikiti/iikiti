@@ -24,6 +24,8 @@
 			"$lib": ["assets/svelte/admin/lib"],
 			"$components/*": ["assets/svelte/admin/components/*"],
 			"$routes/*": ["assets/svelte/admin/routes/*"],
+			"$editor/*": ["assets/svelte/editor/*"],
+			"$framework/*": ["assets/js/iikiti/*"],
 			"@iikiti/admin": ["assets/svelte/admin/components/index.ts"],
 			"@iikiti/admin/*": ["assets/svelte/admin/components/*"]
 		}

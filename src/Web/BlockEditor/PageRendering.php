@@ -50,16 +50,15 @@ final class PageRendering
 
 		$template = $this->resolver->resolve($context) ?? $this->defaultTemplate();
 		$user = $this->security->getUser();
-		$authorized = $request->query->has('edit') && $user instanceof User;
-		$canEdit = $this->configProvider->canEdit($user);
-		$config = $authorized
+		$canEdit = $user instanceof User && $this->configProvider->canEdit($user);
+		$editorMode = $canEdit && $request->query->has('edit');
+		$config = $canEdit
 			? $this->configProvider->build(
 				contextId: (int) ($template->getId() ?? 0),
 				contextType: 'template',
 				user: $user,
 			)
 			: null;
-		$editorMode = null !== $config;
 		$regionTrees = ($editorMode && $template->getBlocksDraft() ? $template->getBlocksDraft() : ($template->getBlocks() ?: []));
 		$dynamicBlocks = $this->dynamicBlocksFor($object, $editorMode);
 
@@ -74,6 +73,7 @@ final class PageRendering
 
 		$pageHtml = $this->templateRenderer->render($template, $renderContext, $regionTrees);
 
+		$this->twig->addGlobal('iikiti_can_edit', $canEdit);
 		$this->twig->addGlobal('iikiti_editor_mode', $editorMode);
 		$this->twig->addGlobal('iikiti_config', $config);
 
@@ -81,6 +81,7 @@ final class PageRendering
 			'doc' => ['title' => $template->getTitle() ?? 'iikiti'],
 			'iikiti_page_body' => $pageHtml,
 			'iikiti_editor_mode' => $editorMode,
+			'iikiti_can_edit' => $canEdit,
 			'iikiti_config' => $config,
 		]));
 	}

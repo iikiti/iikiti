@@ -1,0 +1,58 @@
+/*
+ * Front-end block editor styles.
+ * Loaded on demand via iikiti.loader.loadStyle('/build/editor.css').
+ * Public pages (no editor) never load this file.
+ */
+
+/* ── Edit triggers (pre-editor, shown on hover/tap over editable regions) ── */
+
+.iikiti-edit-trigger {
+	position: absolute;
+	top: 4px;
+	left: 4px;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: none;
+	border-radius: 50%;
+	background: rgba(255, 255, 255, 0.9);
+	color: #374151;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: opacity 0.15s ease, transform 0.15s ease;
+	z-index: 10;
+	backdrop-filter: blur(2px);
+}
+
+.iikiti-edit-trigger:hover,
+.iikiti-edit-trigger:focus {
+	background: #ffffff;
+	color: #2563eb;
+	transform: scale(1.1);
+	outline: 2px solid #3b82f6;
+	outline-offset: 2px;
+}
+
+/* Mouse: edit triggers are hidden until the region is hovered */
+@media (hover: hover) {
+	.iikiti-can-edit [data-component="BlockEditorComponent"][data-region-id] .iikiti-edit-trigger {
+		opacity: 0;
+	}
+	.iikiti-can-edit [data-component="BlockEditorComponent"][data-region-id]:hover .iikiti-edit-trigger {
+		opacity: 1;
+	}
+}
+
+/* Touch: edit triggers are always visible */
+@media (hover: none) {
+	.iikiti-can-edit [data-component="BlockEditorComponent"][data-region-id] .iikiti-edit-trigger {
+		opacity: 1;
+	}
+}
+
+/* ── Editor body (full-screen overlay when editor is active) ── */
+body.iikiti-editor-body [data-component="BlockEditorComponent"] {
+	display: none;
+}

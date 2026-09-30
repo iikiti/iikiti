@@ -1,7 +1,37 @@
 import { derived, get, writable } from 'svelte/store';
 import { notifications } from '../../js/iikiti/notifications.js';
 
-const state = writable({
+/**
+ * @typedef {object} BlockNode
+ * @property {string} id
+ * @property {string} type
+ * @property {Record<string, unknown>} [content]
+ * @property {Record<string, unknown>} [style]
+ * @property {BlockNode[]} [children]
+ */
+
+/**
+ * @typedef {object} RegionInfo
+ * @property {string} id
+ * @property {string} role
+ * @property {string} name
+ * @property {string[]} allowed
+ */
+
+/**
+ * @typedef {object} EditorState
+ * @property {Record<string, unknown>} config
+ * @property {Record<string, Record<string, unknown>>} blockTypes
+ * @property {RegionInfo[]} regions
+ * @property {Record<string, BlockNode[]>} tree
+ * @property {string|null} selected
+ * @property {boolean} dirty
+ * @property {number} version
+ * @property {Array<Record<string, BlockNode[]>>} history
+ * @property {number} historyPos
+ */
+
+const DEFAULT_STATE = {
 	config: {},
 	blockTypes: {},
 	regions: [],
@@ -11,7 +41,9 @@ const state = writable({
 	version: 0,
 	history: [],
 	historyPos: -1,
-});
+};
+
+const state = writable({ ...DEFAULT_STATE });
 
 export const tree = derived(state, ($) => $.tree);
 export const selected = derived(state, ($) => $.selected);
@@ -30,6 +62,10 @@ export function getBlockElement(id) {
 	return blockElements.get(id);
 }
 
+/**
+ * @param {Record<string, unknown>} config
+ * @param {Array<Record<string, unknown>>} blockTypesList
+ */
 export function init(config, blockTypesList) {
 	const bt = {};
 	for (const t of blockTypesList) bt[t.type] = t;
@@ -57,8 +93,247 @@ export function init(config, blockTypesList) {
 		history: [parsed],
 		historyPos: 0,
 	});
+
+	/** @type {Window & { __iikitiSearch?: (id: string) => BlockNode | null }} */
+	const w = window;
+	w.__iikitiSearch = searchNode;
 }
 
+/**
+ * @param {string} type
+ * @param {Record<string, Record<string, unknown>>} bt
+ * @returns {Record<string, unknown>}
+ */
+export function defaultContentFor(type, bt) {
+	const schema = bt[type];
+	if (!schema) return {};
+	const defaults = {};
+	for (const f of (schema.contentFields ?? []) || []) {
+		if ('default' in f) defaults[f.key] = f.default;
+	}
+	return defaults;
+}
+
+/**
+ * @param {string} parentType
+ * @param {Record<string, Record<string, unknown>>} bt
+ * @returns {string[]}
+ */
+export function allowedChildTypes(parentType, bt) {
+	const schema = bt[parentType];
+	if (!schema) return [];
+	if (schema.allowedChildTypes == null) {
+		return schema.acceptsChildren ? Object.keys(bt) : [];
+	}
+	return schema.allowedChildTypes ?? [];
+}
+
+/**
+ * @param {string} regionId
+ * @param {string|null} parentId
+ * @param {string} type
+ * @param {number} [position]
+ */
+export function addBlock(regionId, parentId, type, position) {
+	state.update((s) => {
+		/** @type {BlockNode} */
+		const node = {
+			id: 'blk_' + crypto.randomUUID().slice(0, 12),
+			type,
+			content: defaultContentFor(type, s.blockTypes),
+			children: s.blockTypes[type]?.acceptsChildren ? [] : undefined,
+		};
+		const next = insertNode(s.tree, regionId, parentId, node, position);
+		return pushHistory(s, next);
+	});
+}
+
+/**
+ * @param {string} id
+ */
+export function deleteBlock(id) {
+	state.update((s) => {
+		const next = removeNode(s.tree, id);
+		return pushHistory(s, next);
+	});
+}
+
+/**
+ * @param {string} id
+ * @param {string|null} toParent
+ * @param {number} position
+ */
+export function moveBlock(id, toParent, position) {
+	state.update((s) => {
+		const { node, tree: afterRemove, regionId: srcRegion } = extractNode(s.tree, id);
+		if (!node) return s;
+		const targetRegion = toParent ? findRegionFor(toParent, s) : srcRegion;
+		const next = insertNode(afterRemove, targetRegion, toParent, node, position);
+		return pushHistory(s, next);
+	});
+}
+
+/**
+ * @param {EditorState} s
+ * @param {Record<string, BlockNode[]>} next
+ * @returns {EditorState}
+ */
+function pushHistory(s, next) {
+	return { ...s, tree: next, dirty: true, history: [...s.history.slice(0, s.historyPos + 1), next], historyPos: s.history.length };
+}
+
+/**
+ * @param {string|null} parentId
+ * @param {EditorState} s
+ * @returns {string}
+ */
+function findRegionFor(parentId, s) {
+	if (!parentId) return s.regions[0]?.id ?? '';
+	for (const [regionId, nodes] of Object.entries(s.tree)) {
+		if (findNode(nodes, parentId)) return regionId;
+	}
+	return s.regions[0]?.id ?? '';
+}
+
+/**
+ * @param {Record<string, BlockNode[]>} tree
+ * @param {string} regionId
+ * @param {string|null} parentId
+ * @param {BlockNode} node
+ * @param {number} [position]
+ * @returns {Record<string, BlockNode[]>}
+ */
+function insertNode(tree, regionId, parentId, node, position) {
+	if (!tree[regionId]) tree[regionId] = [];
+
+	if (!parentId) {
+		const list = [...(tree[regionId] || [])];
+		if (typeof position === 'number') list.splice(position, 0, node);
+		else list.push(node);
+		return { ...tree, [regionId]: list };
+	}
+
+	return { ...tree, [regionId]: tree[regionId].map((n) => insertChild(n, parentId, node, position)) };
+}
+
+/**
+ * @param {BlockNode} node
+ * @param {string} parentId
+ * @param {BlockNode} newNode
+ * @param {number} [position]
+ * @returns {BlockNode}
+ */
+function insertChild(node, parentId, newNode, position) {
+	if (node.id === parentId) {
+		const children = [...(node.children || [])];
+		if (typeof position === 'number') children.splice(position, 0, newNode);
+		else children.push(newNode);
+		return { ...node, children };
+	}
+	if (node.children) {
+		return { ...node, children: node.children.map((c) => insertChild(c, parentId, newNode, position)) };
+	}
+	return node;
+}
+
+/**
+ * @param {Record<string, BlockNode[]>} tree
+ * @param {string} id
+ * @returns {Record<string, BlockNode[]>}
+ */
+function removeNode(tree, id) {
+	const out = {};
+	for (const [regionId, nodes] of Object.entries(tree)) {
+		out[regionId] = (nodes || []).filter((n) => n.id !== id).map((n) => removeChild(n, id));
+	}
+	return out;
+}
+
+/**
+ * @param {BlockNode} node
+ * @param {string} id
+ * @returns {BlockNode}
+ */
+function removeChild(node, id) {
+	if (!node.children) return node;
+	return {
+		...node,
+		children: node.children.filter((c) => c.id !== id).map((c) => removeChild(c, id)),
+	};
+}
+
+/**
+ * @param {Record<string, BlockNode[]>} tree
+ * @param {string} id
+ * @returns {{ node: BlockNode | null, tree: Record<string, BlockNode[]>, regionId: string }}
+ */
+function extractNode(tree, id) {
+	for (const regionId of Object.keys(tree)) {
+		const nodes = tree[regionId] || [];
+		const found = extractFromList(nodes, id);
+		if (found.node) {
+			return { node: found.node, tree: { ...tree, [regionId]: found.list }, regionId };
+		}
+	}
+	return { node: null, tree, regionId: '' };
+}
+
+/**
+ * @param {BlockNode[]} nodes
+ * @param {string} id
+ * @returns {{ node: BlockNode | null, list: BlockNode[] }}
+ */
+function extractFromList(nodes, id) {
+	for (let i = 0; i < nodes.length; i++) {
+		if (nodes[i].id === id) {
+			return { node: nodes[i], list: nodes.slice(0, i).concat(nodes.slice(i + 1)) };
+		}
+	}
+	for (let i = 0; i < nodes.length; i++) {
+		if (nodes[i].children) {
+			const found = extractFromList(nodes[i].children, id);
+			if (found.node) {
+				return { node: found.node, list: nodes.map((n) => n === nodes[i] ? { ...n, children: found.list } : n) };
+			}
+		}
+	}
+	return { node: null, list: nodes };
+}
+
+/**
+ * @param {BlockNode[] | undefined} nodes
+ * @param {string} id
+ * @returns {BlockNode | null}
+ */
+export function findNode(nodes, id) {
+	if (!nodes) return null;
+	for (const n of nodes) {
+		if (n.id === id) return n;
+		if (n.children) {
+			const found = findNode(n.children, id);
+			if (found) return found;
+		}
+	}
+	return null;
+}
+
+/**
+ * @param {string} id
+ * @returns {BlockNode | null}
+ */
+export function searchNode(id) {
+	const t = get(tree);
+	for (const regionId of Object.keys(t)) {
+		const found = findNode(t[regionId], id);
+		if (found) return found;
+	}
+	return null;
+}
+
+/**
+ * @param {RegionInfo[]} regs
+ * @returns {Record<string, BlockNode[]>}
+ */
 function parseRegions(regs) {
 	const out = {};
 	for (const r of regs) {
@@ -69,6 +344,10 @@ function parseRegions(regs) {
 	return out;
 }
 
+/**
+ * @param {Element} container
+ * @returns {BlockNode[]}
+ */
 function parseNodes(container) {
 	const nodes = [];
 	for (const el of container.querySelectorAll(':scope > [data-block-type]')) {
@@ -77,6 +356,10 @@ function parseNodes(container) {
 	return nodes;
 }
 
+/**
+ * @param {Element} el
+ * @returns {BlockNode}
+ */
 function parseNode(el) {
 	const type = el.getAttribute('data-block-type') || 'unknown';
 	const id = el.getAttribute('data-block-id') || '';
@@ -87,6 +370,10 @@ function parseNode(el) {
 	return { id, type, content, style, children };
 }
 
+/**
+ * @param {string | null} raw
+ * @returns {Record<string, unknown>}
+ */
 function safeJson(raw) {
 	if (!raw) return {};
 	try {
@@ -97,6 +384,9 @@ function safeJson(raw) {
 	}
 }
 
+/**
+ * @param {Record<string, BlockNode[]>} next
+ */
 export function setTree(next) {
 	state.update((s) => {
 		s.tree = next;
@@ -108,14 +398,27 @@ export function setTree(next) {
 	});
 }
 
+/**
+ * @param {string | null} id
+ */
 export function select(id) {
 	state.update((s) => ({ ...s, selected: id }));
 }
 
+/**
+ * @param {string} id
+ * @param {Partial<BlockNode>} patch
+ */
 export function updateNode(id, patch) {
 	state.update((s) => ({ ...s, tree: updateRecursive(s.tree, id, patch), dirty: true }));
 }
 
+/**
+ * @param {Record<string, BlockNode[]>} tree
+ * @param {string} id
+ * @param {Partial<BlockNode>} patch
+ * @returns {Record<string, BlockNode[]>}
+ */
 function updateRecursive(tree, id, patch) {
 	const out = {};
 	for (const region of Object.keys(tree)) {
@@ -124,6 +427,12 @@ function updateRecursive(tree, id, patch) {
 	return out;
 }
 
+/**
+ * @param {BlockNode} node
+ * @param {string} id
+ * @param {Partial<BlockNode>} patch
+ * @returns {BlockNode}
+ */
 function applyPatch(node, id, patch) {
 	if (node.id === id) return { ...node, ...patch };
 	if (node.children) return { ...node, children: node.children.map((c) => applyPatch(c, id, patch)) };
@@ -146,6 +455,10 @@ export function redo() {
 	});
 }
 
+/**
+ * @param {string | undefined} token
+ * @returns {Record<string, string>}
+ */
 function authHeader(token) {
 	return token ? { 'X-AUTH-TOKEN': token } : {};
 }

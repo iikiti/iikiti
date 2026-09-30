@@ -38,6 +38,7 @@ Encore
     // editor chunk is produced on demand by webpack code-splitting when
     // `iikiti` dynamically imports `./svelte/editor/mount`.
     .addEntry('admin', './assets/admin.js')
+    .addStyleEntry('editor', './assets/svelte/editor/editor.css')
 
     // When enabled, Webpack "splits" your files into smaller pieces for greater optimization.
     .splitEntryChunks()

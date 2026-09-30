@@ -2,6 +2,7 @@ twig:
     default_path: '%kernel.project_dir%/templates'
     globals:
         iikiti_editor_mode: false
+        iikiti_can_edit: false
         iikiti_config: null
 
 when@test:

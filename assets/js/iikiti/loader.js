@@ -69,6 +69,7 @@ export const loader = {
 	},
 	async loadStyle(url) {
 		if (loaded.has(url)) return;
+		if (document.querySelector(`link[href="${CSS.escape(url)}"]`)) return;
 		await onceEl(url, 'link', { href: url });
 	},
 	async loadDeps(spec) {
