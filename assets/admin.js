@@ -1,6 +1,9 @@
 import { mount } from 'svelte';
 import App from './svelte/admin/App.svelte';
+import { installTour } from './js/iikiti/tour.js';
 import './styles/admin.css';
+
+installTour();
 
 const root = document.querySelector('#admin-app');
 

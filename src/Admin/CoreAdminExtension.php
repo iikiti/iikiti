@@ -54,6 +54,7 @@ class CoreAdminExtension implements AdminExtensionInterface
 			AdminApiResource::create('plugins', '/api/admin/plugins', 'Plugins'),
 			AdminApiResource::create('search', '/api/admin/search/indexes', 'Search'),
 			AdminApiResource::create('audit-logs', '/api/admin/audit-logs', 'Audit Log'),
+			AdminApiResource::create('block-widgets', '/api/admin/block-widgets', 'Block Widgets'),
 		];
 	}
 

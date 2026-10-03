@@ -48,7 +48,7 @@ class EditorStateController extends AppController
 		PermissionChecker $permissionChecker,
 	): JsonResponse {
 		$user = $this->getUser();
-		[$type, $id, $forbidden] = $this->resolveContext($user, $request, $permissionChecker, 'save');
+		[$type, $id, $forbidden] = $this->resolveContext($user, $request, $permissionChecker, 'write');
 		if (null !== $forbidden || !$user instanceof User) {
 			return $forbidden ?? $this->json(['error' => 'Forbidden'], Response::HTTP_FORBIDDEN);
 		}
@@ -119,7 +119,16 @@ class EditorStateController extends AppController
 			return false;
 		}
 
-		return $pc->canAccess($user, 'template' === $type ? 'Template' : 'Page', $action);
+		// Mirrors FrontendConfigProvider::canEdit(): editing a page's content goes
+		// through its template, so Page write (the editor bootstrap gate) must be
+		// sufficient here too — otherwise editors boot into the editor and then
+		// every save 403s.
+		if ('template' === $type) {
+			return $pc->canAccess($user, 'Template', $action) ||
+				$pc->canAccess($user, 'Page', $action);
+		}
+
+		return $pc->canAccess($user, 'Page', $action);
 	}
 
 	/**

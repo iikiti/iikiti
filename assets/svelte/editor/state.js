@@ -7,6 +7,7 @@ import { notifications } from '../../js/iikiti/notifications.js';
  * @property {string} type
  * @property {Record<string, unknown>} [content]
  * @property {Record<string, unknown>} [style]
+ * @property {Record<string, unknown>} [element]
  * @property {BlockNode[]} [children]
  */
 
@@ -64,6 +65,15 @@ export const canRedo = derived(state, ($) => $.history.length > 0 && $.historyPo
  */
 export const layersOpen = writable(false);
 
+/**
+ * The region currently being edited (defaults to the `main` region — the page
+ * "content"). Non-active regions render as locked chrome; clicking one makes it
+ * active. See Editor.svelte.
+ *
+ * @type {import('svelte/store').Writable<string|null>}
+ */
+export const activeRegion = writable(null);
+
 const blockElements = new Map();
 export function registerBlock(id, el) {
 	if (el) blockElements.set(id, el);
@@ -105,6 +115,9 @@ export function init(config, blockTypesList) {
 		historyPos: 0,
 	});
 
+	const mainRegion = regionList.find((r) => r.role === 'main');
+	activeRegion.set(mainRegion?.id ?? regionList[0]?.id ?? null);
+
 	/** @type {Window & { __iikitiSearch?: (id: string) => BlockNode | null }} */
 	const w = window;
 	w.__iikitiSearch = searchNode;
@@ -120,6 +133,21 @@ export function defaultContentFor(type, bt) {
 	if (!schema) return {};
 	const defaults = {};
 	for (const f of (schema.contentFields ?? []) || []) {
+		if ('default' in f) defaults[f.key] = f.default;
+	}
+	return defaults;
+}
+
+/**
+ * @param {string} type
+ * @param {Record<string, Record<string, unknown>>} bt
+ * @returns {Record<string, unknown>}
+ */
+export function defaultElementFor(type, bt) {
+	const schema = bt[type];
+	if (!schema) return {};
+	const defaults = {};
+	for (const f of (schema.elementFields ?? []) || []) {
 		if ('default' in f) defaults[f.key] = f.default;
 	}
 	return defaults;
@@ -152,6 +180,7 @@ export function addBlock(regionId, parentId, type, position) {
 			id: 'blk_' + crypto.randomUUID().slice(0, 12),
 			type,
 			content: defaultContentFor(type, s.blockTypes),
+			element: defaultElementFor(type, s.blockTypes),
 			children: s.blockTypes[type]?.acceptsChildren ? [] : undefined,
 		};
 		const next = insertNode(s.tree, regionId, parentId, node, position);
@@ -342,6 +371,38 @@ export function searchNode(id) {
 }
 
 /**
+ * Ancestor path to a node (region root → … → node), or null when not found.
+ *
+ * @param {string} id
+ * @returns {{ regionId: string, path: BlockNode[] } | null}
+ */
+export function pathToNode(id) {
+	const t = get(tree);
+	for (const regionId of Object.keys(t)) {
+		const path = [];
+		if (walkPath(t[regionId], id, path)) return { regionId, path };
+	}
+	return null;
+}
+
+/**
+ * @param {BlockNode[] | undefined} nodes
+ * @param {string} id
+ * @param {BlockNode[]} path
+ * @returns {boolean}
+ */
+function walkPath(nodes, id, path) {
+	if (!nodes) return false;
+	for (const n of nodes) {
+		path.push(n);
+		if (n.id === id) return true;
+		if (walkPath(n.children, id, path)) return true;
+		path.pop();
+	}
+	return false;
+}
+
+/**
  * @param {RegionInfo[]} regs
  * @returns {Record<string, BlockNode[]>}
  */
@@ -376,9 +437,10 @@ function parseNode(el) {
 	const id = el.getAttribute('data-block-id') || '';
 	const content = safeJson(el.getAttribute('data-block-content') || null);
 	const style = safeJson(el.getAttribute('data-block-style') || null);
+	const element = safeJson(el.getAttribute('data-block-element') || null);
 	const childrenWrap = el.querySelector('[data-block-children]');
 	const children = childrenWrap ? parseNodes(childrenWrap) : undefined;
-	return { id, type, content, style, children };
+	return { id, type, content, style, element, children };
 }
 
 /**

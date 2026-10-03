@@ -18,6 +18,56 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-10-03: Editor settings sidebar (docked via the viewport bars standard,
+  default left, flippable left/right/top/bottom, resizable) rendering
+  Content / Element / Style tabs for the selected block.
+- 2026-10-03: Plugin-extensible editor sidebar API
+  (`window.iikiti.editor.sidebar`): ordered sections (tabs), field-control
+  registry (`field.type` → Svelte control), section patch transforms, and
+  programmatic tab switching; the core Content/Element/Style tabs and built-in
+  field controls register through the same API. Plugin `editor_ui` entries
+  (`config.plugins`) are now loaded by the editor and can call it.
+- 2026-10-03: `elementFields` schema on `BlockType` (baseline `id` +
+  `cssClass` for core types, `data-block-element` hydration attribute) with a
+  built-in "Attributes" group/repeater whose `{name,value}` rows render as
+  wrapper HTML attributes through an allowlist (deny `on*`/`style` and
+  `javascript:`/`data:` values).
+- 2026-10-03: Block-widget dashboard foundation: block types carry a `source`
+  provider slug; `GET /api/admin/block-widgets` enumerates registered widgets
+  and `GET /api/admin/block-widgets/usage` returns per-type counts +
+  `usedBy` template/object references via the on-demand
+  `BlockUsageIndexInterface` (`BlockUsageIndexer`).
+- 2026-10-03: Shared tour/spotlight framework (`assets/js/iikiti/tour.js`,
+  `window.iikiti.tour`): tour registry, step popovers above/beside the target,
+  spotlight highlighting via stable `data-tour` anchors, step actions, and a
+  `TourPopover` component mounted in both the editor and admin SPA. The editor
+  contributes `sidebar.tab` / `sidebar.side` / `open` actions.
+- 2026-10-03: Editor chrome regions (`header`/`dialog`/`footer`/`sidebar`,
+  incl. a new `dialog` region role) render locked/read-only: clicking one
+  switches the active region (with "Back to content"); the Layers dialog and
+  canvas edit only the active region (default `main` content).
+- 2026-10-03: Structure popover (`StructureMenu.svelte`, repurposed from the
+  old content/style inspector popover): breadcrumb path + move up/down for
+  quickly reordering the selected block among siblings.
+
+### Changed
+
+- 2026-10-03: `FloatingPanel` renamed to `Dialog` and rebuilt on the native
+  `<dialog>` element (non-modal `show()`, draggable/resizeable, persisted
+  position); `ModalDialog` added (`showModal()` + `::backdrop`, covers the
+  site). `FloatingPanel` remains as a deprecated alias export; the old
+  Tailwind `Dialog.svelte` was superseded.
+
+### Fixed
+
+- 2026-10-03: Editor save/publish endpoints returned 403 for page editors:
+  `/api/editor/save` now requires the `write` permission (instead of a
+  non-existent `save` action) and `Template`/`Page` write is accepted in
+  template context, mirroring the editor bootstrap gate.
+- 2026-10-03: Block selection via canvas click/✏ threw
+  `TypeError: ...set is not a function` (derived store used as writable);
+  selection goes through the exported `select()`.
+
 - 2026-09-26: Shared layout component library on the iikiti front-end framework
   (`assets/js/iikiti/components/`): banner/header/footer/sidebar/panel with
   `StickyController` (static / sticky / absolute positioning; scroll, edge,

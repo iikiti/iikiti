@@ -5,6 +5,7 @@ import { pluginRegistry, startPlugins } from './plugins.js';
 import { components } from './components/registry.js';
 import { applyStoredTheme, toggleTheme, resolveTheme, STORAGE_THEME_KEY } from './components/base.js';
 import { bars } from './chrome/bars.js';
+import { installTour } from './tour.js';
 
 const configEl = document.getElementById('iikiti-config');
 const config = configEl ? JSON.parse((configEl.textContent || '{}') || '{}') : {};
@@ -42,6 +43,9 @@ if (!window.iikiti) {
     },
   };
 }
+
+// Tour/spotlight framework (registers built-in actions + window.iikiti.tour).
+installTour();
 
 const isTouchDevice = () => {
 	if (typeof window === 'undefined') return false;

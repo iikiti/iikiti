@@ -77,3 +77,14 @@ body.iikiti-editor-body [data-component="BlockEditorComponent"] {
 	border-color: transparent;
 	color: #ffffff;
 }
+
+/* ── Settings sidebar (docked via the bars standard) ── */
+[data-iikiti-bar-id="iikiti-editor-settings"] {
+	overflow: hidden;
+}
+[data-iikiti-bar-id="iikiti-editor-settings"] > .iikiti-settings {
+	height: 100%;
+	box-sizing: border-box;
+	overflow-y: auto;
+}
+

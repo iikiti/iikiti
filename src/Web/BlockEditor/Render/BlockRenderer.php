@@ -19,7 +19,7 @@ use Twig\Environment;
  * - Block *content* is rendered from the block type's Twig template; containers
  *   render their children recursively into a `children_html` placeholder.
  */
-	final class BlockRenderer
+final class BlockRenderer
 {
 	private const WRAPPER_TAG = 'div';
 
@@ -102,20 +102,86 @@ use Twig\Environment;
 	{
 		$type = (string) ($node['type'] ?? '');
 		$sanitizedType = preg_replace('/[^a-z0-9_-]/i', '-', $type);
+		$element = is_array($node['element'] ?? null) ? $node['element'] : [];
 		$class = 'iikiti-block iikiti-block--'.$sanitizedType;
 
+		$extraClass = is_string($element['cssClass'] ?? null) ? trim($element['cssClass']) : '';
+		if ('' !== $extraClass) {
+			$class .= ' '.$extraClass;
+		}
+
 		$html = ' class="'.htmlspecialchars($class, ENT_QUOTES).'"';
+
+		$elementId = is_string($element['id'] ?? null) ? trim($element['id']) : '';
+		if ('' !== $elementId) {
+			$html .= ' id="'.htmlspecialchars($elementId, ENT_QUOTES).'"';
+		}
+
+		$html .= $this->renderElementAttributes($element);
 
 		if ($context->editorMode) {
 			$html .= ' data-block-id="'.htmlspecialchars((string) ($node['id'] ?? ''), ENT_QUOTES).'"';
 			$html .= ' data-block-type="'.htmlspecialchars($type, ENT_QUOTES).'"';
 			$contentJson = $this->safeJson($node['content'] ?? null);
 			$styleJson = $this->safeJson($node['style'] ?? null);
+			$elementJson = $this->safeJson($node['element'] ?? null);
 			$html .= ' data-block-content="'.$contentJson.'"';
 			$html .= ' data-block-style="'.$styleJson.'"';
+			$html .= ' data-block-element="'.$elementJson.'"';
 		}
 
 		return '<'.self::WRAPPER_TAG.$html.'>'.$inner.'</'.self::WRAPPER_TAG.'>';
+	}
+
+	/**
+	 * Render the user-editable arbitrary HTML attributes onto the block wrapper.
+	 * Applies an allowlist/deny-list to prevent attribute-injection XSS: attribute
+	 * names must be valid, `on*` event handlers and `style` are rejected, and
+	 * `javascript:`/`data:` URL schemes are stripped from values.
+	 *
+	 * @param array<string,mixed> $element
+	 */
+	private function renderElementAttributes(array $element): string
+	{
+		$attributes = $element['attributes'] ?? null;
+		if (!is_array($attributes)) {
+			return '';
+		}
+
+		$out = '';
+		foreach ($attributes as $attribute) {
+			if (!is_array($attribute)) {
+				continue;
+			}
+			$name = (string) ($attribute['name'] ?? '');
+			$value = (string) ($attribute['value'] ?? '');
+			if ('' === $name || !$this->isSafeAttributeName($name) || !$this->isSafeAttributeValue($value)) {
+				continue;
+			}
+			$out .= ' '.$name.'="'.htmlspecialchars($value, ENT_QUOTES).'"';
+		}
+
+		return $out;
+	}
+
+	private function isSafeAttributeName(string $name): bool
+	{
+		if (1 !== preg_match('/^[a-z][a-z0-9:_-]*$/i', $name)) {
+			return false;
+		}
+
+		if (str_starts_with(strtolower($name), 'on')) {
+			return false;
+		}
+
+		return 'style' !== strtolower($name);
+	}
+
+	private function isSafeAttributeValue(string $value): bool
+	{
+		$trimmed = strtolower(trim($value));
+
+		return !str_starts_with($trimmed, 'javascript:') && !str_starts_with($trimmed, 'data:');
 	}
 
 	/**

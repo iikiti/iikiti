@@ -114,6 +114,7 @@ final class PageRendering
 			['id' => 'aside-left', 'name' => 'Left sidebar', 'role' => 'sidebar', 'allowed_types' => []],
 			['id' => 'aside-right', 'name' => 'Right sidebar', 'role' => 'sidebar', 'allowed_types' => []],
 			['id' => 'footer', 'name' => 'Footer', 'role' => 'footer', 'allowed_types' => []],
+			['id' => 'dialog', 'name' => 'Dialog', 'role' => 'dialog', 'allowed_types' => []],
 		]);
 
 		return $template;

@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { regions, tree, blockTypes, selected, select, getBlockElement, layersOpen } from './state';
+	import { regions, tree, blockTypes, selected, select, getBlockElement, layersOpen, activeRegion } from './state';
 	import type { BlockNode } from './state';
-	import FloatingPanel from '$components/FloatingPanel.svelte';
+	import Dialog from '$components/Dialog.svelte';
 	import Icon from '$components/Icon.svelte';
 
 	/**
-	 * "Layers" navigator — floating, draggable panel listing the page
-	 * structure (regions → nested blocks). Clicking an entry selects the
-	 * block in the editor canvas and scrolls it into view; the current
-	 * selection is highlighted. Built on the generic FloatingPanel so any
+	 * "Layers" navigator — floating, draggable dialog listing the structure of
+	 * the region currently being edited (the active region, defaulting to the
+	 * page's `main` content). Clicking an entry selects the block in the editor
+	 * canvas and scrolls it into view. Built on the generic Dialog so any
 	 * plugin/theme can reuse the same draggable dialog for its own tools.
 	 */
 	const TYPE_ICONS: Record<string, string> = {
@@ -21,6 +21,9 @@
 		query: 'database',
 		dynamic: 'activity',
 	};
+
+	const activeRegionInfo = $derived($regions.find((r) => r.id === $activeRegion));
+	const activeRegionNodes = $derived($tree[$activeRegion] ?? []);
 
 	function iconFor(type: string): string {
 		return TYPE_ICONS[type] ?? 'box';
@@ -41,7 +44,7 @@
 	}
 </script>
 
-<FloatingPanel
+<Dialog
 	title="Layers"
 	storageKey="editor.layers"
 	width={280}
@@ -50,23 +53,22 @@
 	minHeight={200}
 	onClose={() => layersOpen.set(false)}
 >
-	<div class="iikiti-layer-tree" role="tree" aria-label="Page layers">
-		{#each $regions as r (r.id)}
-			{@const regionNodes = $tree[r.id] ?? []}
+	<div class="iikiti-layer-tree" role="tree" aria-label="Page layers" data-tour="editor.layers">
+		{#if activeRegionInfo}
 			<div class="iikiti-layer-tree__region">
-				<span class="iikiti-layer-tree__region-name">{r.name || r.id}</span>
-				{#if regionNodes.length > 0}
-					<span class="iikiti-layer-tree__count">{regionNodes.length}</span>
+				<span class="iikiti-layer-tree__region-name">{activeRegionInfo.name || activeRegionInfo.id}</span>
+				{#if activeRegionNodes.length > 0}
+					<span class="iikiti-layer-tree__count">{activeRegionNodes.length}</span>
 				{:else}
 					<span class="iikiti-layer-tree__count iikiti-layer-tree__count--empty">empty</span>
 				{/if}
 			</div>
-			{#each regionNodes as node (node.id)}
-				{@render row(node, 1)}
-			{/each}
+		{/if}
+		{#each activeRegionNodes as node (node.id)}
+			{@render row(node, 1)}
 		{/each}
 	</div>
-</FloatingPanel>
+</Dialog>
 
 {#snippet row(node: BlockNode, depth: number)}
 	<button

@@ -65,19 +65,74 @@ Rules (tagged `iikiti.cms.template_rule`): `object_type`, `object`, `site`.
 - **Icon actions + tooltips**: undo (`undo-2`), redo (`redo-2`), save draft
   (`save`, dirty dot), publish (`rocket`) — Lucide icons via the shared
   `Icon` component with hover/focus tooltips (`Tooltip` component).
-- **Layers menu**: floating, draggable "Layers" panel (`LayerMenu.svelte` on
-  the shared `FloatingPanel` component) listing regions → nested blocks with
-  counts. Clicking a row selects the block, scrolls the canvas to it and
-  highlights the current selection; position/size persist per browser.
-- Popovers: block palette, content/style inspector (schema-driven), block
-  context menus. Popover/toast styling now comes from the shared
-  `ui.css` primitives (works on front-end pages, not just the admin SPA).
-- Notifications: bottom-right stack, 10s auto-dismiss (configurable) or dismissible,
-  scrollable/swipe on overflow. Settings via site defaults + user `preferences`.
+- **Layers menu**: floating, draggable dialog (built on the native-`<dialog>`
+  `Dialog.svelte`) listing the **active region** only (the page "content",
+  i.e. the `main` region). Clicking a row selects the block, scrolls the
+  canvas to it and highlights the current selection; position/size persist
+  per browser.
+- **Chrome regions (locked)**: `header`/`dialog`/`footer`/`sidebar` regions
+  are rendered as locked chrome (read-only). Clicking a locked region makes
+  it the active (editable) region; a "Back to content" button returns to
+  `main`.
+- **Settings sidebar**: docked via the bars standard (default left; flippable
+  left/right/top/bottom with `⇄` button; width resizable). Tabs:
+  **Content**, **Element**, **Style** (schema-driven). The Element tab
+  includes built-in `id`/`cssClass` fields and an **Attributes** repeater
+  (name/value rows, add/remove) that renders onto the block wrapper.
+- **Structure popover** (`StructureMenu.svelte`): the popover anchored to the
+  selected block shows the breadcrumb path (region → ancestors → block) and
+  move-up/down. It does *not* edit content/style — those live in the sidebar.
+- **Block palette** popover (add block / add child), block context menus, and
+  popovers/toasts styled by the shared `ui.css` primitives (also on front-end
+  pages now).
+- **Notifications**: bottom-right stack, 10s auto-dismiss (configurable) or
+  dismissible, scrollable on overflow.
+
+## Settings sidebar extension API
+- The sidebar tabs, field controls, and field lists are all built through one
+  plugin-shared API. Core registers them first; plugin `editor_ui` bundles
+  register theirs after.
+- `window.iikiti.editor.sidebar` exposes:
+  - `registerSection({id,label,icon,order,build(ctx)})` — add a tab; `build`
+    returns a node list from `{node, schema, blockTypes, update}`.
+  - `registerFieldControl(type, Component, {priority})` — map a schema field
+    `type` → a Svelte control `{field, value, onChange}`; higher priority wins
+    (overridable).
+  - `patchSection(sectionId, (nodes, ctx) => nodes, {priority})` — insert,
+    remove or reorder any node in an existing tab.
+  - `getSections()`, `buildSectionNodes(id, ctx)`, `setActiveSection(id)`.
+- Node model: `{kind:'field', field, path}` | `{kind:'group', id, label,
+  header?, nodes}` | `{kind:'repeater', id, fields, items, onChange,
+  addLabel}`. Groups/repeaters compose (e.g. the built-in "Attributes"
+  repeater lives inside an "Attributes" group in the Element tab).
+- Field write paths: `path:'content'` → `node.content.<key>`, `path:'element'` →
+  `node.element.<key>`, `path:'style'` → `node.style.base.<key>`. Plugins can
+  override with a node-level `get(ctx)`/`set(ctx,v)`.
+- `BlockType` gained an `elementFields` list (parallel to `contentFields`/
+  `styleFields`) and a `source` provider slug, surfaced in `blockTypes` output
+  (used by the editor and by the block-widget enumeration API).
+
+## Tour / spotlight framework
+- `window.iikiti.tour` (shared editor + admin SPA):
+  `register(tour)`, `start(id)`, `next/prev/jumpTo/end`, `on(state=>)`,
+  `registerAction(type, handler)`.
+- Steps target `[data-tour="<id>"]` anchors or CSS selectors; show a popover
+  above/beside the target with `placement` and optional spotlight (dim +
+  outline). `before`/`after` action lists run on step enter/leave.
+- Built-in actions: `highlight`, `scrollIntoView`, `emit`. The editor
+  registers `sidebar.tab` (switches the active settings tab), `sidebar.side`
+  (flips the sidebar), and `open` (e.g. `target:'layers'`). Plugins register
+  their own via `registerAction`.
+- `TourPopover.svelte` (exported via `@iikiti/admin`) renders the active step;
+  mount it once in the editor (`Editor.svelte`) and in `AdminLayout.svelte`.
+- Authoring actual tours is plugin work; the framework is in place for you.
 
 ## Plugin extensibility
-- Block types via `BlockTypeInterface` (`iiketi.cms.block_type`).
-- Manifest `editor_ui`/`site_ui`; editor plugin API `iikati.plugins.register(...)`.
+- Block types via `BlockTypeInterface` (`iikiti.cms.block_type`), now with
+  `elementFields` and a `source` slug.
+- Manifest `editor_ui` entries are loaded by the editor on mount and may call
+  the sidebar/tour APIs above.
+- `iikiti.plugins.register(...)` for plugin front-end bundles.
 
 ## Follow-ups
 - Default template seeding migration (built-in fallback used for now).

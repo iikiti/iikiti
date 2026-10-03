@@ -34,7 +34,7 @@ class BlockEditorComponent implements ComponentInterface
 	}
 
 	/**
-	 * @return list<array{type:string, label:string, category:string, acceptsChildren:bool, allowedChildTypes:list<string>|null, contentFields:list<array<string,mixed>>, styleFields:list<array<string,mixed>>, editorComponent?:string|null}>
+	 * @return list<array{type:string, label:string, category:string, source:string, acceptsChildren:bool, allowedChildTypes:list<string>|null, contentFields:list<array<string,mixed>>, styleFields:list<array<string,mixed>>, elementFields:list<array<string,mixed>>, editorComponent?:string|null}>
 	 */
 	public function getBlockTypes(): array
 	{
@@ -44,10 +44,12 @@ class BlockEditorComponent implements ComponentInterface
 				'type' => $blockType->type,
 				'label' => $blockType->label,
 				'category' => $blockType->category,
+				'source' => $blockType->source,
 				'acceptsChildren' => $blockType->acceptsChildren,
 				'allowedChildTypes' => $blockType->childTypes(),
 				'contentFields' => $blockType->contentFields,
 				'styleFields' => $blockType->styleFields,
+				'elementFields' => $blockType->elementFields,
 				'editorComponent' => $blockType->editorComponent,
 			];
 		}

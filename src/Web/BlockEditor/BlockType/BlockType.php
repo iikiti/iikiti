@@ -23,7 +23,11 @@ final class BlockType
 	 *                                                     empty = any block type allowed; `null` = no children
 	 * @param list<array<string,mixed>> $contentFields
 	 * @param list<array<string,mixed>> $styleFields
+	 * @param list<array<string,mixed>> $elementFields     Element-level fields (id, css class, etc.) shown in
+	 *                                                     the settings sidebar's "Element" tab
 	 * @param array<string,mixed>       $defaults          Default content and/or style for new blocks
+	 * @param string                    $source            Provider/plugin slug used to attribute the type in the
+	 *                                                     block-widget enumeration index
 	 */
 	public function __construct(
 		public readonly string $type,
@@ -36,6 +40,8 @@ final class BlockType
 		public readonly ?string $renderTemplate = null,
 		public readonly ?string $editorComponent = null,
 		public readonly array $defaults = [],
+		public readonly array $elementFields = [],
+		public readonly string $source = 'core',
 	) {
 	}
 

@@ -169,12 +169,16 @@ Exported from `@iikiti/admin` (aka `$components`):
   a gap and always clears the hovered element, mirroring/clamping at the
   viewport edges; keyboard focus falls back to below the trigger. Use for
   icon-button affordances (with `aria-label` on the button).
-- **`FloatingPanel.svelte`** — the generic draggable dialog: header drag
-  handle, viewport clamping, optional corner drag-resize, Esc-to-close,
-  bring-to-front, optional `storageKey` persistence
-  (`iikiti.panel.<key>.pos` / `.size`). Modeless (`role="dialog"`,
-  `aria-modal="false"`). The editor's Layers navigator is built on it and
-  plugins can build their own floating tools with it.
+- **`Dialog.svelte`** — the generic draggable dialog built on the native
+  `<dialog>` element: header drag handle, viewport clamping, optional corner
+  drag-resize, Esc-to-close, bring-to-front, optional `storageKey` persistence
+  (`iikiti.panel.<key>.pos` / `.size`). Non-modal (`dialog.show()`),
+  `aria-modal="false"`. `FloatingPanel` is re-exported from `@iikiti/admin` as a
+  **deprecated alias** of `Dialog` for plugin backward compatibility.
+- **`ModalDialog.svelte`** — extends `Dialog` with `modal=true`: calls
+  `dialog.showModal()`, moving it into the browser top layer with a
+  `::backdrop` (`--iikiti-z-modal`) that covers the rest of the site.
+  Centred, not draggable/resizable.
 - **`Popover.svelte`, `Toast.svelte`, `NotificationCenter.svelte`, `Icon.svelte`**
   — pre-existing primitives, now styled by the shared `ui.css` on front-end
   pages too (previously popover/toast CSS only existed in the admin bundle).

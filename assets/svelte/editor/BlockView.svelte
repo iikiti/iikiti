@@ -1,29 +1,35 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { get } from 'svelte/store';
-	import { selected, updateNode, registerBlock, deleteBlock, moveBlock, addBlock, blockTypes, tree } from './state';
+	import { selected, select, updateNode, registerBlock, deleteBlock, moveBlock, addBlock, blockTypes, tree } from './state';
 	import type { BlockNode } from './state';
 	import Popover from '$components/Popover.svelte';
 	import BlockPalette from './BlockPalette.svelte';
 
-	let { node, regionId }: { node: BlockNode; regionId: string } = $props();
-	let self: HTMLDivElement;
+	let {
+		node,
+		regionId,
+		readonly = false,
+	}: { node: BlockNode; regionId: string; readonly?: boolean } = $props();
+	let self = $state<HTMLDivElement | null>(null);
 
-	const isSelected = $derived($selected === node.id);
+	const isSelected = $derived(!readonly && $selected === node.id);
 
 	$effect(() => {
-		if (self) {
+		if (self && !readonly) {
 			self.dataset.blockId = node.id;
 			self.dataset.blockType = node.type;
 			registerBlock(node.id, self);
 		}
 	});
 
-	onDestroy(() => registerBlock(node.id, null));
+	onDestroy(() => {
+		if (!readonly) registerBlock(node.id, null);
+	});
 
 	function pick(ev: MouseEvent) {
 		ev.stopPropagation();
-		selected.set(node.id);
+		select(node.id);
 	}
 
 	let menuAnchor: HTMLElement | null = $state(null);
@@ -45,7 +51,7 @@
 		ev.preventDefault();
 		deleteBlock(node.id);
 		menuAnchor = null;
-		selected.set(null);
+		select(null);
 	}
 
 	function moveUp(ev: MouseEvent) {
@@ -91,17 +97,7 @@
 	}
 </script>
 
-<div
-	bind:this={self}
-	class:selected={isSelected}
-	class="iikiti-block-preview"
-	data-block-node
-	tabindex="0"
-	role="button"
-	aria-label="Select block"
-	onclick={pick}
-	onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(e); } }}
->
+{#snippet preview()}
 	{#if node.type === 'text'}
 		{@html node.content?.content ?? ''}
 	{:else if node.type === 'heading'}
@@ -112,7 +108,7 @@
 		{:else}<em class="iikiti-block--placeholder">Image URL missing</em> {/if}
 	{:else if node.type === 'container'}
 		<div class="iikiti-container" data-block-children>
-			{#each node.children ?? [] as child (child.id)}<BlockView node={child} {regionId} />{/each}
+			{#each node.children ?? [] as child (child.id)}<BlockView node={child} {regionId} {readonly} />{/each}
 		</div>
 	{:else if node.type === 'video_embed'}
 		<iframe src={node.content?.url} title="Embedded content" class="iikiti-embed__iframe" allowfullscreen loading="lazy"></iframe>
@@ -125,38 +121,59 @@
 	{:else}
 		<em class="iikiti-block--placeholder">Unknown block type</em>
 	{/if}
-	<div class="iikiti-outline iikiti-outline--selected" aria-hidden="true"></div>
-	<div class="iikiti-context-menu">
-		<button class="iikiti-btn iikiti-btn--sm" title="Select block" onclick={() => { selected.set(node.id); }}>✏</button>
-		<button class="iikiti-btn iikiti-btn--sm" title="More actions" onclick={(e) => { e.stopPropagation(); e.preventDefault(); menuAnchor = e.currentTarget as HTMLElement; }}>⋮</button>
+{/snippet}
+
+{#if readonly}
+	<div bind:this={self} class="iikiti-block-preview iikiti-block-preview--readonly" data-block-node data-block-readonly>
+		{@render preview()}
 	</div>
-	{#if menuAnchor}
-		<Popover anchor={menuAnchor} placement="bottom-end" closeOnOutside onclose={() => (menuAnchor = null)}>
-			<div class="iikiti-block-menu">
-				{#if isContainer}
-					<button class="iikiti-block-menu__item" onclick={openAddChild}>Add child…</button>
-				{/if}
-				<button class="iikiti-block-menu__item" onclick={moveUp}>Move up</button>
-				<button class="iikiti-block-menu__item" onclick={moveDown}>Move down</button>
-				<button class="iikiti-block-menu__item iikiti-block-menu__item--destructive" onclick={deleteNode}>Delete</button>
-			</div>
-		</Popover>
-	{/if}
-	{#if paletteAnchor}
-		<BlockPalette
-			allowedTypes={childTypes}
-			anchor={paletteAnchor}
-			onClose={() => (paletteAnchor = null)}
-			onSelect={insertChild}
-		/>
-	{/if}
-</div>
+{:else}
+	<div
+		bind:this={self}
+		class:selected={isSelected}
+		class="iikiti-block-preview"
+		data-block-node
+		tabindex="0"
+		role="button"
+		aria-label="Select block"
+		onclick={pick}
+		onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(e); } }}
+	>
+		{@render preview()}
+		<div class="iikiti-outline iikiti-outline--selected" aria-hidden="true"></div>
+		<div class="iikiti-context-menu">
+			<button class="iikiti-btn iikiti-btn--sm" title="Select block" onclick={() => { select(node.id); }}>✏</button>
+			<button class="iikiti-btn iikiti-btn--sm" title="More actions" onclick={(e) => { e.stopPropagation(); e.preventDefault(); menuAnchor = e.currentTarget as HTMLElement; }}>⋮</button>
+		</div>
+		{#if menuAnchor}
+			<Popover anchor={menuAnchor} placement="bottom-end" closeOnOutside onclose={() => (menuAnchor = null)}>
+				<div class="iikiti-block-menu">
+					{#if isContainer}
+						<button class="iikiti-block-menu__item" onclick={openAddChild}>Add child…</button>
+					{/if}
+					<button class="iikiti-block-menu__item" onclick={moveUp}>Move up</button>
+					<button class="iikiti-block-menu__item" onclick={moveDown}>Move down</button>
+					<button class="iikiti-block-menu__item iikiti-block-menu__item--destructive" onclick={deleteNode}>Delete</button>
+				</div>
+			</Popover>
+		{/if}
+		{#if paletteAnchor}
+			<BlockPalette
+				allowedTypes={childTypes}
+				anchor={paletteAnchor}
+				onClose={() => (paletteAnchor = null)}
+				onSelect={insertChild}
+			/>
+		{/if}
+	</div>
+{/if}
 
 <style>
 	.iikiti-block-preview[data-block-node] { position: relative; }
 	.iikiti-block-preview.selected { outline: 2px solid #3b82f6; outline-offset: 2px; }
 	.iikiti-block-preview:hover { outline: 1px dashed #93c5fd; outline-offset: 1px; }
 	.iikiti-block-preview:active { outline: 2px solid #60a5fa; outline-offset: 2px; }
+	.iikiti-block-preview--readonly { pointer-events: none; }
 	.iikiti-outline { position: absolute; inset: 0; border-radius: 3px; pointer-events: none; }
 	.iikiti-outline--selected { border: 2px dashed #3b82f6; }
 	.iikiti-context-menu {

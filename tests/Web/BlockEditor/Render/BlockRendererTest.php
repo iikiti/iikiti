@@ -142,4 +142,56 @@ final class BlockRendererTest extends TestCase
 			],
 		];
 	}
+
+	public function testElementIdAndCssClassRenderOnTheWrapper(): void
+	{
+		$tree = [[
+			'type' => 'text',
+			'content' => ['content' => '<p>Hi</p>'],
+			'element' => ['id' => 'hero', 'cssClass' => 'lead muted'],
+		]];
+
+		$html = $this->renderer->renderTree($tree, new BlockRenderContext(editorMode: false));
+
+		self::assertStringContainsString('class="iikiti-block iikiti-block--text lead muted"', $html);
+		self::assertStringContainsString('id="hero"', $html);
+	}
+
+	public function testElementAttributesUseAnAllowlist(): void
+	{
+		$tree = [[
+			'type' => 'text',
+			'content' => ['content' => '<p>Hi</p>'],
+			'element' => ['attributes' => [
+				['name' => 'data-foo', 'value' => 'bar'],
+				['name' => 'title', 'value' => 'Hello "world"'],
+				['name' => 'onclick', 'value' => 'alert(1)'],
+				['name' => 'style', 'value' => 'color:red'],
+				['name' => 'href', 'value' => 'javascript:alert(1)'],
+				['name' => '2bad', 'value' => 'x'],
+			]],
+		]];
+
+		$html = $this->renderer->renderTree($tree, new BlockRenderContext(editorMode: false));
+
+		self::assertStringContainsString('data-foo="bar"', $html);
+		self::assertStringContainsString('title="Hello &quot;world&quot;"', $html);
+		self::assertStringNotContainsString('onclick', $html);
+		self::assertStringNotContainsString('style="color:red"', $html);
+		self::assertStringNotContainsString('javascript:', $html);
+		self::assertStringNotContainsString('2bad', $html);
+	}
+
+	public function testElementMetadataIsEmittedInEditMode(): void
+	{
+		$tree = [[
+			'type' => 'text',
+			'content' => ['content' => '<p>Hi</p>'],
+			'element' => ['id' => 'x'],
+		]];
+
+		$html = $this->renderer->renderTree($tree, new BlockRenderContext(editorMode: true));
+
+		self::assertStringContainsString('data-block-element=', $html);
+	}
 }

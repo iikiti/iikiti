@@ -244,3 +244,57 @@ anything:
   `dragResize` helper for vanilla-JS bundles.
 
 Full reference: [front-end-ui-standard.md](front-end-ui-standard.md).
+
+## Editor sidebar extension API
+
+Plugins can extend the block editor settings sidebar (Content / Element / Style)
+through the same API the core uses — exposed at runtime as
+`window.iikiti.editor.sidebar` (available once the editor loads).
+
+```js
+const sb = window.iikiti.editor.sidebar;
+
+// 1. Add a new field-control component (a Svelte component with
+//    `{ field, value, onChange }` props) for a custom field type.
+sb.registerFieldControl('my-widget', MyWidgetControl, { priority: 10 });
+
+// 2. Add a new tab. `build(ctx)` returns a list of nodes:
+//    {kind:'field', field, path} | {kind:'group', id,label,header?, nodes} |
+//    {kind:'repeater', id, fields, items, onChange, addLabel}
+sb.registerSection({
+  id: 'seo', label: 'SEO', icon: 'search', order: 40,
+  build: (ctx) => [
+    { kind:'field', field:{key:'meta_title', label:'Meta title', type:'text'}, path:'content' },
+    { kind:'group', id: 'open-graph', label:'Open Graph', nodes:[/*...*/] },
+  ],
+});
+
+// 3. Modify an existing tab: insert/reorder/remove nodes.
+sb.patchSection('style', (nodes) => [...nodes, myNode], { priority: 0 });
+
+// 4. Switch the active tab programmatically (e.g. from a tour).
+sb.setActiveSection('element');
+```
+
+Field write paths map to the block node: `content → node.content`, `element →
+node.element`, `style → node.style.base`. To write elsewhere, give a node a
+`get(ctx)`/`set(ctx, value)` pair instead of `path`.
+
+A reusable **group + repeater** pattern (the built-in "Attributes" group is a
+concrete example):
+
+```js
+{ kind:'group', id:'attributes', label:'Attributes', header:'Attributes',
+  nodes:[
+    { kind:'repeater', id:'attributes',
+      fields:[{key:'name',type:'text'},{key:'value',type:'text'}],
+      items: ctx.node.element?.attributes ?? [],
+      addLabel:'Add attribute',
+      onChange: (items) => ctx.update({ element:{ ...ctx.node.element, attributes: items } }),
+    },
+  ] }
+```
+
+Editor UI bundles ship via manifest `editor_ui.entry` (served from
+`/admin-plugins/{slug}/...`) and are loaded by the editor on mount before
+`tour`-style steps can target them.

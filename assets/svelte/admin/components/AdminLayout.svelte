@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import Icon from './Icon.svelte';
+	import TourPopover from './TourPopover.svelte';
 	import type { MenuItem } from '$types';
 
 	interface Props {
@@ -169,4 +170,5 @@
 			{@render children?.()}
 		</main>
 	</div>
+	<TourPopover />
 </div>

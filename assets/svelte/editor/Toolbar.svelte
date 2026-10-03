@@ -63,6 +63,7 @@
 			class="iikiti-editor-btn"
 			disabled={!$canUndo}
 			onclick={undo}
+			data-tour="toolbar.undo"
 			aria-label="Undo"
 		>
 			<Icon name="undo-2" size={18} />
@@ -75,6 +76,7 @@
 			class="iikiti-editor-btn"
 			disabled={!$canRedo}
 			onclick={redo}
+			data-tour="toolbar.redo"
 			aria-label="Redo"
 		>
 			<Icon name="redo-2" size={18} />
@@ -89,6 +91,7 @@
 			class="iikiti-editor-btn"
 			data-dirty={$dirty ? 'true' : undefined}
 			onclick={onSave}
+			data-tour="toolbar.save"
 			aria-label="Save draft"
 		>
 			<Icon name="save" size={18} />
@@ -101,6 +104,7 @@
 				type="button"
 				class="iikiti-editor-btn iikiti-editor-btn--primary"
 				onclick={() => publish()}
+				data-tour="toolbar.publish"
 				aria-label="Publish"
 			>
 				<Icon name="rocket" size={18} />
@@ -117,6 +121,7 @@
 			class:active={$layersOpen}
 			aria-pressed={$layersOpen}
 			onclick={toggleLayers}
+			data-tour="toolbar.layers"
 			aria-label="Toggle layers panel"
 		>
 			<Icon name="layers" size={18} />
@@ -128,6 +133,7 @@
 			type="button"
 			class="iikiti-editor-btn"
 			onclick={toggleTheme}
+			data-tour="toolbar.theme"
 			aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'}
 		>
 			<Icon name={dark ? 'moon' : 'sun'} size={18} />

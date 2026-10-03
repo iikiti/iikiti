@@ -26,6 +26,19 @@ final class CoreBlockTypeProvider implements BlockTypeInterface
 		];
 	}
 
+	/**
+	 * Shared baseline element-level fields for every core block type.
+	 *
+	 * @return list<array<string,mixed>>
+	 */
+	private function elementFields(): array
+	{
+		return [
+			['key' => 'id', 'label' => 'ID', 'type' => 'text', 'placeholder' => 'element-id'],
+			['key' => 'cssClass', 'label' => 'CSS class', 'type' => 'text', 'placeholder' => 'space-separated classes'],
+		];
+	}
+
 	private function container(): BlockType
 	{
 		return new BlockType(
@@ -49,6 +62,7 @@ final class CoreBlockTypeProvider implements BlockTypeInterface
 			],
 			renderTemplate: 'blocks/container.twig',
 			editorComponent: 'ContainerBlock',
+			elementFields: $this->elementFields(),
 			defaults: ['content' => [], 'style' => ['base' => ['layout' => 'block']]],
 		);
 	}
@@ -62,6 +76,7 @@ final class CoreBlockTypeProvider implements BlockTypeInterface
 			acceptsChildren: false,
 			renderTemplate: 'blocks/dynamic.twig',
 			editorComponent: 'DynamicBlock',
+			elementFields: $this->elementFields(),
 			defaults: ['content' => ['label' => 'Dynamic content region']],
 		);
 	}
@@ -87,6 +102,7 @@ final class CoreBlockTypeProvider implements BlockTypeInterface
 			],
 			renderTemplate: 'blocks/heading.twig',
 			editorComponent: 'HeadingBlock',
+			elementFields: $this->elementFields(),
 			defaults: ['content' => ['level' => '2', 'text' => ''], 'style' => ['base' => []]],
 		);
 	}
@@ -107,6 +123,7 @@ final class CoreBlockTypeProvider implements BlockTypeInterface
 			],
 			renderTemplate: 'blocks/text.twig',
 			editorComponent: 'TextBlock',
+			elementFields: $this->elementFields(),
 			defaults: ['content' => ['content' => ''], 'style' => ['base' => []]],
 		);
 	}
@@ -130,6 +147,7 @@ final class CoreBlockTypeProvider implements BlockTypeInterface
 			],
 			renderTemplate: 'blocks/image.twig',
 			editorComponent: 'ImageBlock',
+			elementFields: $this->elementFields(),
 			defaults: ['content' => ['source' => ['source' => 'url', 'url' => '']], 'style' => ['base' => []]],
 		);
 	}
@@ -152,6 +170,7 @@ final class CoreBlockTypeProvider implements BlockTypeInterface
 			],
 			renderTemplate: 'blocks/video_embed.twig',
 			editorComponent: 'VideoEmbedBlock',
+			elementFields: $this->elementFields(),
 			defaults: ['content' => ['url' => ''], 'style' => ['base' => ['aspectRatio' => '16:9']]],
 		);
 	}
@@ -174,6 +193,7 @@ final class CoreBlockTypeProvider implements BlockTypeInterface
 			],
 			renderTemplate: 'blocks/social_embed.twig',
 			editorComponent: 'SocialEmbedBlock',
+			elementFields: $this->elementFields(),
 			defaults: ['content' => ['url' => ''], 'style' => ['base' => ['aspectRatio' => 'original']]],
 		);
 	}
@@ -202,6 +222,7 @@ final class CoreBlockTypeProvider implements BlockTypeInterface
 			],
 			renderTemplate: 'blocks/query.twig',
 			editorComponent: 'QueryBlock',
+			elementFields: $this->elementFields(),
 			defaults: ['content' => ['source' => 'objects', 'objectType' => '', 'filters' => [], 'limit' => 10, 'layout' => 'list'],
 				'style' => ['base' => ['columns' => 1]]],
 		);

@@ -75,6 +75,9 @@ services:
     iikiti\CMS\Query\DatabasePlatform\DatabasePlatformStrategyInterface:
         alias: iikiti\CMS\Query\DatabasePlatform\PostgreSQL\PostgreSQLPlatformStrategy
 
+    iikiti\CMS\Web\BlockEditor\Usage\BlockUsageIndexInterface:
+        alias: iikiti\CMS\Web\BlockEditor\Usage\BlockUsageIndexer
+
     # Auto-tag block editor extensibility interfaces so plugins (and core) register
     # block types / embed providers / query sources / save workflows / transports
     # simply by implementing the interface.

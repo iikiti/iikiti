@@ -23,6 +23,9 @@ export { default as Breadcrumb } from './Breadcrumb.svelte';
 export { default as Pagination } from './Pagination.svelte';
 export { default as SearchForm } from './SearchForm.svelte';
 export { default as Dialog } from './Dialog.svelte';
+export { default as ModalDialog } from './ModalDialog.svelte';
+// Deprecated alias for plugin backward compatibility (FloatingPanel → Dialog).
+export { default as FloatingPanel } from './Dialog.svelte';
 export { default as DetailView } from './DetailView.svelte';
 export { default as Card } from './Card.svelte';
 export { default as Form } from './Form.svelte';
@@ -33,7 +36,7 @@ export { default as SelectInput } from './SelectInput.svelte';
 export { default as CheckboxInput } from './CheckboxInput.svelte';
 export { default as ToggleInput } from './ToggleInput.svelte';
 export { default as Popover } from './Popover.svelte';
+export { default as TourPopover } from './TourPopover.svelte';
 export { default as Toast } from './Toast.svelte';
 export { default as Tooltip } from './Tooltip.svelte';
-export { default as FloatingPanel } from './FloatingPanel.svelte';
 export { default as NotificationCenter } from './NotificationCenter.svelte';

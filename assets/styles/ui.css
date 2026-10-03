@@ -183,10 +183,30 @@ body {
 .iikiti-toast--warning { border-color: var(--iikiti-warning-subtle); background: var(--iikiti-warning-subtle); color: var(--iikiti-warning); }
 .iikiti-toast--error   { border-color: var(--iikiti-danger-subtle); background: var(--iikiti-danger-subtle); color: var(--iikiti-danger); }
 
-/* ========================= Floating panels (draggable dialogs) ============= */
-.iikiti-floating-panel {
+/* ========================= Dialogs (native <dialog>) ======================= */
+/*
+ * The base Dialog (Dialog.svelte) is a non-modal floating dialog built on the
+ * native <dialog> element via show(); positioning/left/top/size are applied
+ * inline. ModalDialog uses showModal(), which moves the dialog into the top
+ * layer with a ::backdrop covering the page.
+ */
+.iikiti-dialog {
 	position: fixed;
 	z-index: var(--iikiti-z-floating);
+}
+
+.iikiti-dialog::backdrop {
+	background: rgba(15, 15, 12, 0.45);
+}
+
+/* ========================= Tour spotlight ================================== */
+.iikiti-tour-spotlight {
+	position: relative;
+	z-index: calc(var(--iikiti-z-tooltip, 4000) - 1);
+	outline: 3px solid var(--ik-accent, #a6613c);
+	outline-offset: 3px;
+	border-radius: 4px;
+	box-shadow: 0 0 0 9999px rgba(15, 15, 12, 0.28);
 }
 
 /* ========================= Tooltip ========================================== */
