@@ -49,9 +49,29 @@ Rules (tagged `iikiti.cms.template_rule`): `object_type`, `object`, `site`.
   `docs/realtime-collaboration.md`.
 
 ## Editor UI
-- Toolbar: undo/redo, save draft, publish, viewport (mobile/tablet/desktop), view-live.
-- Popovers: element tree, content/style inspector (schema-driven), template
-  settings, view-live.
+- **Top bar** (sticky, never covers content): registered with the viewport
+  [bars standard](front-end-ui-standard.md) as a top bar (order -100,
+  always pinned, not resizable) and mounted into the manager-owned slot
+  (`Toolbar.svelte`). The page content is pushed down by document flow while
+  the bar stays pinned on scroll. Undo/redo are disabled at the history
+  floor; save shows an unsaved-changes dot; publish is gated by
+  `canPublish`.
+- **Dark/light theme**: the bar and every floating panel follow the shared
+  `--ik-*` tokens, which flip with the `.dark` class applied pre-paint by
+  the theme bootstrap in `layout.twig` (stored preference, else OS
+  preference). A sun/moon toggle on the bar exposes the front-end theme API
+  (`iikiti.theme.toggle()`); the preference persists in localStorage under
+  the `theme` key.
+- **Icon actions + tooltips**: undo (`undo-2`), redo (`redo-2`), save draft
+  (`save`, dirty dot), publish (`rocket`) — Lucide icons via the shared
+  `Icon` component with hover/focus tooltips (`Tooltip` component).
+- **Layers menu**: floating, draggable "Layers" panel (`LayerMenu.svelte` on
+  the shared `FloatingPanel` component) listing regions → nested blocks with
+  counts. Clicking a row selects the block, scrolls the canvas to it and
+  highlights the current selection; position/size persist per browser.
+- Popovers: block palette, content/style inspector (schema-driven), block
+  context menus. Popover/toast styling now comes from the shared
+  `ui.css` primitives (works on front-end pages, not just the admin SPA).
 - Notifications: bottom-right stack, 10s auto-dismiss (configurable) or dismissible,
   scrollable/swipe on overflow. Settings via site defaults + user `preferences`.
 

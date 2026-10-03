@@ -2,5 +2,6 @@
 	"$schema": "https://kilo.ai",
 	"instructions": [
 		".kilo/rules/local.instructions.md"
-	]
+  ],
+  "snapshot": false
 }

@@ -14,7 +14,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ## [Unreleased]
 
-> Last updated: 2026-09-29
+> Last updated: 2026-10-03
 
 ### Added
 
@@ -55,6 +55,37 @@ The top-level file keeps the latest 5 dated entries; older entries live in
   block hover/active outlines, context-menu and block-palette styles.
 - 2026-09-29: Touch device detection in `iikiti/index.js` — adds a `iikiti-touch`
   body class so CSS can show edit icons persistently (no hover dependency).
+- 2026-10-03: Viewport-bars stacking standard (`iikiti.bars`, 
+  `assets/js/iikiti/chrome/bars.js`): declarative `data-iikiti-bar` markup +
+  `iikiti.bars.register()/unregister()/getOffset()/onChange()` on every page;
+  top/bottom bars stack in flow with cumulative sticky offsets, left/right
+  rails are fixed spans reserving body padding, `fixed`/`absolute` overlay
+  exemption, optional drag-to-resize with localStorage persistence
+  (`dragResize.js`), per-side totals as `--iikiti-bars-*` CSS vars.
+  Available to the editor, themes and plugins — see
+  `docs/front-end-ui-standard.md`.
+- 2026-10-03: Shared z-index layer scale + UI primitives stylesheet
+  (`assets/styles/ui.css`, imported by both `app.css` and `admin.css`):
+  `--iikiti-z-chrome/popover/floating/modal/tooltip/toast` tokens, bar/resize
+  handles, popover/toast/notification-center styling for front-end pages,
+  tooltip + floating-panel primitives.
+- 2026-10-03: `Tooltip` (hover/focus, viewport-flipping, keyboard-safe) and
+  `FloatingPanel` (generic draggable + resizable dialog with bring-to-front
+  and position persistence) Svelte components, exported from
+  `@iikiti/admin`.
+- 2026-10-03: Editor "Layers" menu (`LayerMenu.svelte`) — floating draggable
+  block-tree navigator: regions → nested blocks with counts, click selects a
+  block + scrolls the canvas to it, selection highlighted, opened from the
+  toolbar, position/size persisted per browser.
+- 2026-10-03: New icons in the shared `Icon` map: `undo-2`, `redo-2`,
+  `rocket`, `external-link`, `box`, `heading`, `image`, `video`, `link`.
+- 2026-10-03: Dark/light theme on the editor bar: sun/moon toggle wired to
+  the front-end theme API (`iikiti.theme.toggle()`, localStorage-persisted).
+  Front-end dark mode is now class-based like the admin's — the FOUC theme
+  bootstrap script moved into `templates/base/layout.twig` `head_styles`
+  (stored preference, else OS preference; admin inherits via `parent()`),
+  Tailwind `dark:` utilities follow `.dark` (`@custom-variant dark` in
+  `app.css`) and `app-dark.css` extras are `.dark`-scoped.
 
 ### Changed
 
@@ -71,6 +102,17 @@ The top-level file keeps the latest 5 dated entries; older entries live in
   `?edit`; `editorMode` still gates `data-block-*` metadata.
 - 2026-09-29: `iikiti/index.js` edit-trigger click navigates to `?edit` (full editor
   mode); touch device detection adds `iikiti-touch` body class.
+- 2026-10-03: Editor top bar is now a bars-standard top bar (order -100,
+  always pinned, not resizable): sticky at the viewport edge while pushing
+  the page content down via document flow instead of covering it; Undo/Redo/
+  Save draft/Publish replaced with Lucide icon buttons + hover tooltips
+  (`Toolbar.svelte`), undo/redo disabled at the history floor and save shows
+  an unsaved-changes dot (`canUndo`/`canRedo`/`dirty` store exports).
+- 2026-10-03: Layout components participate in the bars standard: banner
+  (top, order 0), header (top, order 1) and footer (bottom) register
+  automatically; sidebar registers as a left/right rail only when the markup
+  opts in with `data-iikiti-bar` (in-flow/flex sidebars like the admin SPA
+  keep their own positioning).
 
 ### Fixed
 
@@ -229,6 +271,51 @@ The top-level file keeps the latest 5 dated entries; older entries live in
   `@iikiti/admin`.
 - 2026-09-19: `AdminExtensionTrait` providing an empty default
   `getAdminScreens()` implementation for plugins that only contribute menu items.
+- 2026-10-03: Front-end editor never launched in production builds —
+  `launchEditor()` awaited a hardcoded unversioned `/build/editor.css` (404
+  with hashed filenames), aborting before mounting; the stylesheet is already
+  injected server-side by `layout.twig`, so the dynamic load was removed.
+- 2026-10-03: Selecting any block crashed the editor with
+  `ReferenceError: Popover is not defined` — `Inspector.svelte` used
+  `<Popover>` without importing it.
+- 2026-10-03: Inspector rendered with the wrong `FormField` API (`label` prop
+  instead of `field`), crashing on `field.required`; both usages now pass the
+  schema `field` object.
+- 2026-10-03: Inspector closed itself when selecting blocks from anywhere but
+  the anchored block (e.g. the Layers panel) — `closeOnOutside` disabled for
+  the anchored inspector popover.
+- 2026-10-03: Popover/toast/notification-center CSS only existed in the admin
+  bundle, leaving front-end editor popovers unstyled — shared primitives moved
+  to `assets/styles/ui.css` loaded by both themes.
+- 2026-10-03: Component registry logged `unknown component
+  "BlockEditorComponent"` warnings on every editor page — the editor's DOM
+  hook is now skipped explicitly by the layout-component auto-wire.
+- 2026-10-03: Editor chrome rendered light-only — nothing applied the
+  `.dark` class on front-end pages (the old toolbar hard-coded its own
+  `prefers-color-scheme` block); theme application is now shared via the
+  layout bootstrap and all editor chrome themes through the `--ik-*` tokens.
+- 2026-10-03: Tooltips and popovers were never actually CSS-positioned —
+  Svelte 5 dropped object support for the `style={…}` attribute, so
+  `Tooltip`/`Popover` rendered at their static position. Both now position
+  via `style:` directives; tooltips anchor below the mouse cursor (clear of
+  the hovered element, mirrored/clamped at viewport edges, below the trigger
+  for keyboard focus) and the inspector popover repositions correctly.
+- 2026-10-03: Review fixes on the new editor chrome: the inspector popover
+  now repositions when the selection (anchor) changes; corner drag-resize
+  respects per-axis maxima (85vh/95vw for panels instead of a width-based
+  height cap); persisted sizes restore for all resizable bars, not just
+  rails; re-layout skips redundant bar DOM moves and `onResize` forced
+  reflows; the editor unregisters its toolbar bar on teardown; the
+  notification overflow-scroll rule was restored; the front-end status
+  palette is declared once in `app.css`; and the dead `.iikiti-btn--success`
+  rule was removed.
+- 2026-10-03: Viewport-bars standard now accommodates the Symfony web profiler
+  toolbar: its wrapper is kept at the end of the document flow so the static
+  "clearer" reserves space at the page bottom (it previously sat mid-flow and
+  pushed the editor canvas down at the top), and its height is counted into
+  `--iikiti-bars-bottom` so bottom bars, rails and notifications stack above
+  it; collapse/expand is observed and recomputed. Our chrome stays below the
+  profiler's z-index (99999), so it never covers the profiler bar.
 
 ### Changed
 

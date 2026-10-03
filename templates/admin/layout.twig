@@ -1,19 +1,9 @@
 {% extends 'base/layout.twig' %}
 
 {% block head_styles %}
+    {# The FOUC theme bootstrap lives in base/layout.twig and is inherited
+       here via parent(); it runs before the admin stylesheets. #}
     {{ parent() }}
-    <script>
-    (function () {
-        var KEY = 'theme';
-        var d = document.documentElement;
-        var stored = (typeof localStorage !== 'undefined') ? localStorage.getItem(KEY) : null;
-        var dark;
-        if (stored === 'dark') { dark = true; }
-        else if (stored === 'light') { dark = false; }
-        else if (window.matchMedia) { dark = window.matchMedia('(prefers-color-scheme: dark)').matches; }
-        if (dark) d.classList.add('dark');
-    })();
-    </script>
     {{ encore_entry_link_tags('admin') }}
 {% endblock %}
 

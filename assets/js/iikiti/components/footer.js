@@ -14,6 +14,10 @@ import { LayoutComponent } from './base.js';
 export class Footer extends LayoutComponent {
   get componentName() { return 'footer'; }
 
+  /** Stacks as a bottom bar via the bars standard. */
+  get defaultBarSide() { return 'bottom'; }
+  get defaultBarOrder() { return 0; }
+
   onShow(reason) {
     this.el.classList.remove('iikiti-footer--hidden');
   }

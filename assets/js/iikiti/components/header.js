@@ -15,6 +15,10 @@ import { LayoutComponent } from './base.js';
 export class Header extends LayoutComponent {
   get componentName() { return 'header'; }
 
+  /** Stacks as a top bar (below pencil banners) via the bars standard. */
+  get defaultBarSide() { return 'top'; }
+  get defaultBarOrder() { return 1; }
+
   onShow(reason) {
     this.el.classList.remove('iikiti-header--hidden');
   }

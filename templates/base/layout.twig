@@ -8,6 +8,22 @@
             {% block meta_favicon %}<link rel="shortcut icon" href="{{ asset('build/images/favicon.png') }}">{% endblock %}
         {% endblock %}
         {% block head_styles %}
+            {# Theme bootstrap: apply the stored preference (or the OS
+               preference when none is stored) before first paint to prevent
+               FOUC. All front-end chrome (editor toolbar, floating panels,
+               tooltips) follows the `--ik-*` tokens that flip with .dark. #}
+            <script>
+            (function () {
+                var KEY = 'theme';
+                var d = document.documentElement;
+                var stored = (typeof localStorage !== 'undefined') ? localStorage.getItem(KEY) : null;
+                var dark;
+                if (stored === 'dark') { dark = true; }
+                else if (stored === 'light') { dark = false; }
+                else if (window.matchMedia) { dark = window.matchMedia('(prefers-color-scheme: dark)').matches; }
+                if (dark) d.classList.add('dark');
+            })();
+            </script>
             {{ encore_entry_link_tags('tailwind') }}
             {% if iikiti_can_edit %}
                 {{ encore_entry_link_tags('editor') }}

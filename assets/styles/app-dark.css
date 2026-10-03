@@ -1,12 +1,13 @@
-@media (prefers-color-scheme: dark) {
+/* Front-end dark theme extras, driven by the `.dark` class (set pre-paint by
+   the inline theme bootstrap in layout.twig: stored preference, else OS
+   preference). The `@custom-variant dark` in app.css makes Tailwind `dark:`
+   utilities follow the same class. */
 
-    body {
-        background-color: #121212;
-    }
+.dark body {
+    background-color: #121212;
+}
 
-	input {
-		color: #EEE;
-		background-color: #353535;
-	}
-
+.dark input {
+    color: #EEE;
+    background-color: #353535;
 }

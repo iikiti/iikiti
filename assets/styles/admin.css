@@ -8,6 +8,7 @@
  */
 
 @import "tailwindcss";
+@import "./ui.css";
 
 /* Source scanning — no tailwind.config.js exists in this project, so declare
    the source roots explicitly (v4 respects @source before auto-scan). */
@@ -40,6 +41,16 @@
   --ik-panel-text-muted: var(--text-muted);
   --ik-accent: var(--accent);
   --ik-accent-hover: var(--accent-hover);
+
+  /* Status palette for the shared ui.css toast primitives (see ui.css). */
+  --iikiti-info: var(--info);
+  --iikiti-info-subtle: var(--info-subtle);
+  --iikiti-success: var(--success);
+  --iikiti-success-subtle: var(--success-subtle);
+  --iikiti-warning: var(--warning);
+  --iikiti-warning-subtle: var(--warning-subtle);
+  --iikiti-danger: var(--danger);
+  --iikiti-danger-subtle: var(--danger-subtle);
 }
 .dark {
   --bg: #21201E; --surface: #2C2B27; --surface-hover: #373530; --surface-active: #413E39;
@@ -239,30 +250,9 @@
   .admin-card-body { @apply p-4; }
   .admin-card-footer { @apply border-t border-border bg-surface-hover px-4 py-3; }
 
-  /* ---- Popover / Tooltip ---- */
-  .iikiti-popover {
-    @apply fixed z-50 rounded-lg border bg-surface text-text shadow-xl;
-    box-shadow: 0 10px 25px rgba(0,0,0,.15);
-  }
-
-  /* ---- Toasts / Notification center ---- */
-  .iikiti-notification-center {
-    @apply fixed bottom-4 right-4 z-50 flex flex-col gap-2;
-  }
-  .iikiti-toast {
-    @apply flex items-start gap-2.5 rounded-lg border p-3 shadow bg-surface text-text;
-  }
-  .iikiti-toast__icon { @apply mt-px flex h-4 w-4 shrink-0; }
-  .iikiti-toast__message { @apply flex-1 text-sm; }
-  .iikiti-toast__action {
-    @apply ml-2 rounded px-2 py-1 text-xs font-medium text-accent hover:text-accent-hover;
-  }
-  .iikiti-toast__dismiss {
-    @apply ml-2 cursor-pointer text-text-subtle hover:text-text;
-  }
-  .iikiti-toast--info    { @apply border-info-subtle bg-info-subtle text-info; }
-  .iikiti-toast--success { @apply border-success-subtle bg-success-subtle text-success; }
-  .iikiti-toast--warning { @apply border-warning-subtle bg-warning-subtle text-warning; }
-  .iikiti-toast--error   { @apply border-danger-subtle bg-danger-subtle text-danger; }
-  .iikiti-notification-center__scroll { @apply h-0 flex-1 overflow-y-auto; }
+  /* Popovers, toasts and the notification center now live in the shared
+     primitives stylesheet (ui.css) so both the admin SPA and the front-end
+     (editor) render them identically. The status palette hooks
+     (--iikiti-info, …) are declared here with the 2027 tokens; ui.css
+     carries neutral fallbacks for contexts without them. */
 }

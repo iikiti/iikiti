@@ -34,4 +34,6 @@ export { default as CheckboxInput } from './CheckboxInput.svelte';
 export { default as ToggleInput } from './ToggleInput.svelte';
 export { default as Popover } from './Popover.svelte';
 export { default as Toast } from './Toast.svelte';
+export { default as Tooltip } from './Tooltip.svelte';
+export { default as FloatingPanel } from './FloatingPanel.svelte';
 export { default as NotificationCenter } from './NotificationCenter.svelte';

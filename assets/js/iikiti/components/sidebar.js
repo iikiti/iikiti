@@ -14,6 +14,13 @@
  *
  * Collapsible: clicking `[data-iikiti-toggle="collapse"]` toggles a
  * `.iikiti-sidebar--collapsed` class (icons-only rail).
+ *
+ * Bars standard: unlike header/banner/footer, a sidebar registers as a
+ * left/right rail ONLY when the markup explicitly opts in with
+ * `data-iikiti-bar="left|right"` (or `barSide` via the imperative API) —
+ * in-flow/flex sidebars (e.g. the admin SPA layout) must keep their own
+ * positioning. Note the mobile drawer (`.iikiti-sidebar--mobile`) keeps its
+ * own `!important` fixed styling and wins over rail offsets.
  */
 import { LayoutComponent } from './base.js';
 

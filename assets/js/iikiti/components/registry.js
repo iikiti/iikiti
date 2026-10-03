@@ -9,6 +9,7 @@
  *   window.iikiti.components.on('banner:update', fn)
  */
 import { domReady } from '../domready.js';
+import { events } from '../events.js';
 import { Banner } from './banner.js';
 import { Header } from './header.js';
 import { Footer } from './footer.js';
@@ -18,25 +19,6 @@ import { Panel } from './panel.js';
 const classes = { banner: Banner, header: Header, footer: Footer, sidebar: Sidebar, panel: Panel };
 
 const instances = new WeakMap();
-const events = {
-  _listeners: new Map(),
-  on(name, fn) {
-    const set = this._listeners.get(name) ?? new Set();
-    set.add(fn);
-    this._listeners.set(name, set);
-    return () => set.delete(fn);
-  },
-  off(name, fn) {
-    const set = this._listeners.get(name);
-    if (!set) return;
-    if (fn) set.delete(fn); else this._listeners.delete(name);
-  },
-  emit(name, payload) {
-    const set = this._listeners.get(name);
-    if (!set) return;
-    for (const fn of [...set]) fn(payload);
-  },
-};
 
 function readOpts(el) {
   const opts = {};
@@ -69,6 +51,10 @@ function autoWire(scope = document) {
     if (el.dataset.iikitiNoAuto === 'true') return;
     if (el.dataset.componentReady === 'true') return;
     const name = el.dataset.component;
+    // "BlockEditorComponent" is a DOM hook for the Svelte block editor —
+    // never a layout component, but it does carry data-component in
+    // editor mode, so skip it instead of warning.
+    if (name === 'BlockEditorComponent') return;
     create(name, el);
   });
 }

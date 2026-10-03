@@ -15,10 +15,19 @@
  *
  * Theme: components style themselves via neutral CSS custom properties
  * (--ik-panel-bg / --ik-panel-border / --ik-panel-text / --ik-accent). Either
-  * theme may override these (public app.css defaults; admin.css palette).
-  */
+ * theme may override these (public app.css defaults; admin.css palette).
+ *
+ * Bars standard integration: components that sit on a viewport edge
+ * (header/banner → top, footer → bottom; sidebar → left/right rail when the
+ * markup opts in) register with the BarsManager
+ * (assets/js/iikiti/chrome/bars.js) so theme bars stack with the editor
+ * toolbar and any other bar without covering each other. For "stack" bars
+ * the manager owns positioning (sticky offsets); the StickyController
+ * reveal/hide behaviour keeps working on top of it.
+ */
 
 import { StickyController } from './sticky.js';
+import { bars } from '../chrome/bars.js';
 
 export const STORAGE_THEME_KEY = 'theme';
 
@@ -112,6 +121,12 @@ export class LayoutComponent {
   _setupAttributes() {
     const { el, opts } = this;
     if (!el) return;
+    el.setAttribute('data-iikiti-component', this.componentName);
+    this._registerBar();
+    if (this.barRegistration && this.barRegistration.mode === 'stack') {
+      // The bars standard owns positioning (sticky offsets) now.
+      return;
+    }
     if (!opts.position || opts.position === 'static') {
       el.style.position = opts.position === 'absolute' ? 'absolute' : '';
     } else if (opts.position === 'sticky') {
@@ -120,7 +135,33 @@ export class LayoutComponent {
     } else if (opts.position === 'absolute') {
       el.style.position = 'absolute';
     }
-    el.setAttribute('data-iikiti-component', this.componentName);
+  }
+
+  /**
+   * Viewport side this component registers as via the bars standard, or null
+   * to not register (Panel never does; Sidebar only when it opts in).
+   * @protected
+   */
+  get defaultBarSide() { return null; }
+
+  /** Default stacking order (lower = closer to the viewport edge). @protected */
+  get defaultBarOrder() { return 0; }
+
+  /** @private */
+  _registerBar() {
+    const { el, opts } = this;
+    if (!el || this.barRegistration) return;
+    const side = opts.barSide ?? el.dataset.iikitiBar ?? this.defaultBarSide;
+    if (!side) return;
+    const mode = opts.position === 'fixed' || opts.position === 'absolute' ? opts.position : 'stack';
+    this.barRegistration = bars.register(el, {
+      id: el.dataset.iikitiBarId,
+      side,
+      order: Number(opts.barOrder ?? el.dataset.iikitiBarOrder ?? this.defaultBarOrder) || 0,
+      mode,
+      sticky: opts.position === 'sticky' || el.dataset.iikitiBarSticky === 'true',
+      resizable: el.dataset.iikitiBarResizable === 'true',
+    });
   }
 
   _initSticky() {
@@ -198,6 +239,10 @@ export class LayoutComponent {
 
   destroy() {
     if (this.destroyed) return;
+    // Detach from the bars standard (element stays in the DOM; the manager
+    // strips only the styles it applied).
+    this.barRegistration?.destroy();
+    this.barRegistration = undefined;
     this.sticky?.destroy();
     this.onDestroy?.();
     this.destroyed = true;

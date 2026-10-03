@@ -225,3 +225,22 @@ new AdminScreen(
     component: 'AcmeDashboard',
 ),
 ```
+
+## Site UI (public front-end chrome)
+
+Plugins that add public-facing chrome (headers, pencil banners, sidebars,
+dock strips, floating tools) must use the front-end UI standard so their
+bars stack with the editor toolbar and any theme chrome without covering
+anything:
+
+- **Viewport bars:** declarative `data-iikiti-bar` markup or the imperative
+  `iikiti.bars.register()` API (available on every page via
+  `window.iikiti`), including the explicit `fixed`/`absolute` overlay
+  exemption and optional drag-to-resize.
+- **Layering:** the shared z-index token scale
+  (`--iikiti-z-chrome/popover/floating/modal/tooltip/toast`).
+- **Floating draggable dialogs & tooltips:** `FloatingPanel` /
+  `Tooltip` components (import from `@iikiti/admin`), or the framework-level
+  `dragResize` helper for vanilla-JS bundles.
+
+Full reference: [front-end-ui-standard.md](front-end-ui-standard.md).

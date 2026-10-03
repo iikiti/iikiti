@@ -59,6 +59,15 @@
     'database': Lucide.Database,
     'users-round': Lucide.UsersRound,
     'eye-off': Lucide.EyeOff,
+    'undo-2': Lucide.Undo2,
+    'redo-2': Lucide.Redo2,
+    'rocket': Lucide.Rocket,
+    'external-link': Lucide.ExternalLink,
+    'box': Lucide.Box,
+    'heading': Lucide.Heading,
+    'image': Lucide.Image,
+    'video': Lucide.Video,
+    'link': Lucide.Link,
   };
 
 	const Comp: Component<any> = $derived(map[name] ?? Lucide.Search);

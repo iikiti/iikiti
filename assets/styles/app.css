@@ -1,5 +1,11 @@
 @import "tailwindcss";
 @import "./app-dark.css";
+@import "./ui.css";
+
+/* Class-based dark mode (manual toggle + localStorage + system default,
+   applied pre-paint by the inline theme bootstrap in layout.twig — same
+   strategy as the admin SPA). */
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* Shared layout component theme tokens (neutral defaults; admin.css overrides
    these to the 2027 palette). Used by the iikiti components library
@@ -13,6 +19,17 @@
     --ik-accent-hover: #945231;
     --ik-radius: .75rem;
     --ik-transition: 150ms ease;
+
+    /* Status palette for the shared ui.css toast primitives — the single
+       source for the front-end; admin.css maps these to its 2027 tokens. */
+    --iikiti-info: #7A8F97;
+    --iikiti-info-subtle: #ECF1F4;
+    --iikiti-success: #1CA953;
+    --iikiti-success-subtle: #DCF9E9;
+    --iikiti-warning: #D97706;
+    --iikiti-warning-subtle: #FEF3C7;
+    --iikiti-danger: #DC2626;
+    --iikiti-danger-subtle: #FEE2E2;
 }
 .dark {
     --ik-panel-bg: #2C2B27;
@@ -21,6 +38,10 @@
     --ik-panel-text-muted: #9B978D;
     --ik-accent: #C97B52;
     --ik-accent-hover: #D4895F;
+    --iikiti-info-subtle: #20303A;
+    --iikiti-success-subtle: #1E3A2A;
+    --iikiti-warning-subtle: #4A3311;
+    --iikiti-danger-subtle: #5A2020;
 }
 
 /* Shared component behaviour + neutral styling (framework-agnostic) */

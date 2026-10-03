@@ -17,6 +17,10 @@ export class Banner extends LayoutComponent {
 
   get componentName() { return 'banner'; }
 
+  /** Stacks as the topmost theme bar (pencil banner) via the bars standard. */
+  get defaultBarSide() { return 'top'; }
+  get defaultBarOrder() { return 0; }
+
   _wireDismiss() {
     const { el } = this;
     if (!el) return;

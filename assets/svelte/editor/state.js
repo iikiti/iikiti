@@ -52,6 +52,17 @@ export const regions = derived(state, ($) => $.regions);
 export const canPublish = derived(state, ($) => $.config['canPublish']);
 export const apiBase = derived(state, ($) => ($.config['apiBase'] || '/api'));
 export const apiToken = derived(state, ($) => $.config['apiToken']);
+export const dirty = derived(state, ($) => $.dirty);
+export const canUndo = derived(state, ($) => $.historyPos > 0);
+export const canRedo = derived(state, ($) => $.history.length > 0 && $.historyPos < $.history.length - 1);
+
+/**
+ * Whether the floating "Layers" navigator is open (toggled from the editor
+ * toolbar; rendered by Editor.svelte).
+ *
+ * @type {import('svelte/store').Writable<boolean>}
+ */
+export const layersOpen = writable(false);
 
 const blockElements = new Map();
 export function registerBlock(id, el) {

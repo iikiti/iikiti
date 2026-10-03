@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { get } from 'svelte/store';
 	import { selected, blockTypes, updateNode } from './state';
+	import Popover from '$components/Popover.svelte';
 	import FormField from '$components/FormField.svelte';
 	import SelectInput from '$components/SelectInput.svelte';
 	import ToggleInput from '$components/ToggleInput.svelte';
@@ -47,7 +48,7 @@
 </script>
 
 {#if node && schema}
-	<Popover {anchor} placement="right" closeOnOutside onclose={() => { }}>
+	<Popover {anchor} placement="right" closeOnOutside={false} onclose={() => { }}>
 		<div class="iikiti-inspector">
 			<h3 class="iikiti-inspector__title">{schema.label ?? node.type} — edit</h3>
 			<div class="iikiti-inspector__tabs">
@@ -56,7 +57,7 @@
 			</div>
 			{#if activeTab === 'content'}
 				{#each schema.contentFields as field (field.key)}
-					<FormField label={String(field.label ?? field.key)}>
+					<FormField {field}>
 						{#if field.type === 'select'}
 							<SelectInput
 								value={String(fieldValue(field) ?? '')}
@@ -84,7 +85,7 @@
 				{/each}
 			{:else}
 				{#each schema.styleFields as field (field.key)}
-					<FormField label={String(field.label ?? field.key)}>
+					<FormField {field}>
 						{#if field.type === 'select'}
 							<SelectInput
 								value={String(fieldValue(field) ?? '')}

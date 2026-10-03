@@ -4,6 +4,7 @@ import { notifications, settings as notificationSettings } from './notifications
 import { pluginRegistry, startPlugins } from './plugins.js';
 import { components } from './components/registry.js';
 import { applyStoredTheme, toggleTheme, resolveTheme, STORAGE_THEME_KEY } from './components/base.js';
+import { bars } from './chrome/bars.js';
 
 const configEl = document.getElementById('iikiti-config');
 const config = configEl ? JSON.parse((configEl.textContent || '{}') || '{}') : {};
@@ -32,6 +33,7 @@ if (!window.iikiti) {
     notifications,
     editor: undefined,
     components,
+    bars,
     theme: {
       apply: applyStoredTheme,
       toggle: toggleTheme,
@@ -55,6 +57,10 @@ if (isTouchDevice()) {
 
 domReady.then(() => {
 	document.documentElement.classList.add('js');
+	// Viewport bars standard: wire declarative bars (theme/plugin chrome)
+	// before any late registrants (editor toolbar, plugin site_ui bundles).
+	bars.start();
+	bars.autoWire();
 	startPlugins().catch(() => undefined);
 
 	if (config['canEdit'] === true) {
@@ -109,7 +115,9 @@ async function launchEditor() {
 	if (editorLaunched) return;
 	editorLaunched = true;
 
-	await loader.loadStyle('/build/editor.css');
+	// editor.css is already injected server-side for every page where the
+	// editor can run (encore_entry_link_tags('editor') in layout.twig —
+	// hashed in production builds), so no dynamic stylesheet load here.
 	const mod = await import('../../svelte/editor/mount.js');
 	await mod.launchEditor(document.body, config);
 }

@@ -3727,6 +3727,11 @@
                                                 }
                                             ]
                                         }
+                                    },
+                                    "serializer": {
+                                        "$ref": "#/$defs/types/scalar",
+                                        "default": null,
+                                        "description": "Service id of the serializer that maps request payloads and query strings to controller arguments with #[MapRequestPayload] and #[MapQueryString], e.g. \"serializer.api\" for the named serializer \"api\"."
                                     }
                                 },
                                 "additionalProperties": false
@@ -3739,9 +3744,25 @@
                         ],
                         "default": {
                             "enabled": false,
-                            "formats": []
+                            "formats": [],
+                            "serializer": null
                         },
                         "description": "Request configuration"
+                    },
+                    "response": {
+                        "$ref": "#/$defs/types/object_null",
+                        "properties": {
+                            "serializer": {
+                                "$ref": "#/$defs/types/scalar",
+                                "default": null,
+                                "description": "Service id of the serializer that serializes the values returned by controllers with #[Serialize], e.g. \"serializer.api\" for the named serializer \"api\"."
+                            }
+                        },
+                        "additionalProperties": false,
+                        "default": {
+                            "serializer": null
+                        },
+                        "description": "Response configuration"
                     },
                     "php_errors": {
                         "$ref": "#/$defs/types/object_null",
@@ -5111,6 +5132,11 @@
                                     "symfony_serializer": {
                                         "$ref": "#/$defs/types/object_null",
                                         "properties": {
+                                            "service": {
+                                                "$ref": "#/$defs/types/scalar",
+                                                "default": null,
+                                                "description": "Service id of the Symfony serializer behind the messenger.transport.symfony_serializer service, e.g. \"serializer.api\" for the named serializer \"api\"."
+                                            },
                                             "format": {
                                                 "$ref": "#/$defs/types/scalar",
                                                 "default": "json",
@@ -5126,6 +5152,7 @@
                                         },
                                         "additionalProperties": false,
                                         "default": {
+                                            "service": null,
                                             "format": "json",
                                             "context": []
                                         }
@@ -5135,6 +5162,7 @@
                                 "default": {
                                     "default_serializer": "messenger.transport.native_php_serializer",
                                     "symfony_serializer": {
+                                        "service": null,
                                         "format": "json",
                                         "context": []
                                     }
@@ -5154,6 +5182,11 @@
                                                     "$ref": "#/$defs/types/scalar",
                                                     "default": null,
                                                     "description": "Service id of a custom serializer to use."
+                                                },
+                                                "sign": {
+                                                    "$ref": "#/$defs/types/boolean",
+                                                    "default": false,
+                                                    "description": "Whether to sign every message sent to this transport with its trust level, and to refuse any message received from it that is unsigned, or signed as unverified when this is not a failure transport. When false, only the messages whose handlers ask for it are signed."
                                                 },
                                                 "claim_check": {
                                                     "$ref": "#/$defs/types/object_null",
@@ -5296,6 +5329,11 @@
                                 "default": true,
                                 "description": "Whether redeliveries should be rejected and retried through a new message instead of being handled directly. This mostly makes sense for AMQP, which redelivers messages that were neither acknowledged nor rejected. Disabling it avoids losing a message when the retry or the failure transport is unreachable, at the risk of a redelivery loop that blocks the queue."
                             },
+                            "identity_stamps": {
+                                "$ref": "#/$defs/types/boolean",
+                                "default": false,
+                                "description": "Adds a message id and a causation id to dispatched messages, and a correlation id at the start of each flow."
+                            },
                             "default_bus": {
                                 "$ref": "#/$defs/types/scalar",
                                 "default": null
@@ -5414,6 +5452,7 @@
                     "serializer": {
                         "default_serializer": "messenger.transport.native_php_serializer",
                         "symfony_serializer": {
+                            "service": null,
                             "format": "json",
                             "context": []
                         }
@@ -5422,6 +5461,7 @@
                     "failure_transport": null,
                     "stop_worker_on_signals": [],
                     "reject_redelivered_messages": true,
+                    "identity_stamps": false,
                     "default_bus": null,
                     "buses": {
                         "messenger.bus.default": {
@@ -8108,6 +8148,29 @@
                                                                             "$ref": "#/$defs/types/boolean",
                                                                             "default": true,
                                                                             "description": "When enabled (default), only keys explicitly designated for signature (via \"use\":\"sig\" or a \"key_ops\" entry containing \"sign\"/\"verify\") are accepted. When disabled, keys without any usage designation are also accepted; keys explicitly restricted to encryption are still rejected."
+                                                                        },
+                                                                        "check_issuer": {
+                                                                            "anyOf": [
+                                                                                {
+                                                                                    "$ref": "#/$defs/types/object_null",
+                                                                                    "additionalProperties": {
+                                                                                        "$ref": "#/$defs/types/string_null"
+                                                                                    }
+                                                                                },
+                                                                                {
+                                                                                    "$ref": "#/$defs/types/array_null",
+                                                                                    "items": {
+                                                                                        "$ref": "#/$defs/types/string_null"
+                                                                                    }
+                                                                                },
+                                                                                {
+                                                                                    "type": [
+                                                                                        "boolean"
+                                                                                    ]
+                                                                                }
+                                                                            ],
+                                                                            "default": null,
+                                                                            "description": "Whether the discovery document of each \"base_uri\" must announce that URL as its issuer, a trailing slash aside, so that its keys only verify the tokens of that issuer. A map from \"base_uri\" to issuer turns the check on and expects the given issuer from the listed ones instead."
                                                                         }
                                                                     },
                                                                     "required": [

@@ -1,0 +1,213 @@
+/**
+ * Shared UI primitives stylesheet.
+ *
+ * Loaded on BOTH front-end pages (via app.css) and the admin SPA (via
+ * admin.css), including the Svelte front-end editor. Contains the layer
+ * (z-index) scale and the shared bar/toast/popover/tooltip/floating-panel
+ * primitives used by the iikiti components library
+ * (assets/js/iikiti/components) and the Svelte component library
+ * (assets/svelte/admin/components).
+ *
+ * Rules are plain CSS on purpose (no @apply): this file must render
+ * identically in every bundle context. Colour comes from the `--ik-*`
+ * component tokens defined in app.css/admin.css, with literal fallbacks so
+ * nothing breaks if a theme omits them.
+ */
+
+/* ========================= Layer / stacking standard ======================== */
+:root {
+	/* Stacking order across the whole page — extend, never fork. */
+	--iikiti-z-chrome: 1000;   /* viewport bars (sticky/fixed site chrome) */
+	--iikiti-z-popover: 2000;  /* popovers, menus, palettes, inspector */
+	--iikiti-z-floating: 3000; /* draggable floating panels (layers) */
+	--iikiti-z-modal: 3500;    /* modal dialogs + backdrops */
+	--iikiti-z-tooltip: 4000;  /* hover/focus tooltips */
+	--iikiti-z-toast: 4500;    /* notifications */
+
+	/* Viewport bar stack sizes, maintained by assets/js/iikiti/chrome/bars.js.
+	   px totals per side ("stack" bars only; fixed/absolute bars do not
+	   reserve space). "Stack" top/bottom bars push content via normal flow;
+	   left/right rails push content via the body padding below. */
+	--iikiti-bars-top: 0px;
+	--iikiti-bars-right: 0px;
+	--iikiti-bars-bottom: 0px;
+	--iikiti-bars-left: 0px;
+}
+
+/* Side rails reserve horizontal space so they never cover page content. */
+body {
+	padding-inline-start: var(--iikiti-bars-left);
+	padding-inline-end: var(--iikiti-bars-right);
+}
+
+/* ========================= Viewport bars (chrome) ========================== */
+/*
+ * A "bar" is any viewport-edge element registered with the bars standard
+ * (data-iikiti-bar="[top|right|bottom|left]" or iikiti.bars.register()).
+ * Stack bars are re-slotted into order among <body>'s children by the
+ * BarsManager, which applies sticky/fixed positioning + offsets inline.
+ * Visuals (background/border/content) intentionally stay with the host so a
+ * theme/plugin palette is never clobbered.
+ */
+.iikiti-bar {
+	position: relative;
+	z-index: var(--iikiti-z-chrome);
+	margin: 0;
+}
+
+/* Drag-to-resize handle appended by the bars manager for resizable bars
+   (data-iikiti-bar-resizable="true"). data-edge faces the content. */
+.iikiti-resize-handle {
+	position: absolute;
+	z-index: 2;
+	touch-action: none;
+	user-select: none;
+	-webkit-user-select: none;
+	background: transparent;
+}
+.iikiti-resize-handle::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: 4px;
+	transition: background 120ms ease;
+}
+.iikiti-resize-handle:hover::after,
+.iikiti-resize-handle[data-iikiti-resizing="true"]::after {
+	background: color-mix(in srgb, var(--ik-accent, #A6613C) 55%, transparent);
+}
+.iikiti-resize-handle[data-edge="bottom"] { left: 0; right: 0; bottom: -3px; height: 6px; cursor: ns-resize; }
+.iikiti-resize-handle[data-edge="bottom"]::after { top: 3px; }
+.iikiti-resize-handle[data-edge="top"]    { left: 0; right: 0; top: -3px; height: 6px; cursor: ns-resize; }
+.iikiti-resize-handle[data-edge="top"]::after { bottom: 3px; }
+.iikiti-resize-handle[data-edge="right"]  { top: 0; bottom: 0; right: -3px; width: 6px; cursor: ew-resize; }
+.iikiti-resize-handle[data-edge="right"]::after { left: 3px; }
+.iikiti-resize-handle[data-edge="left"]   { top: 0; bottom: 0; left: -3px; width: 6px; cursor: ew-resize; }
+.iikiti-resize-handle[data-edge="left"]::after { right: 3px; }
+.iikiti-resize-handle[data-edge="corner"] {
+	width: 16px;
+	height: 16px;
+	right: 0;
+	bottom: 0;
+	cursor: nwse-resize;
+}
+.iikiti-resize-handle[data-edge="corner"]::after {
+	right: 3px;
+	bottom: 3px;
+	width: 8px;
+	height: 8px;
+	border-radius: 2px;
+	border-right: 2px solid var(--ik-panel-text-muted, #7A7669);
+	border-bottom: 2px solid var(--ik-panel-text-muted, #7A7669);
+	background: transparent;
+}
+
+/* ========================= Popover (anchored floating menu) ================= */
+.iikiti-popover {
+	position: fixed;
+	z-index: var(--iikiti-z-popover);
+	border: 1px solid var(--ik-panel-border, var(--border, #DDD6CB));
+	border-radius: var(--radius-md, var(--ik-radius, .5rem));
+	background: var(--ik-panel-bg, var(--surface, #F9F7F2));
+	color: var(--ik-panel-text, var(--text, #3A3830));
+	box-shadow: 0 10px 25px rgba(0, 0, 0, .15);
+	max-width: min(26rem, calc(100vw - 1rem));
+	max-height: calc(100vh - 2rem);
+	overflow: auto;
+}
+
+/* ========================= Toasts / notification center ==================== */
+/* The status palette (`--iikiti-info/-success/-warning/-danger` + `-subtle`)
+   is defined once by each theme entry: app.css carries the front-end
+   defaults, admin.css maps them to the 2027 tokens. */
+
+.iikiti-notification-center {
+	position: fixed;
+	display: flex;
+	flex-direction: column;
+	gap: .5rem;
+	z-index: var(--iikiti-z-toast);
+	pointer-events: none;
+	max-width: calc(100vw - 2rem);
+}
+.iikiti-notification-center > * { pointer-events: auto; }
+/* Overflow buffer rendered when more than three notifications stack up. */
+.iikiti-notification-center__scroll {
+	height: 0;
+	flex: 1;
+	overflow-y: auto;
+}
+.iikiti-notification-center[data-position="bottom-right"],
+.iikiti-notification-center:not([data-position]) { bottom: calc(1rem + var(--iikiti-bars-bottom)); right: 1rem; }
+.iikiti-notification-center[data-position="bottom-left"] { bottom: calc(1rem + var(--iikiti-bars-bottom)); left: 1rem; }
+.iikiti-notification-center[data-position="top-right"] { top: calc(1rem + var(--iikiti-bars-top)); right: 1rem; }
+.iikiti-notification-center[data-position="top-left"] { top: calc(1rem + var(--iikiti-bars-top)); left: 1rem; }
+
+.iikiti-toast {
+	display: flex;
+	align-items: flex-start;
+	gap: .625rem;
+	border: 1px solid;
+	border-radius: var(--radius-lg, var(--ik-radius, .75rem));
+	padding: .75rem;
+	box-shadow: 0 1px 3px 0 rgba(0, 0, 0, .1), 0 1px 2px -1px rgba(0, 0, 0, .1);
+	background: var(--ik-panel-bg, var(--surface, #F9F7F2));
+	color: var(--ik-panel-text, var(--text, #3A3830));
+	max-width: min(24rem, calc(100vw - 2rem));
+}
+.iikiti-toast__icon { display: flex; height: 1rem; width: 1rem; flex-shrink: 0; margin-top: 1px; }
+.iikiti-toast__message { flex: 1; font-size: .875rem; }
+.iikiti-toast__action {
+	margin-left: .5rem;
+	padding: .25rem .5rem;
+	border-radius: .25rem;
+	font-size: .75rem;
+	font-weight: 500;
+	border: none;
+	background: transparent;
+	color: var(--ik-accent, var(--accent, #A6613C));
+	cursor: pointer;
+}
+.iikiti-toast__action:hover { color: var(--ik-accent-hover, var(--accent-hover, #945231)); }
+.iikiti-toast__dismiss {
+	margin-left: auto;
+	border: none;
+	background: transparent;
+	padding: .125rem;
+	cursor: pointer;
+	color: var(--ik-panel-text-muted, var(--text-subtle, #A3A094));
+}
+.iikiti-toast__dismiss:hover { color: var(--ik-panel-text, var(--text, #3A3830)); }
+.iikiti-toast--info    { border-color: var(--iikiti-info-subtle); background: var(--iikiti-info-subtle); color: var(--iikiti-info); }
+.iikiti-toast--success { border-color: var(--iikiti-success-subtle); background: var(--iikiti-success-subtle); color: var(--iikiti-success); }
+.iikiti-toast--warning { border-color: var(--iikiti-warning-subtle); background: var(--iikiti-warning-subtle); color: var(--iikiti-warning); }
+.iikiti-toast--error   { border-color: var(--iikiti-danger-subtle); background: var(--iikiti-danger-subtle); color: var(--iikiti-danger); }
+
+/* ========================= Floating panels (draggable dialogs) ============= */
+.iikiti-floating-panel {
+	position: fixed;
+	z-index: var(--iikiti-z-floating);
+}
+
+/* ========================= Tooltip ========================================== */
+.iikiti-tooltip {
+	position: fixed;
+	z-index: var(--iikiti-z-tooltip);
+	border-radius: .375rem;
+	background: #1F2937;
+	color: #F3F4F6;
+	font-size: .75rem;
+	font-weight: 500;
+	line-height: 1.25rem;
+	padding: .25rem .5rem;
+	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .1), 0 2px 4px -2px rgba(0, 0, 0, .1);
+	pointer-events: none;
+	max-width: 16rem;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.dark .iikiti-tooltip {
+	background: #F3F4F6;
+	color: #1F2937;
+}

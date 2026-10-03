@@ -56,3 +56,24 @@
 body.iikiti-editor-body [data-component="BlockEditorComponent"] {
 	display: none;
 }
+
+/* ── Shared editor buttons (used by Region.svelte / BlockView.svelte) ──
+ * The toolbar styles itself (Toolbar.svelte); these are the small canvas
+ * affordance buttons. Themeable via the shared --ik-* component tokens. */
+.iikiti-btn {
+	padding: 5px 10px;
+	border: 1px solid var(--ik-panel-border, #d1d5db);
+	border-radius: 4px;
+	background: var(--ik-panel-bg, #f9fafb);
+	color: var(--ik-panel-text, #111827);
+	font: inherit;
+	cursor: pointer;
+}
+.iikiti-btn:hover {
+	border-color: color-mix(in srgb, var(--ik-accent, #a6613c) 60%, var(--ik-panel-border, #d1d5db));
+}
+.iikiti-btn--primary {
+	background: var(--ik-accent, #2563eb);
+	border-color: transparent;
+	color: #ffffff;
+}

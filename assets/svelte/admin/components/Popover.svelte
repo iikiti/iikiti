@@ -24,7 +24,9 @@
 
 	let self = $state<HTMLElement | null>(null);
 	let active = $state(false);
-	let style = $state<Record<string, string>>({});
+	// Svelte 5 dropped object support for the `style` attribute — position via
+	// `style:` directives (see the template).
+	let style = $state<{ top?: string; left?: string }>({});
 
 	$effect(() => {
 		active = open;
@@ -78,7 +80,12 @@
 	}
 
 	$effect(() => {
-		if (active) {
+		// Track both `active` and `anchor` so the popover repositions when the
+		// anchored element changes (e.g. selecting a different block) even
+		// though the popover itself stays open.
+		const isActive = active;
+		const currentAnchor = anchor;
+		if (isActive && currentAnchor) {
 			position();
 		}
 	});
@@ -114,7 +121,12 @@
 </script>
 
 {#if active}
-<div bind:this={self} class="iikiti-popover" style={style}>
+<div
+	bind:this={self}
+	class="iikiti-popover"
+	style:top={style.top}
+	style:left={style.left}
+>
 	{@render children()}
 </div>
 {/if}
