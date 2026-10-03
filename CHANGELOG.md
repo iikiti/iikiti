@@ -52,11 +52,21 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Changed
 
+- 2026-10-03: Editor sidebar restyled to match the top bar (same translucent
+  panel background + blur, token colours, button metrics) and the top bar now
+  spans the full viewport width with the docked sidebar rail below it (top/
+  bottom stack bars cancel the rail reserve instead of letting the body
+  padding inset them).
 - 2026-10-03: `FloatingPanel` renamed to `Dialog` and rebuilt on the native
   `<dialog>` element (non-modal `show()`, draggable/resizeable, persisted
   position); `ModalDialog` added (`showModal()` + `::backdrop`, covers the
   site). `FloatingPanel` remains as a deprecated alias export; the old
   Tailwind `Dialog.svelte` was superseded.
+
+### Removed
+
+- 2026-10-03: Structure popover on the selected block (move up/down buttons):
+  redundant with the Layers-panel drag handle and canvas drag/drop.
 
 ### Fixed
 

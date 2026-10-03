@@ -90,7 +90,10 @@ The manager maintains these CSS variables on `:root` at all times:
 `ui.css` applies the left/right values as `body` padding-inline so rails push
 content, and every bottom-anchored notification offsets itself by
 `--iikiti-bars-bottom` so it never sits under the web profiler toolbar.
-Top/bottom bars push content via normal flow.
+Top/bottom bars push content via normal flow **and span the full viewport
+width**: the manager cancels the rail reserve with negative inline margins so
+a top header always runs across the rails (the rails are pinned between the
+top and bottom stacks, i.e. below the header).
 
 ### Rules & known constraints
 

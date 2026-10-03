@@ -8,11 +8,14 @@
  * Stack guarantees:
  *  - "stack" bars (default) never cover each other or the content. Top and
  *    bottom bars are re-slotted as direct <body> children in stack order and
- *    push the page content via normal document flow. A `sticky` bar pins to
- *    its side while the page scrolls (inline sticky offsets accumulate the
- *    sizes of the bars closer to the viewport edge). Left/right rails are
- *    fixed elements spanning between the top and bottom stacks and reserve
- *    horizontal space via the `--iikiti-bars-left/right` body padding.
+ *    push the page content via normal document flow; they span the full
+ *    viewport width (the manager cancels the rail reserve with negative
+ *    inline margins), so a top header always runs across the rails. A
+ *    `sticky` bar pins to its side while the page scrolls (inline sticky
+ *    offsets accumulate the sizes of the bars closer to the viewport edge).
+ *    Left/right rails are fixed elements spanning between the top and bottom
+ *    stacks (i.e. below the header, above the footer) and reserve horizontal
+ *    space via the `--iikiti-bars-left/right` body padding.
  *  - `mode: "fixed" | "absolute"` is the explicit overlay exemption: the
  *    element is left exactly where the host put it and is not measured.
  *  - Resizable bars (opt-in) get a drag handle on the edge facing the
@@ -445,10 +448,15 @@ class BarsManager {
 
 		const totals = { top: 0, right: 0, bottom: 0, left: 0 };
 
+		// Rail width totals first: top/bottom stack span the full viewport
+		// width by cancelling this reserve, and rails pin between the stacks.
+		for (const bar of lefts) totals.left += widths.get(bar) || 0;
+		for (const bar of rights) totals.right += widths.get(bar) || 0;
+
 		// Top stack: sticky offsets accumulate from the viewport edge downward.
 		let acc = 0;
 		for (const bar of tops) {
-			this._applyTop(bar, acc);
+			this._applyTop(bar, acc, totals.left, totals.right);
 			acc += heights.get(bar) || 0;
 		}
 		totals.top = acc;
@@ -457,25 +465,24 @@ class BarsManager {
 		// any external bottom chrome (the web profiler toolbar).
 		acc = externalBottom;
 		for (const bar of bottoms) {
-			this._applyBottom(bar, acc);
+			this._applyBottom(bar, acc, totals.left, totals.right);
 			acc += heights.get(bar) || 0;
 		}
 		totals.bottom = acc;
 
-		// Rails: fixed, spanning between the top and bottom stacks.
+		// Rails: fixed, spanning between the top and bottom stacks (numeric
+		// offsets, not the CSS vars — vars lag until the end of the pass).
 		acc = 0;
-		for (const bar of this._barsFor('left')) {
-			this._applyRail(bar, 'left', acc);
+		for (const bar of lefts) {
+			this._applyRail(bar, 'left', acc, totals.top, totals.bottom);
 			acc += widths.get(bar) || 0;
 		}
-		totals.left = acc;
 
 		acc = 0;
-		for (const bar of this._barsFor('right')) {
-			this._applyRail(bar, 'right', acc);
+		for (const bar of rights) {
+			this._applyRail(bar, 'right', acc, totals.top, totals.bottom);
 			acc += widths.get(bar) || 0;
 		}
-		totals.right = acc;
 
 		const rootStyle = document.documentElement.style;
 		for (const side of SIDES) rootStyle.setProperty(SIDE_VAR[side], `${Math.round(totals[side])}px`);
@@ -488,30 +495,57 @@ class BarsManager {
 	/**
 	 * @param {BarRecord} bar
 	 * @param {number} offsetSum offset from the viewport edge (bars closer to it)
+	 * @param {number} railLeft px reserved by left rails (cancelled via margin)
+	 * @param {number} railRight px reserved by right rails (cancelled via margin)
 	 */
-	_applyTop(bar, offsetSum) {
+	_applyTop(bar, offsetSum, railLeft, railRight) {
 		bar.el.style.position = bar.sticky ? 'sticky' : '';
 		bar.el.style.top = bar.sticky ? `${Math.round(offsetSum)}px` : '';
 		bar.el.style.bottom = '';
+		this._spanFullWidth(bar, railLeft, railRight);
 	}
 
-	/** @param {BarRecord} bar @param {number} offsetSum */
-	_applyBottom(bar, offsetSum) {
+	/**
+	 * @param {BarRecord} bar
+	 * @param {number} offsetSum
+	 * @param {number} railLeft px reserved by left rails (cancelled via margin)
+	 * @param {number} railRight px reserved by right rails (cancelled via margin)
+	 */
+	_applyBottom(bar, offsetSum, railLeft, railRight) {
 		bar.el.style.position = bar.sticky ? 'sticky' : '';
 		bar.el.style.top = '';
 		bar.el.style.bottom = bar.sticky ? `${Math.round(offsetSum)}px` : '';
+		this._spanFullWidth(bar, railLeft, railRight);
+	}
+
+	/**
+	 * Top/bottom stack bars span the full viewport width: the UI stylesheet
+	 * pads `<body>` inline by the rail reserve (so content flows beside it),
+	 * which would otherwise inset the bars' own flow width. Steps the bar
+	 * back over that padding with negative inline margins so the header runs
+	 * across the top of the rails (and the footer across their bottom).
+	 *
+	 * @param {BarRecord} bar
+	 * @param {number} railLeft
+	 * @param {number} railRight
+	 */
+	_spanFullWidth(bar, railLeft, railRight) {
+		bar.el.style.marginInlineStart = `${-Math.round(railLeft)}px`;
+		bar.el.style.marginInlineEnd = `${-Math.round(railRight)}px`;
 	}
 
 	/**
 	 * @param {BarRecord} bar
 	 * @param {'left'|'right'} side
 	 * @param {number} offsetSum
+	 * @param {number} topTotal px reserved above the rail (the top stack)
+	 * @param {number} bottomTotal px reserved below the rail
 	 */
-	_applyRail(bar, side, offsetSum) {
+	_applyRail(bar, side, offsetSum, topTotal, bottomTotal) {
 		const offset = `${Math.round(offsetSum)}px`;
 		bar.el.style.position = 'fixed';
-		bar.el.style.top = `var(${SIDE_VAR.top}, 0px)`;
-		bar.el.style.bottom = `var(${SIDE_VAR.bottom}, 0px)`;
+		bar.el.style.top = `${Math.round(topTotal)}px`;
+		bar.el.style.bottom = `${Math.round(bottomTotal)}px`;
 		bar.el.style.height = '';
 		if (side === 'left') {
 			bar.el.style.right = '';
@@ -532,6 +566,8 @@ class BarsManager {
 		bar.el.style.bottom = '';
 		bar.el.style.left = '';
 		bar.el.style.right = '';
+		bar.el.style.marginInlineStart = '';
+		bar.el.style.marginInlineEnd = '';
 	}
 }
 

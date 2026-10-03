@@ -105,7 +105,7 @@
 	}
 </script>
 
-<div class="iikiti-settings" data-tour="editor.settings">
+<div class="iikiti-settings iikiti-settings--{side}" data-tour="editor.settings">
 	<div class="iikiti-settings__header">
 		<span class="iikiti-settings__title">
 			{node ? (ctx?.schema?.label ?? node.type) : 'Settings'}
@@ -198,23 +198,35 @@
 {/snippet}
 
 <style>
+	/*
+	 * The sidebar mirrors the top bar (Toolbar.svelte): same translucent
+	 * panel background + blur, same `--ik-*` tokens and fallbacks, same
+	 * button metrics (32px hit area, 6px radius, 10% neutral hover tint) so
+	 * the two chrome pieces read as one surface. The manager pins the rail
+	 * below the top stack; the border faces the canvas (dock-edge).
+	 */
 	.iikiti-settings {
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
-		padding: 8px;
+		padding: 6px 8px;
 		min-height: 100%;
 		box-sizing: border-box;
 		font-size: 13px;
-		color: var(--ik-panel-text, #3a3830);
+		background: color-mix(in srgb, var(--ik-panel-bg, #ffffff) 94%, transparent);
+		backdrop-filter: blur(6px);
+		color: var(--ik-panel-text, #111827);
 	}
+	.iikiti-settings--left { border-inline-end: 1px solid var(--ik-panel-border, #e5e7eb); }
+	.iikiti-settings--right { border-inline-start: 1px solid var(--ik-panel-border, #e5e7eb); }
+	.iikiti-settings--top { border-bottom: 1px solid var(--ik-panel-border, #e5e7eb); }
+	.iikiti-settings--bottom { border-top: 1px solid var(--ik-panel-border, #e5e7eb); }
 	.iikiti-settings__header {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		gap: 8px;
-		padding-bottom: 6px;
-		border-bottom: 1px solid var(--ik-panel-border, #ddd6cb);
+		height: 32px;
 	}
 	.iikiti-settings__title {
 		font-weight: 600;
@@ -224,39 +236,55 @@
 	}
 	.iikiti-settings__flip {
 		flex-shrink: 0;
-		border: 1px solid var(--ik-panel-border, #ddd6cb);
+		border: none;
 		border-radius: 6px;
 		background: transparent;
-		color: var(--ik-panel-text-muted, #7a7669);
-		font-size: 11px;
-		padding: 2px 6px;
+		color: var(--ik-panel-text-muted, #6b7280);
+		font-size: 12px;
+		font-weight: 500;
+		height: 32px;
+		padding: 0 10px;
 		cursor: pointer;
 		text-transform: capitalize;
+		transition:
+			background-color 0.12s ease,
+			color 0.12s ease;
 	}
-	.iikiti-settings__flip:hover {
-		color: var(--ik-panel-text, #3a3830);
+	.iikiti-settings__flip:hover,
+	.iikiti-settings__flip:focus-visible {
+		background: color-mix(in srgb, var(--ik-panel-text, #111827) 10%, transparent);
+		color: var(--ik-panel-text, #111827);
 	}
 	.iikiti-settings__tabs {
 		display: flex;
 		gap: 2px;
 		flex-wrap: wrap;
+		padding-bottom: 6px;
 	}
 	.iikiti-settings__tabs button {
+		display: inline-flex;
+		align-items: center;
 		border: none;
 		background: transparent;
-		color: var(--ik-panel-text-muted, #7a7669);
+		color: var(--ik-panel-text-muted, #6b7280);
 		font-size: 12px;
 		font-weight: 500;
-		padding: 4px 8px;
+		height: 32px;
+		padding: 0 10px;
 		border-radius: 6px;
 		cursor: pointer;
+		transition:
+			background-color 0.12s ease,
+			color 0.12s ease;
 	}
-	.iikiti-settings__tabs button:hover {
-		background: color-mix(in srgb, var(--ik-panel-text, #3a3830) 8%, transparent);
+	.iikiti-settings__tabs button:hover,
+	.iikiti-settings__tabs button:focus-visible {
+		background: color-mix(in srgb, var(--ik-panel-text, #111827) 10%, transparent);
 	}
 	.iikiti-settings__tabs button.active {
-		background: color-mix(in srgb, var(--ik-accent, #a6613c) 16%, transparent);
-		color: var(--ik-accent-hover, #945231);
+		background: color-mix(in srgb, var(--ik-panel-text, #111827) 10%, transparent);
+		color: var(--ik-panel-text, #111827);
+		font-weight: 600;
 	}
 	.iikiti-settings__body {
 		display: flex;
@@ -264,7 +292,7 @@
 		gap: 10px;
 	}
 	.iikiti-settings__group {
-		border: 1px solid var(--ik-panel-border, #ddd6cb);
+		border: 1px solid var(--ik-panel-border, #e5e7eb);
 		border-radius: 8px;
 		padding: 8px;
 	}
@@ -274,7 +302,7 @@
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		color: var(--ik-panel-text-muted, #7a7669);
+		color: var(--ik-panel-text-muted, #6b7280);
 	}
 	.iikiti-settings__group-body {
 		display: flex;
@@ -284,7 +312,7 @@
 	.iikiti-settings__hint,
 	.iikiti-settings__empty {
 		margin: 0;
-		color: var(--ik-panel-text-muted, #7a7669);
+		color: var(--ik-panel-text-muted, #6b7280);
 		font-size: 12px;
 	}
 	.iikiti-settings__empty {
@@ -310,10 +338,10 @@
 		font-size: 10px;
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
-		color: var(--ik-panel-text-muted, #7a7669);
+		color: var(--ik-panel-text-muted, #6b7280);
 	}
 	.iikiti-settings__repeater-remove {
-		border: 1px solid var(--ik-panel-border, #ddd6cb);
+		border: 1px solid var(--ik-panel-border, #e5e7eb);
 		border-radius: 6px;
 		background: transparent;
 		color: var(--ik-danger, #b91c1c);

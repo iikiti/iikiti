@@ -53,9 +53,17 @@ Rules (tagged `iikiti.cms.template_rule`): `object_type`, `object`, `site`.
   [bars standard](front-end-ui-standard.md) as a top bar (order -100,
   always pinned, not resizable) and mounted into the manager-owned slot
   (`Toolbar.svelte`). The page content is pushed down by document flow while
-  the bar stays pinned on scroll. Undo/redo are disabled at the history
-  floor; save shows an unsaved-changes dot; publish is gated by
+  the bar stays pinned on scroll, and the bar spans the full viewport width —
+  the docked sidebar rail sits below it. Undo/redo are disabled at the
+  history floor; save shows an unsaved-changes dot; publish is gated by
   `canPublish`.
+- **Settings sidebar**: docked via the bars standard (default left; flippable
+  left/right/top/bottom with `⇄` button; width resizable) and styled to match
+  the top bar (same translucent panel background + blur, `--ik-*` tokens and
+  button metrics). Tabs: **Content**, **Element**, **Style**
+  (schema-driven). The Element tab includes built-in `id`/`cssClass` fields
+  and an **Attributes** repeater (name/value rows, add/remove) that renders
+  onto the block wrapper.
 - **Dark/light theme**: the bar and every floating panel follow the shared
   `--ik-*` tokens, which flip with the `.dark` class applied pre-paint by
   the theme bootstrap in `layout.twig` (stored preference, else OS
@@ -74,14 +82,6 @@ Rules (tagged `iikiti.cms.template_rule`): `object_type`, `object`, `site`.
   are rendered as locked chrome (read-only). Clicking a locked region makes
   it the active (editable) region; a "Back to content" button returns to
   `main`.
-- **Settings sidebar**: docked via the bars standard (default left; flippable
-  left/right/top/bottom with `⇄` button; width resizable). Tabs:
-  **Content**, **Element**, **Style** (schema-driven). The Element tab
-  includes built-in `id`/`cssClass` fields and an **Attributes** repeater
-  (name/value rows, add/remove) that renders onto the block wrapper.
-- **Structure popover** (`StructureMenu.svelte`): the popover anchored to the
-  selected block shows the breadcrumb path (region → ancestors → block) and
-  move-up/down. It does *not* edit content/style — those live in the sidebar.
 - **Block palette** popover (add block / add child), block context menus, and
   popovers/toasts styled by the shared `ui.css` primitives (also on front-end
   pages now).

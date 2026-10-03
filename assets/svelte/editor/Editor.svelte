@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { mount, unmount } from 'svelte';
-	import { regions, selected, init, getBlockElement, layersOpen, activeRegion, select } from './state';
+	import { regions, init, layersOpen, activeRegion, select } from './state';
 	import Region from './Region.svelte';
-	import StructureMenu from './StructureMenu.svelte';
 	import LayerMenu from './LayerMenu.svelte';
 	import Toolbar from './Toolbar.svelte';
 	import SettingsSidebar from './SettingsSidebar.svelte';
@@ -21,7 +20,6 @@
 
 	let { config }: Props = $props();
 	let blockTypesList: Array<Record<string, unknown>> = [];
-	let inspectorAnchor: HTMLElement | null = $state(null);
 	let toolbarApp: ReturnType<typeof mount> | null = null;
 	let toolbarBar: { destroy(): void } | null = null;
 	let sidebarApp: ReturnType<typeof mount> | null = null;
@@ -170,10 +168,6 @@
 		sidebarBar?.destroy();
 		sidebarBar = null;
 	});
-
-	$effect(() => {
-		inspectorAnchor = $selected ? getBlockElement($selected) ?? null : null;
-	});
 </script>
 
 <div class="iikiti-editor" data-iikiti-editor>
@@ -198,10 +192,6 @@
 
 	{#if $layersOpen}
 		<LayerMenu />
-	{/if}
-
-	{#if inspectorAnchor}
-		<StructureMenu anchor={inspectorAnchor} />
 	{/if}
 
 	<TourPopover />
