@@ -50,6 +50,20 @@
 	}
 
 	/**
+	 * Real steps only: drops any sub-event that just repeats its parent's
+	 * summary, which older rows recorded as a placeholder.
+	 */
+	const steps = $derived.by(() => {
+		if (!entry) return [];
+		return entry.subEvents.filter((step) => step.summary !== entry?.summary);
+	});
+
+	/** Treats a missing key and a null value the same way. */
+	function hasValue(value: unknown): boolean {
+		return value !== null && value !== undefined;
+	}
+
+	/**
 	 * Formats the initiator as "username (id N)". The live username is used when
 	 * the user still exists; otherwise the snapshot stored at log time.
 	 */
@@ -130,7 +144,7 @@
 			<dd><DateTime value={entry.createdAt} kind="datetime" style="long" /></dd>
 
 			<dt class="font-semibold">Action</dt>
-			<dd>{entry.action} · {entry.objectType}{entry.objectId !== null ? ` #${entry.objectId}` : ''}</dd>
+			<dd>{entry.action} · {entry.objectType}{hasValue(entry.objectId) ? ` #${entry.objectId}` : ''}</dd>
 
 			{#if entry.ipAddress}
 				<dt class="font-semibold">IP address</dt>
@@ -143,16 +157,14 @@
 			{/if}
 		</dl>
 
-		<h3 class="font-semibold">Steps ({entry.subEvents.length})</h3>
-		{#if entry.subEvents.length === 0}
-			<p class="text-text-muted">No additional steps recorded.</p>
-		{:else}
+		<h3 class="font-semibold">Steps ({steps.length})</h3>
+		{#if steps.length > 0}
 			<ul class="divide-y divide-border">
-				{#each entry.subEvents as step (step.id)}
+				{#each steps as step (step.id)}
 					<li class="py-3 px-1">
 						<div class="font-medium">{step.summary}</div>
 						<div class="text-sm text-text-muted">
-							{step.action} · {step.objectType}{step.objectId !== null ? ` #${step.objectId}` : ''}
+							{step.action} · {step.objectType}{hasValue(step.objectId) ? ` #${step.objectId}` : ''}
 						</div>
 						{#if debug && (step.beforeState || step.afterState)}
 							<pre class="text-xs mt-1 overflow-x-auto">{JSON.stringify({ before: step.beforeState, after: step.afterState }, null, 2)}</pre>

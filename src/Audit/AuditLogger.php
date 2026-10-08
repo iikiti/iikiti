@@ -112,7 +112,13 @@ class AuditLogger
 	{
 		[$parent, $subEvents] = $this->context->close();
 
-		if (null === $parent || [] === $subEvents) {
+		if (null === $parent) {
+			return;
+		}
+
+		// A generic request/command event is only worth keeping if something changed.
+		// A named event (login, logout) is itself the record, so it is always kept.
+		if ([] === $subEvents && $this->isGenericAction($parent->getAction())) {
 			return;
 		}
 

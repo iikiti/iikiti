@@ -48,8 +48,7 @@ class SecurityAuditSubscriber implements EventSubscriberInterface
 		$ip = $this->requestStack->getCurrentRequest()?->getClientIp();
 		$summary = sprintf('%s logged in%s', $user->getUserIdentifier(), null !== $ip ? sprintf(' from %s', $ip) : '');
 
-		$this->recorder->openEvent('logged_in', $summary);
-		$this->recorder->record($summary, 'logged_in', 'User', $user->getId(), null, ['userId' => $user->getId()]);
+		$this->recorder->openEvent('logged_in', $summary, ['userId' => $user->getId()]);
 		$this->recorder->closeEvent();
 	}
 
@@ -60,8 +59,7 @@ class SecurityAuditSubscriber implements EventSubscriberInterface
 
 		$summary = sprintf('%s logged out', $username);
 
-		$this->recorder->openEvent('logged_out', $summary);
-		$this->recorder->record($summary, 'logged_out', 'User', $user instanceof User ? $user->getId() : null);
+		$this->recorder->openEvent('logged_out', $summary, ['userId' => $user instanceof User ? $user->getId() : null]);
 		$this->recorder->closeEvent();
 	}
 }

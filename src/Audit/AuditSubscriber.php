@@ -8,6 +8,7 @@ use Doctrine\ORM\Events;
 use Doctrine\ORM\UnitOfWork;
 use iikiti\CMS\Entity\AuditLogEntry;
 use iikiti\CMS\Entity\DbObject;
+use iikiti\CMS\Entity\Object\ApiToken;
 use iikiti\CMS\Entity\ObjectProperty;
 
 /**
@@ -31,6 +32,17 @@ class AuditSubscriber
 	) {
 	}
 
+	/**
+	 * Entities recorded explicitly through AuditRecorder with a meaningful
+	 * summary. The subscriber skips them so the log does not repeat the same
+	 * change as a second, less useful row.
+	 *
+	 * @var list<class-string>
+	 */
+	private const EXPLICITLY_RECORDED = [
+		ApiToken::class,
+	];
+
 	public function onFlush(OnFlushEventArgs $args): void
 	{
 		$entityManager = $args->getObjectManager();
@@ -52,7 +64,7 @@ class AuditSubscriber
 	private function logInsertions(UnitOfWork $unitOfWork): void
 	{
 		foreach ($unitOfWork->getScheduledEntityInsertions() as $entity) {
-			if ($entity instanceof AuditLogEntry) {
+			if ($this->isIgnored($entity)) {
 				continue;
 			}
 
@@ -74,7 +86,7 @@ class AuditSubscriber
 	private function logUpdates(UnitOfWork $unitOfWork): void
 	{
 		foreach ($unitOfWork->getScheduledEntityUpdates() as $entity) {
-			if ($entity instanceof AuditLogEntry) {
+			if ($this->isIgnored($entity)) {
 				continue;
 			}
 
@@ -100,7 +112,7 @@ class AuditSubscriber
 	private function logDeletions(UnitOfWork $unitOfWork): void
 	{
 		foreach ($unitOfWork->getScheduledEntityDeletions() as $entity) {
-			if ($entity instanceof AuditLogEntry) {
+			if ($this->isIgnored($entity)) {
 				continue;
 			}
 
@@ -138,6 +150,21 @@ class AuditSubscriber
 		return null === $id
 			? sprintf('Deleted %s', $type)
 			: sprintf('Deleted %s %s', $type, $id);
+	}
+
+	private function isIgnored(object $entity): bool
+	{
+		if ($entity instanceof AuditLogEntry) {
+			return true;
+		}
+
+		foreach (self::EXPLICITLY_RECORDED as $class) {
+			if ($entity instanceof $class) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	private function idSuffix(object $entity): string
