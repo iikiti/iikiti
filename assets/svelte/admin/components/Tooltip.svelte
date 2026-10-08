@@ -10,11 +10,23 @@
 		/** Show delay in ms (hover/focus must persist this long). */
 		delay?: number;
 		disabled?: boolean;
+		/**
+		 * Stacking order of the tip. Defaults to the shared tooltip layer token;
+		 * pass a number (or any CSS z-index value) to override per instance.
+		 */
+		zIndex?: number | string;
 		/** The trigger element to wrap. */
 		children: Snippet;
 	}
 
-	let { content, placement = 'bottom', delay = 350, disabled = false, children }: Props = $props();
+	let {
+		content,
+		placement = 'bottom',
+		delay = 350,
+		disabled = false,
+		zIndex = 'var(--iikiti-z-tooltip, 4000)',
+		children,
+	}: Props = $props();
 
 	let trigger: HTMLElement | null = $state(null);
 	let tip: HTMLElement | null = $state(null);
@@ -28,6 +40,16 @@
 
 	const OFFSET = 12;
 	const MARGIN = 8;
+
+	/** Move the node to document.body so it escapes any ancestor stacking context. */
+	function portal(node: HTMLElement) {
+		document.body.appendChild(node);
+		return {
+			destroy() {
+				node.remove();
+			},
+		};
+	}
 
 	function position() {
 		if (!trigger) return;
@@ -168,16 +190,20 @@
 
 <span bind:this={trigger} class="iikiti-tooltip-trigger">
 	{@render children()}
-	{#if visible}
-		<div
-			bind:this={tip}
-			class="iikiti-tooltip"
-			role="tooltip"
-			style:top={style.top}
-			style:left={style.left}
-		>{content}</div>
-	{/if}
 </span>
+{#if visible}
+	<!-- Rendered through a body portal so no ancestor stacking context
+	     (viewport bars, sticky rails) can trap it beneath other chrome. -->
+	<div
+		use:portal
+		bind:this={tip}
+		class="iikiti-tooltip"
+		role="tooltip"
+		style:top={style.top}
+		style:left={style.left}
+		style:z-index={String(zIndex)}
+	>{content}</div>
+{/if}
 
 <style>
 	.iikiti-tooltip-trigger {

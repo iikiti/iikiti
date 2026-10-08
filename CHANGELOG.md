@@ -30,6 +30,8 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Fixed
 
+- 2026-10-08: `Tooltip.svelte` renders its tip through a `document.body` portal so editor header tooltips no longer appear beneath the settings sidebar.
+- 2026-10-08: `Tooltip.svelte` accepts a `zIndex` prop (default `--iikiti-z-tooltip`) so the stacking order can be overridden per instance.
 - 2026-10-08: `FullTextSearch::postPersist` now accepts `(entity, args)` as Doctrine calls it; every
   `DbObject` persist previously threw a TypeError.
 - 2026-10-08: `DbObject` gains `setSite`, `setCreatorId` and `setCreatedDate`; new objects set their
