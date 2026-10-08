@@ -1,20 +1,27 @@
 {#
  * Default front-end layout (theme template) for the block editor.
 
- * Declares the page's editable regions. Each region is emitted through the
- * `iikiti_region()` Twig helper, which adds editor metadata (data-component /
- * data-region-*) in editor mode and stays clean HTML in public mode. The block
- * trees for each region are passed by {@see TemplateRenderer} as `region_<id>`.
+ * Only `main` is a fixed content region. Header, footer, sidebars and dialogs
+ * are shells (see ShellResolver): zero or more per role, rendered only when a
+ * matching shell exists, so an empty role emits no markup at all.
+ * `region_main` is the block tree for the main region; `iikiti_shells` maps role
+ * to rendered shell HTML.
  #}
 
-{{ iikiti_region('header', 'header', 'Header', ['heading', 'text', 'image', 'container'], region_header|default('')) }}
+{% for html in iikiti_shells.header|default([]) %}
+{{ iikiti_region('header-' ~ loop.index, 'header', 'Header', ['heading', 'text', 'image', 'container'], html|raw) }}
+{% endfor %}
 
 {{ iikiti_region('main', 'main', 'Main content', ['heading', 'text', 'image', 'video_embed', 'social_embed', 'query', 'container', 'dynamic'], region_main|default('')) }}
 
-{{ iikiti_region('aside-left', 'sidebar', 'Left sidebar', ['heading', 'text', 'image', 'container'], region_aside_left|default('')) }}
+{% for html in iikiti_shells.aside|default([]) %}
+{{ iikiti_region('aside-' ~ loop.index, 'sidebar', 'Sidebar', ['heading', 'text', 'image', 'container'], html|raw) }}
+{% endfor %}
 
-{{ iikiti_region('aside-right', 'sidebar', 'Right sidebar', ['heading', 'text', 'image', 'container'], region_aside_right|default('')) }}
+{% for html in iikiti_shells.footer|default([]) %}
+{{ iikiti_region('footer-' ~ loop.index, 'footer', 'Footer', ['heading', 'text', 'container'], html|raw) }}
+{% endfor %}
 
-{{ iikiti_region('footer', 'footer', 'Footer', ['heading', 'text', 'container'], region_footer|default('')) }}
-
-{{ iikiti_region('dialog', 'dialog', 'Dialog', ['heading', 'text', 'image', 'container'], region_dialog|default('')) }}
+{% for html in iikiti_shells.dialog|default([]) %}
+{{ iikiti_region('dialog-' ~ loop.index, 'dialog', 'Dialog', ['heading', 'text', 'image', 'container'], html|raw) }}
+{% endfor %}

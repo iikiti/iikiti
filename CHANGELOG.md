@@ -16,8 +16,33 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 > Last updated: 2026-10-07
 
+### Added
+
+- 2026-10-08: Session-authenticated shell endpoints `/admin/layouts/shells` (`LayoutController`,
+  CSRF on writes) for the editor Layout dialog. The token-only `/api/admin/shells` stays for
+  external management.
+- 2026-10-08: Global layout shells as a new `Shell` object type (`src/Entity/Object/Shell.php`),
+  with admin API `/api/admin/shells` (`ShellResource`, `ShellProcessor`, `ShellStateProvider`)
+  and a Layouts admin screen. Shells are validated on save by `ShellValidator` (container-only
+  root blocks, registered display rules, known role).
+- 2026-10-08: Editor Layout toolbar button and `LayoutDialog` to list shells by role and add,
+  edit, enable or delete them.
+
+### Fixed
+
+- 2026-10-08: `FullTextSearch::postPersist` now accepts `(entity, args)` as Doctrine calls it; every
+  `DbObject` persist previously threw a TypeError.
+- 2026-10-08: `DbObject` gains `setSite`, `setCreatorId` and `setCreatedDate`; new objects set their
+  NOT NULL owner and creation date.
+
 ### Changed
 
+- 2026-10-08: Header, footer, sidebars and dialogs are now shells (`Template::getShells`)
+  rendered per role only when a shell's display rules match (`ShellResolver`, reusing the
+  `iikiti.cms.template_rule` registry). Empty shell roles emit no markup. Only `main` is a
+  fixed region.
+- 2026-10-08: Empty main content region shows a dashed box with a centered "+" that opens
+  the add-block dialog; empty non-main regions no longer show placeholder text.
 - 2026-10-08: Only `container` blocks may sit at the root of a region. Enforced on
   save (`RootContainerRule` → `DraftPublishWorkflow::save` returns a violation
   error), public rendering (`BlockRenderer::renderTree` skips root non-containers),
@@ -26,6 +51,8 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Removed
 
+- 2026-10-08: Migration `Version20261008120000` converts existing non-main region blocks into
+  global shells (sites/creators are copied from the template; templates lacking them are skipped).
 - 2026-10-08: Cleared all stored block trees (`blocks`, `blocks_draft`) via
   migration `Version20261008000000` so regions render empty.
 

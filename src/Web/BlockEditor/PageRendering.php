@@ -74,7 +74,18 @@ final class PageRendering
 			dynamicBlocks: $dynamicBlocks,
 		);
 
-		$pageHtml = $this->templateRenderer->render($template, $renderContext, $regionTrees);
+		$resolutionContext = new TemplateResolutionContext(
+			site: $site,
+			object: $object,
+			objectType: null === $object ? null : $object::class,
+			home: $home,
+		);
+		$pageHtml = $this->templateRenderer->render(
+			$template,
+			$renderContext,
+			$regionTrees,
+			resolutionContext: $resolutionContext,
+		);
 
 		$this->twig->addGlobal('iikiti_can_edit', $canEdit);
 		$this->twig->addGlobal('iikiti_editor_mode', $editorMode);
@@ -111,13 +122,9 @@ final class PageRendering
 		$prop->setAccessible(true);
 		$prop->setValue($template, new ArrayCollection());
 		$template->setLayout(Template::DEFAULT_LAYOUT);
+		// Only `main` is a fixed region; header, footer, sidebars and dialogs are shells.
 		$template->setRegions([
-			['id' => 'header', 'name' => 'Header', 'role' => 'header', 'allowed_types' => []],
 			['id' => 'main', 'name' => 'Main content', 'role' => 'main', 'allowed_types' => []],
-			['id' => 'aside-left', 'name' => 'Left sidebar', 'role' => 'sidebar', 'allowed_types' => []],
-			['id' => 'aside-right', 'name' => 'Right sidebar', 'role' => 'sidebar', 'allowed_types' => []],
-			['id' => 'footer', 'name' => 'Footer', 'role' => 'footer', 'allowed_types' => []],
-			['id' => 'dialog', 'name' => 'Dialog', 'role' => 'dialog', 'allowed_types' => []],
 		]);
 
 		return $template;

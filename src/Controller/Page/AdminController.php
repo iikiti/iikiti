@@ -19,7 +19,7 @@ use Symfony\Component\Routing\Attribute\Route;
 class AdminController extends AppController
 {
 	#[Route('/admin', name: 'admin_home', methods: ['GET'])]
-	#[Route('/admin/{path}', name: 'admin_spa', requirements: ['path' => '.*'], methods: ['GET'])]
+	#[Route('/admin/{path}', name: 'admin_spa', requirements: ['path' => '^(?!layouts/shells).*$'], methods: ['GET'])]
 	public function home(ApiTokenManager $apiTokenManager, string $path = ''): Response
 	{
 		$user = $this->getUser();

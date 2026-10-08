@@ -67,6 +67,18 @@ final class TemplateRendererTest extends TestCase
 		$this->assertStringContainsString('<main id="main">', $html);
 	}
 
+	public function testEmptyNonMainRegionRendersNoPlaceholderText(): void
+	{
+		$template = $this->template([
+			['id' => 'header', 'role' => 'header', 'name' => 'Header', 'allowed_types' => []],
+			['id' => 'main', 'role' => 'main', 'name' => 'Main', 'allowed_types' => []],
+		]);
+
+		$html = $this->renderer()->render($template, new BlockRenderContext(editorMode: false), []);
+
+		$this->assertStringNotContainsString('Empty', $html);
+	}
+
 	public function testNoMainRegionShowsErrorInPublicMode(): void
 	{
 		$template = $this->template([

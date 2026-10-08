@@ -109,6 +109,22 @@ export function closeAddBlockDialog() {
 	addBlockDialog.set(null);
 }
 
+/**
+ * Whether the Layout (shells) dialog is open. Separate from the add-block slot
+ * so both dialogs can be opened without overwriting each other.
+ *
+ * @type {import('svelte/store').Writable<boolean>}
+ */
+export const layoutDialogOpen = writable(false);
+
+export function openLayoutDialog() {
+	layoutDialogOpen.set(true);
+}
+
+export function closeLayoutDialog() {
+	layoutDialogOpen.set(false);
+}
+
 const blockElements = new Map();
 export function registerBlock(id, el) {
 	if (el) blockElements.set(id, el);

@@ -28,6 +28,7 @@ class CoreAdminExtension implements AdminExtensionInterface
 			AdminMenuItem::create('Applications', '/applications', 'server', 70),
 			AdminMenuItem::create('Sites', '/sites', 'globe', 60),
 			AdminMenuItem::create('Templates', '/admin/templates', 'layout-template', 35),
+			AdminMenuItem::create('Layouts', '/admin/layouts', 'panels-top-left', 34),
 			AdminMenuItem::create('Site Groups', '/site-groups', 'layers', 50),
 			AdminMenuItem::create('Plugins', '/plugins', 'puzzle', 40, [
 				AdminMenuItem::create('Installed', '/plugins'),
@@ -118,6 +119,38 @@ class CoreAdminExtension implements AdminExtensionInterface
 					['key' => 'layout', 'label' => 'Layout', 'type' => 'text'],
 					['key' => 'regions', 'label' => 'Regions (JSON)', 'type' => 'json'],
 					['key' => 'assignments', 'label' => 'Assignments (JSON)', 'type' => 'json'],
+				],
+			]),
+			new AdminScreen(path: '/admin/layouts', title: 'Layouts', type: 'list', apiPath: '/admin/shells', config: [
+				'columns' => [
+					['key' => 'id', 'label' => 'ID'],
+					['key' => 'name', 'label' => 'Name'],
+					['key' => 'role', 'label' => 'Role'],
+					['key' => 'priority', 'label' => 'Priority'],
+					['key' => 'enabled', 'label' => 'Enabled'],
+				],
+				'editPath' => '/admin/layouts/edit',
+			]),
+			new AdminScreen(path: '/admin/layouts/edit', title: 'Layout', type: 'form', apiPath: '/admin/shells', config: [
+				'editPath' => '/admin/layouts/edit',
+				'fields' => [
+					['key' => 'name', 'label' => 'Name', 'type' => 'text', 'required' => true],
+					['key' => 'role', 'label' => 'Role (header, footer, aside, dialog)', 'type' => 'text', 'required' => true],
+					['key' => 'priority', 'label' => 'Priority', 'type' => 'number'],
+					['key' => 'enabled', 'label' => 'Enabled', 'type' => 'boolean'],
+					['key' => 'displayRules', 'label' => 'Display rules (JSON)', 'type' => 'json'],
+					['key' => 'blocks', 'label' => 'Blocks (JSON)', 'type' => 'json'],
+				],
+			]),
+			new AdminScreen(path: '/admin/layouts/new', title: 'New Layout', type: 'form', apiPath: '/admin/shells', config: [
+				'editPath' => '/admin/layouts/edit',
+				'fields' => [
+					['key' => 'name', 'label' => 'Name', 'type' => 'text', 'required' => true],
+					['key' => 'role', 'label' => 'Role (header, footer, aside, dialog)', 'type' => 'text', 'required' => true],
+					['key' => 'priority', 'label' => 'Priority', 'type' => 'number'],
+					['key' => 'enabled', 'label' => 'Enabled', 'type' => 'boolean'],
+					['key' => 'displayRules', 'label' => 'Display rules (JSON)', 'type' => 'json'],
+					['key' => 'blocks', 'label' => 'Blocks (JSON)', 'type' => 'json'],
 				],
 			]),
 			new AdminScreen(path: '/site-groups', title: 'Site Groups', type: 'list', apiPath: '/admin/site-groups', config: [

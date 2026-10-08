@@ -5,6 +5,7 @@
 	import Region from './Region.svelte';
 	import LayerMenu from './LayerMenu.svelte';
 	import AddBlockDialog from './AddBlockDialog.svelte';
+	import LayoutDialog from './LayoutDialog.svelte';
 	import Toolbar from './Toolbar.svelte';
 	import SettingsSidebar from './SettingsSidebar.svelte';
 	import TourPopover from '$components/TourPopover.svelte';
@@ -198,6 +199,8 @@
 	{#if $addBlockDialog}
 		<AddBlockDialog />
 	{/if}
+
+	<LayoutDialog />
 
 	<TourPopover />
 	<NotificationCenter />

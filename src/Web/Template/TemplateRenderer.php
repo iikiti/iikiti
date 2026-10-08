@@ -25,6 +25,8 @@ final class TemplateRenderer
 	public function __construct(
 		private readonly BlockRenderer $blockRenderer,
 		private readonly Environment $twig,
+		private readonly ?ShellResolver $shellResolver = null,
+		private readonly ?ShellProvider $shellProvider = null,
 	) {
 	}
 
@@ -35,8 +37,17 @@ final class TemplateRenderer
 	 * @param array<string,list<array<string,mixed>>> $regionTrees per-region block trees
 	 * @param array<string,mixed>                     $settings
 	 */
-	public function render(Template $template, BlockRenderContext $context, array $regionTrees, array $settings = []): string
-	{
+	/**
+	 * @param array<string,mixed>                     $settings
+	 * @param TemplateResolutionContext|null          $resolutionContext needed to pick shells for this request
+	 */
+	public function render(
+		Template $template,
+		BlockRenderContext $context,
+		array $regionTrees,
+		array $settings = [],
+		?TemplateResolutionContext $resolutionContext = null,
+	): string {
 		$regions = $template->getRegions();
 		if ([] !== $regions && !$this->hasMainRegion($regions)) {
 			return $this->renderNoMainRegion($context);
@@ -60,6 +71,8 @@ final class TemplateRenderer
 			$vars[$var] = $this->blockRenderer->renderRegionTree($tree, $context);
 		}
 
+		$vars['iikiti_shells'] = $this->renderShells($context, $resolutionContext);
+
 		$this->twig->addGlobal('iikiti_can_edit', $context->canEdit);
 		$this->twig->addGlobal('iikiti_editor_mode', $context->editorMode);
 
@@ -68,6 +81,35 @@ final class TemplateRenderer
 		} catch (LoaderError|RuntimeError|SyntaxError $e) {
 			return $this->renderError($e->getMessage());
 		}
+	}
+
+	/**
+	 * Groups rendered shell HTML by role (`header`, `footer`, `aside`, `dialog`).
+	 * Roles with no matching shell are absent, so the layout can emit no wrapper.
+	 *
+	 * @return array<string,list<string>>
+	 */
+	private function renderShells(BlockRenderContext $context, ?TemplateResolutionContext $resolutionContext): array
+	{
+		if (null === $this->shellResolver || null === $this->shellProvider || null === $resolutionContext) {
+			return [];
+		}
+
+		$byRole = [];
+		foreach ($this->shellProvider->byRole() as $role => $shells) {
+			foreach ($this->shellResolver->resolve($shells, $resolutionContext) as $shell) {
+				$html = $this->blockRenderer->renderRegionTree(
+					is_array($shell['blocks'] ?? null) ? $shell['blocks'] : null,
+					$context,
+				);
+				if ('' === $html && !$context->editorMode) {
+					continue;
+				}
+				$byRole[$role][] = $html;
+			}
+		}
+
+		return $byRole;
 	}
 
 	/**

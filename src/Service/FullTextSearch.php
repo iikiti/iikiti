@@ -22,16 +22,15 @@ class FullTextSearch
 	}
 
 	/**
+	 * Doctrine entity listeners receive the entity first, then the event args
+	 * (see ListenersInvoker::invoke). Accepting only the event args made every
+	 * DbObject persist fail with a TypeError.
+	 *
 	 * @param LifecycleEventArgs<\Doctrine\Persistence\ObjectManager> $args
 	 */
-	public function postPersist(LifecycleEventArgs $args): void
+	public function postPersist(DbObject $entity, LifecycleEventArgs $args): void
 	{
-		$entity = $args->getObject();
-
-		if (!$entity instanceof DbObject) {
-			return;
-		}
-
-		$entityManager = $args->getObjectManager();
+		// Indexing is not implemented yet; the listener only needs to accept the
+		// entity without failing the persist.
 	}
 }

@@ -18,34 +18,54 @@
 	const nodes = $derived(($tree[regionId] ?? []) as BlockNode[]);
 	/** Region-level insertable types (empty = any non-inline type). */
 	const regionAllowed = $derived(regionAllowedTypes(regionId, $regions));
+	/** Only the main content region gets the empty-state call to action. */
+	const isMain = $derived(regionId === 'main');
 
 	function activate() {
 		onActivate?.(regionId);
 	}
+
+	function openAddBlock(e: MouseEvent) {
+		e.stopPropagation();
+		e.preventDefault();
+		openAddBlockDialog({ regionId, parentId: null, allowedTypes: regionAllowed });
+	}
 </script>
 
 {#if editable}
-	<div class="iikiti-region-content" data-region-content={regionId}>
-		{#each nodes as node, i (node.id)}
-			<BlockView {node} {regionId} parentId={null} index={i} />
-		{/each}
-		{#if nodes.length === 0}<em class="iikiti-block--placeholder">Empty region — click “Add block” to start</em>{/if}
-	</div>
-
-	<div class="iikiti-region-controls" data-region-controls={regionId}>
+	{#if nodes.length === 0 && !isMain}
+		<!-- Empty shells (header, footer, sidebars, dialogs) render nothing in the editor. -->
+	{:else if nodes.length === 0}
 		<button
-			class="iikiti-btn iikiti-btn--add"
-			title="Add block to {regionId}"
-			aria-label="Add block to {regionId}"
-			onclick={(e) => {
-				e.stopPropagation();
-				e.preventDefault();
-				openAddBlockDialog({ regionId, parentId: null, allowedTypes: regionAllowed });
-			}}
+			type="button"
+			class="iikiti-region-empty"
+			data-region-empty={regionId}
+			aria-label="Add block to {name || regionId}"
+			title="Add block"
+			onclick={openAddBlock}
 		>
-			<span class="iikiti-btn__icon">+</span>
+			<span class="iikiti-region-empty__plus" aria-hidden="true">+</span>
 		</button>
-	</div>
+	{:else}
+		<div class="iikiti-region-content" data-region-content={regionId}>
+			{#each nodes as node, i (node.id)}
+				<BlockView {node} {regionId} parentId={null} index={i} />
+			{/each}
+		</div>
+
+		<div class="iikiti-region-controls" data-region-controls={regionId}>
+			<button
+				class="iikiti-btn iikiti-btn--add"
+				title="Add block to {regionId}"
+				aria-label="Add block to {regionId}"
+				onclick={openAddBlock}
+			>
+				<span class="iikiti-btn__icon">+</span>
+			</button>
+		</div>
+	{/if}
+{:else if nodes.length === 0 && !isMain}
+	<!-- Locked empty shells are invisible; no placeholder text. -->
 {:else}
 	<div
 		class="iikiti-region-locked"
@@ -62,7 +82,6 @@
 			{#each nodes as node (node.id)}
 				<BlockView {node} {regionId} readonly />
 			{/each}
-			{#if nodes.length === 0}<em class="iikiti-block--placeholder">Empty {name || regionId}</em>{/if}
 		</div>
 	</div>
 {/if}
@@ -71,6 +90,36 @@
 	.iikiti-region-content {
 		min-height: 2rem;
 		position: relative;
+	}
+	/* Dashed call-to-action shown only for an empty main content region. */
+	.iikiti-region-empty {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		min-height: 8rem;
+		border: 2px dashed color-mix(in srgb, var(--ik-accent, #a6613c) 55%, transparent);
+		border-radius: var(--ik-radius, 8px);
+		background: transparent;
+		cursor: pointer;
+		transition: border-color 0.15s ease, background-color 0.15s ease;
+	}
+	.iikiti-region-empty:hover,
+	.iikiti-region-empty:focus-visible {
+		border-color: var(--ik-accent, #a6613c);
+		background: color-mix(in srgb, var(--ik-accent, #a6613c) 6%, transparent);
+	}
+	.iikiti-region-empty__plus {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 48px;
+		height: 48px;
+		border-radius: 50%;
+		font-size: 28px;
+		line-height: 1;
+		color: #fff;
+		background: var(--ik-accent, #a6613c);
 	}
 	:global(.iikiti-region-content:hover .iikiti-region-controls) {
 		opacity: 1;

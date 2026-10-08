@@ -14,6 +14,7 @@
 		regions,
 		tree,
 		openAddBlockDialog,
+		openLayoutDialog,
 		regionAllowedTypes,
 	} from './state';
 	import Icon from '$components/Icon.svelte';
@@ -87,6 +88,18 @@
 			aria-label="Add block"
 		>
 			<Icon name="plus" size={18} />
+		</button>
+	</Tooltip>
+
+	<Tooltip content="Layout">
+		<button
+			type="button"
+			class="iikiti-editor-btn"
+			onclick={() => openLayoutDialog()}
+			data-tour="toolbar.layout"
+			aria-label="Layout"
+		>
+			<Icon name="panel-top" size={18} />
 		</button>
 	</Tooltip>
 

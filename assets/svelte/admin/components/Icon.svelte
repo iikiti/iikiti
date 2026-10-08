@@ -18,6 +18,8 @@
     'server': Lucide.Server,
     'globe': Lucide.Globe,
     'layout-template': Lucide.LayoutTemplate,
+    'panels-top-left': Lucide.PanelsTopLeft,
+    'panel-top': Lucide.PanelTop,
     'layers': Lucide.Layers,
     'puzzle': Lucide.Puzzle,
     'search': Lucide.Search,

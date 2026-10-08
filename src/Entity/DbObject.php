@@ -87,6 +87,28 @@ class DbObject
 		return $this instanceof Site ? null : $this->site;
 	}
 
+	/**
+	 * Owning site and creator are NOT NULL in the objects table. Callers creating
+	 * a new object must set both before persisting.
+	 */
+	public function setSite(Site $site): void
+	{
+		$this->site = $site;
+	}
+
+	public function setCreatorId(int|string $creatorId): void
+	{
+		$this->creator_id = $creatorId;
+	}
+
+	/**
+	 * created_date is NOT NULL and has no default; set it when creating an object.
+	 */
+	public function setCreatedDate(\DateTimeImmutable $createdDate): void
+	{
+		$this->created_date = $createdDate;
+	}
+
 	#[\Override]
 	public function getProperties(): Collection
 	{
