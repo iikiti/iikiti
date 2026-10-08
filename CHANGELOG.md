@@ -16,6 +16,19 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 > Last updated: 2026-10-07
 
+### Changed
+
+- 2026-10-08: Only `container` blocks may sit at the root of a region. Enforced on
+  save (`RootContainerRule` → `DraftPublishWorkflow::save` returns a violation
+  error), public rendering (`BlockRenderer::renderTree` skips root non-containers),
+  and the editor (`addBlock`/`moveBlock` in `state.js` and the Add block dialog
+  offer only Container at root).
+
+### Removed
+
+- 2026-10-08: Cleared all stored block trees (`blocks`, `blocks_draft`) via
+  migration `Version20261008000000` so regions render empty.
+
 ### Added
 
 - 2026-10-07: Circular "+" insertion buttons before and after every block in

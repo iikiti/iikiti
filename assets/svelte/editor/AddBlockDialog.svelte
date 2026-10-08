@@ -29,7 +29,10 @@
 	const grouped = $derived.by(() => {
 		const bt = $blockTypes;
 		if (!context || !bt) return [];
-		const explicit = allowed.length > 0 ? new Set(allowed) : null;
+		// Root-level insertion is container-only (RootContainerRule); nested
+		// insertion keeps the parent's allowed list.
+		const rootOnly = context.parentId ? null : new Set(['container']);
+		const explicit = rootOnly ?? (allowed.length > 0 ? new Set(allowed) : null);
 		// Query blocks never nest: a query inside a query would re-execute per row.
 		const insideQuery = context.parentId ? isInsideQuery(context.parentId) : false;
 		const categoryOrder: Record<string, number> = { layout: 0, text: 1, media: 2, content: 3 };

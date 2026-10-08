@@ -58,6 +58,38 @@ final class BlockRenderer
 	/**
 	 * @param list<array<string,mixed>> $tree Ordered list of block nodes
 	 */
+	/**
+	 * Render a region's root tree. Only containers are valid at the root
+	 * (RootContainerRule); invalid root nodes are skipped publicly so they never
+	 * render outside a container. Editors still see them, and the save-time
+	 * validation reports them.
+	 *
+	 * @param list<array<string,mixed>> $tree
+	 */
+	public function renderRegionTree(?array $tree, BlockRenderContext $context): string
+	{
+		if (empty($tree)) {
+			return '';
+		}
+
+		$html = '';
+		foreach ($tree as $node) {
+			$type = is_array($node) ? (string) ($node['type'] ?? '') : '';
+			if (!$context->editorMode && !RootContainerRule::isAllowedAtRoot($type)) {
+				continue;
+			}
+			$html .= $this->renderNode($node, $context);
+		}
+
+		return $html;
+	}
+
+	/**
+	 * Render a nested (child) block list. No root rule applies here: containers
+	 * may hold any block type.
+	 *
+	 * @param list<array<string,mixed>> $tree Ordered list of block nodes
+	 */
 	public function renderTree(?array $tree, BlockRenderContext $context): string
 	{
 		if (empty($tree)) {

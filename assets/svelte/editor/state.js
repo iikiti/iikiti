@@ -202,6 +202,9 @@ export function allowedChildTypes(parentType, bt) {
 	return schema.allowedChildTypes ?? [];
 }
 
+/** Only this block type may sit at the root of a region (see RootContainerRule). */
+const ROOT_CONTAINER_TYPE = 'container';
+
 /**
  * Insert a new block of `type` and return its generated node id (so callers can
  * select / scroll to it).
@@ -214,6 +217,8 @@ export function allowedChildTypes(parentType, bt) {
  */
 export function addBlock(regionId, parentId, type, position) {
 	const id = 'blk_' + crypto.randomUUID().slice(0, 12);
+	// Root-level blocks must be containers (mirrors RootContainerRule on the server).
+	if (!parentId && type !== ROOT_CONTAINER_TYPE) return null;
 	state.update((s) => {
 		/** @type {BlockNode} */
 		const node = {
@@ -248,6 +253,8 @@ export function moveBlock(id, toParent, position) {
 	state.update((s) => {
 		const { node, tree: afterRemove, regionId: srcRegion } = extractNode(s.tree, id);
 		if (!node) return s;
+		// Moving a non-container to the root would break the container-only rule.
+		if (!toParent && node.type !== ROOT_CONTAINER_TYPE) return s;
 		const targetRegion = toParent ? findRegionFor(toParent, s) : srcRegion;
 		const next = insertNode(afterRemove, targetRegion, toParent, node, position);
 		return pushHistory(s, next);

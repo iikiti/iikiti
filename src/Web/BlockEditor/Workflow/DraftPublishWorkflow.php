@@ -8,6 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Entity\Object\Template;
 use iikiti\CMS\Entity\Object\User;
+use iikiti\CMS\Web\BlockEditor\Render\RootContainerRule;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 
 /**
@@ -31,6 +32,15 @@ final class DraftPublishWorkflow implements SaveWorkflowInterface
 	#[\Override]
 	public function save(string $contextType, int $contextId, array $tree, ?string $ifMatchVersion, User $user): array
 	{
+		$violations = RootContainerRule::violations($tree);
+		if ([] !== $violations) {
+			return [
+				'conflict' => false,
+				'error' => 'Only container blocks may be placed at the root of a region.',
+				'violations' => $violations,
+			];
+		}
+
 		$object = $this->load($this->em, $contextType, $contextId);
 		if (!$object instanceof DbObject) {
 			return ['ok' => false, 'version' => 0, 'conflict' => false];

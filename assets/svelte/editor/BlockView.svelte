@@ -13,7 +13,6 @@
 		openAddBlockDialog,
 		allowedChildTypes,
 		searchNode,
-		regionAllowedTypes,
 	} from './state';
 	import type { BlockNode } from './state';
 	import Popover from '$components/Popover.svelte';
@@ -129,7 +128,8 @@
 	 */
 	function parentAllowedTypes(): string[] {
 		if (!parentId) {
-			return regionAllowedTypes(regionId, $regions);
+			// Root level accepts containers only (RootContainerRule).
+			return ['container'];
 		}
 		const parent = searchNode(parentId);
 		if (!parent) return [];

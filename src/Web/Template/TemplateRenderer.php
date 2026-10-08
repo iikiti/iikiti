@@ -57,7 +57,7 @@ final class TemplateRenderer
 			}
 			$var = $this->regionVar($regionId);
 			$tree = $regionTrees[$regionId] ?? null;
-			$vars[$var] = $this->blockRenderer->renderTree($tree, $context);
+			$vars[$var] = $this->blockRenderer->renderRegionTree($tree, $context);
 		}
 
 		$this->twig->addGlobal('iikiti_can_edit', $context->canEdit);

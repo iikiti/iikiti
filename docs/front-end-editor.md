@@ -40,6 +40,13 @@ social_embed, query
 - Blocks whose `category` is `inline` (currently `inline_text`) are only
   offered where a parent explicitly allows them — never at region root or
   inside generic containers.
+- **Root-container rule:** only `container` blocks may sit at the root of a
+  region. Every other block must be nested inside a container. Enforced in three
+  places: save validation (`RootContainerRule` in `DraftPublishWorkflow::save`,
+  which rejects the save with the offending region/index), public rendering
+  (`BlockRenderer::renderRegionTree` skips invalid root nodes), and the editor
+  (`addBlock`/`moveBlock` and the Add block dialog offer only Container at root).
+  Nested child lists are not affected.
 
 ## Templates
 DbObject (type discriminator `iikiti\\CMS\Entity\Object\Template`)` with JSON properties:

@@ -89,19 +89,35 @@ final class BlockRendererTest extends TestCase
 		return $object;
 	}
 
+	public function testPublicRegionRenderSkipsRootLevelNonContainers(): void
+	{
+		$tree = [
+			['type' => 'text', 'content' => ['content' => '<p>Root leak</p>'], 'style' => ['base' => []]],
+			['type' => 'container', 'content' => [], 'style' => ['base' => []], 'children' => [
+				['type' => 'text', 'content' => ['content' => '<p>Nested ok</p>'], 'style' => ['base' => []]],
+			]],
+		];
+
+		$html = $this->renderer->renderRegionTree($tree, new BlockRenderContext(editorMode: false));
+
+		self::assertStringNotContainsString('Root leak', $html);
+		self::assertStringContainsString('Nested ok', $html);
+	}
+
 	public function testRenderTreeEmitsNoMetadataInThePublicMode(): void
 	{
 		$context = new BlockRenderContext(editorMode: false);
-		$html = $this->renderer->renderTree($this->sampleTree(), $context);
+		$html = $this->renderer->renderRegionTree($this->sampleTree(), $context);
 
 		$this->assertStringContainsString('iikiti-block iikiti-block--text', $html);
-		$this->assertStringNotContainsString('data-block-', $html);
+		$this->assertStringNotContainsString('data-block-id', $html);
+		self::assertStringNotContainsString('data-block-type', $html);
 	}
 
 	public function testRenderTreeEmitsMetadataInTheEditMode(): void
 	{
 		$context = new BlockRenderContext(editorMode: true);
-		$html = $this->renderer->renderTree($this->sampleTree(), $context);
+		$html = $this->renderer->renderRegionTree($this->sampleTree(), $context);
 
 		$this->assertStringContainsString('data-block-type="text"', $html);
 		$this->assertStringContainsString('data-block-content=', $html);
@@ -121,7 +137,7 @@ final class BlockRendererTest extends TestCase
 			],
 		];
 
-		$html = $this->renderer->renderTree($tree, new BlockRenderContext(editorMode: false));
+		$html = $this->renderer->renderRegionTree($this->inContainer($tree), new BlockRenderContext(editorMode: false));
 
 		$this->assertStringContainsString('iikiti-container', $html);
 		$this->assertStringContainsString('iikiti-heading', $html);
@@ -151,14 +167,15 @@ final class BlockRendererTest extends TestCase
 			],
 		];
 
-		$public = $this->renderer->renderTree($tree, new BlockRenderContext(editorMode: false, canEdit: false));
-		$editor = $this->renderer->renderTree($tree, new BlockRenderContext(editorMode: true, canEdit: true));
+		$public = $this->renderer->renderRegionTree($this->inContainer($tree), new BlockRenderContext(editorMode: false, canEdit: false));
+		$editor = $this->renderer->renderRegionTree($this->inContainer($tree), new BlockRenderContext(editorMode: true, canEdit: true));
 
 		// Public output: instructional hint is suppressed for non-editors,
 		// real content survives.
 		self::assertStringNotContainsString('Edit this page with', $public);
 		self::assertStringContainsString('Public content', $public);
-		self::assertStringNotContainsString('data-block-', $public);
+		self::assertStringNotContainsString('data-block-id', $public);
+		self::assertStringNotContainsString('data-block-type', $public);
 
 		// Editor output (logged-in editor): hint is visible and hydratable.
 		self::assertStringContainsString('Edit this page with', $editor);
@@ -183,28 +200,42 @@ final class BlockRendererTest extends TestCase
 			],
 		];
 
-		$html = $this->renderer->renderTree($tree, new BlockRenderContext(editorMode: false, canEdit: true));
+		$html = $this->renderer->renderRegionTree($this->inContainer($tree), new BlockRenderContext(editorMode: false, canEdit: true));
 
 		// Edit hint is visible to editors even without ?edit.
 		self::assertStringContainsString('Edit this page with', $html);
 		self::assertStringContainsString('Public content', $html);
 		// No block metadata — only emitted in editorMode.
-		self::assertStringNotContainsString('data-block-', $html);
+		self::assertStringNotContainsString('data-block-id', $html);
+		self::assertStringNotContainsString('data-block-type', $html);
 	}
 
 	/**
 	 * @return list<array<string,mixed>>
 	 */
-	private function sampleTree(): array
+	/**
+	 * Root-level non-containers are not rendered publicly (RootContainerRule), so
+	 * fixtures place their blocks inside a container, matching real trees.
+	 *
+	 * @param list<array<string,mixed>> $nodes
+	 *
+	 * @return list<array<string,mixed>>
+	 */
+	private function inContainer(array $nodes): array
 	{
-		return [
+		return [['id' => 'root-container', 'type' => 'container', 'content' => [], 'style' => ['base' => []], 'children' => $nodes]];
+	}
+
+		private function sampleTree(): array
+	{
+		return $this->inContainer([
 			[
 				'id' => 'b1',
 				'type' => 'text',
 				'content' => ['content' => '<p>Hello</p>'],
 				'style' => ['base' => ['color' => '#000']],
 			],
-		];
+		]);
 	}
 
 	public function testElementIdAndCssClassRenderOnTheWrapper(): void
@@ -215,7 +246,7 @@ final class BlockRendererTest extends TestCase
 			'element' => ['id' => 'hero', 'cssClass' => 'lead muted'],
 		]];
 
-		$html = $this->renderer->renderTree($tree, new BlockRenderContext(editorMode: false));
+		$html = $this->renderer->renderRegionTree($this->inContainer($tree), new BlockRenderContext(editorMode: false));
 
 		self::assertStringContainsString('class="iikiti-block iikiti-block--text lead muted"', $html);
 		self::assertStringContainsString('id="hero"', $html);
@@ -236,7 +267,7 @@ final class BlockRendererTest extends TestCase
 			]],
 		]];
 
-		$html = $this->renderer->renderTree($tree, new BlockRenderContext(editorMode: false));
+		$html = $this->renderer->renderRegionTree($this->inContainer($tree), new BlockRenderContext(editorMode: false));
 
 		self::assertStringContainsString('data-foo="bar"', $html);
 		self::assertStringContainsString('title="Hello &quot;world&quot;"', $html);
@@ -254,7 +285,7 @@ final class BlockRendererTest extends TestCase
 			'element' => ['id' => 'x'],
 		]];
 
-		$html = $this->renderer->renderTree($tree, new BlockRenderContext(editorMode: true));
+		$html = $this->renderer->renderRegionTree($this->inContainer($tree), new BlockRenderContext(editorMode: true));
 
 		self::assertStringContainsString('data-block-element=', $html);
 	}
@@ -273,7 +304,7 @@ final class BlockRendererTest extends TestCase
 			],
 		];
 
-		$html = $this->renderer->renderTree($tree, new BlockRenderContext(editorMode: false));
+		$html = $this->renderer->renderRegionTree($this->inContainer($tree), new BlockRenderContext(editorMode: false));
 
 		// Inline children use the block type's `span` wrapper so the markup
 		// stays valid inside an <h2> (the block wrapper itself remains a div).
@@ -290,7 +321,7 @@ final class BlockRendererTest extends TestCase
 			['type' => 'inline_text', 'content' => ['text' => 'ok', 'tag' => 'em'], 'style' => ['base' => []]],
 		];
 
-		$html = $this->renderer->renderTree($tree, new BlockRenderContext(editorMode: false));
+		$html = $this->renderer->renderRegionTree($this->inContainer($tree), new BlockRenderContext(editorMode: false));
 
 		// A disallowed `tag` falls back to a bare escaped text node.
 		self::assertStringNotContainsString('<script', $html);
@@ -322,7 +353,7 @@ final class BlockRendererTest extends TestCase
 			],
 		];
 
-		$html = $renderer->renderTree($tree, new BlockRenderContext(editorMode: false));
+		$html = $renderer->renderRegionTree($this->inContainer($tree), new BlockRenderContext(editorMode: false));
 
 		// One child render per result row, with the binding resolved per row.
 		self::assertSame(2, substr_count($html, 'iikiti-query__item'));
@@ -358,7 +389,7 @@ final class BlockRendererTest extends TestCase
 			],
 		];
 
-		$html = $renderer->renderTree($tree, new BlockRenderContext(editorMode: false));
+		$html = $renderer->renderRegionTree($this->inContainer($tree), new BlockRenderContext(editorMode: false));
 
 		// Unresolvable binding (null) keeps the field's static content.
 		self::assertStringContainsString('Static fallback', $html);
@@ -372,10 +403,10 @@ final class BlockRendererTest extends TestCase
 			'bindings' => ['content' => 'title'],
 		]];
 
-		$html = $this->renderer->renderTree($tree, new BlockRenderContext(editorMode: true));
+		$html = $this->renderer->renderRegionTree($this->inContainer($tree), new BlockRenderContext(editorMode: true));
 
 		self::assertStringContainsString('data-block-bindings=', $html);
-		self::assertStringNotContainsString('data-block-bindings', $this->renderer->renderTree($tree, new BlockRenderContext(editorMode: false)));
+		self::assertStringNotContainsString('data-block-bindings', $this->renderer->renderRegionTree($this->inContainer($tree), new BlockRenderContext(editorMode: false)));
 	}
 
 	public function testSensitiveAndNonTextBindingsNeverOverlay(): void
@@ -396,7 +427,7 @@ final class BlockRendererTest extends TestCase
 			],
 		]];
 
-		$html = $renderer->renderTree($tree, new BlockRenderContext(editorMode: false));
+		$html = $renderer->renderRegionTree($this->inContainer($tree), new BlockRenderContext(editorMode: false));
 
 		self::assertStringNotContainsString('hash-secret', $html);
 		self::assertStringContainsString('Static A', $html);
@@ -426,8 +457,8 @@ final class BlockRendererTest extends TestCase
 			'children' => [['type' => 'heading', 'content' => ['level' => '3', 'text' => 'Template'], 'style' => ['base' => []]]],
 		]];
 
-		$editorHtml = $renderer->renderTree($tree, new BlockRenderContext(editorMode: true));
-		$publicHtml = $renderer->renderTree($tree, new BlockRenderContext(editorMode: false));
+		$editorHtml = $renderer->renderRegionTree($this->inContainer($tree), new BlockRenderContext(editorMode: true));
+		$publicHtml = $renderer->renderRegionTree($this->inContainer($tree), new BlockRenderContext(editorMode: false));
 
 		self::assertStringContainsString('data-block-item-children', $editorHtml);
 		self::assertStringContainsString('Template', $editorHtml);
