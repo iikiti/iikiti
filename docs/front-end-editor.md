@@ -186,7 +186,7 @@ Rules (tagged `iikiti.cms.template_rule`): `object_type`, `object`, `site`.
   registers `sidebar.tab` (switches the active settings tab), `sidebar.side`
   (flips the sidebar), and `open` (e.g. `target:'layers'`). Plugins register
   their own via `registerAction`.
-- `TourPopover.svelte` (exported via `@iikiti/admin`) renders the active step;
+- `TourPopover.svelte` (exported via `@iikiti/ui`) renders the active step;
   mount it once in the editor (`Editor.svelte`) and in `AdminLayout.svelte`.
 - Authoring actual tours is plugin work; the framework is in place for you.
 

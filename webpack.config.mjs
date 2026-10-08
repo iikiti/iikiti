@@ -108,13 +108,15 @@ const webpackConfig = await Encore.getWebpackConfig();
 webpackConfig.resolve = webpackConfig.resolve || {};
 webpackConfig.resolve.alias = {
 	...webpackConfig.resolve.alias,
-	'$lib': path.resolve(__dirname, 'assets/svelte/admin/lib'),
-	'$types': path.resolve(__dirname, 'assets/svelte/admin/types/index.ts'),
-	'$components': path.resolve(__dirname, 'assets/svelte/admin/components'),
+	'$lib': path.resolve(__dirname, 'assets/svelte/shared/lib'),
+	'$types': path.resolve(__dirname, 'assets/svelte/shared/types/index.ts'),
+	'$components': path.resolve(__dirname, 'assets/svelte/shared/components'),
 	'$routes': path.resolve(__dirname, 'assets/svelte/admin/routes'),
 	'$editor': path.resolve(__dirname, 'assets/svelte/editor'),
 	'$framework': path.resolve(__dirname, 'assets/js/iikiti'),
-	'@iikiti/admin': path.resolve(__dirname, 'assets/svelte/admin/components/index.ts'),
+	'$iikiti': path.resolve(__dirname, 'assets/js/iikiti'),
+	'@iikiti/ui': path.resolve(__dirname, 'assets/svelte/shared/components/index.ts'),
+	'@iikiti/admin': path.resolve(__dirname, 'assets/svelte/shared/components/index.ts'),
 };
 
 webpackConfig.resolve.conditionNames = (webpackConfig.resolve.conditionNames??[]);

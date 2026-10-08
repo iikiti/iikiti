@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import Form from '../components/Form.svelte';
-	import PageHeader from '../components/PageHeader.svelte';
-	import LoadingState from '../components/LoadingState.svelte';
-	import ErrorBoundary from '../components/ErrorBoundary.svelte';
-	import Breadcrumb from '../components/Breadcrumb.svelte';
-	import Button from '../components/Button.svelte';
+	import Form from '$components/Form.svelte';
+	import PageHeader from '$components/PageHeader.svelte';
+	import LoadingState from '$components/LoadingState.svelte';
+	import ErrorBoundary from '$components/ErrorBoundary.svelte';
+	import Breadcrumb from '$components/Breadcrumb.svelte';
+	import Button from '$components/Button.svelte';
 	import type { AdminScreen } from '$types';
 
 	interface Props {

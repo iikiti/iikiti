@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { ApiClient } from '$lib/api';
 	import { findScreenByPath, getRouteId } from '$lib/router';
-	import AdminLayout from './components/AdminLayout.svelte';
+	import AdminLayout from '$components/AdminLayout.svelte';
 	import DashboardRoute from './routes/Dashboard.svelte';
 	import UsersRoute from './routes/Users.svelte';
 	import UserGroupsRoute from './routes/UserGroups.svelte';

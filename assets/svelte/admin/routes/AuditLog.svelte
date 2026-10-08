@@ -1,11 +1,11 @@
 <script lang="ts">
-	import DataTable from '../components/DataTable.svelte';
-	import PageHeader from '../components/PageHeader.svelte';
-	import LoadingState from '../components/LoadingState.svelte';
-	import ErrorBoundary from '../components/ErrorBoundary.svelte';
-	import DateTime from '../components/DateTime.svelte';
-	import { ensureTemporal, formatDateTime, hasNativeTemporal } from '../../../js/iikiti/time/temporal.js';
-	import type { PagedResult, AuditLogResource } from '../types/index';
+	import DataTable from '$components/DataTable.svelte';
+	import PageHeader from '$components/PageHeader.svelte';
+	import LoadingState from '$components/LoadingState.svelte';
+	import ErrorBoundary from '$components/ErrorBoundary.svelte';
+	import DateTime from '$components/DateTime.svelte';
+	import { ensureTemporal, formatDateTime, hasNativeTemporal } from '$iikiti/time/temporal.js';
+	import type { PagedResult, AuditLogResource } from '$types/index';
 
 	interface Props {
 		api: any;

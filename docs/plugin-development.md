@@ -204,11 +204,11 @@ compiled JS bundle. Add `admin_ui` to `plugin.json`:
 
 The bundle is served at `/admin-plugins/{slug}/dist/admin.js` and is loaded on
 demand via dynamic `import()` when the user navigates to the screen's path.
-Plugins can import core components from `@iikiti/admin`:
+Plugins can import core components from `@iikiti/ui`:
 
 ```svelte
 <script>
-    import { PageHeader, DataTable } from '@iikiti/admin';
+    import { PageHeader, DataTable } from '@iikiti/ui';
 </script>
 
 <PageHeader title="Acme Dashboard" />
@@ -243,7 +243,7 @@ anything:
   `docs/front-end-ui-standard.md`). Read values in JS with
   `assets/js/iikiti/chrome/layers.js`.
 - **Floating draggable dialogs & tooltips:** `FloatingPanel` /
-  `Tooltip` components (import from `@iikiti/admin`), or the framework-level
+  `Tooltip` components (import from `@iikiti/ui`), or the framework-level
   `dragResize` helper for vanilla-JS bundles.
 
 Full reference: [front-end-ui-standard.md](front-end-ui-standard.md).

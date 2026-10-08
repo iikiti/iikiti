@@ -1,5 +1,5 @@
 <script lang="ts">
-	import LoadingState from '../components/LoadingState.svelte';
+	import LoadingState from '$components/LoadingState.svelte';
 
 	interface Props {
 		label?: string;

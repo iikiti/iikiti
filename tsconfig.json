@@ -18,16 +18,19 @@
 		"skipLibCheck": true,
 		"baseUrl": ".",
 		"paths": {
-			"$lib/*": ["assets/svelte/admin/lib/*"],
-			"$types": ["assets/svelte/admin/types/index.ts"],
-			"$types/*": ["assets/svelte/admin/types/*"],
-			"$lib": ["assets/svelte/admin/lib"],
-			"$components/*": ["assets/svelte/admin/components/*"],
+			"$lib/*": ["assets/svelte/shared/lib/*"],
+			"$types": ["assets/svelte/shared/types/index.ts"],
+			"$types/*": ["assets/svelte/shared/types/*"],
+			"$lib": ["assets/svelte/shared/lib"],
+			"$components/*": ["assets/svelte/shared/components/*"],
 			"$routes/*": ["assets/svelte/admin/routes/*"],
 			"$editor/*": ["assets/svelte/editor/*"],
 			"$framework/*": ["assets/js/iikiti/*"],
-			"@iikiti/admin": ["assets/svelte/admin/components/index.ts"],
-			"@iikiti/admin/*": ["assets/svelte/admin/components/*"]
+			"$iikiti/*": ["assets/js/iikiti/*"],
+			"@iikiti/ui": ["assets/svelte/shared/components/index.ts"],
+			"@iikiti/ui/*": ["assets/svelte/shared/components/*"],
+			"@iikiti/admin": ["assets/svelte/shared/components/index.ts"],
+			"@iikiti/admin/*": ["assets/svelte/shared/components/*"]
 		}
 	}
 }

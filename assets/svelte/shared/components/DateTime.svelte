@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ensureTemporal, formatDateTime, hasNativeTemporal } from '../../../js/iikiti/time/temporal.js';
+	import { ensureTemporal, formatDateTime, hasNativeTemporal } from '$iikiti/time/temporal.js';
 
 	/**
 	 * Displays an ISO instant in the user's time zone.

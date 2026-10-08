@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import PageHeader from '../components/PageHeader.svelte';
-	import LoadingState from '../components/LoadingState.svelte';
-	import ErrorBoundary from '../components/ErrorBoundary.svelte';
-	import type { RoleResource } from '../types/index';
+	import PageHeader from '$components/PageHeader.svelte';
+	import LoadingState from '$components/LoadingState.svelte';
+	import ErrorBoundary from '$components/ErrorBoundary.svelte';
+	import type { RoleResource } from '$types/index';
 
 	interface Props {
 		api: any;

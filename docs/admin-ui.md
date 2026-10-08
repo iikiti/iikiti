@@ -94,7 +94,7 @@ library reference and plugin screen development workflow.
 ## Core Component Library
 
 The admin UI ships with a library of reusable Svelte 5 components exported
-under the `@iikiti/admin` import alias. These include `AdminLayout`, `Icon`,
+under the `@iikiti/ui` import alias. These include `AdminLayout`, `Icon`,
 `DataTable`, `PageHeader`, `Button`, `Badge`, `Dialog`, `Tabs`, `Breadcrumb`,
 `Pagination`, `SearchForm`, `Form`, `DetailView`, `Card`, and input components
 (`TextInput`, `TextareaInput`, `SelectInput`, `CheckboxInput`, `ToggleInput`).
@@ -108,7 +108,7 @@ backend):
 
 ```svelte
 <script>
-  import { Icon } from '@iikiti/admin';
+  import { Icon } from '@iikiti/ui';
 </script>
 
 <Icon name="users" size={18} />

@@ -16,12 +16,12 @@ are dynamically loaded by the SPA. Screens can be:
    required.
 2. **Custom** — a plugin-supplied Svelte component loaded on demand via
    dynamic `import()`, built using the **core admin component library**
-   (`@iikiti/admin`).
+   (`@iikiti/ui`).
 
 ## Core Component Library
 
 The admin SPA exposes a set of reusable Svelte 5 components under the
-`@iikiti/admin` import alias. Both the core CMS and plugins can import these
+`@iikiti/ui` import alias. Both the core CMS and plugins can import these
 components to build consistent UI.
 
 ### Available Components
@@ -57,11 +57,11 @@ components to build consistent UI.
 In your plugin's Svelte source:
 
 ```ts
-import { DataTable, PageHeader, Button } from '@iikiti/admin';
+import { DataTable, PageHeader, Button } from '@iikiti/ui';
 ```
 
-Configure your build to resolve `@iikiti/admin` to the core component
-barrel export (`assets/svelte/admin/components/index.ts`). See
+Configure your build to resolve `@iikiti/ui` to the core component
+barrel export (`assets/svelte/shared/components/index.ts`). See
 `webpack.config.mjs` in the core project for the alias configuration:
 
 ```js
@@ -69,11 +69,11 @@ barrel export (`assets/svelte/admin/components/index.ts`). See
 module.exports = {
     resolve: {
         alias: {
-            '@iikiti/admin': '/path/to/core/assets/svelte/admin/components/index.ts',
+            '@iikiti/ui': '/path/to/core/assets/svelte/shared/components/index.ts',
         },
     },
     // Use webpack externals so your bundle stays small:
-    // externals: { '@iikiti/admin': 'iikitiAdmin' }
+    // externals: { '@iikiti/ui': 'iikitiAdmin' }
 };
 ```
 
@@ -204,7 +204,7 @@ To ship custom Svelte components:
 ```svelte
 <!-- src/BlogDashboard.svelte -->
 <script>
-    import { PageHeader, Card } from '@iikiti/admin';
+    import { PageHeader, Card } from '@iikiti/ui';
 </script>
 
 <PageHeader title="Blog Dashboard" description="Overview of your blog." />

@@ -192,7 +192,7 @@ automatically — never hard-code colours in chrome.
 
 ## Shared Svelte components (plugins welcome)
 
-Exported from `@iikiti/admin` (aka `$components`):
+Exported from `@iikiti/ui` (aka `$components`):
 
 - **`Tooltip.svelte`** — wraps a trigger snippet; shows on hover/focus with
   a delay. Anchored to the **mouse cursor**: it appears below the pointer with
@@ -203,7 +203,7 @@ Exported from `@iikiti/admin` (aka `$components`):
   `<dialog>` element: header drag handle, viewport clamping, optional corner
   drag-resize, Esc-to-close, bring-to-front, optional `storageKey` persistence
   (`iikiti.panel.<key>.pos` / `.size`). Non-modal (`dialog.show()`),
-  `aria-modal="false"`. `FloatingPanel` is re-exported from `@iikiti/admin` as a
+  `aria-modal="false"`. `FloatingPanel` is re-exported from `@iikiti/ui` as a
   **deprecated alias** of `Dialog` for plugin backward compatibility.
 - **`ModalDialog.svelte`** — extends `Dialog` with `modal=true`: calls
   `dialog.showModal()`, moving it into the browser top layer with a

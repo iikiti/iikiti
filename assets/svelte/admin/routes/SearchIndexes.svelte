@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import DataTable from '../components/DataTable.svelte';
-	import LoadingState from '../components/LoadingState.svelte';
-	import ErrorBoundary from '../components/ErrorBoundary.svelte';
-	import PageHeader from '../components/PageHeader.svelte';
-	import type { PagedResult } from '../types/index';
+	import DataTable from '$components/DataTable.svelte';
+	import LoadingState from '$components/LoadingState.svelte';
+	import ErrorBoundary from '$components/ErrorBoundary.svelte';
+	import PageHeader from '$components/PageHeader.svelte';
+	import type { PagedResult } from '$types/index';
 
 	interface Props {
 		api: any;

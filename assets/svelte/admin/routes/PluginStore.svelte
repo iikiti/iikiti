@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import LoadingState from '../components/LoadingState.svelte';
-	import PageHeader from '../components/PageHeader.svelte';
-	import type { PluginResource } from '../types/index';
+	import LoadingState from '$components/LoadingState.svelte';
+	import PageHeader from '$components/PageHeader.svelte';
+	import type { PluginResource } from '$types/index';
 
 	interface Props {
 		api: any;

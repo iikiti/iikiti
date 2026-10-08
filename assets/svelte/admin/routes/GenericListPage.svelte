@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { onMount, type Component } from 'svelte';
-	import DataTable from '../components/DataTable.svelte';
-	import PageHeader from '../components/PageHeader.svelte';
-	import LoadingState from '../components/LoadingState.svelte';
-	import ErrorBoundary from '../components/ErrorBoundary.svelte';
-	import EmptyState from '../components/EmptyState.svelte';
-	import Pagination from '../components/Pagination.svelte';
-	import SearchForm from '../components/SearchForm.svelte';
+	import DataTable from '$components/DataTable.svelte';
+	import PageHeader from '$components/PageHeader.svelte';
+	import LoadingState from '$components/LoadingState.svelte';
+	import ErrorBoundary from '$components/ErrorBoundary.svelte';
+	import EmptyState from '$components/EmptyState.svelte';
+	import Pagination from '$components/Pagination.svelte';
+	import SearchForm from '$components/SearchForm.svelte';
 	import type { AdminScreen, PagedResult } from '$types';
 
 	interface Props {
