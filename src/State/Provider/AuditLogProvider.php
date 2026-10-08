@@ -35,7 +35,9 @@ readonly class AuditLogProvider implements ProviderInterface
 		$itemsPerPage = max(1, min(100, (int) ($filters['itemsPerPage'] ?? $this->pageSize)));
 		$offset = ($page - 1) * $itemsPerPage;
 
+		// Only top-level events are listed; their sub-events are attached per row.
 		$qb = $this->auditLogRepository->createQueryBuilder('l')
+			->andWhere('l.parent IS NULL')
 			->orderBy('l.createdAt', 'DESC')
 			->setMaxResults($itemsPerPage)
 			->setFirstResult($offset);
@@ -61,10 +63,10 @@ readonly class AuditLogProvider implements ProviderInterface
 		}
 
 		$results = $qb->getQuery()->getResult();
-		$total = (int) $this->auditLogRepository->count([]);
+		$total = (int) $this->auditLogRepository->count(['parent' => null]);
 
 		$items = array_map(
-			static fn (AuditLogEntry $entry): AuditLogResource => AuditLogResource::fromEntity($entry),
+			static fn (AuditLogEntry $entry): AuditLogResource => AuditLogResource::fromEntity($entry, true),
 			$results,
 		);
 

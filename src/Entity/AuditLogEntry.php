@@ -2,6 +2,8 @@
 
 namespace iikiti\CMS\Entity;
 
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\Object\User;
@@ -36,6 +38,11 @@ class AuditLogEntry
 		'removed_plugin',
 		'updated_configuration',
 		'audit_purged',
+		'logged_in',
+		'logged_out',
+		'created_api_token',
+		'deleted_api_token',
+		'property_deleted',
 	];
 
 	/** @var list<string> */
@@ -89,9 +96,70 @@ class AuditLogEntry
 	#[ORM\Column(name: 'request_uri', type: Types::TEXT, nullable: true)]
 	private ?string $requestUri = null;
 
+	/** Human-readable one-line description; top-level events only. */
+	#[ORM\Column(type: Types::TEXT, nullable: true)]
+	private ?string $summary = null;
+
+	/** Username captured at log time so the initiator stays identifiable after deletion. */
+	#[ORM\Column(name: 'username_snapshot', type: Types::STRING, length: 180, nullable: true)]
+	private ?string $usernameSnapshot = null;
+
+	/** Parent event for technical sub-events; null for top-level events. */
+	#[ORM\ManyToOne(targetEntity: self::class, inversedBy: 'subEvents')]
+	#[ORM\JoinColumn(name: 'parent_id', referencedColumnName: 'id', nullable: true, onDelete: 'CASCADE')]
+	private ?self $parent = null;
+
+	/** @var Collection<int,AuditLogEntry> */
+	#[ORM\OneToMany(targetEntity: self::class, mappedBy: 'parent')]
+	#[ORM\OrderBy(['id' => 'ASC'])]
+	private Collection $subEvents;
+
 	public function __construct()
 	{
 		$this->createdAt = new \DateTimeImmutable();
+		$this->subEvents = new ArrayCollection();
+	}
+
+	public function getSummary(): ?string
+	{
+		return $this->summary;
+	}
+
+	public function setSummary(?string $summary): static
+	{
+		$this->summary = $summary;
+
+		return $this;
+	}
+
+	public function getUsernameSnapshot(): ?string
+	{
+		return $this->usernameSnapshot;
+	}
+
+	public function setUsernameSnapshot(?string $usernameSnapshot): static
+	{
+		$this->usernameSnapshot = $usernameSnapshot;
+
+		return $this;
+	}
+
+	public function getParent(): ?self
+	{
+		return $this->parent;
+	}
+
+	public function setParent(?self $parent): static
+	{
+		$this->parent = $parent;
+
+		return $this;
+	}
+
+	/** @return Collection<int,AuditLogEntry> */
+	public function getSubEvents(): Collection
+	{
+		return $this->subEvents;
 	}
 
 	public function getId(): int|string|null

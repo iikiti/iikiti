@@ -4,6 +4,7 @@ namespace iikiti\CMS\Security;
 
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\Object\ApiToken;
+use iikiti\CMS\Audit\AuditRecorder;
 use iikiti\CMS\Entity\Object\User;
 
 /**
@@ -19,6 +20,7 @@ class ApiTokenManager
 
 	public function __construct(
 		private readonly EntityManagerInterface $entityManager,
+		private readonly AuditRecorder $recorder,
 	) {
 	}
 
@@ -32,9 +34,20 @@ class ApiTokenManager
 			return $existing;
 		}
 
+		$username = $user->getUserIdentifier();
+
 		if (null !== $existing) {
 			$this->entityManager->remove($existing);
 			$this->entityManager->flush();
+			$this->recorder->record(
+				sprintf('Deleted expired API token for %s', $username),
+				'deleted_api_token',
+				'ApiToken',
+				$existing->getId(),
+				null,
+				null,
+				['userId' => $user->getId()],
+			);
 		}
 
 		$token = new ApiToken();
@@ -44,6 +57,16 @@ class ApiTokenManager
 
 		$this->entityManager->persist($token);
 		$this->entityManager->flush();
+
+		$this->recorder->record(
+			sprintf('Created API token for %s', $username),
+			'created_api_token',
+			'ApiToken',
+			$token->getId(),
+			null,
+			null,
+			['userId' => $user->getId(), 'expiresAt' => $token->getExpiresAt()?->format(\DATE_ATOM)],
+		);
 
 		return $token;
 	}

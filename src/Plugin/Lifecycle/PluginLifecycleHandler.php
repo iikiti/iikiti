@@ -17,7 +17,51 @@ class PluginLifecycleHandler
 	public function __construct(
 		private readonly EventDispatcherInterface $eventDispatcher,
 		private readonly ?LoggerInterface $logger = null,
+		private readonly ?PluginAuditRecorder $auditRecorder = null,
 	) {
+	}
+
+	/**
+	 * Records the lifecycle transition itself so installs, updates and removals
+	 * appear in the audit log attributed to the plugin.
+	 */
+	private function auditLifecycle(string $eventName, PluginContext $context, ?string $fromVersion): void
+	{
+		if (null === $this->auditRecorder) {
+			return;
+		}
+
+		$summary = match ($eventName) {
+			PluginEvents::INSTALL => sprintf('Installed plugin %s %s', $context->slug, $context->version),
+			PluginEvents::ACTIVATE => sprintf('Enabled plugin %s', $context->slug),
+			PluginEvents::DEACTIVATE => sprintf('Disabled plugin %s', $context->slug),
+			PluginEvents::UPDATE => sprintf('Updated plugin %s from %s to %s', $context->slug, $fromVersion ?? '?', $context->version),
+			PluginEvents::UNINSTALL => sprintf('Removed plugin %s', $context->slug),
+			default => sprintf('Plugin %s event %s', $context->slug, $eventName),
+		};
+
+		$this->auditRecorder->record(
+			$context,
+			$summary,
+			$this->actionFor($eventName),
+			'Plugin',
+			null,
+			null,
+			null,
+			['event' => $eventName, 'fromVersion' => $fromVersion],
+		);
+	}
+
+	private function actionFor(string $eventName): string
+	{
+		return match ($eventName) {
+			PluginEvents::INSTALL => 'installed_plugin',
+			PluginEvents::ACTIVATE => 'enabled_plugin',
+			PluginEvents::DEACTIVATE => 'disabled_plugin',
+			PluginEvents::UPDATE => 'updated_configuration',
+			PluginEvents::UNINSTALL => 'removed_plugin',
+			default => 'updated_configuration',
+		};
 	}
 
 	public function install(PluginContext $context, ?object $hookTarget = null): void
@@ -53,6 +97,7 @@ class PluginLifecycleHandler
 		?string $fromVersion = null,
 	): void {
 		$this->eventDispatcher->dispatch(new PluginEvent($context, $eventName, $fromVersion), $eventName);
+		$this->auditLifecycle($eventName, $context, $fromVersion);
 
 		if (null === $hookTarget || !method_exists($hookTarget, $hookMethod)) {
 			return;

@@ -8,6 +8,7 @@ use Doctrine\ORM\Events;
 use Doctrine\ORM\UnitOfWork;
 use iikiti\CMS\Entity\AuditLogEntry;
 use iikiti\CMS\Entity\DbObject;
+use iikiti\CMS\Entity\ObjectProperty;
 
 /**
  * Automatically logs entity lifecycle changes to the audit log.
@@ -55,15 +56,17 @@ class AuditSubscriber
 				continue;
 			}
 
+			$type = $this->getShortType($entity);
 			$this->auditLogger->log(
 				'created',
-				$this->getShortType($entity),
+				$type,
 				$entity instanceof DbObject ? $entity->getId() : null,
 				null,
 				$this->extractState($entity),
 				'user',
 				['source' => 'doctrine_listener'],
 				false,
+				sprintf('Created %s%s', $type, $this->idSuffix($entity)),
 			);
 		}
 	}
@@ -79,15 +82,17 @@ class AuditSubscriber
 			$beforeState = $this->extractOldState($entity, $changeSet);
 			$afterState = $this->extractNewState($entity, $changeSet);
 
+			$type = $this->getShortType($entity);
 			$this->auditLogger->log(
 				'updated',
-				$this->getShortType($entity),
+				$type,
 				$entity instanceof DbObject ? $entity->getId() : null,
 				$beforeState,
 				$afterState,
 				'user',
 				['source' => 'doctrine_listener', 'changes' => $this->flattenChangeSet($changeSet)],
 				false,
+				sprintf('Updated %s%s', $type, $this->idSuffix($entity)),
 			);
 		}
 	}
@@ -99,17 +104,47 @@ class AuditSubscriber
 				continue;
 			}
 
+			$type = $this->getShortType($entity);
 			$this->auditLogger->log(
 				'deleted',
-				$this->getShortType($entity),
+				$type,
 				$entity instanceof DbObject ? $entity->getId() : null,
 				$this->extractState($entity),
 				null,
 				'user',
 				['source' => 'doctrine_listener'],
 				false,
+				$this->describeDeletion($entity, $type),
 			);
 		}
+	}
+
+	/**
+	 * Builds a readable summary for a deletion. Properties get a specific
+	 * sentence naming the property; other entities use the type and id.
+	 */
+	private function describeDeletion(object $entity, string $type): string
+	{
+		if ($entity instanceof ObjectProperty) {
+			$name = $entity->getName() ?? 'unnamed';
+			$owner = $entity->getObject();
+			$ownerId = $owner instanceof DbObject ? $owner->getId() : '?';
+
+			return sprintf('Deleted property "%s" from object %s', $name, $ownerId);
+		}
+
+		$id = $entity instanceof DbObject ? $entity->getId() : null;
+
+		return null === $id
+			? sprintf('Deleted %s', $type)
+			: sprintf('Deleted %s %s', $type, $id);
+	}
+
+	private function idSuffix(object $entity): string
+	{
+		$id = $entity instanceof DbObject ? $entity->getId() : null;
+
+		return null === $id ? '' : ' '.$id;
 	}
 
 	private function getShortType(object $entity): string
@@ -124,6 +159,13 @@ class AuditSubscriber
 	 */
 	private function extractState(object $entity): ?array
 	{
+		if ($entity instanceof ObjectProperty) {
+			return [
+				'name' => $entity->getName(),
+				'value' => $entity->getValue(),
+			];
+		}
+
 		if (!$entity instanceof DbObject) {
 			return null;
 		}

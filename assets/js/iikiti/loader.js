@@ -80,6 +80,41 @@ export const loader = {
 	},
 };
 
+/**
+ * Resolves a load condition to a boolean.
+ *
+ * Accepts a boolean, a function returning a boolean (or a promise of one), or a
+ * string expression. String expressions are compiled with `new Function`, so
+ * they run as code: only pass developer-authored strings, never user input.
+ *
+ * @param {boolean|string|(() => boolean|Promise<boolean>)} condition
+ * @returns {Promise<boolean>}
+ */
+export async function resolveCondition(condition) {
+	if (typeof condition === 'boolean') return condition;
+	if (typeof condition === 'function') return Boolean(await condition());
+	if (typeof condition === 'string') {
+		const evaluate = new Function(`return (${condition});`);
+		return Boolean(await evaluate());
+	}
+	throw new TypeError('loadIf condition must be a boolean, function or expression string');
+}
+
+/**
+ * Loads a library only when the condition is true. A false condition resolves
+ * without touching the DOM, so the library is never fetched.
+ *
+ * @param {string} nameOrUrl
+ * @param {boolean|string|(() => boolean|Promise<boolean>)} condition
+ * @param {object} [opts]
+ * @returns {Promise<boolean>} true if the library was loaded
+ */
+export async function loadIf(nameOrUrl, condition, opts = {}) {
+	if (!(await resolveCondition(condition))) return false;
+	await loadWithStrategy(nameOrUrl, opts);
+	return true;
+}
+
 export function onInteraction() {
 	return new Promise((resolve) => {
 		const handler = () => {

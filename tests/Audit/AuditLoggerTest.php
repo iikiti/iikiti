@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace iikiti\CMS\Tests\Audit;
 
 use Doctrine\ORM\EntityManagerInterface;
+use iikiti\CMS\Audit\AuditContext;
 use iikiti\CMS\Audit\AuditLogger;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -20,6 +21,7 @@ final class AuditLoggerTest extends TestCase
 	private EntityManagerInterface&MockObject $entityManager;
 	private TokenStorageInterface $tokenStorage;
 	private RequestStack $requestStack;
+	private \Psr\Log\LoggerInterface $logger;
 
 	protected function setUp(): void
 	{
@@ -27,6 +29,7 @@ final class AuditLoggerTest extends TestCase
 		$this->tokenStorage = $this->createStub(TokenStorageInterface::class);
 		$this->tokenStorage->method('getToken')->willReturn(null);
 		$this->requestStack = new RequestStack();
+		$this->logger = $this->createStub(\Psr\Log\LoggerInterface::class);
 	}
 
 	public function testLogWithoutFlushDoesNotCallFlush(): void
@@ -38,6 +41,8 @@ final class AuditLoggerTest extends TestCase
 			$this->entityManager,
 			$this->tokenStorage,
 			$this->requestStack,
+			new AuditContext(),
+			$this->logger,
 			'dev',
 		);
 
@@ -53,6 +58,8 @@ final class AuditLoggerTest extends TestCase
 			$this->entityManager,
 			$this->tokenStorage,
 			$this->requestStack,
+			new AuditContext(),
+			$this->logger,
 			'dev',
 		);
 
@@ -68,6 +75,8 @@ final class AuditLoggerTest extends TestCase
 			$this->entityManager,
 			$this->tokenStorage,
 			$this->requestStack,
+			new AuditContext(),
+			$this->logger,
 			'dev',
 		);
 
@@ -87,6 +96,8 @@ final class AuditLoggerTest extends TestCase
 			$this->entityManager,
 			$this->tokenStorage,
 			$this->requestStack,
+			new AuditContext(),
+			$this->logger,
 			'test',
 		);
 

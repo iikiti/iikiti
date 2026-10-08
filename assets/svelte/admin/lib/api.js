@@ -189,6 +189,10 @@ export class ApiClient {
 		return this.parsePaged(data);
 	}
 
+	async getAuditLog(id) {
+		return this.request(`/admin/audit-logs/${id}`);
+	}
+
 	async getApplications(params) {
 		const query = new URLSearchParams(params || {}).toString();
 		const path = query ? `/applications?${query}` : '/applications';

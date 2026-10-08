@@ -93,3 +93,41 @@ Parameters are defined in `config/packages/plugins.yaml`.
 |--------|----------|-------------|
 | GET | `/api/v1/plugins/{slug}/{version}/download` | Package metadata, checksum, signature and state |
 | GET | `/api/v1/plugins/{slug}/updates?current={v}` | Latest version, if any |
+
+## Audit recording (`AuditRecorder`)
+
+Plugins must record changes through `iikiti\CMS\Audit\AuditRecorder`, never by
+writing `AuditLogEntry` rows directly. Every recorded change requires a
+human-readable summary; an empty summary throws `\InvalidArgumentException`.
+
+```php
+use iikiti\CMS\Audit\AuditRecorder;
+
+final class Importer
+{
+    public function __construct(private readonly AuditRecorder $recorder) {}
+
+    public function import(Page $page): void
+    {
+        // ... persist changes ...
+        $this->recorder->record(
+            summary: sprintf('Imported page "%s"', $page->getName()),
+            action: 'created',
+            objectType: 'Page',
+            objectId: $page->getId(),
+            details: ['source' => 'csv-import'],
+        );
+    }
+}
+```
+
+- `record()` inside an open event becomes a sub-event; outside one it is its own
+  top-level entry.
+- `openEvent()` / `closeEvent()` group several changes under one top-level entry
+  (for example a login). The event is stored only if it has at least one
+  sub-event.
+- Actions must be one of `AuditLogEntry::ACTIONS`.
+
+The request or command as a whole is recorded automatically as a top-level
+event by `AuditRequestListener`, so plugin changes made during a web request
+appear grouped under that request.

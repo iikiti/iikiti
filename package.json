@@ -38,6 +38,7 @@
         "defaults"
     ],
     "dependencies": {
+        "@js-temporal/polyfill": "^0.5.1",
         "@lucide/svelte": "^1.52.0",
         "baseline-browser-mapping": "^2.11.27",
         "caniuse-lite": "^1.0.30001815"

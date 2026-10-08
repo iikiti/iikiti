@@ -184,16 +184,9 @@ class CoreAdminExtension implements AdminExtensionInterface
 					['key' => 'name', 'label' => 'Name'],
 				],
 			]),
-			new AdminScreen(path: '/audit-log', title: 'Audit Log', type: 'list', apiPath: '/admin/audit-logs', config: [
-				'columns' => [
-					['key' => 'id', 'label' => 'ID'],
-					['key' => 'action', 'label' => 'Action'],
-					['key' => 'objectType', 'label' => 'Object Type'],
-					['key' => 'objectId', 'label' => 'Object ID'],
-					['key' => 'userId', 'label' => 'User ID'],
-					['key' => 'createdAt', 'label' => 'Timestamp'],
-				],
-			]),
+			// Custom component: the list shows human summaries and the detail view
+			// is addressed by #/audit-log?id=N, which the generic list cannot do.
+			new AdminScreen(path: '/audit-log', title: 'Audit Log', type: 'custom', apiPath: '/admin/audit-logs', component: 'AuditLog'),
 		];
 	}
 }

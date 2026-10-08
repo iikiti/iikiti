@@ -22,7 +22,13 @@ Encore
         {
             from: './assets/images',
             to: 'images/[path][name].[ext]',
-        }
+        },
+        {
+            // Temporal polyfill, loaded on demand by temporal.js only when the
+            // browser has no native Temporal.
+            from: './node_modules/@js-temporal/polyfill/dist/',
+            to: 'vendor/temporal-polyfill/[name].[ext]',
+        },
     ])
 
     /*

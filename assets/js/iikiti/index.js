@@ -1,4 +1,4 @@
-import { loader, loadWithStrategy, onInteraction } from './loader.js';
+import { loader, loadWithStrategy, loadIf, onInteraction } from './loader.js';
 import { domReady, onLoad } from './domready.js';
 import { notifications, settings as notificationSettings } from './notifications.js';
 import { pluginRegistry, startPlugins } from './plugins.js';
@@ -22,6 +22,7 @@ if (!window.iikiti) {
     config,
     loader: {
       loadScript: (name, opts) => loadWithStrategy(name, opts),
+      loadIf: (name, condition, opts) => loadIf(name, condition, opts),
       loadStyle: (url) => loader.loadStyle(url),
       registerLibrary: (name, spec) => loader.registerLibrary(name, spec),
     },

@@ -185,6 +185,8 @@
 			}} />
 		{:else if CurrentComponent === GenericFormPage || CurrentComponent === GenericDetailPage}
 			<CurrentComponent {api} {debug} screen={currentScreen} id={currentId} />
+		{:else if CurrentComponent === AuditLogRoute}
+			<CurrentComponent {api} {debug} {currentPath} id={currentId} />
 		{:else}
 			<CurrentComponent {api} {debug} />
 		{/if}

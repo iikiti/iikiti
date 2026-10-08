@@ -86,7 +86,7 @@ Production environments only store the `environment` field for performance.
 ## Audit Log Viewer
 
 Access the audit log viewer from the admin UI at **Audit Log** in the sidebar,
-or via the API:
+or via the API. The list returns top-level events; each carries its `subEvents`:
 
 ```
 GET /api/admin/audit-logs
@@ -147,3 +147,35 @@ Response:
 Currently, audit log entries are retained indefinitely. A future enhancement
 will add configurable retention policies via the `iikiti:admin:audit:cleanup`
 command (to be implemented by plugins).
+
+## Event Model (human summaries and sub-events)
+
+The log is organised into **top-level events** and their **sub-events**:
+
+- A top-level event is one human-readable action, for example
+  "jimbo2150@gmail.com logged in from 10.0.0.5" or "Created API token for jimbo2150@gmail.com".
+- Sub-events are the technical steps that made up that event (entity
+  created/updated/deleted, token created/deleted, property deleted).
+- Each request or CLI command opens one top-level event (`AuditRequestListener`).
+  It is stored only if at least one change was recorded, so read-only requests
+  leave no rows.
+- Login and logout open their own top-level events (`SecurityAuditSubscriber`).
+  API token creation during login is attached to the login event.
+- The initiating user is stored as `user_id` plus a `username_snapshot`. The
+  viewer resolves the live username first and falls back to the snapshot if the
+  user has since been deleted.
+
+Columns added: `parent_id` (self-reference, `NULL` for top-level events),
+`summary`, `username_snapshot`. Migration `Version20261008130000`.
+
+### Recording from code
+
+Use `AuditRecorder` (see `docs/plugin-api.md`). Entries without a summary fall
+back to a generated description; the list shows those with the action and object
+type.
+
+### Viewer
+
+The Audit Log screen lists top-level events. Clicking a row opens the detail
+dialog with the initiating user (name and id), the time, the action and object,
+and every sub-event step.

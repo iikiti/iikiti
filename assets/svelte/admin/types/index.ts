@@ -26,6 +26,9 @@
  * @typedef {Object} AuditLogResource
  * @property {number} id
  * @property {number|null} userId
+ * @property {string|null} username
+ * @property {string|null} summary
+ * @property {number|null} parentId
  * @property {string} actorType
  * @property {string} action
  * @property {string} objectType
@@ -36,6 +39,7 @@
  * @property {string|null} ipAddress
  * @property {string|null} requestUri
  * @property {string} createdAt
+ * @property {AuditLogResource[]} subEvents
  */
 
 /**

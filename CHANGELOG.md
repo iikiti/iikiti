@@ -18,6 +18,14 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-10-08: `DateTime` admin component and `formatDateTime()` (`assets/js/iikiti/time/temporal.js`) show ISO instants in the user's time zone with a definer-chosen `kind` (`date`/`time`/`datetime`) and `style`; `@js-temporal/polyfill` is loaded on demand only when native `Temporal` is missing.
+- 2026-10-08: `iikiti.loader.loadIf(name, condition, opts)` loads a library only when the condition is true; the condition may be a boolean, a function (sync or async), or an expression string (evaluated as code, developer-supplied only).
+- 2026-10-08: `PluginAuditRecorder` and `PluginEvent::recordChange()` so plugin lifecycle listeners attribute audit changes to the plugin slug and version; plugin install/enable/disable/update/remove transitions are recorded automatically (`PluginLifecycleHandler`).
+- 2026-10-08: Audit log now records human-readable top-level events (`summary`) with technical sub-events (`parent_id`); one event per request or CLI command, stored only when it changed something (`AuditContext`, `AuditRequestListener`, migration `Version20261008130000`).
+- 2026-10-08: `AuditRecorder` public API for plugins and core code; every recorded change requires a non-empty summary (`docs/plugin-api.md`).
+- 2026-10-08: Login and logout are audited as their own top-level events; API token creation during login is a sub-event (`SecurityAuditSubscriber`).
+- 2026-10-08: Audit entries store the initiator's `username_snapshot`; the viewer resolves the live username and falls back to the snapshot.
+- 2026-10-08: Audit Log admin screen rows show the human summary and user; clicking a row opens a detail dialog with the initiator (id and username), time, action and all sub-event steps.
 - 2026-10-08: Session-authenticated shell endpoints `/admin/layouts/shells` (`LayoutController`,
   CSRF on writes) for the editor Layout dialog. The token-only `/api/admin/shells` stays for
   external management.
@@ -35,6 +43,12 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Fixed
 
+- 2026-10-08: Audit log no longer records plain navigation: GET/HEAD/OPTIONS requests open no event; state-changing requests and login/logout are unchanged.
+- 2026-10-08: Audit entry detail page has padding and renders the timestamp through `DateTime`.
+- 2026-10-08: Logout raised "A new entity was found through the relationship AuditLogEntry#parent": sub-events are now persisted only after their parent, and the parent is persisted first on close.
+- 2026-10-08: Login/logout recorded a generic `request` parent with the named event nested inside it; the named event now replaces the generic request event, keeping buffered changes.
+- 2026-10-08: Audit entries recorded without a summary log a warning naming the responsible caller and use a generated fallback; create/update entries from the Doctrine subscriber now carry real summaries.
+- 2026-10-08: Audit log entries were no longer written as `created`/`deleted` rows without context for ObjectProperty deletions; deletions now include the property name and value.
 - 2026-10-08: `Tooltip.svelte` renders its tip through a `document.body` portal so editor header tooltips no longer appear beneath the settings sidebar.
 - 2026-10-08: `Tooltip.svelte` accepts a `zIndex` prop (default `--iikiti-z-tooltip`) so the stacking order can be overridden per instance.
 - 2026-10-08: `FullTextSearch::postPersist` now accepts `(entity, args)` as Doctrine calls it; every
@@ -44,6 +58,8 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Changed
 
+- 2026-10-08: `AuditLogger` writes sub-events under the open request event; `AuditSubscriber` records ObjectProperty deletions with name/value and readable summaries.
+- 2026-10-08: `ApiTokenManager` records only real API token creation and expired-token removal as audit sub-events (not every page load).
 - 2026-10-08: Z-index standard: the `--iikiti-z-*` scale in `ui.css` is now banded (content 0-99, editor 100-499, shell 500-999, chrome 1000-1999, overlay 2000-4999; debug 9000+ reserved). Editor, shell, tour and admin components use tokens instead of raw integers, and `assets/js/iikiti/chrome/layers.js` exposes `layerValue()` for JS. The editor settings side panel moves from the chrome band to the editor-panel band.
 - 2026-10-08: Header, footer, sidebars and dialogs are now shells (`Template::getShells`)
   rendered per role only when a shell's display rules match (`ShellResolver`, reusing the

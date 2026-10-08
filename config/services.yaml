@@ -111,3 +111,11 @@ services:
         public: true
     iikiti\CMS\Audit\AuditLogger:
         public: true
+    iikiti\CMS\Audit\AuditRecorder:
+        public: true
+    iikiti\CMS\Audit\AuditContext:
+        public: true
+
+    iikiti\CMS\Audit\AuditRequestListener:
+        autowire: true
+        autoconfigure: true
