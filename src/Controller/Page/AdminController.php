@@ -24,15 +24,18 @@ class AdminController extends AppController
 	{
 		$user = $this->getUser();
 		$apiToken = null;
+		$timeZone = null;
 
 		if (null !== $user && $user instanceof \iikiti\CMS\Entity\Object\User) {
 			$apiToken = $apiTokenManager->getOrCreateToken($user)->getToken();
+			$timeZone = $user->getTimeZone()?->getId();
 		}
 
 		return $this->render('admin/layout.twig', [
 			'doc' => ['title' => 'Admin — iikiti'],
 			'api_token' => $apiToken ?? '',
 			'api_base' => '/api',
+			'time_zone' => $timeZone ?? '',
 			'debug' => $this->getParameter('kernel.debug') ? 'true' : 'false',
 		]);
 	}

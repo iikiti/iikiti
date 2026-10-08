@@ -62,6 +62,7 @@ final class FrontendConfigProvider
 			'room' => $this->roomChannel($contextType, $contextId),
 			'breakpoints' => ['sm' => 640, 'md' => 768, 'lg' => 1024, 'xl' => 1280],
 			'notifications' => $this->notifications($user),
+			'timezone' => $user->getTimeZone()?->getId(),
 			'plugins' => $this->pluginEditorUis(),
 		];
 	}

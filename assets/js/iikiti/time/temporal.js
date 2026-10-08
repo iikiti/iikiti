@@ -42,9 +42,37 @@ export function ensureTemporal() {
 	return readyPromise;
 }
 
-/** The user's IANA time zone, falling back to UTC. */
+/** @type {string|null} the user's saved zone, set once at bootstrap */
+let savedTimeZone = null;
+
+/**
+ * Sets the user's saved IANA zone (from the server). Pass null/'' to clear it,
+ * so the browser zone is used. Invalid zones are ignored.
+ *
+ * @param {string|null|undefined} zone
+ */
+export function setSavedTimeZone(zone) {
+	if (!zone) {
+		savedTimeZone = null;
+		return;
+	}
+	try {
+		// Throws RangeError for unknown zones.
+		new Intl.DateTimeFormat(undefined, { timeZone: zone });
+		savedTimeZone = zone;
+	} catch {
+		savedTimeZone = null;
+	}
+}
+
+/**
+ * The zone used for display: the user's saved zone if set, otherwise the
+ * browser's zone, otherwise UTC.
+ *
+ * @returns {string}
+ */
 export function userTimeZone() {
-	return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+	return savedTimeZone ?? (Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
 }
 
 /**

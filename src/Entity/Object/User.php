@@ -10,6 +10,7 @@ use iikiti\CMS\Manager\UserRoleManager;
 use iikiti\CMS\Repository\Object\UserRepository;
 use iikiti\CMS\Trait\MfaPreferencesTrait;
 use iikiti\CMS\Trait\PreferentialTrait;
+use iikiti\CMS\Value\TimeZone;
 use Override;
 use Symfony\Component\Security\Core\Exception\UserNotFoundException;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
@@ -50,6 +51,34 @@ class User extends DbObject implements
      *
      * @return non-empty-string
      */
+	public const TIMEZONE_KEY = 'timezone';
+
+	/**
+	 * The user's saved time zone, or null to use the browser's zone. Stored as
+	 * the text IANA identifier; returned as a {@see TimeZone} wrapper.
+	 */
+	public function getTimeZone(): ?TimeZone
+	{
+		$stored = $this->getPreferences()->get(self::TIMEZONE_KEY);
+
+		return is_string($stored) ? TimeZone::fromNullableString($stored) : null;
+	}
+
+	/**
+	 * Saves a time zone, given as a {@see TimeZone} or a text IANA
+	 * identifier. Null clears it.
+	 *
+	 * @throws \InvalidArgumentException when a string is not a known IANA zone
+	 */
+	public function setTimeZone(TimeZone|string|null $timeZone): void
+	{
+		$zone = is_string($timeZone) ? TimeZone::fromNullableString($timeZone) : $timeZone;
+
+		$prefs = $this->getPreferences();
+		$prefs->set(self::TIMEZONE_KEY, $zone?->getId());
+		$this->setPreferences($prefs);
+	}
+
 	#[Override]
 	public function getUserIdentifier(): string
 	{

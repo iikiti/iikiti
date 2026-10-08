@@ -18,6 +18,8 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-10-08: `iikiti\CMS\Value\TimeZone` value object: validated IANA identifier that yields an `IntlTimeZone` when `intl` is loaded, otherwise a `DateTimeZone`. Stored as text; reusable for any zone, not only users.
+- 2026-10-08: Users can save an IANA time zone (`POST /api/user/timezone`, stored in preferences as `timezone`, validated by `User::setTimeZone()`). The admin bootstrap (`data-time-zone`) and front-end config (`timezone`) carry it, and `userTimeZone()` uses it before the browser's zone.
 - 2026-10-08: `DateTime` admin component and `formatDateTime()` (`assets/js/iikiti/time/temporal.js`) show ISO instants in the user's time zone with a definer-chosen `kind` (`date`/`time`/`datetime`) and `style`; `@js-temporal/polyfill` is loaded on demand only when native `Temporal` is missing.
 - 2026-10-08: `iikiti.loader.loadIf(name, condition, opts)` loads a library only when the condition is true; the condition may be a boolean, a function (sync or async), or an expression string (evaluated as code, developer-supplied only).
 - 2026-10-08: `PluginAuditRecorder` and `PluginEvent::recordChange()` so plugin lifecycle listeners attribute audit changes to the plugin slug and version; plugin install/enable/disable/update/remove transitions are recorded automatically (`PluginLifecycleHandler`).
