@@ -5,11 +5,9 @@
  * polyfill is fetched once, on demand, through the iikiti loader. Consumers
  * await {@link ensureTemporal} before touching `Temporal`.
  */
-import { loader } from '../loader.js';
+import { loadIf } from '../loader.js';
 
 export const TEMPORAL_POLYFILL_URL = '/build/vendor/temporal-polyfill/index.umd.js';
-
-let readyPromise = null;
 
 /** @returns {boolean} */
 export function hasNativeTemporal() {
@@ -20,26 +18,20 @@ export function hasNativeTemporal() {
  * Resolves once `globalThis.Temporal` is available. Loads the polyfill only
  * when native support is missing.
  *
+ * The UMD build publishes its namespace as `globalThis.temporal` and does not
+ * define `globalThis.Temporal`, so the reference is read from the namespace.
+ *
  * @returns {Promise<typeof Temporal>}
  */
 export function ensureTemporal() {
-	if (hasNativeTemporal()) return Promise.resolve(globalThis.Temporal);
-
-	if (!readyPromise) {
-		readyPromise = (async () => {
-			await loader.loadScript(TEMPORAL_POLYFILL_URL, { strategy: 'complete' });
-			// The UMD build publishes its namespace as `globalThis.temporal` and does
-			// not define `globalThis.Temporal`, so install the global from it here.
-			const namespace = globalThis.temporal;
-			if (!namespace?.Temporal) {
-				throw new Error('Temporal polyfill loaded but its namespace is unavailable');
-			}
-			globalThis.Temporal = namespace.Temporal;
-			return globalThis.Temporal;
-		})();
-	}
-
-	return readyPromise;
+	return loadIf(() => globalThis.Temporal, {
+		url: TEMPORAL_POLYFILL_URL,
+		read: () => {
+			const temporal = globalThis.temporal?.Temporal;
+			if (temporal) globalThis.Temporal = temporal;
+			return temporal;
+		},
+	});
 }
 
 /** @type {string|null} the user's saved zone, set once at bootstrap */

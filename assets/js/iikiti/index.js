@@ -26,7 +26,7 @@ if (!window.iikiti) {
     config,
     loader: {
       loadScript: (name, opts) => loadWithStrategy(name, opts),
-      loadIf: (name, condition, opts) => loadIf(name, condition, opts),
+      loadIf: (probe, polyfill) => loadIf(probe, polyfill),
       loadStyle: (url) => loader.loadStyle(url),
       registerLibrary: (name, spec) => loader.registerLibrary(name, spec),
     },

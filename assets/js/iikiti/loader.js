@@ -80,39 +80,53 @@ export const loader = {
 	},
 };
 
-/**
- * Resolves a load condition to a boolean.
- *
- * Accepts a boolean, a function returning a boolean (or a promise of one), or a
- * string expression. String expressions are compiled with `new Function`, so
- * they run as code: only pass developer-authored strings, never user input.
- *
- * @param {boolean|string|(() => boolean|Promise<boolean>)} condition
- * @returns {Promise<boolean>}
- */
-export async function resolveCondition(condition) {
-	if (typeof condition === 'boolean') return condition;
-	if (typeof condition === 'function') return Boolean(await condition());
-	if (typeof condition === 'string') {
-		const evaluate = new Function(`return (${condition});`);
-		return Boolean(await evaluate());
-	}
-	throw new TypeError('loadIf condition must be a boolean, function or expression string');
-}
+/** @type {Map<string, Promise<unknown>>} in-flight/settled polyfill loads keyed by URL */
+const polyfillLoads = new Map();
 
 /**
- * Loads a library only when the condition is true. A false condition resolves
- * without touching the DOM, so the library is never fetched.
+ * Resolves to a native value when the browser provides it, otherwise loads a
+ * polyfill and resolves to its reference.
  *
- * @param {string} nameOrUrl
- * @param {boolean|string|(() => boolean|Promise<boolean>)} condition
- * @param {object} [opts]
- * @returns {Promise<boolean>} true if the library was loaded
+ * `probe` returns the native class/function/value, or `undefined` when native
+ * support is missing. A present native value (any value other than `undefined`,
+ * including falsy ones) is returned without touching the DOM. Otherwise the
+ * polyfill script is loaded once and `polyfill.read()` supplies the reference.
+ *
+ * @template T
+ * @param {() => T | undefined} probe
+ * @param {{ url: string, read: () => T | undefined, strategy?: 'async'|'defer'|'complete'|'interaction' }} polyfill
+ * @returns {Promise<T>}
  */
-export async function loadIf(nameOrUrl, condition, opts = {}) {
-	if (!(await resolveCondition(condition))) return false;
-	await loadWithStrategy(nameOrUrl, opts);
-	return true;
+export async function loadIf(probe, polyfill) {
+	if (typeof probe !== 'function') {
+		throw new TypeError('loadIf probe must be a function returning the native value or undefined');
+	}
+
+	const native = probe();
+	if (native !== undefined) return native;
+
+	if (!polyfillLoads.has(polyfill.url)) {
+		const load = (async () => {
+			await loadWithStrategy(polyfill.url, { strategy: polyfill.strategy ?? 'complete' });
+			const reference = polyfill.read();
+			if (reference === undefined) {
+				throw new Error(`Polyfill loaded but its reference is unavailable: ${polyfill.url}`);
+			}
+			return reference;
+		})();
+		// A failed load must be retried by the next caller, not cached forever.
+		load.catch(() => polyfillLoads.delete(polyfill.url));
+		polyfillLoads.set(polyfill.url, load);
+	}
+
+	return polyfillLoads.get(polyfill.url);
+}
+
+/** Test-only: clears cached polyfill loads and the script registry. */
+export function __resetLoaderCacheForTests() {
+	polyfillLoads.clear();
+	loaded.clear();
+	pending.clear();
 }
 
 export function onInteraction() {

@@ -21,7 +21,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 - 2026-10-08: `iikiti\CMS\Value\TimeZone` value object: validated IANA identifier that yields an `IntlTimeZone` when `intl` is loaded, otherwise a `DateTimeZone`. Stored as text; reusable for any zone, not only users.
 - 2026-10-08: Users can save an IANA time zone (`POST /api/user/timezone`, stored in preferences as `timezone`, validated by `User::setTimeZone()`). The admin bootstrap (`data-time-zone`) and front-end config (`timezone`) carry it, and `userTimeZone()` uses it before the browser's zone.
 - 2026-10-08: `DateTime` admin component and `formatDateTime()` (`assets/js/iikiti/time/temporal.js`) show ISO instants in the user's time zone with a definer-chosen `kind` (`date`/`time`/`datetime`) and `style`; `@js-temporal/polyfill` is loaded on demand only when native `Temporal` is missing.
-- 2026-10-08: `iikiti.loader.loadIf(name, condition, opts)` loads a library only when the condition is true; the condition may be a boolean, a function (sync or async), or an expression string (evaluated as code, developer-supplied only).
+- 2026-10-08: `iikiti.loader.loadIf(probe, { url, read, strategy? })` resolves to the native value when `probe()` returns one, otherwise loads the polyfill once and resolves to `read()`; concurrent callers share one load.
 - 2026-10-08: `PluginAuditRecorder` and `PluginEvent::recordChange()` so plugin lifecycle listeners attribute audit changes to the plugin slug and version; plugin install/enable/disable/update/remove transitions are recorded automatically (`PluginLifecycleHandler`).
 - 2026-10-08: Audit log now records human-readable top-level events (`summary`) with technical sub-events (`parent_id`); one event per request or CLI command, stored only when it changed something (`AuditContext`, `AuditRequestListener`, migration `Version20261008130000`).
 - 2026-10-08: `AuditRecorder` public API for plugins and core code; every recorded change requires a non-empty summary (`docs/plugin-api.md`).
@@ -60,6 +60,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Changed
 
+- 2026-10-08: `loadIf` now takes a probe and polyfill spec and resolves to the value (native or polyfill reference) instead of a boolean; the boolean/expression-string condition form and `resolveCondition` are removed. `ensureTemporal()` uses it.
 - 2026-10-08: Shared Svelte components, lib and types moved from `assets/svelte/admin/` to `assets/svelte/shared/` (`components`, `lib`, `types`) so the admin, editor and front-end use one set; aliases `$components`, `$lib`, `$types`, `$iikiti` and `@iikiti/ui` (formerly `@iikiti/admin`, kept as an alias) point there. `$routes` stays admin-only.
 - 2026-10-08: `AuditLogger` writes sub-events under the open request event; `AuditSubscriber` records ObjectProperty deletions with name/value and readable summaries.
 - 2026-10-08: `ApiTokenManager` records only real API token creation and expired-token removal as audit sub-events (not every page load).
