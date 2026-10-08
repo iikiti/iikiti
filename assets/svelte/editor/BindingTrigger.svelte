@@ -168,8 +168,8 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		width: 18px;
-		height: 18px;
+		width: 28px;
+		height: 28px;
 		padding: 0;
 		border: none;
 		border-radius: 4px;
@@ -197,13 +197,13 @@
 		justify-content: space-between;
 		gap: 6px;
 		padding: 2px 4px 6px;
-		font-size: 12px;
+		font-size: 1rem;
 		font-weight: 600;
 	}
 	.iikiti-binding-picker__unbind {
 		border: none;
 		background: transparent;
-		font-size: 11px;
+		font-size: 1rem;
 		color: var(--ik-danger, #b91c1c);
 		cursor: pointer;
 		padding: 2px 4px;
@@ -214,7 +214,7 @@
 	}
 	.iikiti-binding-picker__empty {
 		margin: 2px 4px;
-		font-size: 12px;
+		font-size: 1rem;
 		color: var(--ik-panel-text-muted, #6b7280);
 	}
 	.iikiti-binding-picker__group {
@@ -223,7 +223,7 @@
 		gap: 1px;
 	}
 	.iikiti-binding-picker__label {
-		font-size: 10px;
+		font-size: 1rem;
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
@@ -237,7 +237,7 @@
 		gap: 6px;
 		padding: 4px 6px;
 		font: inherit;
-		font-size: 12.5px;
+		font-size: 1rem;
 		text-align: left;
 		border: none;
 		border-radius: 4px;
@@ -259,7 +259,7 @@
 		text-overflow: ellipsis;
 	}
 	.iikiti-binding-picker__spec {
-		font-size: 10.5px;
+		font-size: 1rem;
 		color: var(--ik-panel-text-muted, #6b7280);
 	}
 </style>

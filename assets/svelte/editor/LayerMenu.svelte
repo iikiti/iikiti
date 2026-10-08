@@ -104,7 +104,7 @@
 		justify-content: space-between;
 		gap: 8px;
 		padding: 6px 8px;
-		font-size: 11px;
+		font-size: 1rem;
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
@@ -141,7 +141,7 @@
 		border-radius: 6px;
 		background: transparent;
 		color: var(--ik-panel-text, #111827);
-		font-size: 12.5px;
+		font-size: 1rem;
 		text-align: left;
 		cursor: pointer;
 		transition: background-color 0.1s ease;
@@ -161,8 +161,8 @@
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
-		width: 20px;
-		height: 20px;
+		width: 28px;
+		height: 28px;
 		border-radius: 4px;
 		background: color-mix(in srgb, var(--ik-panel-text, #111827) 9%, transparent);
 		color: var(--ik-panel-text-muted, #6b7280);

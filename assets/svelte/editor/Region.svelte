@@ -136,11 +136,11 @@
 		pointer-events: auto;
 	}
 	.iikiti-region-controls .iikiti-btn--add {
-		width: 24px;
-		height: 24px;
+		width: 36px;
+		height: 36px;
 		padding: 0;
-		min-width: 24px;
-		font-size: 14px;
+		min-width: 36px;
+		font-size: 1rem;
 		border-radius: 50%;
 	}
 	.iikiti-region-locked {
@@ -164,7 +164,7 @@
 		border-radius: 999px;
 		background: color-mix(in srgb, var(--ik-accent, #a6613c) 92%, transparent);
 		color: #fff;
-		font-size: 11px;
+		font-size: 1rem;
 		font-weight: 600;
 		opacity: 0;
 		transition: opacity 0.15s ease;

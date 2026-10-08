@@ -223,7 +223,7 @@
 		padding: 6px 8px;
 		min-height: 100%;
 		box-sizing: border-box;
-		font-size: 13px;
+		font-size: 1rem;
 		background: color-mix(in srgb, var(--ik-panel-bg, #ffffff) 94%, transparent);
 		backdrop-filter: blur(6px);
 		color: var(--ik-panel-text, #111827);
@@ -237,7 +237,7 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 8px;
-		height: 32px;
+		height: 36px;
 	}
 	.iikiti-settings__title {
 		font-weight: 600;
@@ -251,9 +251,9 @@
 		border-radius: 6px;
 		background: transparent;
 		color: var(--ik-panel-text-muted, #6b7280);
-		font-size: 12px;
+		font-size: 1rem;
 		font-weight: 500;
-		height: 32px;
+		height: 36px;
 		padding: 0 10px;
 		cursor: pointer;
 		text-transform: capitalize;
@@ -278,9 +278,9 @@
 		border: none;
 		background: transparent;
 		color: var(--ik-panel-text-muted, #6b7280);
-		font-size: 12px;
+		font-size: 1rem;
 		font-weight: 500;
-		height: 32px;
+		height: 36px;
 		padding: 0 10px;
 		border-radius: 6px;
 		cursor: pointer;
@@ -337,7 +337,7 @@
 	}
 	.iikiti-settings__group-title {
 		margin: 0 0 6px;
-		font-size: 11px;
+		font-size: 1rem;
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
@@ -352,7 +352,7 @@
 	.iikiti-settings__empty {
 		margin: 0;
 		color: var(--ik-panel-text-muted, #6b7280);
-		font-size: 12px;
+		font-size: 1rem;
 	}
 	.iikiti-settings__empty {
 		padding: 12px 4px;
@@ -374,7 +374,7 @@
 		gap: 2px;
 	}
 	.iikiti-settings__repeater-label {
-		font-size: 10px;
+		font-size: 1rem;
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
 		color: var(--ik-panel-text-muted, #6b7280);
@@ -384,8 +384,8 @@
 		border-radius: 6px;
 		background: transparent;
 		color: var(--ik-danger, #b91c1c);
-		width: 28px;
-		height: 28px;
+		width: 36px;
+		height: 36px;
 		cursor: pointer;
 		line-height: 1;
 	}

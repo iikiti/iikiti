@@ -152,15 +152,41 @@
 	function openAddChild(ev: MouseEvent) {
 		ev.stopPropagation();
 		ev.preventDefault();
+		openAddChildDialog();
+		menuAnchor = null;
+	}
+
+	/** Opens the Add block dialog appending a child to this block. */
+	function openAddChildDialog() {
 		openAddBlockDialog({
 			regionId,
 			parentId: node.id,
 			position: node.children?.length ?? 0,
 			allowedTypes: childTypes,
 		});
-		menuAnchor = null;
+	}
+
+	function openAddChildFromSlot(ev: MouseEvent) {
+		ev.stopPropagation();
+		ev.preventDefault();
+		openAddChildDialog();
 	}
 </script>
+
+{#snippet childSlot(compactSlot: boolean)}
+	<button
+		type="button"
+		class="iikiti-child-slot"
+		class:iikiti-child-slot--compact={compactSlot}
+		data-child-slot={node.id}
+		aria-label="Add child to {node.type}"
+		title="Add child"
+		onclick={openAddChildFromSlot}
+	>
+		<Icon name="plus" size={compactSlot ? 10 : 14} />
+		<span class="iikiti-child-slot__label">Add child</span>
+	</button>
+{/snippet}
 
 {#snippet preview()}
 	{#if node.type === 'text'}
@@ -170,7 +196,7 @@
 			this={'h' + headingLevel(node)}
 			class="iikiti-heading-preview"
 			data-block-children
-		>{node.content?.text ?? ''}{#each node.children ?? [] as child, i (child.id)}<BlockView node={child} {regionId} {readonly} parentId={node.id} index={i} compact />{/each}</svelte:element>
+		>{node.content?.text ?? ''}{#each node.children ?? [] as child, i (child.id)}<BlockView node={child} {regionId} {readonly} parentId={node.id} index={i} compact />{/each}{#if acceptsChildren && !readonly}{@render childSlot(true)}{/if}</svelte:element>
 	{:else if node.type === 'inline_text'}
 		{@const tag = String(node.content?.tag ?? 'plain')}
 		{#if tag !== 'plain' && INLINE_TAGS.includes(tag)}
@@ -185,6 +211,7 @@
 	{:else if node.type === 'container'}
 		<div class="iikiti-container" data-block-children>
 			{#each node.children ?? [] as child, i (child.id)}<BlockView node={child} {regionId} {readonly} parentId={node.id} index={i} />{/each}
+			{#if acceptsChildren && !readonly}{@render childSlot(false)}{/if}
 		</div>
 	{:else if node.type === 'video_embed'}
 		<iframe src={node.content?.url} title="Embedded content" class="iikiti-embed__iframe" allowfullscreen loading="lazy"></iframe>
@@ -198,6 +225,7 @@
 			{:else}
 				<em class="iikiti-query-preview__hint">Children repeat for every query result</em>
 			{/if}
+			{#if acceptsChildren && !readonly}{@render childSlot(false)}{/if}
 		</div>
 	{:else if node.type === 'dynamic'}
 		<em class="iikti-block--placeholder">Dynamic content region</em>
@@ -280,7 +308,7 @@
 	 * touch devices. `compact` shrinks them for inline children (headings). */
 	.iikiti-insert-btn {
 		position: absolute;
-		left: 0;
+		left: 50%;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
@@ -298,11 +326,32 @@
 		transition: opacity 0.15s ease, background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 		z-index: var(--iikiti-z-editor-controls);
 	}
-	.iikiti-insert-btn--before { top: 0; transform: translate(-50%, -50%); }
-	.iikiti-insert-btn--after { bottom: 0; transform: translate(-50%, 50%); }
+	/* Sit fully outside the block: "before" above the top edge, "after" below the
+	 * bottom edge, both centred on the block's horizontal midpoint. */
+	.iikiti-insert-btn--before { bottom: 100%; margin-bottom: 4px; transform: translateX(-50%); }
+	.iikiti-insert-btn--after { top: 100%; margin-top: 4px; transform: translateX(-50%); }
+	/* Invisible hit zones bridging the block and each outside button, so moving
+	 * the pointer toward a button does not drop the hover state. */
+	.iikiti-block-preview[data-block-node]::before,
+	.iikiti-block-preview[data-block-node]::after {
+		content: '';
+		position: absolute;
+		left: 0;
+		right: 0;
+		height: 40px;
+		pointer-events: none;
+	}
+	.iikiti-block-preview[data-block-node]::before { bottom: 100%; }
+	.iikiti-block-preview[data-block-node]::after { top: 100%; }
+	.iikiti-block-preview:hover::before,
+	.iikiti-block-preview:hover::after {
+		pointer-events: auto;
+	}
+
 	.iikiti-block-preview:hover .iikiti-insert-btn,
 	.iikiti-insert-btn:hover,
-	.iikiti-insert-btn:focus-visible {
+	.iikiti-insert-btn:focus-visible,
+	.iikiti-insert-btn:focus-within {
 		opacity: 1;
 		pointer-events: auto;
 	}
@@ -320,6 +369,48 @@
 		height: 15px;
 	}
 
+	/* ── Child slot ──
+	 * Dashed add block shown inside every child-accepting block, mirroring the
+	 * empty region call to action so an empty or populated container always
+	 * exposes "Add child" without the hidden context menu. */
+	.iikiti-child-slot {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+		width: 100%;
+		min-height: 3rem;
+		margin-top: 4px;
+		padding: 8px;
+		border: 2px dashed color-mix(in srgb, var(--ik-accent, #a6613c) 55%, transparent);
+		border-radius: var(--ik-radius, 8px);
+		background: transparent;
+		color: var(--ik-accent, #a6613c);
+		font-size: 1rem;
+		cursor: pointer;
+		transition: border-color 0.15s ease, background-color 0.15s ease;
+	}
+	.iikiti-child-slot:hover,
+	.iikiti-child-slot:focus-visible {
+		border-color: var(--ik-accent, #a6613c);
+		background: color-mix(in srgb, var(--ik-accent, #a6613c) 6%, transparent);
+	}
+	.iikiti-child-slot--compact {
+		display: inline-flex;
+		width: auto;
+		min-height: 0;
+		margin: 0 0 0 4px;
+		padding: 0 4px;
+		border-width: 1px;
+		vertical-align: middle;
+	}
+	.iikiti-child-slot__label {
+		font-weight: 600;
+	}
+	.iikiti-child-slot--compact .iikiti-child-slot__label {
+		display: none;
+	}
+
 	/* Query blocks render their children once in the canvas (per-result
 	 * repetition happens server-side); the hint states that. */
 	.iikiti-query-preview {
@@ -328,7 +419,7 @@
 		gap: 4px;
 	}
 	.iikiti-query-preview__hint {
-		font-size: 11px;
+		font-size: 1rem;
 		color: var(--ik-panel-text-muted, #6b7280);
 		font-style: italic;
 	}
@@ -352,11 +443,11 @@
 		opacity: 1;
 	}
 	.iikiti-btn--sm {
-		width: 20px;
-		height: 20px;
+		width: 36px;
+		height: 36px;
 		padding: 0 2px;
-		min-width: 20px;
-		font-size: 11px;
+		min-width: 36px;
+		font-size: 1rem;
 		border-radius: 3px;
 	}
 	.iikiti-block-menu {
@@ -371,7 +462,7 @@
 	}
 	.iikiti-block-menu__item {
 		padding: 4px 8px;
-		font-size: 13px;
+		font-size: 1rem;
 		text-align: left;
 		border: none;
 		background: transparent;

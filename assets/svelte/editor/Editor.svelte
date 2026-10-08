@@ -221,7 +221,7 @@
 		color: var(--ik-panel-text, #3a3830);
 		border-radius: 999px;
 		padding: 6px 12px;
-		font-size: 12.5px;
+		font-size: 1rem;
 		font-weight: 600;
 		cursor: pointer;
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);

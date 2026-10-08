@@ -185,10 +185,10 @@
 	.iikiti-layout__group header { display: flex; justify-content: space-between; align-items: center; }
 	.iikiti-layout__group ul { list-style: none; padding: 0; margin: 0.25rem 0 0; }
 	.iikiti-layout__group li { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.25rem; }
-	.iikiti-layout__empty { opacity: 0.7; font-size: 0.85rem; }
+	.iikiti-layout__empty { opacity: 0.7; font-size: 1rem; }
 	.iikiti-layout__form { display: grid; gap: 0.6rem; }
-	.iikiti-layout__form label { display: grid; gap: 0.25rem; font-size: 0.9rem; }
+	.iikiti-layout__form label { display: grid; gap: 0.25rem; font-size: 1rem; }
 	.iikiti-layout__actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
-	.iikiti-layout__error { color: #b42318; font-size: 0.9rem; }
-	.iikiti-layout__hint { font-size: 0.8rem; opacity: 0.75; }
+	.iikiti-layout__error { color: #b42318; font-size: 1rem; }
+	.iikiti-layout__hint { font-size: 1rem; opacity: 0.75; }
 </style>

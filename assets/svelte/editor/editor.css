@@ -10,8 +10,8 @@
 	position: absolute;
 	top: 4px;
 	left: 4px;
-	width: 28px;
-	height: 28px;
+	width: var(--iikiti-editor-control);
+	height: var(--iikiti-editor-control);
 	padding: 0;
 	border: none;
 	border-radius: 50%;
@@ -76,6 +76,81 @@ body.iikiti-editor-body [data-component="BlockEditorComponent"] {
 	background: var(--ik-accent, #2563eb);
 	border-color: transparent;
 	color: #ffffff;
+}
+
+/* ── Editor readability & touch targets ──
+ * Floor for editor UI text is 16px (1rem). Touch targets on mobile are at least
+ * 48px. Component-scoped rules set smaller sizes, so these overrides are scoped
+ * to the editor roots and use :where()/!important only where the component
+ * rule would otherwise win. Desktop controls are enlarged too, for ease of use. */
+:root {
+	--iikiti-editor-min-text: 1rem;
+	--iikiti-editor-control: 36px;
+	--iikiti-editor-touch-target: 48px;
+}
+
+/* Editor UI text floor: body text in every editor root is at least 1rem. */
+.iikiti-editor,
+[data-iikiti-bar-id="iikiti-editor-settings"],
+.iikiti-editor-toolbar,
+.iikiti-add-block,
+.iikiti-layout,
+.iikiti-binding-picker {
+	font-size: max(var(--iikiti-editor-min-text), 1em);
+}
+
+/* Text-bearing controls and labels inside the editor roots, raised to the floor.
+ * Toolbar, dialogs and sidebar set their own small sizes, so these are
+ * `max()` floors rather than fixed sizes. */
+:is(.iikiti-editor, .iikiti-editor-toolbar, .iikiti-add-block, .iikiti-layout,
+	.iikiti-binding-picker, [data-iikiti-bar-id="iikiti-editor-settings"])
+	:is(button, label, input, select, textarea, .iikiti-add-block__name,
+		.iikiti-layout__hint, .iikiti-layout__empty, .iikiti-layout__error,
+		.iikiti-settings__hint, .iikiti-settings__empty, .iikiti-field__label) {
+	font-size: max(var(--iikiti-editor-min-text), 1em);
+}
+
+/* Desktop: enlarge the small canvas affordances so they are easier to hit. */
+.iikiti-editor .iikiti-btn,
+.iikiti-editor .iikiti-btn--sm,
+.iikiti-editor .iikiti-insert-btn,
+.iikiti-editor .iikiti-context-menu .iikiti-btn {
+	min-width: var(--iikiti-editor-control);
+	min-height: var(--iikiti-editor-control);
+}
+
+.iikiti-editor .iikiti-insert-btn {
+	width: var(--iikiti-editor-control);
+	height: var(--iikiti-editor-control);
+}
+
+/* Mobile (coarse pointer / no hover): every interactive control reaches the
+ * 48px touch minimum. */
+@media (pointer: coarse), (hover: none) {
+	:is(.iikiti-editor, .iikiti-editor-toolbar, .iikiti-add-block, .iikiti-layout,
+		.iikiti-binding-picker, [data-iikiti-bar-id="iikiti-editor-settings"])
+		:is(button, a, input, select, textarea, [role="button"], [role="option"]) {
+		min-width: var(--iikiti-editor-touch-target);
+		min-height: var(--iikiti-editor-touch-target);
+	}
+
+	.iikiti-editor .iikiti-insert-btn,
+	.iikiti-editor .iikiti-context-menu .iikiti-btn,
+	.iikiti-editor .iikiti-btn--sm,
+	.iikiti-editor .iikiti-region-controls .iikiti-btn--add {
+		width: var(--iikiti-editor-touch-target);
+		height: var(--iikiti-editor-touch-target);
+	}
+
+	.iikiti-edit-trigger {
+		width: var(--iikiti-editor-touch-target);
+		height: var(--iikiti-editor-touch-target);
+	}
+
+	.iikiti-editor .iikiti-child-slot,
+	.iikiti-editor .iikiti-region-empty {
+		min-height: var(--iikiti-editor-touch-target);
+	}
 }
 
 /* ── Settings sidebar (docked via the bars standard) ── */

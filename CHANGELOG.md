@@ -27,6 +27,11 @@ The top-level file keeps the latest 5 dated entries; older entries live in
   root blocks, registered display rules, known role).
 - 2026-10-08: Editor Layout toolbar button and `LayoutDialog` to list shells by role and add,
   edit, enable or delete them.
+- 2026-10-08: Editor UI text is at least 1rem (16px): sub-16px `font-size` rules in editor components raised, and `editor.css` sets a `max(1rem, 1em)` floor on editor roots and text-bearing controls.
+- 2026-10-08: Editor controls enlarged for easier use (toolbar 40px, canvas add/context buttons 36px, sidebar rows 36px). On coarse pointers or no-hover devices, interactive editor controls use a 48px minimum touch target (`editor.css`).
+- 2026-10-08: Before/after insert plus buttons on hovered blocks are centred horizontally (`left: 50%`) and sit fully outside the block: "before" above the top edge, "after" below the bottom edge. Invisible 40px hover zones above and below each block keep the buttons reachable when the pointer moves onto them.
+- 2026-10-08: Child-accepting blocks (container, query, heading) render a dashed "Add child" slot in
+  the editor canvas so children can be added without the hidden block context menu.
 
 ### Fixed
 

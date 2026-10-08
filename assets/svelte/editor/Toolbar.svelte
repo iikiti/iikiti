@@ -204,7 +204,7 @@
 		display: flex;
 		align-items: center;
 		gap: 2px;
-		height: 44px;
+		height: 52px;
 		padding: 4px 10px;
 		background: color-mix(in srgb, var(--ik-panel-bg, #ffffff) 94%, transparent);
 		backdrop-filter: blur(6px);
@@ -217,8 +217,8 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		width: 34px;
-		height: 32px;
+		width: 40px;
+		height: 40px;
 		padding: 0;
 		border: none;
 		border-radius: 6px;
@@ -283,12 +283,12 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 5px;
-		height: 32px;
+		height: 40px;
 		padding: 0 10px;
 		border-radius: 6px;
 		color: var(--ik-panel-text-muted, #6b7280);
 		text-decoration: none;
-		font-size: 12px;
+		font-size: 1rem;
 		transition:
 			background-color 0.12s ease,
 			color 0.12s ease;

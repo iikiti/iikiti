@@ -94,6 +94,6 @@
 
 <style>
 	:global(.js .native-form) { display: none; }
-	.iikiti-flow__loading, .iikiti-flow__error { font-size: 0.9rem; opacity: 0.8; }
+	.iikiti-flow__loading, .iikiti-flow__error { font-size: 1rem; opacity: 0.8; }
 	.iikiti-flow { display: flex; flex-direction: column; gap: 10px; }
 </style>

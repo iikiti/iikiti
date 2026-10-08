@@ -153,7 +153,7 @@
 		box-sizing: border-box;
 		padding: 6px 10px;
 		font: inherit;
-		font-size: 13px;
+		font-size: 1rem;
 		border: 1px solid var(--ik-panel-border, #d1d5db);
 		border-radius: 6px;
 		background: var(--ik-panel-bg, #ffffff);
@@ -172,7 +172,7 @@
 	}
 	.iikiti-add-block__empty {
 		margin: 4px;
-		font-size: 12.5px;
+		font-size: 1rem;
 		color: var(--ik-panel-text-muted, #6b7280);
 	}
 	.iikiti-add-block__group {
@@ -181,7 +181,7 @@
 		gap: 2px;
 	}
 	.iikiti-add-block__label {
-		font-size: 10px;
+		font-size: 1rem;
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
@@ -194,7 +194,7 @@
 		gap: 8px;
 		padding: 6px 8px;
 		font: inherit;
-		font-size: 13px;
+		font-size: 1rem;
 		text-align: left;
 		border: 1px solid transparent;
 		border-radius: 6px;
@@ -216,8 +216,8 @@
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
-		width: 22px;
-		height: 22px;
+		width: 28px;
+		height: 28px;
 		border-radius: 5px;
 		background: color-mix(in srgb, var(--ik-panel-text, #111827) 9%, transparent);
 		color: var(--ik-panel-text-muted, #6b7280);
