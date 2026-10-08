@@ -14,6 +14,7 @@
 	const TYPE_ICONS: Record<string, string> = {
 		container: 'box',
 		heading: 'heading',
+		inline_text: 'type',
 		text: 'type',
 		image: 'image',
 		video_embed: 'video',

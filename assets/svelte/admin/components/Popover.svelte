@@ -9,6 +9,10 @@
 		flip = true,
 		closeOnOutside = true,
 		closeOnEsc = true,
+		// Render into document.body. Needed when the anchor sits inside an
+		// ancestor with transform/backdrop-filter (a containing block that would
+		// otherwise position and clip the fixed popover).
+		portal = false,
 		onclose,
 		children,
 	}: {
@@ -18,9 +22,20 @@
 		flip?: boolean;
 		closeOnOutside?: boolean;
 		closeOnEsc?: boolean;
+		portal?: boolean;
 		onclose?: () => void;
 		children: Snippet;
 	} = $props();
+
+	/** Attach the (already positioned) popover node to a portal target. */
+	function portalTo(node: HTMLElement, target?: HTMLElement | null) {
+		if (target) target.appendChild(node);
+		return {
+			destroy() {
+				node.remove();
+			},
+		};
+	}
 
 	let self = $state<HTMLElement | null>(null);
 	let active = $state(false);
@@ -123,6 +138,7 @@
 {#if active}
 <div
 	bind:this={self}
+	use:portalTo={portal ? document.body : null}
 	class="iikiti-popover"
 	style:top={style.top}
 	style:left={style.left}

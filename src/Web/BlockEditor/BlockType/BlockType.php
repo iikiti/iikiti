@@ -28,6 +28,9 @@ final class BlockType
 	 * @param array<string,mixed>       $defaults          Default content and/or style for new blocks
 	 * @param string                    $source            Provider/plugin slug used to attribute the type in the
 	 *                                                     block-widget enumeration index
+	 * @param string                    $wrapperTag        HTML tag for the renderer's outer block wrapper
+	 *                                                     (`div` by default; `span` for inline-only types so
+	 *                                                     they stay valid inside e.g. `<h2>` wrappers)
 	 */
 	public function __construct(
 		public readonly string $type,
@@ -42,6 +45,7 @@ final class BlockType
 		public readonly array $defaults = [],
 		public readonly array $elementFields = [],
 		public readonly string $source = 'core',
+		public readonly string $wrapperTag = 'div',
 	) {
 	}
 

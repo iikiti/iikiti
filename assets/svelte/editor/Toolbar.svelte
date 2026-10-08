@@ -10,6 +10,11 @@
 		canRedo,
 		dirty,
 		layersOpen,
+		activeRegion,
+		regions,
+		tree,
+		openAddBlockDialog,
+		regionAllowedTypes,
 	} from './state';
 	import Icon from '$components/Icon.svelte';
 	import Tooltip from '$components/Tooltip.svelte';
@@ -54,9 +59,37 @@
 	function toggleLayers() {
 		layersOpen.update((v) => !v);
 	}
+
+	/**
+	 * Open the shared Add block dialog appending to the end of the active
+	 * region's root list (the same dialog the canvas pluses and context menus
+	 * use — see AddBlockDialog.svelte).
+	 */
+	function openAddBlock() {
+		const rid = $activeRegion;
+		if (!rid) return;
+		openAddBlockDialog({
+			regionId: rid,
+			parentId: null,
+			position: ($tree[rid] ?? []).length,
+			allowedTypes: regionAllowedTypes(rid, $regions),
+		});
+	}
 </script>
 
 <div class="iikiti-editor-toolbar" role="toolbar" aria-label="Block editor actions">
+	<Tooltip content="Add block">
+		<button
+			type="button"
+			class="iikiti-editor-btn"
+			onclick={openAddBlock}
+			data-tour="toolbar.add"
+			aria-label="Add block"
+		>
+			<Icon name="plus" size={18} />
+		</button>
+	</Tooltip>
+
 	<Tooltip content="Undo">
 		<button
 			type="button"

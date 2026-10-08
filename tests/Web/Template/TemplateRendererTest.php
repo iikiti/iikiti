@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace iikiti\CMS\Tests\Web\Template;
 
 use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Entity\Object\Template;
 use iikiti\CMS\Web\BlockEditor\BlockType\BlockTypeRegistry;
 use iikiti\CMS\Web\BlockEditor\BlockType\CoreBlockTypeProvider;
+use iikiti\CMS\Web\BlockEditor\Query\QueryExecutor;
+use iikiti\CMS\Web\BlockEditor\Query\QueryFieldCatalog;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderContext;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderer;
 use iikiti\CMS\Web\Template\TemplateRenderer;
@@ -28,7 +31,12 @@ final class TemplateRendererTest extends TestCase
 		$blockTwig = new Environment(new FilesystemLoader(__DIR__.'/../../../templates/blocks'), [
 			'strict_variables' => false,
 		]);
-		$blockRenderer = new BlockRenderer(new BlockTypeRegistry([new CoreBlockTypeProvider()]), $blockTwig);
+		$blockRenderer = new BlockRenderer(
+			new BlockTypeRegistry([new CoreBlockTypeProvider()]),
+			$blockTwig,
+			new QueryExecutor([]),
+			new QueryFieldCatalog($this->createStub(EntityManagerInterface::class)),
+		);
 
 		return new TemplateRenderer($blockRenderer, $layoutEnv);
 	}

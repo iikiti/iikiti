@@ -8,6 +8,7 @@ use iikiti\CMS\Controller\AppController;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Security\PermissionChecker;
 use iikiti\CMS\Web\BlockEditor\BlockEditorComponent;
+use iikiti\CMS\Web\BlockEditor\Query\QueryFieldCatalog;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderContext;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderer;
 use iikiti\CMS\Web\BlockEditor\Workflow\SaveWorkflowRegistry;
@@ -88,6 +89,29 @@ class EditorStateController extends AppController
 		$html = $blockRenderer->renderNode($node, new BlockRenderContext(editorMode: true, canEdit: true));
 
 		return new Response($html, Response::HTTP_OK, ['Content-Type' => 'text/html; charset=utf-8']);
+	}
+
+	/**
+	 * Mappable query-result fields for the block editor's binding picker:
+	 * reflected object fields, whitelisted property columns, related-entity
+	 * scalar fields and plugin-registered field functions.
+	 */
+	#[Route('/api/editor/query-fields', name: 'api_editor_query_fields', methods: ['GET'])]
+	public function queryFields(
+		Request $request,
+		PermissionChecker $permissionChecker,
+		QueryFieldCatalog $catalog,
+	): JsonResponse {
+		$user = $this->getUser();
+		if (!$user instanceof User || (
+			!$this->can($user, $permissionChecker, 'template', 'write')
+			&& !$this->can($user, $permissionChecker, 'page', 'write')
+		)) {
+			return $this->json(['error' => 'Forbidden'], Response::HTTP_FORBIDDEN);
+		}
+		$objectType = trim((string) $request->query->get('objectType', ''));
+
+		return $this->json(['fields' => $catalog->fields('' !== $objectType ? $objectType : null)]);
 	}
 
 	/**

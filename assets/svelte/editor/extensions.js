@@ -116,6 +116,55 @@ export function buildSectionNodes(sectionId, ctx) {
 	return nodes;
 }
 
+/**
+ * Field decorators: small affordances rendered in the corner of any sidebar
+ * field control (any `{kind:'field'}` node). Core uses them for query field
+ * bindings; plugins can register their own.
+ *
+ * A decorator is `{ id, applies(ctx, fieldNode) → boolean, component }`. The
+ * component renders inside the field wrapper and receives
+ * `{ node, fieldNode, fieldKey, ctx }`.
+ */
+/** @type {Array<{decorator:{id:string,applies:(any,any)=>boolean,component:any},priority:number,seq:number}>} */
+const fieldDecorators = [];
+let decoratorSeq = 0;
+
+/**
+ * Register (or replace) a field decorator by id.
+ *
+ * @param {{ id:string, applies:(ctx:any, fieldNode:any) => boolean, component:any }} decorator
+ * @param {{ priority?: number }} [opts] higher priority wins; last wins on ties
+ */
+export function registerFieldDecorator(decorator, opts = {}) {
+	if (!decorator?.id) return;
+	const entry = { decorator, priority: Number(opts.priority ?? 0), seq: ++decoratorSeq };
+	const idx = fieldDecorators.findIndex((d) => d.decorator.id === decorator.id);
+	if (idx >= 0) fieldDecorators[idx] = entry;
+	else fieldDecorators.push(entry);
+	bump();
+}
+
+/**
+ * Active decorators for a field node (applies() true), ordered by priority.
+ *
+ * @param {any} fieldNode
+ * @param {any} ctx
+ * @returns {Array<{id:string, applies:(any,any)=>boolean, component:any}>}
+ */
+export function resolveFieldDecorators(fieldNode, ctx) {
+	return fieldDecorators
+		.filter((d) => {
+			try {
+				return Boolean(d.decorator.applies(ctx, fieldNode));
+			} catch {
+				/* a broken plugin decorator must not take down the sidebar */
+				return false;
+			}
+		})
+		.sort((a, b) => a.priority - b.priority || a.seq - b.seq)
+		.map((d) => d.decorator);
+}
+
 /** Reactive version counter — the sidebar re-renders when registrations change. */
 const versionStore = writable(0);
 function bump() {
@@ -144,6 +193,8 @@ export function installSidebarApi() {
 	w.iikiti.editor.sidebar = {
 		registerFieldControl,
 		resolveFieldControl,
+		registerFieldDecorator,
+		resolveFieldDecorators,
 		registerSection,
 		getSections,
 		patchSection,

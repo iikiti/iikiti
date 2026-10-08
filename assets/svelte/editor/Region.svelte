@@ -1,8 +1,7 @@
 <script lang="ts">
-	import { tree, addBlock } from './state';
+	import { tree, regions, openAddBlockDialog, regionAllowedTypes } from './state';
 	import type { BlockNode } from './state';
 	import BlockView from './BlockView.svelte';
-	import BlockPalette from './BlockPalette.svelte';
 
 	let {
 		regionId,
@@ -17,8 +16,8 @@
 	} = $props();
 
 	const nodes = $derived(($tree[regionId] ?? []) as BlockNode[]);
-
-	let paletteAnchor: HTMLElement | null = $state(null);
+	/** Region-level insertable types (empty = any non-inline type). */
+	const regionAllowed = $derived(regionAllowedTypes(regionId, $regions));
 
 	function activate() {
 		onActivate?.(regionId);
@@ -27,8 +26,8 @@
 
 {#if editable}
 	<div class="iikiti-region-content" data-region-content={regionId}>
-		{#each nodes as node (node.id)}
-			<BlockView {node} {regionId} />
+		{#each nodes as node, i (node.id)}
+			<BlockView {node} {regionId} parentId={null} index={i} />
 		{/each}
 		{#if nodes.length === 0}<em class="iikiti-block--placeholder">Empty region — click “Add block” to start</em>{/if}
 	</div>
@@ -38,18 +37,14 @@
 			class="iikiti-btn iikiti-btn--add"
 			title="Add block to {regionId}"
 			aria-label="Add block to {regionId}"
-			onclick={(e) => { e.stopPropagation(); e.preventDefault(); paletteAnchor = e.currentTarget as HTMLElement; }}
+			onclick={(e) => {
+				e.stopPropagation();
+				e.preventDefault();
+				openAddBlockDialog({ regionId, parentId: null, allowedTypes: regionAllowed });
+			}}
 		>
 			<span class="iikiti-btn__icon">+</span>
 		</button>
-		{#if paletteAnchor}
-			<BlockPalette
-				allowedTypes={[]}
-				anchor={paletteAnchor}
-				onClose={() => (paletteAnchor = null)}
-				onSelect={(type) => { paletteAnchor = null; addBlock(regionId, null, type); }}
-			/>
-		{/if}
 	</div>
 {:else}
 	<div

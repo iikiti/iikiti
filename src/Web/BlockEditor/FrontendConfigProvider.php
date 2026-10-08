@@ -33,10 +33,12 @@ final class FrontendConfigProvider
 
 	/**
 	 * @param 'template'|'object' $contextType
+	 * @param int $version Current draft version the editor must echo back as
+	 *                     `If-Match` on save (omit to keep the legacy 0 default)
 	 *
 	 * @return array<string,mixed>|null
 	 */
-	public function build(int $contextId, string $contextType, ?User $user = null): ?array
+	public function build(int $contextId, string $contextType, ?User $user = null, int $version = 0): ?array
 	{
 		$user ??= $this->security->getUser();
 
@@ -56,6 +58,7 @@ final class FrontendConfigProvider
 			'apiToken' => $this->tokenManager->getOrCreateToken($user)->getToken(),
 			'contextType' => $contextType,
 			'contextId' => $contextId,
+			'version' => $version,
 			'room' => $this->roomChannel($contextType, $contextId),
 			'breakpoints' => ['sm' => 640, 'md' => 768, 'lg' => 1024, 'xl' => 1280],
 			'notifications' => $this->notifications($user),

@@ -4,8 +4,15 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Tests\Web\BlockEditor\Render;
 
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\ORM\EntityManagerInterface;
+use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Web\BlockEditor\BlockType\BlockTypeRegistry;
 use iikiti\CMS\Web\BlockEditor\BlockType\CoreBlockTypeProvider;
+use iikiti\CMS\Web\BlockEditor\Query\QueryDefinition;
+use iikiti\CMS\Web\BlockEditor\Query\QueryExecutor;
+use iikiti\CMS\Web\BlockEditor\Query\QueryFieldCatalog;
+use iikiti\CMS\Web\BlockEditor\Query\QuerySourceInterface;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderContext;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderer;
 use PHPUnit\Framework\TestCase;
@@ -18,11 +25,68 @@ final class BlockRendererTest extends TestCase
 
 	protected function setUp(): void
 	{
+		$this->renderer = $this->makeRenderer();
+	}
+
+	private function makeRenderer(?QuerySourceInterface $source = null): BlockRenderer
+	{
 		$twig = new Environment(new FilesystemLoader(__DIR__.'/../../../../templates'), [
 			'strict_variables' => false,
 		]);
+		// The app registers BlockTwigExtension globally; the bare test environment
+		// stubs `iikiti_query` so query.twig compiles. The stub throws to prove the
+		// renderer supplies `items` itself (no double query execution).
+		$twig->addFunction(new \Twig\TwigFunction('iikiti_query', static function (): never {
+			throw new \RuntimeException('iikiti_query must not be called when the renderer supplies items');
+		}, ['is_safe' => ['html']]));
 
-		$this->renderer = new BlockRenderer(new BlockTypeRegistry([new CoreBlockTypeProvider()]), $twig);
+		return new BlockRenderer(
+			new BlockTypeRegistry([new CoreBlockTypeProvider()]),
+			$twig,
+			new QueryExecutor(null !== $source ? [$source] : []),
+			new QueryFieldCatalog($this->createStub(EntityManagerInterface::class)),
+		);
+	}
+
+	/**
+	 * A query source serving in-memory DbObject rows (keyed by `objects` source).
+	 *
+	 * @param list<DbObject> $items
+	 */
+	private function makeSource(array $items): QuerySourceInterface
+	{
+		return new class($items) implements QuerySourceInterface {
+			/** @param list<DbObject> $items */
+			public function __construct(
+				private readonly array $items,
+			) {
+			}
+
+			#[\Override]
+			public function getName(): string
+			{
+				return 'objects';
+			}
+
+			#[\Override]
+			public function execute(QueryDefinition $definition, ?int $siteId): array
+			{
+				return $this->items;
+			}
+		};
+	}
+
+	/**
+	 * A DbObject with its property collection initialised and one property set.
+	 */
+	private function makeObject(string $title): DbObject
+	{
+		$object = new DbObject();
+		$properties = (new \ReflectionClass(DbObject::class))->getProperty('properties');
+		$properties->setValue($object, new ArrayCollection());
+		$object->setProperty('title', $title);
+
+		return $object;
 	}
 
 	public function testRenderTreeEmitsNoMetadataInThePublicMode(): void
@@ -193,5 +257,181 @@ final class BlockRendererTest extends TestCase
 		$html = $this->renderer->renderTree($tree, new BlockRenderContext(editorMode: true));
 
 		self::assertStringContainsString('data-block-element=', $html);
+	}
+
+	public function testHeadingRendersInlineTextChildrenInsideTheHeadingElement(): void
+	{
+		$tree = [
+			[
+				'type' => 'heading',
+				'content' => ['level' => '2', 'text' => 'Hi '],
+				'style' => ['base' => []],
+				'children' => [
+					['type' => 'inline_text', 'content' => ['text' => 'world', 'tag' => 'strong'], 'style' => ['base' => []]],
+					['type' => 'inline_text', 'content' => ['text' => '!'], 'style' => ['base' => []]],
+				],
+			],
+		];
+
+		$html = $this->renderer->renderTree($tree, new BlockRenderContext(editorMode: false));
+
+		// Inline children use the block type's `span` wrapper so the markup
+		// stays valid inside an <h2> (the block wrapper itself remains a div).
+		self::assertStringContainsString(
+			'<h2 class="iikiti-heading" data-block-children>Hi <span class="iikiti-block iikiti-block--inline_text"><strong>world</strong></span><span class="iikiti-block iikiti-block--inline_text">!</span></h2>',
+			$html
+		);
+	}
+
+	public function testInlineTextTagIsAllowlisted(): void
+	{
+		$tree = [
+			['type' => 'inline_text', 'content' => ['text' => '<img src=x onerror=alert(1)>', 'tag' => 'script'], 'style' => ['base' => []]],
+			['type' => 'inline_text', 'content' => ['text' => 'ok', 'tag' => 'em'], 'style' => ['base' => []]],
+		];
+
+		$html = $this->renderer->renderTree($tree, new BlockRenderContext(editorMode: false));
+
+		// A disallowed `tag` falls back to a bare escaped text node.
+		self::assertStringNotContainsString('<script', $html);
+		self::assertStringContainsString('&lt;img src=x onerror=alert(1)&gt;', $html);
+		self::assertStringContainsString('<em>ok</em>', $html);
+	}
+
+	public function testQueryChildrenRenderOncePerResultWithBindingsResolved(): void
+	{
+		$renderer = $this->makeRenderer($this->makeSource([
+			$this->makeObject('First <b>row</b>'),
+			$this->makeObject('Second'),
+		]));
+
+		$tree = [
+			[
+				'type' => 'query',
+				'content' => ['source' => 'objects', 'objectType' => '', 'limit' => 10],
+				'style' => ['base' => []],
+				'children' => [
+					[
+						'type' => 'heading',
+						'content' => ['level' => '3', 'text' => 'Fallback'],
+						'style' => ['base' => []],
+						// The heading text is bound to each row's `title`.
+						'bindings' => ['text' => 'title'],
+					],
+				],
+			],
+		];
+
+		$html = $renderer->renderTree($tree, new BlockRenderContext(editorMode: false));
+
+		// One child render per result row, with the binding resolved per row.
+		self::assertSame(2, substr_count($html, 'iikiti-query__item'));
+		self::assertSame(2, substr_count($html, '<h3 class="iikiti-heading" data-block-children>'));
+		// Resolved values are reduced to plain text (markup stripped) before the
+		// template escapes them once — raw markup never reaches the output.
+		self::assertStringContainsString('<h3 class="iikiti-heading" data-block-children>First row</h3>', $html);
+		self::assertStringContainsString('Second', $html);
+		// The static fallback never leaks when the binding resolves.
+		self::assertStringNotContainsString('Fallback', $html);
+		self::assertStringNotContainsString('<b>', $html);
+	}
+
+	public function testQueryBindingFallsBackToStaticContentWhenUnresolved(): void
+	{
+		$renderer = $this->makeRenderer($this->makeSource([
+			$this->makeObject('Row one'), // has no `slug` property
+		]));
+
+		$tree = [
+			[
+				'type' => 'query',
+				'content' => ['source' => 'objects', 'objectType' => '', 'limit' => 10],
+				'style' => ['base' => []],
+				'children' => [
+					[
+						'type' => 'heading',
+						'content' => ['level' => '3', 'text' => 'Static fallback'],
+						'style' => ['base' => []],
+						'bindings' => ['text' => 'slug'],
+					],
+				],
+			],
+		];
+
+		$html = $renderer->renderTree($tree, new BlockRenderContext(editorMode: false));
+
+		// Unresolvable binding (null) keeps the field's static content.
+		self::assertStringContainsString('Static fallback', $html);
+	}
+
+	public function testBindingsMetadataIsEmittedInEditMode(): void
+	{
+		$tree = [[
+			'type' => 'text',
+			'content' => ['content' => '<p>Hi</p>'],
+			'bindings' => ['content' => 'title'],
+		]];
+
+		$html = $this->renderer->renderTree($tree, new BlockRenderContext(editorMode: true));
+
+		self::assertStringContainsString('data-block-bindings=', $html);
+		self::assertStringNotContainsString('data-block-bindings', $this->renderer->renderTree($tree, new BlockRenderContext(editorMode: false)));
+	}
+
+	public function testSensitiveAndNonTextBindingsNeverOverlay(): void
+	{
+		$object = $this->makeObject('Visible title');
+		$object->setProperty('password', 'hash-secret');
+		$renderer = $this->makeRenderer($this->makeSource([$object]));
+
+		$tree = [[
+			'type' => 'query',
+			'content' => ['source' => 'objects', 'objectType' => '', 'limit' => 10],
+			'style' => ['base' => []],
+			'children' => [
+				// Sensitive accessor: must fall back to the static text.
+				['type' => 'heading', 'content' => ['level' => '3', 'text' => 'Static A'], 'style' => ['base' => []], 'bindings' => ['text' => 'password']],
+				// Select field (level) is not a bindable target: the tampered row value must not reach the tag name.
+				['type' => 'heading', 'content' => ['level' => '3', 'text' => 'Static B'], 'style' => ['base' => []], 'bindings' => ['level' => 'title']],
+			],
+		]];
+
+		$html = $renderer->renderTree($tree, new BlockRenderContext(editorMode: false));
+
+		self::assertStringNotContainsString('hash-secret', $html);
+		self::assertStringContainsString('Static A', $html);
+		self::assertStringNotContainsString('Visible title', $html);
+		self::assertStringContainsString('<h3 class="iikiti-heading"', $html);
+	}
+
+	public function testInvalidHeadingLevelFallsBackToH2(): void
+	{
+		$html = $this->renderer->renderTree([[
+			'type' => 'heading',
+			'content' => ['level' => '2" onmouseover="x', 'text' => 'Hi'],
+			'style' => ['base' => []],
+		]], new BlockRenderContext(editorMode: false));
+
+		self::assertStringNotContainsString('onmouseover', $html);
+		self::assertStringContainsString('<h2 class="iikiti-heading"', $html);
+	}
+
+	public function testEditorKeepsQueryChildTemplateWhenNoRows(): void
+	{
+		$renderer = $this->makeRenderer($this->makeSource([]));
+		$tree = [[
+			'type' => 'query',
+			'content' => ['source' => 'objects', 'objectType' => '', 'limit' => 10],
+			'style' => ['base' => []],
+			'children' => [['type' => 'heading', 'content' => ['level' => '3', 'text' => 'Template'], 'style' => ['base' => []]]],
+		]];
+
+		$editorHtml = $renderer->renderTree($tree, new BlockRenderContext(editorMode: true));
+		$publicHtml = $renderer->renderTree($tree, new BlockRenderContext(editorMode: false));
+
+		self::assertStringContainsString('data-block-item-children', $editorHtml);
+		self::assertStringContainsString('Template', $editorHtml);
+		self::assertStringContainsString('No results found.', $publicHtml);
+		self::assertStringNotContainsString('Template', $publicHtml);
 	}
 }

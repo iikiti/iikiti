@@ -1,14 +1,34 @@
-{% set items = iikiti_query(content|default({})) %}
 {% set layout = content.layout ?? 'list' %}
+{# `items` / `children_items` are provided by BlockRenderer: the query result
+   rows and the child list rendered once per row (per-result template, with each
+   child's dynamic bindings resolved against its row). For standalone renders
+   without per-result children the query runs here. #}
+{% if items is not defined %}
+    {% set items = iikiti_query(content|default({})) %}
+{% endif %}
+{% set children_items = children_items|default([]) %}
 {% if items is empty %}
-    <div class="iikiti-query--empty">No results found.</div>
+    {% if editor_mode and children_template is defined and children_template is not empty %}
+        {# Editor only: keep the child template hydratable while there are no rows #}
+        <div class="iikiti-query--empty" data-block-item-children>{{ children_template|raw }}</div>
+    {% elseif query_error is defined %}
+        <div class="iikiti-query--empty">{{ query_error }}</div>
+    {% else %}
+        <div class="iikiti-query--empty">No results found.</div>
+    {% endif %}
 {% else %}
     <div class="iikiti-query iikiti-query--{{ layout }}" data-layout="{{ layout|e }}">
         {% for item in items %}
-            <div class="iikiti-query__item">
-                <span class="iikiti-query__id">#{{ item.id ?? '—' }}</span>
-                <span class="iikiti-query__type">{{ item.type ?? 'object' }}</span>
-                {% if item.createdDate %}<time class="iikiti-query__date" datetime="{{ item.createdDate|date('c') }}">{{ item.createdDate|date('M j, Y') }}</time>{% endif %}
+            <div class="iikiti-query__item" data-item-id="{{ item.id ?? '—' }}"
+                {# The first item also hydrates the editor's child template #}
+                {% if loop.first and children_items[loop.index0] is defined %}data-block-item-children{% endif %}>
+                {% if children_items[loop.index0] is defined %}
+                    {{ children_items[loop.index0]|raw }}
+                {% else %}
+                    <span class="iikiti-query__id">#{{ item.id ?? '—' }}</span>
+                    <span class="iikiti-query__type">{{ item.type ?? 'object' }}</span>
+                    {% if item.createdDate %}<time class="iikiti-query__date" datetime="{{ item.createdDate|date('c') }}">{{ item.createdDate|date('M j, Y') }}</time>{% endif %}
+                {% endif %}
             </div>
         {% endfor %}
     </div>

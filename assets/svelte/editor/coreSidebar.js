@@ -5,11 +5,12 @@
  * sections through the same public API plugins use. Also installs
  * `window.iikiti.editor.sidebar`.
  */
-import { registerFieldControl, registerSection, installSidebarApi } from './extensions.js';
+import { registerFieldControl, registerFieldDecorator, registerSection, installSidebarApi } from './extensions.js';
 import TextControl from './controls/TextControl.svelte';
 import TextareaControl from './controls/TextareaControl.svelte';
 import SelectControl from './controls/SelectControl.svelte';
 import ToggleControl from './controls/ToggleControl.svelte';
+import { queryBindingDecorator } from './queryBinding.js';
 
 let registered = false;
 
@@ -91,4 +92,8 @@ export function registerCoreSidebar() {
 	registerSection({ id: 'content', label: 'Content', icon: 'type', order: 10, build: buildContent });
 	registerSection({ id: 'element', label: 'Element', icon: 'cursor', order: 20, build: buildElement });
 	registerSection({ id: 'style', label: 'Style', icon: 'palette', order: 30, build: buildStyle });
+
+	// Core field decorator: bind sidebar fields to `query` result fields (the
+	// same public API plugins use for their own decorators).
+	registerFieldDecorator(queryBindingDecorator);
 }

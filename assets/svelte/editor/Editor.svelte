@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { mount, unmount } from 'svelte';
-	import { regions, init, layersOpen, activeRegion, select } from './state';
+	import { regions, init, layersOpen, activeRegion, select, addBlockDialog } from './state';
 	import Region from './Region.svelte';
 	import LayerMenu from './LayerMenu.svelte';
+	import AddBlockDialog from './AddBlockDialog.svelte';
 	import Toolbar from './Toolbar.svelte';
 	import SettingsSidebar from './SettingsSidebar.svelte';
 	import TourPopover from '$components/TourPopover.svelte';
@@ -192,6 +193,10 @@
 
 	{#if $layersOpen}
 		<LayerMenu />
+	{/if}
+
+	{#if $addBlockDialog}
+		<AddBlockDialog />
 	{/if}
 
 	<TourPopover />

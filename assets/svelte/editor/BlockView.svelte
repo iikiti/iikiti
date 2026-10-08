@@ -1,16 +1,46 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { get } from 'svelte/store';
-	import { selected, select, updateNode, registerBlock, deleteBlock, moveBlock, addBlock, blockTypes, tree } from './state';
+	import {
+		selected,
+		select,
+		registerBlock,
+		deleteBlock,
+		moveBlock,
+		blockTypes,
+		tree,
+		regions,
+		openAddBlockDialog,
+		allowedChildTypes,
+		searchNode,
+		regionAllowedTypes,
+	} from './state';
 	import type { BlockNode } from './state';
 	import Popover from '$components/Popover.svelte';
-	import BlockPalette from './BlockPalette.svelte';
+	import Icon from '$components/Icon.svelte';
+	// Self-import: nested block previews recurse into this component (Svelte 5
+	// replaces the deprecated <svelte:self> with an explicit self-import).
+	// eslint-disable-next-line import/no-self-import -- intentional recursion
+	import BlockView from './BlockView.svelte';
 
 	let {
 		node,
 		regionId,
 		readonly = false,
-	}: { node: BlockNode; regionId: string; readonly?: boolean } = $props();
+		parentId = null,
+		index = 0,
+		compact = false,
+	}: {
+		node: BlockNode;
+		regionId: string;
+		readonly?: boolean;
+		/** Parent container block id, or null when the node sits at region root. */
+		parentId?: string | null;
+		/** Index of this node within its parent's child list (for gap insertion). */
+		index?: number;
+		/** Smaller affordances for inline children (e.g. text inside a heading). */
+		compact?: boolean;
+	} = $props();
 	let self = $state<HTMLDivElement | null>(null);
 
 	const isSelected = $derived(!readonly && $selected === node.id);
@@ -33,18 +63,27 @@
 	}
 
 	let menuAnchor: HTMLElement | null = $state(null);
-	let paletteAnchor: HTMLElement | null = $state(null);
 
-	const isContainer = $derived(node.type === 'container');
+	const schema = $derived($blockTypes[node.type] as Record<string, unknown> | undefined);
+	const acceptsChildren = $derived(Boolean(schema?.acceptsChildren));
 	const childTypes = $derived.by(() => {
 		const bt = $blockTypes;
-		const schema = bt?.[node.type];
-		if (!schema) return [];
-		if (schema.allowedChildTypes === null || schema.allowedChildTypes === undefined) {
-			return schema.acceptsChildren ? Object.keys(bt ?? {}) : [];
+		const s = bt?.[node.type];
+		if (!s) return [];
+		if (s.allowedChildTypes === null || s.allowedChildTypes === undefined) {
+			return s.acceptsChildren ? Object.keys(bt ?? {}) : [];
 		}
-		return (schema.allowedChildTypes as string[]) ?? [];
+		return (s.allowedChildTypes as string[]) ?? [];
 	});
+
+	/** H2–H6 only; anything else renders as H2 (mirrors heading.twig). */
+	function headingLevel(n: BlockNode): number {
+		const level = Number(n.content?.level ?? 2);
+		return level >= 2 && level <= 6 ? level : 2;
+	}
+
+	/** Tag allowlist for inline text children (preview copy; the server allowlist is CoreBlockTypeProvider::INLINE_TAGS). */
+	const INLINE_TAGS = ['span', 'em', 'strong', 'b', 'u', 'i', 'small', 'code', 'mark'];
 
 	function deleteNode(ev: MouseEvent) {
 		ev.stopPropagation();
@@ -84,16 +123,42 @@
 		}
 	}
 
+	/**
+	 * Insertable types at the parent of this block: the region's `allowed` list at
+	 * root level, otherwise the parent block's `allowedChildTypes` (empty = any).
+	 */
+	function parentAllowedTypes(): string[] {
+		if (!parentId) {
+			return regionAllowedTypes(regionId, $regions);
+		}
+		const parent = searchNode(parentId);
+		if (!parent) return [];
+		return allowedChildTypes(parent.type, get(blockTypes));
+	}
+
+	/**
+	 * Open the shared Add block dialog at the gap before (`index`) or after
+	 * (`index + 1`) this block.
+	 */
+	function openInsertGap(position: number) {
+		openAddBlockDialog({
+			regionId,
+			parentId,
+			position,
+			allowedTypes: parentAllowedTypes(),
+		});
+	}
+
 	function openAddChild(ev: MouseEvent) {
 		ev.stopPropagation();
 		ev.preventDefault();
-		paletteAnchor = ev.currentTarget as HTMLElement;
+		openAddBlockDialog({
+			regionId,
+			parentId: node.id,
+			position: node.children?.length ?? 0,
+			allowedTypes: childTypes,
+		});
 		menuAnchor = null;
-	}
-
-	function insertChild(type: string) {
-		addBlock(regionId, node.id, type);
-		paletteAnchor = null;
 	}
 </script>
 
@@ -101,21 +166,39 @@
 	{#if node.type === 'text'}
 		{@html node.content?.content ?? ''}
 	{:else if node.type === 'heading'}
-		<svelte:element this={'h' + Number(node.content?.level ?? 2)}>{node.content?.text ?? ''}</svelte:element>
+		<svelte:element
+			this={'h' + headingLevel(node)}
+			class="iikiti-heading-preview"
+			data-block-children
+		>{node.content?.text ?? ''}{#each node.children ?? [] as child, i (child.id)}<BlockView node={child} {regionId} {readonly} parentId={node.id} index={i} compact />{/each}</svelte:element>
+	{:else if node.type === 'inline_text'}
+		{@const tag = String(node.content?.tag ?? 'plain')}
+		{#if tag !== 'plain' && INLINE_TAGS.includes(tag)}
+			<svelte:element this={tag} class="iikiti-inline-text">{node.content?.text ?? ''}</svelte:element>
+		{:else}
+			{node.content?.text ?? ''}
+		{/if}
 	{:else if node.type === 'image'}
 		{#if node.content?.source?.url}
 			<img src={node.content.source.url} alt={node.content.alt ?? ''} class="iikiti-image" />
 		{:else}<em class="iikiti-block--placeholder">Image URL missing</em> {/if}
 	{:else if node.type === 'container'}
 		<div class="iikiti-container" data-block-children>
-			{#each node.children ?? [] as child (child.id)}<BlockView node={child} {regionId} {readonly} />{/each}
+			{#each node.children ?? [] as child, i (child.id)}<BlockView node={child} {regionId} {readonly} parentId={node.id} index={i} />{/each}
 		</div>
 	{:else if node.type === 'video_embed'}
 		<iframe src={node.content?.url} title="Embedded content" class="iikiti-embed__iframe" allowfullscreen loading="lazy"></iframe>
 	{:else if node.type === 'social_embed'}
 		{#if node.content?.url}<a href={node.content.url} class="iikiti-embed--link-card">{node.content.url}</a>{/if}
 	{:else if node.type === 'query'}
-		<em class="iikiti-block--placeholder">Query block (preview via API)</em>
+		<div class="iikiti-query-preview" data-block-children>
+			{#each node.children ?? [] as child, i (child.id)}<BlockView node={child} {regionId} {readonly} parentId={node.id} index={i} />{/each}
+			{#if (node.children ?? []).length === 0}
+				<em class="iikiti-block--placeholder">Query block (preview via API)</em>
+			{:else}
+				<em class="iikiti-query-preview__hint">Children repeat for every query result</em>
+			{/if}
+		</div>
 	{:else if node.type === 'dynamic'}
 		<em class="iikti-block--placeholder">Dynamic content region</em>
 	{:else}
@@ -132,6 +215,7 @@
 		bind:this={self}
 		class:selected={isSelected}
 		class="iikiti-block-preview"
+		class:compact
 		data-block-node
 		tabindex="0"
 		role="button"
@@ -141,6 +225,26 @@
 	>
 		{@render preview()}
 		<div class="iikiti-outline iikiti-outline--selected" aria-hidden="true"></div>
+
+		<button
+			type="button"
+			class="iikiti-insert-btn iikiti-insert-btn--before"
+			title="Insert block before"
+			aria-label="Insert block before"
+			onclick={(e) => { e.stopPropagation(); e.preventDefault(); openInsertGap(index); }}
+		>
+			<Icon name="plus" size={compact ? 10 : 12} />
+		</button>
+		<button
+			type="button"
+			class="iikiti-insert-btn iikiti-insert-btn--after"
+			title="Insert block after"
+			aria-label="Insert block after"
+			onclick={(e) => { e.stopPropagation(); e.preventDefault(); openInsertGap(index + 1); }}
+		>
+			<Icon name="plus" size={compact ? 10 : 12} />
+		</button>
+
 		<div class="iikiti-context-menu">
 			<button class="iikiti-btn iikiti-btn--sm" title="Select block" onclick={() => { select(node.id); }}>✏</button>
 			<button class="iikiti-btn iikiti-btn--sm" title="More actions" onclick={(e) => { e.stopPropagation(); e.preventDefault(); menuAnchor = e.currentTarget as HTMLElement; }}>⋮</button>
@@ -148,7 +252,7 @@
 		{#if menuAnchor}
 			<Popover anchor={menuAnchor} placement="bottom-end" closeOnOutside onclose={() => (menuAnchor = null)}>
 				<div class="iikiti-block-menu">
-					{#if isContainer}
+					{#if acceptsChildren}
 						<button class="iikiti-block-menu__item" onclick={openAddChild}>Add child…</button>
 					{/if}
 					<button class="iikiti-block-menu__item" onclick={moveUp}>Move up</button>
@@ -156,14 +260,6 @@
 					<button class="iikiti-block-menu__item iikiti-block-menu__item--destructive" onclick={deleteNode}>Delete</button>
 				</div>
 			</Popover>
-		{/if}
-		{#if paletteAnchor}
-			<BlockPalette
-				allowedTypes={childTypes}
-				anchor={paletteAnchor}
-				onClose={() => (paletteAnchor = null)}
-				onSelect={insertChild}
-			/>
 		{/if}
 	</div>
 {/if}
@@ -176,6 +272,67 @@
 	.iikiti-block-preview--readonly { pointer-events: none; }
 	.iikiti-outline { position: absolute; inset: 0; border-radius: 3px; pointer-events: none; }
 	.iikiti-outline--selected { border: 2px dashed #3b82f6; }
+
+	/* ── Before/after insertion pluses ──
+	 * Circular buttons sitting on the top/bottom edge of the block box, half
+	 * outside so they read as gap affordances between siblings. Revealed while
+	 * the block (or a button itself) is hovered/focused; always visible on
+	 * touch devices. `compact` shrinks them for inline children (headings). */
+	.iikiti-insert-btn {
+		position: absolute;
+		left: 0;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 20px;
+		height: 20px;
+		padding: 0;
+		border: 1px solid var(--ik-panel-border, #d1d5db);
+		border-radius: 50%;
+		background: var(--ik-panel-bg, #ffffff);
+		color: var(--ik-panel-text, #111827);
+		cursor: pointer;
+		opacity: 0;
+		pointer-events: none;
+		box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+		transition: opacity 0.15s ease, background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+		z-index: 3;
+	}
+	.iikiti-insert-btn--before { top: 0; transform: translate(-50%, -50%); }
+	.iikiti-insert-btn--after { bottom: 0; transform: translate(-50%, 50%); }
+	.iikiti-block-preview:hover .iikiti-insert-btn,
+	.iikiti-insert-btn:hover,
+	.iikiti-insert-btn:focus-visible {
+		opacity: 1;
+		pointer-events: auto;
+	}
+	.iikiti-insert-btn:hover,
+	.iikiti-insert-btn:focus-visible {
+		color: var(--ik-accent, #a6613c);
+		border-color: color-mix(in srgb, var(--ik-accent, #a6613c) 70%, var(--ik-panel-border, #d1d5db));
+	}
+	:global(.iikiti-touch) .iikiti-insert-btn {
+		opacity: 1;
+		pointer-events: auto;
+	}
+	.iikiti-block-preview.compact .iikiti-insert-btn {
+		width: 15px;
+		height: 15px;
+	}
+
+	/* Query blocks render their children once in the canvas (per-result
+	 * repetition happens server-side); the hint states that. */
+	.iikiti-query-preview {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+	.iikiti-query-preview__hint {
+		font-size: 11px;
+		color: var(--ik-panel-text-muted, #6b7280);
+		font-style: italic;
+	}
+
 	.iikiti-context-menu {
 		position: absolute;
 		top: 2px;

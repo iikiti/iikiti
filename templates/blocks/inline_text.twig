@@ -1,0 +1,7 @@
+{# Inline text child of a `heading` block: a basic text node (no wrapper) or a
+   non-block element. The tag allowlist must stay in sync with
+   CoreBlockTypeProvider::INLINE_TAGS (single source) — anything else renders as plain text. #}
+{% set text = content.text|default('') %}
+{% set allowedTags = constant('iikiti\\CMS\\Web\\BlockEditor\\BlockType\\CoreBlockTypeProvider::INLINE_TAGS') %}
+{% set tag = content.tag|default('plain') in allowedTags ? content.tag : '' %}
+{% if tag %}<{{ tag }}>{{ text|e }}</{{ tag }}>{% else %}{{ text|e }}{% endif %}

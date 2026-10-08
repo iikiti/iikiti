@@ -1,4 +1,6 @@
-{% set level = content.level ?? 2 %}
-<h{{ level }} class="iikiti-heading">
-    {{ content.text|default('')|e }}
-</h{{ level }}>
+{# Only H2–H6 are valid; anything else (e.g. a tampered value) falls back to H2. #}
+{% set level = content.level matches '/^[2-6]$/' ? content.level : 2 %}
+{# Direct static text plus any `inline_text` children (rendered by BlockRenderer
+   with a `span` wrapper, so the markup stays valid). The h2 carries
+   `data-block-children` so the editor hydrates the inline children. #}
+<h{{ level }} class="iikiti-heading" data-block-children>{{ content.text|default('')|e }}{{ children_html|raw }}</h{{ level }}>

@@ -56,7 +56,8 @@ final class BlockTypeRegistryTest extends TestCase
 
 		$allowed = $registry->getAllowedChildrenFor('container');
 
-		$this->assertCount(8, $allowed);
+		// 8 core types + the new `inline_text` type (any container accepts all).
+		$this->assertCount(9, $allowed);
 	}
 
 	public function testGetAllowedChildrenForNonContainerReturnsEmpty(): void
@@ -83,6 +84,6 @@ final class BlockTypeRegistryTest extends TestCase
 		$registry = new BlockTypeRegistry([new CoreBlockTypeProvider(), $plugin]);
 
 		$this->assertNotNull($registry->get('plugin_hero'));
-		$this->assertCount(9, $registry->all());
+		$this->assertCount(10, $registry->all());
 	}
 }

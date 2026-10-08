@@ -4,23 +4,33 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Web\BlockEditor\Render;
 
+use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Web\BlockEditor\BlockType\BlockType;
 use iikiti\CMS\Web\BlockEditor\BlockType\BlockTypeRegistry;
+use iikiti\CMS\Web\BlockEditor\Query\QueryDefinition;
+use iikiti\CMS\Web\BlockEditor\Query\QueryExecutor;
+use iikiti\CMS\Web\BlockEditor\Query\QueryFieldCatalog;
 use Twig\Environment;
 
 /**
  * Renders a block tree (stored as JSON) into HTML.
  *
- * - Each block is wrapped in a `.iikiti-block` element.
+ * - Each block is wrapped in a `.iikiti-block` element (`BlockType::$wrapperTag`,
+ *   a `div` by default but e.g. `span` for inline-only types so they stay valid
+ *   inside elements like `<h2>`).
  * - In editor mode (`BlockRenderContext::editorMode`) the wrapper also carries
- *   `data-block-*` attributes (id, type, content, style) so the Svelte editor can
- *   hydrate the existing DOM. Public output is stripped of this metadata by
+ *   `data-block-*` attributes (id, type, content, style, bindings) so the Svelte
+ *   editor can hydrate the DOM. Public output is stripped of this metadata by
  *   construction (the attributes are only emitted in editor mode).
  * - Block *content* is rendered from the block type's Twig template; containers
  *   render their children recursively into a `children_html` placeholder.
+ * - `query` blocks execute their query and render their child list once per
+ *   result item (per-result template), resolving each child's dynamic field
+ *   bindings against the result row (available to templates as `item`).
  */
 final class BlockRenderer
 {
+	/* Wrapper/fallback tag for block types that do not define one. */
 	private const WRAPPER_TAG = 'div';
 
 	/**
@@ -31,9 +41,17 @@ final class BlockRenderer
 	 */
 	private const EDIT_HINT = '<p>Edit this page with <code>?edit</code>.</p>';
 
+	/** Schema field types whose resolved binding values may be overlaid. */
+	private const BINDABLE_FIELD_TYPES = ['text', 'textarea', 'richtext', 'url'];
+
+	/** @var array<string,true> query block ids currently being rendered (cycle guard) */
+	private array $activeQueryIds = [];
+
 	public function __construct(
 		private readonly BlockTypeRegistry $registry,
 		private readonly Environment $twig,
+		private readonly QueryExecutor $queryExecutor,
+		private readonly QueryFieldCatalog $queryFields,
 	) {
 	}
 
@@ -65,7 +83,7 @@ final class BlockRenderer
 		// Unknown block type: render a safe placeholder but still emit metadata so
 		// the editor recognises the node.
 		if (null === $blockType) {
-			return $this->wrap($this->placeholder($type), $node, $context);
+			return $this->wrap($this->placeholder($type), $node, $context, null);
 		}
 
 		$content = is_array($node['content'] ?? null) ? $node['content'] : [];
@@ -86,19 +104,81 @@ final class BlockRenderer
 			$children = is_array($dynamicChildren) ? $dynamicChildren : [];
 		}
 
-		$childrenHtml = ($blockType->acceptsChildren && is_array($children)) ?
+		// `query` blocks act as per-result templates. Nested queries (inside another
+		// query's row loop) fall back to the legacy rendering to bound the work.
+		$extraVars = [];
+		if ('query' === $type && $blockType->acceptsChildren && is_array($children) && [] !== $children && 0 === $context->queryDepth) {
+			$extraVars = $this->queryRowVars($node, $content, $children, $context);
+		}
+
+		// Per-item dynamic bindings: overlay resolved row values onto the block's
+		// static content before the template renders it (null = keep static).
+		if (null !== $context->item) {
+			$content = $this->resolveBindings($node, $content, $context->item, $blockType);
+		}
+
+		$childrenHtml = ($blockType->acceptsChildren && is_array($children) && [] === $extraVars) ?
 			$this->renderTree($children, $context) :
 			'';
 
-		$inner = $this->renderTemplate($blockType, $node, $content, $childrenHtml, $context);
+		$inner = $this->renderTemplate($blockType, $node, $content, $childrenHtml, $context, $extraVars);
 
-		return $this->wrap($inner, $node, $context);
+		return $this->wrap($inner, $node, $context, $blockType);
+	}
+
+	/**
+	 * Execute a query block and render its stored child list once per result row.
+	 *
+	 * - A failing query degrades to the empty state instead of failing the page.
+	 * - A block that is already being rendered (self-referencing tree data) is
+	 *   rendered as a placeholder instead of recursing.
+	 * - In editor mode the child template is always emitted (even with zero rows)
+	 *   so an editor draft saved while the query is empty keeps its children.
+	 *
+	 * @param array<string,mixed>   $node
+	 * @param array<string,mixed>   $content
+	 * @param list<array<string,mixed>> $children
+	 * @return array<string,mixed> template variables (`items`, `children_items`, `children_template`)
+	 */
+	private function queryRowVars(array $node, array $content, array $children, BlockRenderContext $context): array
+	{
+		$blockId = (string) ($node['id'] ?? '');
+		if ('' !== $blockId && isset($this->activeQueryIds[$blockId])) {
+			return ['items' => [], 'children_items' => [], 'query_error' => 'Self-referencing query block.'];
+		}
+
+		try {
+			$items = $this->queryExecutor->execute(QueryDefinition::fromArray($content), $this->siteIdFor($context));
+		} catch (\Throwable) {
+			$items = [];
+		}
+
+		$childrenItems = [];
+		if ('' !== $blockId) {
+			$this->activeQueryIds[$blockId] = true;
+		}
+		try {
+			foreach ($items as $item) {
+				$childrenItems[] = $this->renderTree($children, $context->withItem($item));
+			}
+		} finally {
+			if ('' !== $blockId) {
+				unset($this->activeQueryIds[$blockId]);
+			}
+		}
+
+		$vars = ['items' => $items, 'children_items' => $childrenItems];
+		if ($context->editorMode) {
+			$vars['children_template'] = $this->renderTree($children, $context);
+		}
+
+		return $vars;
 	}
 
 	/**
 	 * @param array<string,mixed> $node
 	 */
-	private function wrap(string $inner, array $node, BlockRenderContext $context): string
+	private function wrap(string $inner, array $node, BlockRenderContext $context, ?BlockType $blockType): string
 	{
 		$type = (string) ($node['type'] ?? '');
 		$sanitizedType = preg_replace('/[^a-z0-9_-]/i', '-', $type);
@@ -125,12 +205,19 @@ final class BlockRenderer
 			$contentJson = $this->safeJson($node['content'] ?? null);
 			$styleJson = $this->safeJson($node['style'] ?? null);
 			$elementJson = $this->safeJson($node['element'] ?? null);
+			$bindingsJson = $this->safeJson($node['bindings'] ?? null);
 			$html .= ' data-block-content="'.$contentJson.'"';
 			$html .= ' data-block-style="'.$styleJson.'"';
 			$html .= ' data-block-element="'.$elementJson.'"';
+			$html .= ' data-block-bindings="'.$bindingsJson.'"';
 		}
 
-		return '<'.self::WRAPPER_TAG.$html.'>'.$inner.'</'.self::WRAPPER_TAG.'>';
+		$tag = $blockType->wrapperTag ?? self::WRAPPER_TAG;
+		if (1 !== preg_match('/^[a-z][a-z0-9-]*$/i', $tag)) {
+			$tag = self::WRAPPER_TAG;
+		}
+
+		return '<'.$tag.$html.'>'.$inner.'</'.$tag.'>';
 	}
 
 	/**
@@ -187,6 +274,8 @@ final class BlockRenderer
 	/**
 	 * @param array<string,mixed> $node
 	 * @param array<string,mixed> $content
+	 * @param array<string,mixed> $extraVars Additional template variables (e.g.
+	 *                                       `items`/`children_items` for query blocks)
 	 */
 	private function renderTemplate(
 		BlockType $blockType,
@@ -194,6 +283,7 @@ final class BlockRenderer
 		array $content,
 		string $childrenHtml,
 		BlockRenderContext $context,
+		array $extraVars = [],
 	): string {
 		if (null === $blockType->renderTemplate) {
 			return $this->placeholder($blockType->type);
@@ -208,10 +298,76 @@ final class BlockRenderer
 				'editor_mode' => $context->editorMode,
 				'site' => $context->site,
 				'object' => $context->object,
-			]);
+				// The query result row currently being rendered (per-result
+				// template rendering); null outside a `query` child context.
+				'item' => $context->item,
+			] + $extraVars);
 		} catch (\Throwable $e) {
 			return $this->placeholder($blockType->type, $e->getMessage());
 		}
+	}
+
+	/**
+	 * Overlay resolved dynamic bindings onto the block's static content. Keys
+	 * must already exist in the content map (they come from the block type's
+	 * schema). Resolved values are reduced to plain text here (markup stripped)
+	 * so a bound field can never inject tags — even into `|raw` templates —
+	 * while `|e` templates escape what remains exactly once at output.
+	 *
+	 * @param array<string,mixed> $node
+	 * @param array<string,mixed> $content
+	 * @return array<string,mixed>
+	 */
+	private function resolveBindings(array $node, array $content, mixed $item, BlockType $blockType): array
+	{
+		$bindings = is_array($node['bindings'] ?? null) ? $node['bindings'] : [];
+		if ([] === $bindings) {
+			return $content;
+		}
+
+		// Only text-like schema fields are bind targets. Select/number fields are
+		// never overlaid: a row value must not reach a markup-position context such
+		// as the heading level interpolated into the tag name.
+		$bindable = [];
+		foreach ($blockType->contentFields as $field) {
+			if (in_array($field['type'] ?? '', self::BINDABLE_FIELD_TYPES, true)) {
+				$bindable[(string) ($field['key'] ?? '')] = true;
+			}
+		}
+
+		foreach ($bindings as $fieldKey => $spec) {
+			$key = is_string($fieldKey) ? $fieldKey : '';
+			if ('' === $key || !isset($bindable[$key]) || !is_string($spec)) {
+				continue;
+			}
+			$value = $this->queryFields->resolve($item, $spec);
+			if (null !== $value) {
+				$content[$key] = strip_tags($value);
+			}
+		}
+
+		return $content;
+	}
+
+	/**
+	 * Site scope for query execution: the render context's site, falling back to
+	 * the current request's site (mirrors BlockTwigExtension::query()). Outside
+	 * a site-scoped request (e.g. plain unit rendering) queries run unscoped.
+	 */
+	private function siteIdFor(BlockRenderContext $context): ?int
+	{
+		$site = $context->site;
+		if (null === $site) {
+			try {
+				if (SiteRegistry::hasCurrent()) {
+					$site = SiteRegistry::getCurrent();
+				}
+			} catch (\Throwable) {
+				return null; // no site scope active
+			}
+		}
+
+		return null !== $site ? (int) $site->getId() : null;
 	}
 
 	private function placeholder(string $type, ?string $error = null): string

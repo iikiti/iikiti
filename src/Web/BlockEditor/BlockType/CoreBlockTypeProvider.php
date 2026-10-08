@@ -11,6 +11,13 @@ namespace iikiti\CMS\Web\BlockEditor\BlockType;
  */
 final class CoreBlockTypeProvider implements BlockTypeInterface
 {
+	/**
+	 * Wrapper elements an `inline_text` child may render as. `plain` renders a
+	 * bare (escaped) text node. The allowlist is enforced both here and in
+	 * `templates/blocks/inline_text.twig` so a stored `tag` can never inject markup.
+	 */
+	public const INLINE_TAGS = ['span', 'em', 'strong', 'b', 'u', 'i', 'small', 'code', 'mark'];
+
 	#[\Override]
 	public function getBlockTypes(): array
 	{
@@ -18,6 +25,7 @@ final class CoreBlockTypeProvider implements BlockTypeInterface
 			$this->container(),
 			$this->dynamic(),
 			$this->heading(),
+			$this->inlineText(),
 			$this->text(),
 			$this->image(),
 			$this->videoEmbed(),
@@ -85,11 +93,15 @@ final class CoreBlockTypeProvider implements BlockTypeInterface
 	{
 		return new BlockType(
 			type: 'heading',
-			label: 'Heading',
+			label: 'Header',
 			category: 'text',
-			acceptsChildren: false,
+			// A heading is a mini-container for richly emphasised text runs:
+			// its only children are `inline_text` blocks (plain text nodes or
+			// inline elements — no wysiwyg editing).
+			acceptsChildren: true,
+			allowedChildTypes: ['inline_text'],
 			contentFields: [
-				['key' => 'text', 'label' => 'Text', 'type' => 'text', 'required' => true],
+				['key' => 'text', 'label' => 'Text', 'type' => 'text'],
 				['key' => 'level', 'label' => 'Level', 'type' => 'select',
 					'options' => [['value' => '2', 'label' => 'H2'], ['value' => '3', 'label' => 'H3'],
 						['value' => '4', 'label' => 'H4'], ['value' => '5', 'label' => 'H5'],
@@ -104,6 +116,50 @@ final class CoreBlockTypeProvider implements BlockTypeInterface
 			editorComponent: 'HeadingBlock',
 			elementFields: $this->elementFields(),
 			defaults: ['content' => ['level' => '2', 'text' => ''], 'style' => ['base' => []]],
+		);
+	}
+
+	/**
+	 * Select options for the wrapper tag, derived from INLINE_TAGS so the editor
+	 * offers exactly the tags the renderer allows.
+	 *
+	 * @return list<array{value:string,label:string}>
+	 */
+	private function inlineTagOptions(): array
+	{
+		$labels = ['em' => 'em (italic)', 'strong' => 'strong', 'b' => 'b (bold)', 'u' => 'u (underline)', 'i' => 'i (italic)', 'mark' => 'mark (highlight)'];
+		$options = [['value' => 'plain', 'label' => 'Plain text']];
+		foreach (self::INLINE_TAGS as $tag) {
+			$options[] = ['value' => $tag, 'label' => $labels[$tag] ?? $tag];
+		}
+
+		return $options;
+	}
+
+	private function inlineText(): BlockType
+	{
+		return new BlockType(
+			type: 'inline_text',
+			label: 'Inline Text',
+			// `inline` category types are only offered where a parent explicitly
+			// allows them (i.e. inside a `heading` block).
+			category: 'inline',
+			acceptsChildren: false,
+			contentFields: [
+				['key' => 'text', 'label' => 'Text', 'type' => 'text', 'required' => true],
+				['key' => 'tag', 'label' => 'Wrapper element', 'type' => 'select',
+					'options' => $this->inlineTagOptions(),
+					'default' => 'plain'],
+			],
+			styleFields: [
+				['key' => 'color', 'label' => 'Color', 'type' => 'color'],
+			],
+			renderTemplate: 'blocks/inline_text.twig',
+			editorComponent: 'InlineTextBlock',
+			// Inline content must not render as a `div` inside e.g. `<h2>`.
+			wrapperTag: 'span',
+			elementFields: $this->elementFields(),
+			defaults: ['content' => ['text' => '', 'tag' => 'plain'], 'style' => ['base' => []]],
 		);
 	}
 
@@ -204,7 +260,11 @@ final class CoreBlockTypeProvider implements BlockTypeInterface
 			type: 'query',
 			label: 'Query',
 			category: 'content',
-			acceptsChildren: false,
+			// Children act as a per-result template: `BlockRenderer` executes the
+			// query and renders the once-stored child list for every result item,
+			// resolving each child's `bindings` (dynamic field mappings) per item.
+			acceptsChildren: true,
+			allowedChildTypes: [], // empty = any block type allowed
 			contentFields: [
 				['key' => 'source', 'label' => 'Source', 'type' => 'select',
 					'options' => [['value' => 'objects', 'label' => 'Objects']], 'default' => 'objects', 'required' => true],

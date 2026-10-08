@@ -5,6 +5,7 @@
 		getSections,
 		buildSectionNodes,
 		resolveFieldControl,
+		resolveFieldDecorators,
 		sidebarVersion,
 		activeSectionId,
 		setActiveSection,
@@ -146,13 +147,23 @@
 {#snippet renderNode(n: Record<string, unknown>)}
 	{#if n.kind === 'field'}
 		{@const Control = resolveFieldControl((n.field as Record<string, unknown>).type as string) ?? TextControl}
-		<FormField field={n.field as { key: string; label: string; type: string }}>
-			<Control
-				field={n.field}
-				value={fieldValue(n)}
-				onChange={(v: unknown) => fieldOnChange(n, v)}
-			/>
-		</FormField>
+		{@const fieldKey = (n.field as Record<string, unknown>).key as string}
+		{@const decorators = ctx ? resolveFieldDecorators(n, ctx) : []}
+		<div class="iikiti-field" data-field-key={fieldKey}>
+			<FormField field={n.field as { key: string; label: string; type: string }}>
+				<Control
+					field={n.field}
+					value={fieldValue(n)}
+					onChange={(v: unknown) => fieldOnChange(n, v)}
+				/>
+			</FormField>
+			{#each decorators as dec (dec.id)}
+				{@const Decorator = dec.component}
+				<span class="iikiti-field__decorator">
+					<Decorator node={node} fieldNode={n} {fieldKey} />
+				</span>
+			{/each}
+		</div>
 	{:else if n.kind === 'group'}
 		<section class="iikiti-settings__group" data-tour="sidebar.group.{n.id}">
 			<h4 class="iikiti-settings__group-title">{n.header ?? n.label}</h4>
@@ -291,6 +302,34 @@
 		flex-direction: column;
 		gap: 10px;
 	}
+
+	/* ── Field decorator affordances (e.g. query field bindings) ──
+	 * Relative wrapper so decorators can sit in the input's corner. Revealed
+	 * while the field is hovered/focused; always visible on touch, where a
+	 * long-press opens the picker immediately. */
+	.iikiti-field {
+		position: relative;
+	}
+	.iikiti-field__decorator {
+		position: absolute;
+		right: 2px;
+		bottom: 2px;
+		z-index: 3;
+		display: inline-flex;
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.12s ease;
+	}
+	.iikiti-field:hover .iikiti-field__decorator,
+	.iikiti-field:focus-within .iikiti-field__decorator {
+		opacity: 1;
+		pointer-events: auto;
+	}
+	:global(.iikiti-touch) .iikiti-field__decorator {
+		opacity: 1;
+		pointer-events: auto;
+	}
+
 	.iikiti-settings__group {
 		border: 1px solid var(--ik-panel-border, #e5e7eb);
 		border-radius: 8px;

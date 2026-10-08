@@ -14,10 +14,42 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ## [Unreleased]
 
-> Last updated: 2026-10-03
+> Last updated: 2026-10-07
 
 ### Added
 
+- 2026-10-07: Circular "+" insertion buttons before and after every block in
+  the editor canvas (revealed on hover/tap, compact variant inside headings);
+  each opens the shared Add block dialog at that exact gap.
+- 2026-10-07: Shared modal "Add block" dialog (`AddBlockDialog.svelte`) with
+  search and category grouping, replacing the anchored `BlockPalette` popover
+  for every entry point: canvas pluses, the new toolbar "+" (appends to the
+  active region end), the region-level add button, and "Add child…" (now shown
+  for any block whose type accepts children, filtered to its allowed child
+  types). Inserting selects the new block.
+- 2026-10-07: `inline_text` core block type — a basic text node optionally
+  wrapped in a non-block element (`span|em|strong|b|u|i|small|code|mark`,
+  allowlist-enforced server-side) — and the `heading` block reworked into a
+  header container that accepts only `inline_text` children (no wysiwyg).
+  `BlockType` gained a `wrapperTag` (inline types render as `span` so markup
+  stays valid inside `<h2>`…).
+- 2026-10-07: Query blocks are per-result templates: the renderer executes the
+  query and renders the stored child list once per result row, exposing the row
+  to templates as `item`; `query.twig` falls back to running the query itself
+  for standalone renders. The canvas preview shows children once with a
+  "repeats per result" hint.
+- 2026-10-07: Dynamic field bindings: each block carries optional `bindings`
+  (`<fieldKey> → <spec>`, hydrated via `data-block-bindings`), resolved per
+  query result by `QueryFieldCatalog` (whitelisted columns, whitelisted/
+  arbitrary object properties, related-entity scalar fields, plugin functions);
+  resolved values are markup-stripped before templates escape them.
+- 2026-10-07: Sidebar field decorator API
+  (`window.iikiti.editor.sidebar.registerFieldDecorator`) with a core
+  "query binding" decorator: a database icon in the corner of any sidebar field
+  (hover reveal, long-press on touch) opening a picker of mappable fields
+  served by the new `GET /api/editor/query-fields` endpoint.
+- 2026-10-07: `QueryFieldFunctionInterface` (`iikiti.cms.query_field` tag) for
+  plugins to register dynamically generated query result fields.
 - 2026-10-03: Editor settings sidebar (docked via the viewport bars standard,
   default left, flippable left/right/top/bottom, resizable) rendering
   Content / Element / Style tabs for the selected block.
@@ -65,11 +97,36 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Removed
 
+- 2026-10-07: `BlockPalette.svelte` anchored palette popover (superseded by the
+  shared modal Add block dialog used by every add-block entry point).
 - 2026-10-03: Structure popover on the selected block (move up/down buttons):
   redundant with the Layers-panel drag handle and canvas drag/drop.
 
 ### Fixed
 
+- 2026-10-07: Review fixes for dynamic field bindings: sensitive accessors
+  (password/secret/token/credential/MFA/identifier-style getters) are no longer
+  resolvable or offered in the binding picker; only text-like content fields
+  accept bound values (select fields such as heading `level` are never
+  overlaid); the sidebar binding decorator applies to content fields only.
+- 2026-10-07: Query blocks render safely under failure and nesting: a failing
+  query degrades to the empty state instead of failing the page, nested query
+  blocks fall back to legacy rendering, and self-referencing trees render a
+  placeholder. The insert dialog no longer offers a query inside a query.
+- 2026-10-07: Editor drafts saved while a query block has no rows keep their
+  child template (editor-only hydration marker); heading level is clamped to
+  H2–H6; the inline-tag allowlist is single-sourced from
+  `CoreBlockTypeProvider::INLINE_TAGS`.
+- 2026-10-07: Editor save always returned 409 (conflict) after the first save:
+  the bootstrap config did not carry the template's current `draft_version`,
+  so every save sent a stale `If-Match`; `FrontendConfigProvider::build()` now
+  includes the version (passed from `PageRendering`).
+- 2026-10-07: Editor hydration lost/duplicated nested children across saves:
+  the parser deep-scanned `[data-block-children]`, so a `query` block absorbed
+  a nested container's children wrapper and blocks with inline children
+  (`heading` → `inline_text`) dropped them; hydration now uses a dedicated
+  first-item marker (`data-block-item-children`) for query templates, and the
+  heading template emits its own `data-block-children`.
 - 2026-10-03: Editor save/publish endpoints returned 403 for page editors:
   `/api/editor/save` now requires the `write` permission (instead of a
   non-existent `save` action) and `Template`/`Page` write is accepted in

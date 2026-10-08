@@ -20,8 +20,26 @@ is pure server-rendered HTML (no editor JS for visitors).
   `site_ui` bundles. Editor chunk is code-split / on demand for visitors.
 
 ## Block types (core)
-container, dynamic, heading, text, image, video_embed, social_embed, query
+container, dynamic, heading, inline_text, text, image, video_embed,
+social_embed, query
 (`src/Web/BlockEditor/BlockType/CoreBlockTypeProvider.php`).
+
+- **heading** ("Header") is a mini-container for emphasised text: it accepts
+  only `inline_text` children (plus an optional direct `text` field). Its
+  children are **not** wysiwyg — an `inline_text` child is a basic text node or
+  a non-block element (`span`, `em`, `strong`, `b`, `u`, `i`, `small`, `code`,
+  `mark`, allowlist-enforced server-side; `plain` renders a bare escaped text
+  node). Inline blocks render with a `span` wrapper (`BlockType::$wrapperTag`)
+  so the markup stays valid inside `<h2>`….
+- **query** executes a query definition server-side and renders its children
+  **once per result row** (per-result template). Each result row is exposed to
+  child templates as `item`, and each child block can bind its content fields
+  to row fields via dynamic bindings (see *Dynamic field bindings* below).
+  When no children are configured the block falls back to its built-in result
+  list; `query.twig` also runs the query itself for standalone renders.
+- Blocks whose `category` is `inline` (currently `inline_text`) are only
+  offered where a parent explicitly allows them — never at region root or
+  inside generic containers.
 
 ## Templates
 DbObject (type discriminator `iikiti\\CMS\Entity\Object\Template`)` with JSON properties:
@@ -39,7 +57,30 @@ Rules (tagged `iikiti.cms.template_rule`): `object_type`, `object`, `site`.
   editor re-snapshots). `Publish` copies draft -> published. Public rendering
   always reads published.
 - API: `POST /api/editor/save`, `POST /api/editor/publish`,
-  `GET /api/editor/context`, `POST /api/editor/render-block`.
+  `GET /api/editor/context`, `POST /api/editor/render-block`,
+  `GET /api/editor/query-fields` (mappable query result fields for the binding
+  picker; `objectType` query parameter optional).
+
+## Dynamic field bindings (query children)
+- A block node may carry `bindings: {<contentFieldKey>: <spec>}` (hydrated via
+  `data-block-bindings`). When the block is rendered as a `query` child, each
+  spec is resolved against the current result row and the resolved value
+  overlays the field's static content (markup is stripped first, then templates
+  escape once; unresolvable specs keep the static value).
+- Specs: `id`, `type`, `created_date`, whitelisted property columns (`title`,
+  `slug`, `tags`, `content`), arbitrary object properties
+  (`properties.<name>`), related-entity scalar fields one level deep
+  (`<relation>.<field>`, e.g. `site.title`), and plugin functions
+  (`fn:<key>[:<arg>…]`).
+- The field list comes from `QueryFieldCatalog`: reflection over the object
+  type's entity class (text-castable getters), to-one relation targets, and
+  plugin `QueryFieldFunctionInterface` implementations (tag
+  `iikiti.cms.query_field`: `fields(?string $objectType): array` +
+  `value(DbObject $item, string $key, array $args): ?string`).
+- In the editor, any sidebar field of a block inside a query shows a database
+  icon in its corner (hover reveal, long-press on touch). Clicking opens the
+  binding picker; selecting a field stores `node.bindings.<fieldKey>`,
+  "Remove binding" clears it.
 
 ## Collaboration (realtime)
 - Presence/cursors/locks via Yjs awareness over a WebSocket relay.
@@ -82,9 +123,18 @@ Rules (tagged `iikiti.cms.template_rule`): `object_type`, `object`, `site`.
   are rendered as locked chrome (read-only). Clicking a locked region makes
   it the active (editable) region; a "Back to content" button returns to
   `main`.
-- **Block palette** popover (add block / add child), block context menus, and
-  popovers/toasts styled by the shared `ui.css` primitives (also on front-end
-  pages now).
+- **Add block dialog + canvas pluses**: a shared modal "Add block" dialog
+  (`AddBlockDialog.svelte`, search + category grouping) is the single add-block
+  UI. It opens from:
+  - the "+" **toolbar button** (appends to the end of the active region);
+  - the circular "+" buttons **before and after every block** on the canvas —
+    revealed on hover (always visible on touch, compact inside headings) —
+    which insert at that exact gap;
+  - the region-level "+" control (region root);
+  - the block context menu **"Add child…"** (shown for any type that accepts
+    children; the palette is filtered to its allowed child types).
+  Inserting selects the new block. Types whose category is `inline` are only
+  offered where a parent explicitly allows them.
 - **Notifications**: bottom-right stack, 10s auto-dismiss (configurable) or
   dismissible, scrollable on overflow.
 
@@ -98,6 +148,12 @@ Rules (tagged `iikiti.cms.template_rule`): `object_type`, `object`, `site`.
   - `registerFieldControl(type, Component, {priority})` — map a schema field
     `type` → a Svelte control `{field, value, onChange}`; higher priority wins
     (overridable).
+  - `registerFieldDecorator({id, applies(ctx, fieldNode), component},
+    {priority})` — render a decorator affordance in the corner of any sidebar
+    field control. `applies` gates visibility; `component` receives
+    `{node, fieldNode, fieldKey}`. The core "query binding" decorator
+    (`queryBinding.js` / `BindingTrigger.svelte`) registers through this same
+    API.
   - `patchSection(sectionId, (nodes, ctx) => nodes, {priority})` — insert,
     remove or reorder any node in an existing tab.
   - `getSections()`, `buildSectionNodes(id, ctx)`, `setActiveSection(id)`.

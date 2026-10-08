@@ -8,6 +8,9 @@ import { notifications } from '../../js/iikiti/notifications.js';
  * @property {Record<string, unknown>} [content]
  * @property {Record<string, unknown>} [style]
  * @property {Record<string, unknown>} [element]
+ * @property {Record<string, string>} [bindings] Per-content-field dynamic
+ *                                               bindings (e.g. to a `query`
+ *                                               block's result fields)
  * @property {BlockNode[]} [children]
  */
 
@@ -73,6 +76,38 @@ export const layersOpen = writable(false);
  * @type {import('svelte/store').Writable<string|null>}
  */
 export const activeRegion = writable(null);
+
+/**
+ * Insertion context for the shared "Add block" dialog. `null` = closed.
+ *
+ * - `regionId`  region to insert into (required)
+ * - `parentId`  container block id, or `null` to insert at region root
+ * - `position`  index within the parent's children (gap insertion); omit to append
+ * - `allowedTypes` explicit list of insertable block types; empty = any
+ *                (inline-category types are only offered through explicit lists)
+ *
+ * @typedef {object} AddBlockContext
+ * @property {string} regionId
+ * @property {string|null} parentId
+ * @property {number} [position]
+ * @property {string[]} allowedTypes
+ *
+ * @type {import('svelte/store').Writable<AddBlockContext|null>}
+ */
+export const addBlockDialog = writable(null);
+
+/**
+ * Open the shared Add block dialog at the given insertion point.
+ *
+ * @param {AddBlockContext} context
+ */
+export function openAddBlockDialog(context) {
+	addBlockDialog.set(context);
+}
+
+export function closeAddBlockDialog() {
+	addBlockDialog.set(null);
+}
 
 const blockElements = new Map();
 export function registerBlock(id, el) {
@@ -168,16 +203,21 @@ export function allowedChildTypes(parentType, bt) {
 }
 
 /**
+ * Insert a new block of `type` and return its generated node id (so callers can
+ * select / scroll to it).
+ *
  * @param {string} regionId
  * @param {string|null} parentId
  * @param {string} type
  * @param {number} [position]
+ * @returns {string} the new block id
  */
 export function addBlock(regionId, parentId, type, position) {
+	const id = 'blk_' + crypto.randomUUID().slice(0, 12);
 	state.update((s) => {
 		/** @type {BlockNode} */
 		const node = {
-			id: 'blk_' + crypto.randomUUID().slice(0, 12),
+			id,
 			type,
 			content: defaultContentFor(type, s.blockTypes),
 			element: defaultElementFor(type, s.blockTypes),
@@ -186,6 +226,7 @@ export function addBlock(regionId, parentId, type, position) {
 		const next = insertNode(s.tree, regionId, parentId, node, position);
 		return pushHistory(s, next);
 	});
+	return id;
 }
 
 /**
@@ -378,11 +419,50 @@ export function searchNode(id) {
  */
 export function pathToNode(id) {
 	const t = get(tree);
+	// Single-entry memo: sidebar decorators ask for the same node's path once per
+	// field on every render, while the tree object only changes on edits.
+	if (pathMemo && pathMemo.tree === t && pathMemo.id === id) return pathMemo.result;
+	let result = null;
 	for (const regionId of Object.keys(t)) {
 		const path = [];
-		if (walkPath(t[regionId], id, path)) return { regionId, path };
+		if (walkPath(t[regionId], id, path)) {
+			result = { regionId, path };
+			break;
+		}
+	}
+	pathMemo = { tree: t, id, result };
+	return result;
+}
+
+/** @type {{ tree: unknown, id: string, result: ReturnType<typeof pathToNode> } | null} */
+let pathMemo = null;
+
+/**
+ * Nearest enclosing `query` block of a node (never the node itself), or null.
+ *
+ * @param {BlockNode | null | undefined} node
+ * @returns {BlockNode | null}
+ */
+export function queryAncestor(node) {
+	if (!node?.id) return null;
+	const found = pathToNode(node.id);
+	if (!found) return null;
+	for (let i = found.path.length - 1; i >= 0; i--) {
+		const ancestor = found.path[i];
+		if (ancestor.type === 'query' && ancestor.id !== node.id) return ancestor;
 	}
 	return null;
+}
+
+/**
+ * Explicit insertable types for a region: its `allowed_types`, empty = any.
+ *
+ * @param {string} regionId
+ * @param {RegionInfo[]} regs
+ * @returns {string[]}
+ */
+export function regionAllowedTypes(regionId, regs) {
+	return regs.find((r) => r.id === regionId)?.allowed ?? [];
 }
 
 /**
@@ -438,9 +518,15 @@ function parseNode(el) {
 	const content = safeJson(el.getAttribute('data-block-content') || null);
 	const style = safeJson(el.getAttribute('data-block-style') || null);
 	const element = safeJson(el.getAttribute('data-block-element') || null);
-	const childrenWrap = el.querySelector('[data-block-children]');
+	const bindings = safeJson(el.getAttribute('data-block-bindings') || null);
+	// `query` blocks render their children per result item, so their child
+	// template is hydrated from the dedicated first-item marker — a plain
+	// `[data-block-children]` deep scan would absorb a nested container's
+	// children wrapper (and flatten one level).
+	const marker = type === 'query' ? '[data-block-item-children]' : '[data-block-children]';
+	const childrenWrap = el.querySelector(marker);
 	const children = childrenWrap ? parseNodes(childrenWrap) : undefined;
-	return { id, type, content, style, element, children };
+	return { id, type, content, style, element, bindings, children };
 }
 
 /**

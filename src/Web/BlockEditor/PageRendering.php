@@ -57,6 +57,9 @@ final class PageRendering
 				contextId: (int) ($template->getId() ?? 0),
 				contextType: 'template',
 				user: $user,
+				// The current draft version — the editor echoes it back as
+				// `If-Match` on save; a missing version would 409 every save.
+				version: $template->getDraftVersion(),
 			)
 			: null;
 		$regionTrees = ($editorMode && $template->getBlocksDraft() ? $template->getBlocksDraft() : ($template->getBlocks() ?: []));
