@@ -16,10 +16,34 @@
 
 /* ========================= Layer / stacking standard ======================== */
 :root {
-	/* Stacking order across the whole page — extend, never fork. */
+	/*
+	 * Stacking order across the whole page — extend, never fork.
+	 * Bands (ascending): content 0-99 · editor 100-499 · shell 500-999 ·
+	 * chrome 1000-1999 · overlay 2000-4999 · reserved debug 9000+ (profiler 99999).
+	 */
+
+	/* Content band (0-99): page content and items inside it. */
+	--iikiti-z-content: 0;          /* blocks, cards, page content */
+	--iikiti-z-content-raised: 10;  /* content items that must sit above siblings */
+	--iikiti-z-content-overlay: 20; /* in-content badges, outlines, handles */
+
+	/* Editor band (100-499): front-end block editor. */
+	--iikiti-z-editor-canvas: 100;   /* editor overlays on the canvas */
+	--iikiti-z-editor-controls: 200; /* insert buttons, region controls, context menus */
+	--iikiti-z-editor-panel: 300;    /* editor side panels (settings sidebar) */
+
+	/* Shell band (500-999): site/admin shell, below viewport bars. */
+	--iikiti-z-shell-sidebar: 500;   /* site/admin sidebars (mobile drawer) */
+	--iikiti-z-shell-overlay: 600;   /* scrim behind an open sidebar */
+	--iikiti-z-shell-header: 700;    /* sticky page headers inside the shell */
+
+	/* Chrome band (1000-1999): viewport bars. */
 	--iikiti-z-chrome: 1000;   /* viewport bars (sticky/fixed site chrome) */
+
+	/* Overlay band (2000-4999): floating layers. */
 	--iikiti-z-popover: 2000;  /* popovers, menus, palettes, inspector */
 	--iikiti-z-floating: 3000; /* draggable floating panels (layers) */
+	--iikiti-z-tour: 3900;     /* guided tour spotlight (below its own tooltips) */
 	--iikiti-z-modal: 3500;    /* modal dialogs + backdrops */
 	--iikiti-z-tooltip: 4000;  /* hover/focus tooltips */
 	--iikiti-z-toast: 4500;    /* notifications */
@@ -59,7 +83,8 @@ body {
    (data-iikiti-bar-resizable="true"). data-edge faces the content. */
 .iikiti-resize-handle {
 	position: absolute;
-	z-index: 2;
+	/* Local layering inside the bar's own stacking context, not a global layer. */
+	z-index: var(--iikiti-z-content-overlay);
 	touch-action: none;
 	user-select: none;
 	-webkit-user-select: none;
@@ -202,7 +227,7 @@ body {
 /* ========================= Tour spotlight ================================== */
 .iikiti-tour-spotlight {
 	position: relative;
-	z-index: calc(var(--iikiti-z-tooltip, 4000) - 1);
+	z-index: var(--iikiti-z-tour);
 	outline: 3px solid var(--ik-accent, #a6613c);
 	outline-offset: 3px;
 	border-radius: 4px;

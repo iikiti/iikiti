@@ -296,7 +296,7 @@
 		pointer-events: none;
 		box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
 		transition: opacity 0.15s ease, background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
-		z-index: 3;
+		z-index: var(--iikiti-z-editor-controls);
 	}
 	.iikiti-insert-btn--before { top: 0; transform: translate(-50%, -50%); }
 	.iikiti-insert-btn--after { bottom: 0; transform: translate(-50%, 50%); }
@@ -342,7 +342,7 @@
 		opacity: 0;
 		transition: opacity 0.15s ease;
 		pointer-events: auto;
-		z-index: 2;
+		z-index: var(--iikiti-z-editor-controls);
 	}
 	.iikiti-block-preview:hover .iikiti-context-menu,
 	.iikiti-block-preview.selected .iikiti-context-menu {

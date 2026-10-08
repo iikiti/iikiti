@@ -159,7 +159,7 @@
 		position: absolute;
 		top: 4px;
 		left: 4px;
-		z-index: 3;
+		z-index: var(--iikiti-z-editor-canvas);
 		padding: 2px 8px;
 		border-radius: 999px;
 		background: color-mix(in srgb, var(--ik-accent, #a6613c) 92%, transparent);

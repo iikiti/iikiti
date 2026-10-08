@@ -238,7 +238,10 @@ anything:
   `window.iikiti`), including the explicit `fixed`/`absolute` overlay
   exemption and optional drag-to-resize.
 - **Layering:** the shared z-index token scale
-  (`--iikiti-z-chrome/popover/floating/modal/tooltip/toast`).
+  (`--iikiti-z-*`: content, editor, shell, chrome, popover, floating, modal,
+  tour, tooltip, toast; see the Layer scale table in
+  `docs/front-end-ui-standard.md`). Read values in JS with
+  `assets/js/iikiti/chrome/layers.js`.
 - **Floating draggable dialogs & tooltips:** `FloatingPanel` /
   `Tooltip` components (import from `@iikiti/admin`), or the framework-level
   `dragResize` helper for vanilla-JS bundles.

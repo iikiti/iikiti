@@ -134,20 +134,47 @@ top and bottom stacks, i.e. below the header).
 
 ## Layer (z-index) scale
 
-All front-end chrome must position itself via the layer scale declared in
-`ui.css` (`:root`):
+All front-end chrome, editor and admin elements must position themselves via
+the layer scale declared in `ui.css` (`:root`). Never write a raw integer
+`z-index` in a component; use the token. The scale is grouped into bands
+(ascending):
 
-| Token | Value | Use for |
-|---|---|---|
-| `--iikiti-z-chrome` | 1000 | viewport bars (sticky/fixed site chrome) |
-| `--iikiti-z-popover` | 2000 | popovers, menus, palettes, inspector |
-| `--iikiti-z-floating` | 3000 | draggable floating panels |
-| `--iikiti-z-modal` | 3500 | modal dialogs + backdrops |
-| `--iikiti-z-tooltip` | 4000 | tooltips |
-| `--iikiti-z-toast` | 4500 | notifications |
+| Band | Range | Token | Value | Use for |
+|---|---|---|---|---|
+| Content | 0–99 | `--iikiti-z-content` | 0 | blocks, cards, page content |
+| Content | 0–99 | `--iikiti-z-content-raised` | 10 | content items that must sit above siblings |
+| Content | 0–99 | `--iikiti-z-content-overlay` | 20 | in-content badges, outlines, resize handles |
+| Editor | 100–499 | `--iikiti-z-editor-canvas` | 100 | editor overlays on the canvas (edit trigger, locked badge) |
+| Editor | 100–499 | `--iikiti-z-editor-controls` | 200 | insert buttons, context menus, field decorators |
+| Editor | 100–499 | `--iikiti-z-editor-panel` | 300 | editor side panels (settings sidebar) |
+| Shell | 500–999 | `--iikiti-z-shell-sidebar` | 500 | site/admin sidebars (mobile drawer) |
+| Shell | 500–999 | `--iikiti-z-shell-overlay` | 600 | scrim behind an open sidebar |
+| Shell | 500–999 | `--iikiti-z-shell-header` | 700 | sticky page headers inside the shell |
+| Chrome | 1000–1999 | `--iikiti-z-chrome` | 1000 | viewport bars (sticky/fixed site chrome, editor toolbar) |
+| Overlay | 2000–4999 | `--iikiti-z-popover` | 2000 | popovers, menus, palettes, inspector |
+| Overlay | 2000–4999 | `--iikiti-z-floating` | 3000 | draggable floating panels |
+| Overlay | 2000–4999 | `--iikiti-z-modal` | 3500 | modal dialogs + backdrops |
+| Overlay | 2000–4999 | `--iikiti-z-tour` | 3900 | guided tour spotlight (below its own tooltips) |
+| Overlay | 2000–4999 | `--iikiti-z-tooltip` | 4000 | tooltips |
+| Overlay | 2000–4999 | `--iikiti-z-toast` | 4500 | notifications |
 
-Never fork the scale — extend it if a genuine new layer is needed. Floating
-panels bring themselves to front within the floating layer on pointer
+Reserved: 9000+ is for debug tooling (the Symfony profiler uses 99999). Do
+not use it in application code.
+
+Rules:
+
+- Extend the scale in `ui.css` (and this table) when a genuine new layer is
+  needed; never fork it in a component.
+- Local layering inside a component's own stacking context (e.g. a handle
+  inside a bar) may use a band token from the content band; prefer
+  `isolation: isolate` on the component root to scope it.
+- Tooltips use `--iikiti-z-tooltip`. `Tooltip.svelte` portals itself to
+  `document.body`, so a tip raised from a sticky toolbar is never trapped in
+  that toolbar's stacking context.
+- JS code reads a layer value via `assets/js/iikiti/chrome/layers.js`
+  (`layerValue('tooltip')`) instead of hardcoding the number.
+
+Floating panels bring themselves to front within the floating layer on pointer
 interaction.
 
 ## Theming

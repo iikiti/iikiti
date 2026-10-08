@@ -215,7 +215,7 @@
 		position: fixed;
 		top: calc(1rem + var(--iikiti-bars-top, 0px));
 		left: calc(1rem + var(--iikiti-bars-left, 0px));
-		z-index: var(--iikiti-z-popover, 2000);
+		z-index: var(--iikiti-z-shell-header);
 		border: 1px solid var(--ik-panel-border, #ddd6cb);
 		background: var(--ik-panel-bg, #f9f7f2);
 		color: var(--ik-panel-text, #3a3830);

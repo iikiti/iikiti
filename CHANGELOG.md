@@ -39,6 +39,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Changed
 
+- 2026-10-08: Z-index standard: the `--iikiti-z-*` scale in `ui.css` is now banded (content 0-99, editor 100-499, shell 500-999, chrome 1000-1999, overlay 2000-4999; debug 9000+ reserved). Editor, shell, tour and admin components use tokens instead of raw integers, and `assets/js/iikiti/chrome/layers.js` exposes `layerValue()` for JS. The editor settings side panel moves from the chrome band to the editor-panel band.
 - 2026-10-08: Header, footer, sidebars and dialogs are now shells (`Template::getShells`)
   rendered per role only when a shell's display rules match (`ShellResolver`, reusing the
   `iikiti.cms.template_rule` registry). Empty shell roles emit no markup. Only `main` is a

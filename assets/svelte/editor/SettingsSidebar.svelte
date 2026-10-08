@@ -314,7 +314,7 @@
 		position: absolute;
 		right: 2px;
 		bottom: 2px;
-		z-index: 3;
+		z-index: var(--iikiti-z-editor-controls);
 		display: inline-flex;
 		opacity: 0;
 		pointer-events: none;

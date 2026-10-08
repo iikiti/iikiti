@@ -2,11 +2,15 @@
 	// Bring-to-front counter, shared by every Dialog in this bundle.
 	let dialogSeq = 1;
 
+	// Layer values mirror the `--iikiti-z-*` scale in assets/styles/ui.css.
+	// The token is the source of truth; this is only the SSR/no-CSS fallback.
+	const FLOATING_FALLBACK = 3000;
+
 	function floatingBase(): number {
-		if (typeof window === 'undefined') return 3000;
+		if (typeof window === 'undefined') return FLOATING_FALLBACK;
 		const raw = getComputedStyle(document.documentElement).getPropertyValue('--iikiti-z-floating');
 		const v = parseInt(raw, 10);
-		return Number.isFinite(v) && v > 0 ? v : 3000;
+		return Number.isFinite(v) && v > 0 ? v : FLOATING_FALLBACK;
 	}
 </script>
 

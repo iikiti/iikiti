@@ -85,7 +85,7 @@
 	}
 	.iikiti-tour--floating {
 		position: fixed;
-		z-index: var(--iikiti-z-tooltip, 4000);
+		z-index: var(--iikiti-z-tooltip);
 		left: 50%;
 		bottom: 24px;
 		transform: translateX(-50%);

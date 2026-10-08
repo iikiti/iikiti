@@ -22,7 +22,7 @@
 	align-items: center;
 	justify-content: center;
 	transition: opacity 0.15s ease, transform 0.15s ease;
-	z-index: 10;
+	z-index: var(--iikiti-z-editor-canvas);
 	backdrop-filter: blur(2px);
 }
 
@@ -79,8 +79,11 @@ body.iikiti-editor-body [data-component="BlockEditorComponent"] {
 }
 
 /* ── Settings sidebar (docked via the bars standard) ── */
+/* Editor side panel sits in the editor band, not the chrome band, so tooltips
+   and popovers from the toolbar/canvas always paint above it. */
 [data-iikiti-bar-id="iikiti-editor-settings"] {
 	overflow: hidden;
+	z-index: var(--iikiti-z-editor-panel);
 }
 [data-iikiti-bar-id="iikiti-editor-settings"] > .iikiti-settings {
 	height: 100%;

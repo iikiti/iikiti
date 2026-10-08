@@ -24,7 +24,7 @@
 		placement = 'bottom',
 		delay = 350,
 		disabled = false,
-		zIndex = 'var(--iikiti-z-tooltip, 4000)',
+		zIndex = 'var(--iikiti-z-tooltip)',
 		children,
 	}: Props = $props();
 
