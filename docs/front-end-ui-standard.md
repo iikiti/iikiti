@@ -7,6 +7,9 @@ available on **both the public site and the admin SPA** — the framework JS
 (`assets/js/iikiti/`) and the shared primitives stylesheet
 (`assets/styles/ui.css`) load in both contexts.
 
+The full `window.iikiti` API, including the `bars` and `components` members, is
+documented in [js-api.md](js-api.md).
+
 ## Viewport bars (the "bars" standard)
 
 A **bar** is any chrome element attached to one side of the viewport: the

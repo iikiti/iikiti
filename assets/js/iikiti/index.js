@@ -7,6 +7,7 @@ import { components } from './components/registry.js';
 import { applyStoredTheme, toggleTheme, resolveTheme, STORAGE_THEME_KEY } from './components/base.js';
 import { bars } from './chrome/bars.js';
 import { installTour } from './tour.js';
+import { markReady, whenReady } from './ready.js';
 
 const configEl = document.getElementById('iikiti-config');
 const config = configEl ? JSON.parse((configEl.textContent || '{}') || '{}') : {};
@@ -46,11 +47,19 @@ if (!window.iikiti) {
       get: resolveTheme,
       STORAGE_THEME_KEY,
     },
+    whenReady,
   };
 }
 
 // Tour/spotlight framework (registers built-in actions + window.iikiti.tour).
 installTour();
+
+// Readiness: these base components are usable as soon as their module has
+// evaluated. Components that depend on DOM readiness are marked in domReady below.
+markReady('components');
+markReady('notifications');
+markReady('theme');
+markReady('tour');
 
 const isTouchDevice = () => {
 	if (typeof window === 'undefined') return false;
@@ -70,7 +79,13 @@ domReady.then(() => {
 	// before any late registrants (editor toolbar, plugin site_ui bundles).
 	bars.start();
 	bars.autoWire();
-	startPlugins().catch(() => undefined);
+	markReady('bars');
+	startPlugins()
+		.then(() => markReady('plugins'))
+		.catch(() => {
+			// A failing plugin must not block readiness; the failure is already logged by its loader.
+			markReady('plugins');
+		});
 
 	if (config['canEdit'] === true) {
 		wireEditIcons();

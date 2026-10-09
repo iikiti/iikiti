@@ -18,6 +18,7 @@
  *   settings) after the section builds it.
  */
 import { writable, get } from 'svelte/store';
+import { markReady } from '../../js/iikiti/ready.js';
 
 /** @type {Array<{type:string, component:any, priority:number, seq:number}>} */
 const fieldControls = [];
@@ -205,6 +206,7 @@ export function installSidebarApi() {
 	};
 	// Convenience alias documented for plugin authors.
 	w.iikiti.editor.registerSidebar = w.iikiti.editor.sidebar;
+	markReady('editor.sidebar');
 }
 
 export { get };

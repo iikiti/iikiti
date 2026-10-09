@@ -247,6 +247,8 @@ anything:
   `dragResize` helper for vanilla-JS bundles.
 
 Full reference: [front-end-ui-standard.md](front-end-ui-standard.md).
+For every `window.iikiti` member and readiness signalling (`whenReady`), see
+[js-api.md](js-api.md).
 
 ## Editor sidebar extension API
 
