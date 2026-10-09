@@ -18,6 +18,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-10-09: `docs/workflow-examples.md` with examples for building workflows: custom steps via `WorkflowManager`, form steps via `AbstractFormWorkflowStep`, dynamic steps via `StepProviderInterface`, `addStepProvider()`/`buildWorkflow()`, event subscribers, session persistence and testing.
 - 2026-10-09: `window.iikiti.loader.loadStyle(url, { strategy })` accepts `async` (low priority, `media="print"` until loaded, does not block layout), `onload` (after DOM ready) and `interaction` (after first pointer or key event); default `complete` is unchanged. Plugins can set `cssStrategy`.
 - 2026-10-09: `window.iikiti.whenReady(name)` readiness API (`assets/js/iikiti/ready.js`): resolves for each component (`components`, `bars`, `theme`, `notifications`, `plugins`, `tour`, `editor.sidebar`) including when it became ready earlier; `whenReady('iikiti:ready')` resolves once all base components are ready. Unregistered names stay pending with no built-in timeout.
 - 2026-10-09: `docs/js-api.md` reference for every public `window.iikiti` member, with stability tags and the verified `#iikiti-config` keys; linked from `plugin-development.md` and `front-end-ui-standard.md`.
