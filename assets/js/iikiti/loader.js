@@ -1,4 +1,5 @@
 /// <reference types="node" />
+import { domReady } from './domready.js';
 /**
  * Dependency+version-aware script/style loader with cached promises.
  *
@@ -47,6 +48,32 @@ function onceEl(url, tag, attrs) {
 	return p;
 }
 
+/**
+ * Low-priority stylesheet: the link starts with `media="print"`, which browsers
+ * fetch without render-blocking, then switches to `all` once loaded.
+ */
+function loadStyleAsync(url) {
+	if (pending.has(url)) return pending.get(url);
+
+	const p = new Promise((resolve, reject) => {
+		const el = document.createElement('link');
+		el.rel = 'stylesheet';
+		el.href = url;
+		el.media = 'print';
+		el.dataset.iikitiLib = '1';
+		el.onload = () => {
+			el.media = 'all';
+			resolve();
+		};
+		el.onerror = () => reject(new Error(`Failed to load style: ${url}`));
+		document.head.appendChild(el);
+	});
+
+	pending.set(url, p);
+	p.then(() => loaded.add(url)).catch(() => pending.delete(url));
+	return p;
+}
+
 export const loader = {
 	registerLibrary(name, spec) {
 		libraries[name] = spec;
@@ -67,9 +94,27 @@ export const loader = {
 			defer: opts.strategy === 'defer' ? 'true' : 'false',
 		});
 	},
-	async loadStyle(url) {
+	/**
+	 * @param {string} url
+	 * @param {{ strategy?: 'async'|'onload'|'interaction'|'complete' }} [opts]
+	 *   - `complete` (default): insert immediately, as before.
+	 *   - `async`: low priority, does not block layout (media="print" until loaded).
+	 *   - `onload`: insert once the DOM is ready.
+	 *   - `interaction`: insert after the first pointer or key event.
+	 */
+	async loadStyle(url, opts = {}) {
+		const strategy = opts.strategy ?? 'complete';
+		if (strategy === 'interaction') {
+			await onInteraction();
+		} else if (strategy === 'onload') {
+			await domReady;
+		}
 		if (loaded.has(url)) return;
 		if (document.querySelector(`link[href="${CSS.escape(url)}"]`)) return;
+		if (strategy === 'async') {
+			await loadStyleAsync(url);
+			return;
+		}
 		await onceEl(url, 'link', { href: url });
 	},
 	async loadDeps(spec) {

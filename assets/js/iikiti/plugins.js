@@ -24,7 +24,7 @@ export async function startPlugins() {
 	started = true;
 	for (const def of plugins) {
 		if (def.css) {
-			await loader.loadStyle(def.css);
+			await loader.loadStyle(def.css, { strategy: def.cssStrategy ?? 'complete' });
 		}
 		if (def.entry) {
 			const strategy = def.strategy ?? 'complete';
