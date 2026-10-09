@@ -81,9 +81,10 @@ final class ObjectsQuerySource implements QuerySourceInterface
 			}
 		}
 
-		// Object type filter (discriminator = FQCN).
+		// Object type filter. `type` is the Doctrine discriminator, not a mapped
+		// field, so it cannot be referenced in DQL; INSTANCE OF is the supported form.
 		if ('' !== $definition->getObjectType()) {
-			$qb->andWhere('o.type = :objectType')->
+			$qb->andWhere('o INSTANCE OF :objectType')->
 				setParameter('objectType', $definition->getObjectType());
 		}
 

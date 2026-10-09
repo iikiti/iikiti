@@ -2,7 +2,7 @@
 
 namespace iikiti\CMS\Cache\Strategy;
 
-use Doctrine\ORM\Query;
+use Doctrine\ORM\AbstractQuery;
 use iikiti\CMS\Cache\CachingStrategyInterface;
 use iikiti\CMS\Service\CacheState;
 use Psr\Cache\CacheItemPoolInterface;
@@ -63,9 +63,9 @@ class DoctrineResultCacheStrategy implements CachingStrategyInterface
 	}
 
 	/**
-	 * @param Query<array-key,mixed> $query
+	 * @param AbstractQuery<mixed,mixed> $query
 	 */
-	public function decorateQuery(Query $query, string $cacheKey, ?int $ttl): void
+	public function decorateQuery(AbstractQuery $query, string $cacheKey, ?int $ttl): void
 	{
 		$query->setResultCache($this->cachePool);
 		$query->enableResultCache($ttl ?? $this->defaultTTL, $cacheKey);

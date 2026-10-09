@@ -23,7 +23,7 @@ interface SaveWorkflowInterface
 	 * @param array<string,list<array<string,mixed>>> $tree
 	 * @param string|null                             $ifMatchVersion ETag-style version; mismatch => conflict
 	 *
-	 * @return array{ok:bool, version:int, conflict:bool}
+	 * @return array{ok:bool, version:int, conflict:bool}|array{conflict:false, error:string, violations:non-empty-list<array{region:string, index:int, type:string}>}
 	 */
 	public function save(string $contextType, int $contextId, array $tree, ?string $ifMatchVersion, User $user): array;
 

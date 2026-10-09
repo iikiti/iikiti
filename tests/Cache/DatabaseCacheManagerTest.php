@@ -2,7 +2,7 @@
 
 namespace iikiti\CMS\Tests\Cache;
 
-use Doctrine\ORM\Query;
+use Doctrine\ORM\AbstractQuery;
 use iikiti\CMS\Cache\CachingStrategyRegistry;
 use iikiti\CMS\Cache\Strategy\DoctrineResultCacheStrategy;
 use iikiti\CMS\Cache\Strategy\NoCacheStrategy;
@@ -86,8 +86,8 @@ final class DatabaseCacheManagerTest extends TestCase
 	{
 		$manager = $this->createManager();
 
-		/** @var Query<array-key,mixed>&\PHPUnit\Framework\MockObject\MockObject $query */
-		$query = $this->createMock(Query::class);
+		/** @var AbstractQuery<array-key,mixed>&\PHPUnit\Framework\MockObject\MockObject $query */
+		$query = $this->createMock(AbstractQuery::class);
 		$query->expects($this->once())->method('setResultCache');
 		$query->expects($this->once())->
 			method('enableResultCache')->
@@ -104,8 +104,8 @@ final class DatabaseCacheManagerTest extends TestCase
 	{
 		$manager = $this->createManager(false);
 
-		/** @var Query<array-key,mixed>&\PHPUnit\Framework\MockObject\MockObject $query */
-		$query = $this->createMock(Query::class);
+		/** @var AbstractQuery<array-key,mixed>&\PHPUnit\Framework\MockObject\MockObject $query */
+		$query = $this->createMock(AbstractQuery::class);
 		$query->expects($this->never())->method('enableResultCache');
 
 		$manager->decorateQuery($query, self::ENTITY, [
@@ -118,8 +118,8 @@ final class DatabaseCacheManagerTest extends TestCase
 	{
 		$manager = $this->createManager();
 
-		/** @var Query<array-key,mixed>&\PHPUnit\Framework\MockObject\MockObject $query */
-		$query = $this->createMock(Query::class);
+		/** @var AbstractQuery<array-key,mixed>&\PHPUnit\Framework\MockObject\MockObject $query */
+		$query = $this->createMock(AbstractQuery::class);
 		$query->expects($this->never())->method('enableResultCache');
 
 		$manager->decorateQuery($query, self::ENTITY, [

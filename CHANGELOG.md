@@ -45,6 +45,10 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Fixed
 
+- 2026-10-08: Block query with a non-empty object type no longer fails in DQL: the filter uses `INSTANCE OF` on the discriminator instead of the unmapped `o.type` field.
+- 2026-10-08: PHPStan reports no errors: removed redundant `array_values`/`is_array` checks, added missing iterable generics, dropped a stale ignore pattern, and widened the `SaveWorkflowInterface::save()` return type to include the validation-failure shape.
+- 2026-10-08: PHPUnit suite no longer exhausts memory: the PostgreSQL search engine test uses a real platform instance instead of a doubled class; the always-true TimeZone assertion now checks the concrete zone class for the runtime; `phpunit.xml.dist` sets `memory_limit` to 512M to remove intermittent fatals.
+- 2026-10-08: Caching strategies and cache manager accept `AbstractQuery` instead of the concrete `Query`, so tests can double the abstract type.
 - 2026-10-08: Audit log no longer records plain navigation: GET/HEAD/OPTIONS requests open no event; state-changing requests and login/logout are unchanged.
 - 2026-10-08: Audit entry detail page has padding and renders the timestamp through `DateTime`.
 - 2026-10-08: Logout raised "A new entity was found through the relationship AuditLogEntry#parent": sub-events are now persisted only after their parent, and the parent is persisted first on close.

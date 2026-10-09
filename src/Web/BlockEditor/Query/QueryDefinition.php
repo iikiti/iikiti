@@ -16,7 +16,6 @@ final class QueryDefinition
 	/** Field name => DQL expression (e.g. 'title' => 'titleProp.value'). */
 	public const COLUMN_MAP = [
 		'id' => 'o.id',
-		'type' => 'o.type',
 		'created_date' => 'o.created_date',
 		'title' => 'titleProp.value',
 		'slug' => 'slugProp.value',

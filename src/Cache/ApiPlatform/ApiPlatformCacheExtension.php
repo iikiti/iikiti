@@ -3,7 +3,7 @@
 namespace iikiti\CMS\Cache\ApiPlatform;
 
 use ApiPlatform\Metadata\Operation;
-use Doctrine\ORM\Query;
+use Doctrine\ORM\AbstractQuery;
 use Doctrine\ORM\QueryBuilder;
 use iikiti\CMS\Service\DatabaseCacheManager;
 
@@ -25,12 +25,12 @@ abstract class ApiPlatformCacheExtension
 	}
 
 	/**
-	 * @param Query<array-key,mixed> $query
+	 * @param AbstractQuery<mixed,mixed> $query
 	 * @param array<string,mixed>    $context
 	 */
 	protected function decorate(
 		QueryBuilder $queryBuilder,
-		Query $query,
+		AbstractQuery $query,
 		string $resourceClass,
 		string $operationName,
 		?Operation $operation,

@@ -226,7 +226,10 @@ final class BlockRendererTest extends TestCase
 		return [['id' => 'root-container', 'type' => 'container', 'content' => [], 'style' => ['base' => []], 'children' => $nodes]];
 	}
 
-		private function sampleTree(): array
+	/**
+	 * @return list<array<string,mixed>>
+	 */
+	private function sampleTree(): array
 	{
 		return $this->inContainer([
 			[

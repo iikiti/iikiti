@@ -2,7 +2,7 @@
 
 namespace iikiti\CMS\Cache\Strategy;
 
-use Doctrine\ORM\Query;
+use Doctrine\ORM\AbstractQuery;
 use iikiti\CMS\Cache\CachingStrategyInterface;
 
 /**
@@ -39,9 +39,9 @@ class NoCacheStrategy implements CachingStrategyInterface
 	}
 
 	/**
-	 * @param Query<array-key,mixed> $query
+	 * @param AbstractQuery<mixed,mixed> $query
 	 */
-	public function decorateQuery(Query $query, string $cacheKey, ?int $ttl): void
+	public function decorateQuery(AbstractQuery $query, string $cacheKey, ?int $ttl): void
 	{
 	}
 

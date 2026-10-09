@@ -36,9 +36,6 @@ final class TemplateRenderer
 	 *
 	 * @param array<string,list<array<string,mixed>>> $regionTrees per-region block trees
 	 * @param array<string,mixed>                     $settings
-	 */
-	/**
-	 * @param array<string,mixed>                     $settings
 	 * @param TemplateResolutionContext|null          $resolutionContext needed to pick shells for this request
 	 */
 	public function render(

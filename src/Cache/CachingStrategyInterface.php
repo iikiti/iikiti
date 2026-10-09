@@ -2,7 +2,7 @@
 
 namespace iikiti\CMS\Cache;
 
-use Doctrine\ORM\Query;
+use Doctrine\ORM\AbstractQuery;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 
 /**
@@ -46,9 +46,9 @@ interface CachingStrategyInterface
 	 * Apply caching to a Doctrine ORM query before its result is fetched.
 	 * Implementations that operate at the method level can ignore this.
 	 *
-	 * @param Query<array-key,mixed> $query
+	 * @param AbstractQuery<mixed,mixed> $query
 	 */
-	public function decorateQuery(Query $query, string $cacheKey, ?int $ttl): void;
+	public function decorateQuery(AbstractQuery $query, string $cacheKey, ?int $ttl): void;
 
 	/**
 	 * Execute a callback and cache its result. Implementations that operate at

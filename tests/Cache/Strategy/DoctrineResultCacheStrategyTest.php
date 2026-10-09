@@ -2,7 +2,7 @@
 
 namespace iikiti\CMS\Tests\Cache\Strategy;
 
-use Doctrine\ORM\Query;
+use Doctrine\ORM\AbstractQuery;
 use iikiti\CMS\Cache\Strategy\DoctrineResultCacheStrategy;
 use iikiti\CMS\Service\CacheState;
 use PHPUnit\Framework\TestCase;
@@ -51,8 +51,8 @@ final class DoctrineResultCacheStrategyTest extends TestCase
 	{
 		$strategy = $this->createStrategy();
 
-		/** @var Query<array-key,mixed>&\PHPUnit\Framework\MockObject\MockObject $query */
-		$query = $this->createMock(Query::class);
+		/** @var AbstractQuery<array-key,mixed>&\PHPUnit\Framework\MockObject\MockObject $query */
+		$query = $this->createMock(AbstractQuery::class);
 		$query->expects($this->once())->
 			method('setResultCache')->
 			with($this->isInstanceOf(\Psr\Cache\CacheItemPoolInterface::class));
@@ -67,8 +67,8 @@ final class DoctrineResultCacheStrategyTest extends TestCase
 	{
 		$strategy = $this->createStrategy(true, 60);
 
-		/** @var Query<array-key,mixed>&\PHPUnit\Framework\MockObject\MockObject $query */
-		$query = $this->createMock(Query::class);
+		/** @var AbstractQuery<array-key,mixed>&\PHPUnit\Framework\MockObject\MockObject $query */
+		$query = $this->createMock(AbstractQuery::class);
 		$query->expects($this->once())->
 			method('enableResultCache')->
 			with(60, 'db_cache_key');

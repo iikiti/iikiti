@@ -2,7 +2,7 @@
 
 namespace iikiti\CMS\Service;
 
-use Doctrine\ORM\Query;
+use Doctrine\ORM\AbstractQuery;
 use iikiti\CMS\Cache\CachingStrategyInterface;
 use iikiti\CMS\Cache\CachingStrategyRegistry;
 use iikiti\CMS\Cache\Strategy\DoctrineResultCacheStrategy;
@@ -57,10 +57,10 @@ class DatabaseCacheManager
 	}
 
 	/**
-	 * @param Query<array-key,mixed> $query
+	 * @param AbstractQuery<mixed,mixed> $query
 	 * @param array<string,mixed>    $context
 	 */
-	public function decorateQuery(Query $query, string $entityClass, array $context): void
+	public function decorateQuery(AbstractQuery $query, string $entityClass, array $context): void
 	{
 		$strategy = $this->getStrategy();
 		if (!$strategy->isEnabled($context['options'] ?? [])) {

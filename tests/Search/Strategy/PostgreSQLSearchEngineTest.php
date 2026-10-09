@@ -82,9 +82,9 @@ final class PostgreSQLSearchEngineTest extends TestCase
 	private function createEngine(string $schema): PostgreSQLSearchEngine
 	{
 		$connection = $this->createStub(\Doctrine\DBAL\Connection::class);
-		$connection->method('getDatabasePlatform')->willReturn(
-			$this->createStub(\Doctrine\DBAL\Platforms\PostgreSQLPlatform::class)
-		);
+		// A real platform instance avoids generating a doubled PostgreSQLPlatform
+		// class, which exhausted memory when the suite ran in full.
+		$connection->method('getDatabasePlatform')->willReturn(new \Doctrine\DBAL\Platforms\PostgreSQLPlatform());
 		$connection->method('executeStatement')->willReturn(0);
 		$connection->method('fetchOne')->willReturn(1);
 

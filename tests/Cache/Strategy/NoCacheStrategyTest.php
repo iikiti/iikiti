@@ -2,7 +2,7 @@
 
 namespace iikiti\CMS\Tests\Cache\Strategy;
 
-use Doctrine\ORM\Query;
+use Doctrine\ORM\AbstractQuery;
 use iikiti\CMS\Cache\Strategy\NoCacheStrategy;
 use PHPUnit\Framework\TestCase;
 
@@ -32,8 +32,8 @@ final class NoCacheStrategyTest extends TestCase
 
 	public function testDecorateQueryIsNoOp(): void
 	{
-		/** @var Query<array-key,mixed>&\PHPUnit\Framework\MockObject\MockObject $query */
-		$query = $this->createMock(Query::class);
+		/** @var AbstractQuery<array-key,mixed>&\PHPUnit\Framework\MockObject\MockObject $query */
+		$query = $this->createMock(AbstractQuery::class);
 		$query->expects($this->never())->method('enableResultCache');
 
 		$this->strategy->decorateQuery($query, 'key', 300);

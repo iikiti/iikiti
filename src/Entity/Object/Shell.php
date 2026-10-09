@@ -95,7 +95,7 @@ class Shell extends DbObject
 	 */
 	public function setDisplayRules(array $rules): void
 	{
-		$this->setProperty('display_rules', array_values($rules));
+		$this->setProperty('display_rules', $rules);
 	}
 
 	/**
@@ -113,6 +113,6 @@ class Shell extends DbObject
 	 */
 	public function setBlocks(array $blocks): void
 	{
-		$this->setProperty('blocks', array_values($blocks));
+		$this->setProperty('blocks', $blocks);
 	}
 }

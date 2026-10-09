@@ -36,14 +36,14 @@ final class ShellFromRegionMapper
 				continue;
 			}
 			$regionBlocks = $blocks[$id] ?? [];
-			if (!is_array($regionBlocks) || [] === $regionBlocks) {
+			if ([] === $regionBlocks) {
 				continue;
 			}
 			$shells[] = [
 				'role' => $role,
 				'name' => (string) ($region['name'] ?? $id),
 				'priority' => $priority++,
-				'blocks' => array_values($regionBlocks),
+				'blocks' => $regionBlocks,
 			];
 		}
 

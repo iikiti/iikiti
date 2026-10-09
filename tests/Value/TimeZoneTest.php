@@ -49,10 +49,16 @@ final class TimeZoneTest extends TestCase
 		self::assertInstanceOf(\IntlTimeZone::class, $zone->toZone());
 	}
 
-	public function testToZoneReturnsASupportedZoneObject(): void
+	public function testToZoneReturnsTheConcreteZoneForTheRuntime(): void
 	{
 		$zone = TimeZone::fromString('Europe/Paris')->toZone();
 
-		self::assertTrue($zone instanceof \IntlTimeZone || $zone instanceof \DateTimeZone);
+		if (extension_loaded('intl')) {
+			self::assertInstanceOf(\IntlTimeZone::class, $zone);
+
+			return;
+		}
+
+		self::assertInstanceOf(\DateTimeZone::class, $zone);
 	}
 }

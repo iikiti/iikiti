@@ -71,7 +71,7 @@ class AuditLogResource
 			userId: $entry->getUserId() === null ? null : (int) $entry->getUserId(),
 			username: $entry->getUser()?->getUserIdentifier() ?? $entry->getUsernameSnapshot(),
 			summary: $entry->getSummary() ?? self::fallbackSummary($entry),
-			parentId: $entry->getParent()?->getId() === null ? null : (int) $entry->getParent()?->getId(),
+			parentId: $entry->getParent()?->getId() === null ? null : (int) $entry->getParent()->getId(),
 			actorType: $entry->getActorType(),
 			action: $entry->getAction(),
 			objectType: $entry->getObjectType(),

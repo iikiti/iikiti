@@ -35,7 +35,7 @@ final class ShellResolver
 	public function resolve(array $shells, TemplateResolutionContext $context): array
 	{
 		$matching = [];
-		foreach (array_values($shells) as $index => $shell) {
+		foreach ($shells as $index => $shell) {
 			if (false === ($shell['enabled'] ?? true)) {
 				continue;
 			}

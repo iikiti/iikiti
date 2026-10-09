@@ -219,7 +219,7 @@ class AuditLogger
 				continue;
 			}
 
-			return sprintf('%s::%s (%s:%d)', $class, $frame['function'] ?? '?', $frame['file'] ?? '?', $frame['line'] ?? 0);
+			return sprintf('%s::%s (%s:%d)', $class, $frame['function'], $frame['file'] ?? '?', $frame['line'] ?? 0);
 		}
 
 		return 'unknown';

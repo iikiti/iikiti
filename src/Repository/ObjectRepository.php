@@ -5,7 +5,7 @@ namespace iikiti\CMS\Repository;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\Mapping\ClassMetadata;
-use Doctrine\ORM\Query;
+use Doctrine\ORM\AbstractQuery;
 use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
@@ -342,10 +342,10 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 	}
 
 	/**
-	 * @param Query<array-key,mixed> $query
+	 * @param AbstractQuery<mixed,mixed> $query
 	 * @param array<string,mixed>    $context
 	 */
-	private function _applyCache(Query $query, array $context): void
+	private function _applyCache(AbstractQuery $query, array $context): void
 	{
 		if ($this->_shouldCache($context['options'] ?? [])) {
 			$this->cacheManager->decorateQuery($query, $this->getEntityName(), $context);

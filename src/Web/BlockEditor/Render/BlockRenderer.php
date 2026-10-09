@@ -74,7 +74,7 @@ final class BlockRenderer
 
 		$html = '';
 		foreach ($tree as $node) {
-			$type = is_array($node) ? (string) ($node['type'] ?? '') : '';
+			$type = (string) ($node['type'] ?? '');
 			if (!$context->editorMode && !RootContainerRule::isAllowedAtRoot($type)) {
 				continue;
 			}
