@@ -1,0 +1,1 @@
+- 2026-10-10: Hover controls follow the deepest block under the pointer; when a descendant loses hover inside an ancestor, hover ownership transfers after the ancestor debounce.

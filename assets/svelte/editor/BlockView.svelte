@@ -2,24 +2,16 @@
 	import { onDestroy } from 'svelte';
 	import { get } from 'svelte/store';
 	import {
-		selected,
-		select,
 		registerBlock,
-		blockTypes,
-		tree,
-		regions,
+		select,
+		selected,
 		openAddBlockDialog,
 		allowedChildTypes,
+		blockTypes,
 		searchNode,
-		iconSvgs,
-		iconGlyphs,
 	} from './state';
 	import type { BlockNode } from './state';
-	import Icon from '$components/Icon.svelte';
-	// Self-import: nested block previews recurse into this component (Svelte 5
-	// replaces the deprecated <svelte:self> with an explicit self-import).
-	// eslint-disable-next-line import/no-self-import -- intentional recursion
-	import BlockView from './BlockView.svelte';
+	import BlockContent from './BlockContent.svelte';
 
 	let {
 		node,
@@ -27,341 +19,245 @@
 		readonly = false,
 		parentId = null,
 		index = 0,
+		isFirst = false,
+		isLast = false,
 		compact = false,
 	}: {
 		node: BlockNode;
 		regionId: string;
 		readonly?: boolean;
-		/** Parent container block id, or null when the node sits at region root. */
 		parentId?: string | null;
-		/** Index of this node within its parent's child list (for gap insertion). */
 		index?: number;
-		/** Smaller affordances for inline children (e.g. text inside a heading). */
+		isFirst?: boolean;
+		isLast?: boolean;
 		compact?: boolean;
 	} = $props();
-	let self = $state<HTMLDivElement | null>(null);
 
+	let blockElement = $state<HTMLDivElement | null>(null);
+	let hoverActive = $state(false);
+	let hoveredDescendant = $state(false);
+	let hoverTimer: ReturnType<typeof setTimeout> | null = null;
+	let lastPointerX = 0;
+	let lastPointerY = 0;
 	const isSelected = $derived(!readonly && $selected === node.id);
 
-	$effect(() => {
-		if (self && !readonly) {
-			self.dataset.blockId = node.id;
-			self.dataset.blockType = node.type;
-			registerBlock(node.id, self);
+	function clearHoverTimer() {
+		if (hoverTimer === null) return;
+		clearTimeout(hoverTimer);
+		hoverTimer = null;
+	}
+
+	function scheduleHoverActivation() {
+		if (hoverActive || hoverTimer !== null) return;
+		hoverTimer = setTimeout(() => {
+			hoverTimer = null;
+			const deepestBlock = blockElement?.ownerDocument.elementFromPoint(lastPointerX, lastPointerY)?.closest('[data-block-node]');
+			if (blockElement?.matches(':hover') && deepestBlock === blockElement) hoverActive = true;
+		}, 140);
+	}
+
+	function updatePointerTarget(event: PointerEvent) {
+		lastPointerX = event.clientX;
+		lastPointerY = event.clientY;
+		const target = event.target;
+		if (!(target instanceof Element)) return;
+
+		const activeBlock = target.closest<HTMLElement>('[data-block-node]');
+		if (!activeBlock) return;
+
+		let ancestor: HTMLElement | null = activeBlock;
+		while (ancestor) {
+			ancestor.dispatchEvent(new CustomEvent('iikiti-pointer-target', {
+				bubbles: false,
+				detail: { activeBlock },
+			}));
+			ancestor = ancestor.parentElement?.closest<HTMLElement>('[data-block-node]') ?? null;
 		}
-	});
+	}
 
-	onDestroy(() => {
-		if (!readonly) registerBlock(node.id, null);
-	});
 
-	function pick(ev: MouseEvent) {
-		ev.stopPropagation();
+	function handlePointerTarget(event: Event) {
+		const activeBlock = (event as CustomEvent<{ activeBlock: Element }>).detail.activeBlock;
+		const isActiveBlock = activeBlock === blockElement;
+		hoveredDescendant = !isActiveBlock;
+		if (!isActiveBlock) {
+			hoverActive = false;
+			clearHoverTimer();
+			return;
+		}
+		scheduleHoverActivation();
+	}
+
+	function handlePointerMove(event: PointerEvent) {
+		updatePointerTarget(event);
+	}
+
+	function selectBlock(event: MouseEvent) {
+		event.stopPropagation();
 		select(node.id);
 	}
 
-	const schema = $derived($blockTypes[node.type] as Record<string, unknown> | undefined);
-	const acceptsChildren = $derived(Boolean(schema?.acceptsChildren));
-	const childTypes = $derived.by(() => {
-		const bt = $blockTypes;
-		const s = bt?.[node.type];
-		if (!s) return [];
-		if (s.allowedChildTypes === null || s.allowedChildTypes === undefined) {
-			return s.acceptsChildren ? Object.keys(bt ?? {}) : [];
-		}
-		return (s.allowedChildTypes as string[]) ?? [];
+	function allowedTypesAtParent(): string[] {
+		if (!parentId) return ['container'];
+		const parent = searchNode(parentId);
+		return parent ? allowedChildTypes(parent.type, get(blockTypes)) : [];
+	}
+
+	function insertAt(position: number, event: MouseEvent) {
+		event.stopPropagation();
+		event.preventDefault();
+		openAddBlockDialog({ regionId, parentId, position, allowedTypes: allowedTypesAtParent() });
+	}
+
+	$effect(() => {
+		if (!blockElement || readonly) return;
+		blockElement.dataset.blockId = node.id;
+		blockElement.dataset.blockType = node.type;
+		registerBlock(node.id, blockElement);
 	});
 
-	/** H2–H6 only; anything else renders as H2 (mirrors heading.twig). */
-	function headingLevel(n: BlockNode): number {
-		const level = Number(n.content?.level ?? 2);
-		return level >= 2 && level <= 6 ? level : 2;
-	}
+	$effect(() => {
+		if (!blockElement || readonly) return;
+		blockElement.addEventListener('iikiti-pointer-target', handlePointerTarget);
+		return () => blockElement?.removeEventListener('iikiti-pointer-target', handlePointerTarget);
+	});
 
-	/** Tag allowlist for inline text children (preview copy; the server allowlist is CoreBlockTypeProvider::INLINE_TAGS). */
-	const INLINE_TAGS = ['span', 'em', 'strong', 'b', 'u', 'i', 'small', 'code', 'mark'];
-
-	/**
-	 * Insertable types at the parent of this block: the region's `allowed` list at
-	 * root level, otherwise the parent block's `allowedChildTypes` (empty = any).
-	 */
-	function parentAllowedTypes(): string[] {
-		if (!parentId) {
-			// Root level accepts containers only (RootContainerRule).
-			return ['container'];
-		}
-		const parent = searchNode(parentId);
-		if (!parent) return [];
-		return allowedChildTypes(parent.type, get(blockTypes));
-	}
-
-	/**
-	 * Open the shared Add block dialog at the gap before (`index`) or after
-	 * (`index + 1`) this block.
-	 */
-	function openInsertGap(position: number) {
-		openAddBlockDialog({
-			regionId,
-			parentId,
-			position,
-			allowedTypes: parentAllowedTypes(),
-		});
-	}
-
-	/** Opens the Add block dialog appending a child to this block. */
-	function openAddChildDialog() {
-		openAddBlockDialog({
-			regionId,
-			parentId: node.id,
-			position: node.children?.length ?? 0,
-			allowedTypes: childTypes,
-		});
-	}
-
-	function openAddChildFromSlot(ev: MouseEvent) {
-		ev.stopPropagation();
-		ev.preventDefault();
-		openAddChildDialog();
-	}
+	onDestroy(() => {
+		clearHoverTimer();
+		if (!readonly) registerBlock(node.id, null);
+	});
 </script>
 
-{#snippet childSlot(compactSlot: boolean)}
-	<button
-		type="button"
-		class="iikiti-child-slot"
-		class:iikiti-child-slot--compact={compactSlot}
-		data-child-slot={node.id}
-		aria-label="Add child to {node.type}"
-		title="Add child"
-		onclick={openAddChildFromSlot}
-	>
-		<Icon name="plus" size={compactSlot ? 10 : 14} />
-		<span class="iikiti-child-slot__label">Add child</span>
-	</button>
-{/snippet}
-
-{#snippet preview()}
-	{#if node.type === 'text'}
-		{@html node.content?.content ?? ''}
-	{:else if node.type === 'heading'}
-		<svelte:element
-			this={'h' + headingLevel(node)}
-			class="iikiti-heading-preview"
-			data-block-children
-		>{node.content?.text ?? ''}{#each node.children ?? [] as child, i (child.id)}<BlockView node={child} {regionId} {readonly} parentId={node.id} index={i} compact />{/each}{#if acceptsChildren && !readonly}{@render childSlot(true)}{/if}</svelte:element>
-	{:else if node.type === 'inline_text'}
-		{@const tag = String(node.content?.tag ?? 'plain')}
-		{#if tag !== 'plain' && INLINE_TAGS.includes(tag)}
-			<svelte:element this={tag} class="iikiti-inline-text">{node.content?.text ?? ''}</svelte:element>
-		{:else}
-			{node.content?.text ?? ''}
-		{/if}
-	{:else if node.type === 'image'}
-		{#if node.content?.source?.url}
-			<img src={node.content.source.url} alt={node.content.alt ?? ''} class="iikiti-image" />
-		{:else}<em class="iikiti-block--placeholder">Image URL missing</em> {/if}
-	{:else if node.type === 'container'}
-		<div class="iikiti-container" data-block-children>
-			{#each node.children ?? [] as child, i (child.id)}<BlockView node={child} {regionId} {readonly} parentId={node.id} index={i} />{/each}
-			{#if acceptsChildren && !readonly}{@render childSlot(false)}{/if}
-		</div>
-	{:else if node.type === 'video_embed'}
-		<iframe src={node.content?.url} title="Embedded content" class="iikiti-embed__iframe" allowfullscreen loading="lazy"></iframe>
-	{:else if node.type === 'social_embed'}
-		{#if node.content?.url}<a href={node.content.url} class="iikiti-embed--link-card">{node.content.url}</a>{/if}
-	{:else if node.type === 'query'}
-		<div class="iikiti-query-preview" data-block-children>
-			{#each node.children ?? [] as child, i (child.id)}<BlockView node={child} {regionId} {readonly} parentId={node.id} index={i} />{/each}
-			{#if (node.children ?? []).length === 0}
-				<em class="iikiti-block--placeholder">Query block (preview via API)</em>
-			{:else}
-				<em class="iikiti-query-preview__hint">Children repeat for every query result</em>
-			{/if}
-			{#if acceptsChildren && !readonly}{@render childSlot(false)}{/if}
-		</div>
-	{:else if node.type === 'dynamic'}
-		<em class="iikti-block--placeholder">Dynamic content region</em>
-	{:else if node.type === 'icon'}
-		<!-- Server-generated markup only (trusted, escaped). Unknown names render nothing, as on the public site. -->
-		{@const iconRef = String(node.content?.name ?? '')}
-		<span class="iikiti-icon-block" data-block-icon={iconRef}>{@html (node.content?.renderer === 'font' ? $iconGlyphs[iconRef] : $iconSvgs[iconRef]) ?? ''}</span>
-	{:else}
-		<em class="iikiti-block--placeholder">Unknown block type</em>
-	{/if}
-{/snippet}
-
 {#if readonly}
-	<div bind:this={self} class="iikiti-block-preview iikiti-block-preview--readonly" data-block-node data-block-readonly>
-		{@render preview()}
+	<div bind:this={blockElement} class="iikiti-block-preview iikiti-block-preview--readonly" data-block-node data-block-readonly>
+		<BlockContent {node} {regionId} {readonly} parentId={node.id} />
 	</div>
 {:else}
 	<div
-		bind:this={self}
-		class:selected={isSelected}
+		bind:this={blockElement}
 		class="iikiti-block-preview"
+		class:selected={isSelected}
 		class:compact
+		class:iikiti-block-preview--first={isFirst}
+		class:iikiti-block-preview--last={isLast}
+		class:iikiti-block-preview--hover-active={hoverActive}
+		class:iikiti-block-preview--hover-ancestor={hoveredDescendant}
 		data-block-node
 		tabindex="0"
 		role="button"
 		aria-label="Select block"
-		onclick={pick}
-		onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(e); } }}
+		onpointermove={handlePointerMove}
+		onclick={selectBlock}
+		onkeydown={(event) => {
+			if (event.key === 'Enter' || event.key === ' ') {
+				event.preventDefault();
+				selectBlock(event);
+			}
+		}}
 	>
-		{@render preview()}
-		<div class="iikiti-outline iikiti-outline--selected" aria-hidden="true"></div>
-
-		<button
-			type="button"
-			class="iikiti-insert-btn iikiti-insert-btn--before"
-			title="Insert block before"
-			aria-label="Insert block before"
-			onclick={(e) => { e.stopPropagation(); e.preventDefault(); openInsertGap(index); }}
-		>
-			<Icon name="plus" size={compact ? 10 : 12} />
+		<BlockContent {node} {regionId} {parentId} {readonly} />
+		<button type="button" class="iikiti-insert-btn iikiti-insert-btn--before" title="Insert block before" aria-label="Insert block before" onclick={(event) => insertAt(index, event)}>
+			<span aria-hidden="true">+</span>
 		</button>
-		<button
-			type="button"
-			class="iikiti-insert-btn iikiti-insert-btn--after"
-			title="Insert block after"
-			aria-label="Insert block after"
-			onclick={(e) => { e.stopPropagation(); e.preventDefault(); openInsertGap(index + 1); }}
-		>
-			<Icon name="plus" size={compact ? 10 : 12} />
+		<button type="button" class="iikiti-insert-btn iikiti-insert-btn--after" title="Insert block after" aria-label="Insert block after" onclick={(event) => insertAt(index + 1, event)}>
+			<span aria-hidden="true">+</span>
 		</button>
-
 	</div>
 {/if}
 
 <style>
 	.iikiti-block-preview[data-block-node] { position: relative; }
-	.iikiti-block-preview.selected { outline: 2px solid #3b82f6; outline-offset: 2px; }
-	.iikiti-block-preview:hover { outline: 1px dashed #93c5fd; outline-offset: 1px; }
-	.iikiti-block-preview:active { outline: 2px solid #60a5fa; outline-offset: 2px; }
 	.iikiti-block-preview--readonly { pointer-events: none; }
-	.iikiti-outline { position: absolute; inset: 0; border-radius: 3px; pointer-events: none; }
-	.iikiti-outline--selected { border: 2px dashed #3b82f6; }
-
-	/* ── Before/after insertion pluses ──
-	 * Circular buttons sitting on the top/bottom edge of the block box, half
-	 * outside so they read as gap affordances between siblings. Revealed while
-	 * the block (or a button itself) is hovered/focused; always visible on
-	 * touch devices. `compact` shrinks them for inline children (headings). */
+	.iikiti-block-preview:not(.iikiti-block-preview--readonly) {
+		margin-block: 0;
+		padding-block: 0;
+		transition: outline-color 0.15s ease;
+	}
+	.iikiti-block-preview--hover-ancestor {
+		position: relative;
+		z-index: 1;
+		padding-block: 12px;
+		outline: 1px dashed #9ca3af;
+		outline-offset: 4px;
+	}
+	.iikiti-block-preview--hover-active {
+		margin-block: 12px;
+		padding-block: 24px;
+		outline: 1px dashed #93c5fd;
+		outline-offset: 1px;
+	}
+	.iikiti-block-preview--first.iikiti-block-preview--hover-active,
+	.iikiti-block-preview--first.iikiti-block-preview--hover-ancestor { padding-top: 48px; }
+	.iikiti-block-preview--last.iikiti-block-preview--hover-active,
+	.iikiti-block-preview--last.iikiti-block-preview--hover-ancestor { padding-bottom: 48px; }
+	.iikiti-block-preview--hover-active { outline: 1px dashed #93c5fd; outline-offset: 1px; }
+	@media (pointer: coarse), (hover: none) {
+		.iikiti-block-preview.selected {
+			margin-block: 12px;
+			padding-block: 24px;
+		}
+		.iikiti-block-preview--first.selected { padding-top: 48px; }
+		.iikiti-block-preview--last.selected { padding-bottom: 48px; }
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.iikiti-block-preview:not(.iikiti-block-preview--readonly) { transition: none; }
+	}
+	.iikiti-block-preview::before,
+	.iikiti-block-preview::after {
+		position: absolute;
+		left: 0;
+		z-index: var(--iikiti-z-editor-controls);
+		width: 100%;
+		height: 56px;
+		content: '';
+		pointer-events: none;
+	}
+	.iikiti-block-preview::before { bottom: 100%; }
+	.iikiti-block-preview::after { top: 100%; }
+	.iikiti-block-preview--first::before,
+	.iikiti-block-preview--last::after { height: 80px; }
+	.iikiti-block-preview--hover-active::before,
+	.iikiti-block-preview--hover-active::after { pointer-events: auto; }
 	.iikiti-insert-btn {
 		position: absolute;
+		top: 0;
 		left: 50%;
-		display: inline-flex;
+		z-index: var(--iikiti-z-editor-controls);
+		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 20px;
-		height: 20px;
+		width: 32px;
+		height: 32px;
 		padding: 0;
+		border: 0;
+		border-radius: 50%;
+		background: var(--ik-panel-bg, #ffffff);
+		color: var(--ik-accent, #a6613c);
+		font-size: 1rem;
+		line-height: 1;
+		cursor: pointer;
+		visibility: hidden;
+		opacity: 0;
+		pointer-events: none;
+		transition: transform 0.18s ease, opacity 0.12s ease, visibility 0s linear 0.12s;
+		transform: translate(-50%, -100%);
+	}
+	.iikiti-insert-btn::before {
+		position: absolute;
+		inset: 0;
 		border: 1px solid var(--ik-panel-border, #d1d5db);
 		border-radius: 50%;
 		background: var(--ik-panel-bg, #ffffff);
-		color: var(--ik-panel-text, #111827);
-		cursor: pointer;
-		opacity: 0;
-		pointer-events: none;
 		box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
-		transition: opacity 0.15s ease, background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
-		z-index: var(--iikiti-z-editor-controls);
-	}
-	/* Sit fully outside the block: "before" above the top edge, "after" below the
-	 * bottom edge, both centred on the block's horizontal midpoint. */
-	.iikiti-insert-btn--before { bottom: 100%; margin-bottom: 4px; transform: translateX(-50%); }
-	.iikiti-insert-btn--after { top: 100%; margin-top: 4px; transform: translateX(-50%); }
-	/* Invisible hit zones bridging the block and each outside button, so moving
-	 * the pointer toward a button does not drop the hover state. */
-	.iikiti-block-preview[data-block-node]::before,
-	.iikiti-block-preview[data-block-node]::after {
 		content: '';
-		position: absolute;
-		left: 0;
-		right: 0;
-		height: 40px;
-		pointer-events: none;
 	}
-	.iikiti-block-preview[data-block-node]::before { bottom: 100%; }
-	.iikiti-block-preview[data-block-node]::after { top: 100%; }
-	.iikiti-block-preview:hover::before,
-	.iikiti-block-preview:hover::after {
-		pointer-events: auto;
-	}
-
-	.iikiti-block-preview:hover .iikiti-insert-btn,
-	.iikiti-insert-btn:hover,
-	.iikiti-insert-btn:focus-visible,
-	.iikiti-insert-btn:focus-within {
-		opacity: 1;
-		pointer-events: auto;
-	}
-	.iikiti-insert-btn:hover,
-	.iikiti-insert-btn:focus-visible {
-		color: var(--ik-accent, #a6613c);
-		border-color: color-mix(in srgb, var(--ik-accent, #a6613c) 70%, var(--ik-panel-border, #d1d5db));
-	}
-	:global(.iikiti-touch) .iikiti-insert-btn {
-		opacity: 1;
-		pointer-events: auto;
-	}
-	.iikiti-block-preview.compact .iikiti-insert-btn {
-		width: 15px;
-		height: 15px;
-	}
-
-	/* ── Child slot ──
-	 * Dashed add block shown inside every child-accepting block, mirroring the
-	 * empty region call to action so an empty or populated container always
-	 * exposes "Add child" without the hidden context menu. */
-	.iikiti-child-slot {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 6px;
-		width: 100%;
-		min-height: 3rem;
-		margin-top: 4px;
-		padding: 8px;
-		border: 2px dashed color-mix(in srgb, var(--ik-accent, #a6613c) 55%, transparent);
-		border-radius: var(--ik-radius, 8px);
-		background: transparent;
-		color: var(--ik-accent, #a6613c);
-		font-size: 1rem;
-		cursor: pointer;
-		transition: border-color 0.15s ease, background-color 0.15s ease;
-	}
-	.iikiti-child-slot:hover,
-	.iikiti-child-slot:focus-visible {
-		border-color: var(--ik-accent, #a6613c);
-		background: color-mix(in srgb, var(--ik-accent, #a6613c) 6%, transparent);
-	}
-	.iikiti-child-slot--compact {
-		display: inline-flex;
-		width: auto;
-		min-height: 0;
-		margin: 0 0 0 4px;
-		padding: 0 4px;
-		border-width: 1px;
-		vertical-align: middle;
-	}
-	.iikiti-child-slot__label {
-		font-weight: 600;
-	}
-	.iikiti-child-slot--compact .iikiti-child-slot__label {
-		display: none;
-	}
-
-	/* Query blocks render their children once in the canvas (per-result
-	 * repetition happens server-side); the hint states that. */
-	.iikiti-query-preview {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-	}
-	.iikiti-query-preview__hint {
-		font-size: 1rem;
-		color: var(--ik-panel-text-muted, #6b7280);
-		font-style: italic;
-	}
-
+	.iikiti-insert-btn > span { position: relative; z-index: 1; font-size: 20px; line-height: 1; }
+	.iikiti-insert-btn--before { transform: translate(-50%, -100%); }
+	.iikiti-insert-btn--after { top: auto; bottom: 0; transform: translate(-50%, 100%); }
+	.iikiti-block-preview--first > .iikiti-insert-btn--before { top: 32px; }
+	.iikiti-block-preview--last > .iikiti-insert-btn--after { bottom: 32px; }
+	.iikiti-block-preview--hover-active > .iikiti-insert-btn,
+	.iikiti-insert-btn:focus-visible { visibility: visible; opacity: 1; pointer-events: auto; transition-delay: 0s; }
+	.iikiti-insert-btn:hover::before,
+	.iikiti-insert-btn:focus-visible::before { border-color: color-mix(in srgb, var(--ik-accent, #a6613c) 70%, var(--ik-panel-border, #d1d5db)); }
 </style>

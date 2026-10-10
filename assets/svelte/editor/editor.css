@@ -110,17 +110,17 @@ body.iikiti-editor-body [data-component="BlockEditorComponent"] {
 	font-size: max(var(--iikiti-editor-min-text), 1em);
 }
 
-/* Desktop: enlarge the small canvas affordances so they are easier to hit. */
 .iikiti-editor .iikiti-btn,
-.iikiti-editor .iikiti-btn--sm,
-.iikiti-editor .iikiti-insert-btn {
+.iikiti-editor .iikiti-btn--sm {
 	min-width: var(--iikiti-editor-control);
 	min-height: var(--iikiti-editor-control);
 }
 
 .iikiti-editor .iikiti-insert-btn {
-	width: var(--iikiti-editor-control);
-	height: var(--iikiti-editor-control);
+	min-width: 32px;
+	min-height: 32px;
+	width: 32px;
+	height: 32px;
 }
 
 /* Mobile (coarse pointer / no hover): every interactive control reaches the

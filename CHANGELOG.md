@@ -87,6 +87,9 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Changed
 
+- 2026-10-10: Pointer-target tracking switches the active hover to the block under the pointer and schedules the owning ancestor when leaving a descendant for its content.
+- 2026-10-10: Editor canvas block rendering is split into focused components; hover activates after 140ms only when no descendant is hovered, hovered ancestors get subdued dashed clearance, and before/after buttons translate by -100%/+100%.
+- 2026-10-10: Editor canvas hides selection chrome and child-add slots while idle, reveals controls only for the active block, uses one insertion control per sibling gap, and keeps region add controls hidden until hovered or focused.
 - 2026-10-10: Block reordering is drag-and-drop only: the Move up and Move down actions were removed with the hover toolbar, and reordering uses the Layers drop targets.
 - 2026-10-08: `loadIf` now takes a probe and polyfill spec and resolves to the value (native or polyfill reference) instead of a boolean; the boolean/expression-string condition form and `resolveCondition` are removed. `ensureTemporal()` uses it.
 - 2026-10-08: Shared Svelte components, lib and types moved from `assets/svelte/admin/` to `assets/svelte/shared/` (`components`, `lib`, `types`) so the admin, editor and front-end use one set; aliases `$components`, `$lib`, `$types`, `$iikiti` and `@iikiti/ui` (formerly `@iikiti/admin`, kept as an alias) point there. `$routes` stays admin-only.
