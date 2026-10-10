@@ -121,11 +121,26 @@ Rules (tagged `iikiti.cms.template_rule`): `object_type`, `object`, `site`.
 - **Icon actions + tooltips**: undo (`undo-2`), redo (`redo-2`), save draft
   (`save`, dirty dot), publish (`rocket`) — Lucide icons via the shared
   `Icon` component with hover/focus tooltips (`Tooltip` component).
+- **Layers tree**: each row whose block type accepts children shows a disclosure
+  arrow on its left (right when closed, down when open), even when the container is
+  empty. A single click on the arrow toggles that row's children. Double-click on a
+  row toggles the row and all of its descendant containers; double-clicking an
+  unselected row also selects it. The expand-all icon in the dialog header expands
+  every container in the active region, or collapses them all when they are already
+  open. Expansion persists per browser under `iikiti.panel.editor.layers.state` and
+  survives close, reopen and reload; ids of removed blocks are ignored.
 - **Layers menu**: floating, draggable dialog (built on the native-`<dialog>`
   `Dialog.svelte`) listing the **active region** only (the page "content",
   i.e. the `main` region). Clicking a row selects the block, scrolls the
   canvas to it and highlights the current selection; position/size persist
   per browser.
+  - **Reorder by dragging**: drag a row and drop it on the top or bottom half
+    of another row to place it before or after that row (same parent). On a
+    container row, drop on the middle band to nest it as the last child. Drop
+    targets are validated with the same rules as the canvas: a container may
+    only nest allowed child types, a non-container cannot sit at the region
+    root, and a block cannot be dropped into its own subtree. Invalid drops
+    show no indicator. Undo/redo covers layer moves.
 - **Chrome regions (locked)**: `header`/`dialog`/`footer`/`sidebar` regions
   are rendered as locked chrome (read-only). Clicking a locked region makes
   it the active (editable) region; a "Back to content" button returns to

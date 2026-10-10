@@ -206,7 +206,15 @@ Exported from `@iikiti/ui` (aka `$components`):
   `<dialog>` element: header drag handle, viewport clamping, optional corner
   drag-resize, Esc-to-close, bring-to-front, optional `storageKey` persistence
   (`iikiti.panel.<key>.pos` / `.size`). Non-modal (`dialog.show()`),
-  `aria-modal="false"`. `FloatingPanel` is re-exported from `@iikiti/ui` as a
+  `aria-modal="false"`.
+  - **Opt-in state persistence:** pass `persistState` with a `storageKey`, plus
+    `getState` (returns a JSON-serialisable value) and `setState` (receives the
+    last stored value when the dialog opens). State is stored under
+    `iikiti.panel.<key>.state`. Call the exported `notifyStateChanged()` after
+    changing state so the write is debounced and saved. Off by default, so
+    plugins and themes opt in explicitly.
+  - **`headerActions` snippet:** extra controls rendered in the header before the
+    close button (e.g. the Layers expand-all control). `FloatingPanel` is re-exported from `@iikiti/ui` as a
   **deprecated alias** of `Dialog` for plugin backward compatibility.
 - **`ModalDialog.svelte`** — extends `Dialog` with `modal=true`: calls
   `dialog.showModal()`, moving it into the browser top layer with a

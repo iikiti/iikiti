@@ -18,6 +18,9 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-10-10: Layers tree collapses and expands: rows whose block type accepts children show a disclosure arrow, a single click toggles children, double-click toggles the whole subtree, and the header icon expands or collapses all containers. Expansion persists per browser.
+- 2026-10-10: `Dialog` opt-in state persistence (`persistState`, `getState`, `setState`, `notifyStateChanged`) and a `headerActions` snippet; enabled for the Layers dialog.
+- 2026-10-10: Layers menu supports drag-and-drop reordering: drop above/below a row to reorder within its parent, or onto a container's middle band to nest it. Validation reuses the canvas rules (`assets/svelte/editor/layerDrop.js`).
 - 2026-10-09: `docs/workflow-examples.md` with examples for building workflows: custom steps via `WorkflowManager`, form steps via `AbstractFormWorkflowStep`, dynamic steps via `StepProviderInterface`, `addStepProvider()`/`buildWorkflow()`, event subscribers, session persistence and testing.
 - 2026-10-09: `window.iikiti.loader.loadStyle(url, { strategy })` accepts `async` (low priority, `media="print"` until loaded, does not block layout), `onload` (after DOM ready) and `interaction` (after first pointer or key event); default `complete` is unchanged. Plugins can set `cssStrategy`.
 - 2026-10-09: `window.iikiti.whenReady(name)` readiness API (`assets/js/iikiti/ready.js`): resolves for each component (`components`, `bars`, `theme`, `notifications`, `plugins`, `tour`, `editor.sidebar`) including when it became ready earlier; `whenReady('iikiti:ready')` resolves once all base components are ready. Unregistered names stay pending with no built-in timeout.

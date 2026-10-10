@@ -50,6 +50,17 @@
 		resizable?: boolean;
 		closeable?: boolean;
 		storageKey?: string;
+		/**
+		 * Opt-in: persist the dialog's own state alongside position/size.
+		 * Requires `storageKey`. `getState` returns a JSON-serialisable value to
+		 * store; `setState` receives the last stored value on open (or nothing
+		 * when none is stored). Default off so plugins/themes opt in explicitly.
+		 */
+		persistState?: boolean;
+		getState?: () => unknown;
+		setState?: (state: unknown) => void;
+		/** Optional controls rendered in the header, before the close button. */
+		headerActions?: Snippet;
 		children: Snippet;
 	}
 
@@ -67,6 +78,10 @@
 		resizable = true,
 		closeable = true,
 		storageKey = '',
+		persistState = false,
+		getState,
+		setState,
+		headerActions,
 		children,
 	}: Props = $props();
 
@@ -208,6 +223,45 @@
 		bringToFront();
 	});
 
+	// Opt-in state persistence: on open, hand the stored value to `setState`.
+	// Runs once per open; reads storage only, so it cannot loop on its own writes.
+	$effect(() => {
+		if (!open || !persistState || !storageKey || !setState) return;
+		const key = stateKeyFor();
+		if (!key) return;
+		try {
+			const raw = localStorage.getItem(key);
+			if (raw !== null) setState(JSON.parse(raw));
+		} catch {
+			/* corrupt or unavailable storage: keep the component defaults */
+		}
+	});
+
+	/** Debounced write of `getState()` whenever the dialog is open and state changes. */
+	let stateSaveTimer: ReturnType<typeof setTimeout> | undefined;
+	function saveState() {
+		if (!persistState || !storageKey || !getState) return;
+		const key = stateKeyFor();
+		if (!key) return;
+		clearTimeout(stateSaveTimer);
+		stateSaveTimer = setTimeout(() => {
+			try {
+				localStorage.setItem(key, JSON.stringify(getState()));
+			} catch {
+				/* storage unavailable or value not serialisable: stay in memory */
+			}
+		}, 150);
+	}
+
+	function stateKeyFor(): string | null {
+		return storageKey ? `iikiti.panel.${storageKey}.state` : null;
+	}
+
+	/** Callers invoke this after changing state they expose through `getState`. */
+	export function notifyStateChanged() {
+		saveState();
+	}
+
 	// Keep the dialog in the viewport while the window resizes.
 	$effect(() => {
 		if (!open || modal) return;
@@ -265,16 +319,19 @@
 >
 	<header class="iikiti-dialog__header" use:dragHeader>
 		<span class="iikiti-dialog__title">{title}</span>
-		{#if closeable}
-			<button
-				type="button"
-				class="iikiti-dialog__close"
-				aria-label="Close {title}"
-				onclick={() => onClose?.()}
-			>
-				<Icon name="x" size={16} />
-			</button>
-		{/if}
+		<span class="iikiti-dialog__header-actions">
+			{#if headerActions}{@render headerActions()}{/if}
+			{#if closeable}
+				<button
+					type="button"
+					class="iikiti-dialog__close"
+					aria-label="Close {title}"
+					onclick={() => onClose?.()}
+				>
+					<Icon name="x" size={16} />
+				</button>
+			{/if}
+		</span>
 	</header>
 	<div class="iikiti-dialog__body">
 		{@render children()}
@@ -342,6 +399,13 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	.iikiti-dialog__header-actions {
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		flex-shrink: 0;
 	}
 
 	.iikiti-dialog__close {

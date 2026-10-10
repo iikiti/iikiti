@@ -39,6 +39,7 @@
     'chevron-down': Lucide.ChevronDown,
     'chevron-left': Lucide.ChevronLeft,
     'chevron-right': Lucide.ChevronRight,
+    'chevrons-down-up': Lucide.ChevronsDownUp,
     'filter': Lucide.Filter,
     'settings': Lucide.Settings,
     'download': Lucide.Download,
