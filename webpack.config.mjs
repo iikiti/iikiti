@@ -29,6 +29,14 @@ Encore
             from: './node_modules/@js-temporal/polyfill/dist/',
             to: 'vendor/temporal-polyfill/[name].[ext]',
         },
+        {
+            // Lucide icon font (ISC, lucide-static). Copied whole so the relative
+            // font URLs in lucide.css still resolve; linked only when a page uses
+            // an icon block with renderer=font (see IconFontAssets).
+            from: './node_modules/lucide-static/font/',
+            to: 'vendor/lucide-font/[name].[ext]',
+            pattern: /\.(css|woff2?|ttf)$/,
+        },
     ])
 
     /*

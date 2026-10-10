@@ -30,6 +30,7 @@ use Twig\Environment;
 final class PageRendering
 {
 	public function __construct(
+		private readonly \iikiti\CMS\Web\Icon\IconFontAssets $iconFontAssets,
 		private readonly TemplateResolver $resolver,
 		private readonly TemplateRenderer $templateRenderer,
 		private readonly FrontendConfigProvider $configProvider,
@@ -97,6 +98,8 @@ final class PageRendering
 			'iikiti_editor_mode' => $editorMode,
 			'iikiti_can_edit' => $canEdit,
 			'iikiti_config' => $config,
+			// Editor/admin always load the font; public pages only when an icon used it and it is enabled.
+			'iikiti_icon_font' => $this->iconFontAssets->shouldLink($canEdit || $editorMode),
 		]));
 	}
 

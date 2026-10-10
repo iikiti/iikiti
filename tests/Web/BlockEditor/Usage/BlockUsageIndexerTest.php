@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Tests\Web\BlockEditor\Usage;
 
+use iikiti\CMS\Tests\Support\IconResolverFactory;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\EntityRepository;
@@ -53,7 +54,7 @@ final class BlockUsageIndexerTest extends TestCase
 			static fn (string $class): EntityRepository => Template::class === $class ? $templateRepository : $propertyRepository,
 		);
 
-		$registry = new BlockTypeRegistry([new CoreBlockTypeProvider()]);
+		$registry = new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly())]);
 		$usage = (new BlockUsageIndexer($entityManager, $registry))->usage();
 
 		$byType = [];
@@ -83,7 +84,7 @@ final class BlockUsageIndexerTest extends TestCase
 			static fn (string $class): EntityRepository => Template::class === $class ? $templateRepository : $propertyRepository,
 		);
 
-		$registry = new BlockTypeRegistry([new CoreBlockTypeProvider()]);
+		$registry = new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly())]);
 		$usage = (new BlockUsageIndexer($entityManager, $registry))->usage();
 
 		$text = null;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Tests\Web\Template;
 
+use iikiti\CMS\Tests\Support\IconResolverFactory;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\DbObject;
@@ -32,7 +33,7 @@ final class TemplateRendererTest extends TestCase
 			'strict_variables' => false,
 		]);
 		$blockRenderer = new BlockRenderer(
-			new BlockTypeRegistry([new CoreBlockTypeProvider()]),
+			new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly())]),
 			$blockTwig,
 			new QueryExecutor([]),
 			new QueryFieldCatalog($this->createStub(EntityManagerInterface::class)),

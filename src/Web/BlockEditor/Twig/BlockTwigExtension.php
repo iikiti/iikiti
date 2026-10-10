@@ -8,6 +8,8 @@ use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Web\BlockEditor\Embed\EmbedResolver;
 use iikiti\CMS\Web\BlockEditor\Query\QueryDefinition;
 use iikiti\CMS\Web\BlockEditor\Query\QueryExecutor;
+use iikiti\CMS\Web\Icon\IconFontAssets;
+use iikiti\CMS\Web\Icon\IconResolver;
 use Twig\Environment;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
@@ -17,12 +19,18 @@ use Twig\TwigFunction;
  * - `iikiti_embed(url, options)`        -> resolved embed HTML (cached, allowlisted)
  * - `iikiti_query(definition)`          -> list of result rows for a query block
  * - `iikiti_region(id, role, name, allowed, html)` -> region wrapper markup
+ * - `iikiti_icon(name, renderer, ...)`  -> icon block markup (svg; unknown -> empty)
  */
 final class BlockTwigExtension extends AbstractExtension
 {
+	/** Renderers an icon block may choose. Anything else renders nothing. */
+	public const ICON_RENDERERS = ['svg', 'font'];
+
 	public function __construct(
 		private readonly EmbedResolver $embedResolver,
 		private readonly QueryExecutor $queryExecutor,
+		private readonly IconResolver $iconResolver,
+		private readonly IconFontAssets $iconFontAssets,
 	) {
 	}
 
@@ -36,7 +44,47 @@ final class BlockTwigExtension extends AbstractExtension
 				[$this, 'region'],
 				['is_safe' => ['html'], 'needs_environment' => true]
 			),
+			new TwigFunction('iikiti_icon', [$this, 'icon'], ['is_safe' => ['html']]),
 		];
+	}
+
+	/**
+	 * Icon block output. The name and renderer are validated against the icon set
+	 * and an allowlist; an unknown value yields an empty string, never raw input.
+	 */
+	public function icon(string $name, ?string $renderer = null, ?int $size = null, ?string $color = null, ?float $strokeWidth = null): string
+	{
+		// Twig passes null for omitted arguments; fall back to the same defaults
+		// as IconSet::svg() rather than failing the whole template.
+		$renderer ??= 'svg';
+		if (!in_array($renderer, self::ICON_RENDERERS, true)) {
+			return '';
+		}
+
+		$resolved = $this->iconResolver->resolve($name);
+		if (null === $resolved) {
+			return '';
+		}
+
+		if ('font' === $renderer) {
+			// Only the bundled set has font glyphs; admin sets fall through to nothing.
+			$glyph = $resolved['set']->glyph($resolved['name']);
+			if (null === $glyph) {
+				return '';
+			}
+			// The layout links the font stylesheet only when this is set.
+			$this->iconFontAssets->markUsed();
+
+			return sprintf(
+				// The wrapper names the Lucide family itself, so the glyph renders in the icon font
+				// wherever it appears (public page or canvas) without relying on a class map.
+				'<span class="iikiti-icon-font" data-icon="%s" aria-hidden="true" style="font-family:lucide;font-style:normal;line-height:1;">%s</span>',
+				htmlspecialchars($name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+				$glyph,
+			);
+		}
+
+		return $resolved['set']->svg($resolved['name'], $size, $color ?? 'currentColor', $strokeWidth ?? 2.0) ?? '';
 	}
 
 	/**

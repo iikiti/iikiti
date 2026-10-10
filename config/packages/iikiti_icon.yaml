@@ -1,0 +1,5 @@
+parameters:
+    # Public-site icon font. When false, the Lucide font stylesheet is not linked on
+    # public pages; the editor and admin always load the font. The SVG renderer is
+    # unaffected. Set ICON_PUBLIC_FONT in .env to change it.
+    iikiti_icon.public_font: '%env(bool:ICON_PUBLIC_FONT)%'

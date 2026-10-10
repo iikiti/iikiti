@@ -13,6 +13,8 @@
 		openAddBlockDialog,
 		allowedChildTypes,
 		searchNode,
+		iconSvgs,
+		iconGlyphs,
 	} from './state';
 	import type { BlockNode } from './state';
 	import Popover from '$components/Popover.svelte';
@@ -229,6 +231,10 @@
 		</div>
 	{:else if node.type === 'dynamic'}
 		<em class="iikti-block--placeholder">Dynamic content region</em>
+	{:else if node.type === 'icon'}
+		<!-- Server-generated markup only (trusted, escaped). Unknown names render nothing, as on the public site. -->
+		{@const iconRef = String(node.content?.name ?? '')}
+		<span class="iikiti-icon-block" data-block-icon={iconRef}>{@html (node.content?.renderer === 'font' ? $iconGlyphs[iconRef] : $iconSvgs[iconRef]) ?? ''}</span>
 	{:else}
 		<em class="iikiti-block--placeholder">Unknown block type</em>
 	{/if}

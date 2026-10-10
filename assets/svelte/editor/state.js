@@ -56,6 +56,10 @@ export const regions = derived(state, ($) => $.regions);
 export const canPublish = derived(state, ($) => $.config['canPublish']);
 export const apiBase = derived(state, ($) => ($.config['apiBase'] || '/api'));
 export const apiToken = derived(state, ($) => $.config['apiToken']);
+/** Server-generated icon SVG keyed by icon name (see EditorStateController). */
+export const iconSvgs = derived(state, ($) => /** @type {Record<string, string>} */ ($.config['iconSvgs'] ?? {}));
+/** Server-generated font glyph references keyed by icon reference (see EditorStateController). */
+export const iconGlyphs = derived(state, ($) => /** @type {Record<string, string>} */ ($.config['iconGlyphs'] ?? {}));
 export const dirty = derived(state, ($) => $.dirty);
 export const canUndo = derived(state, ($) => $.historyPos > 0);
 export const canRedo = derived(state, ($) => $.history.length > 0 && $.historyPos < $.history.length - 1);

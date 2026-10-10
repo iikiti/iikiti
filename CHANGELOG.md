@@ -18,6 +18,10 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-10-10: Icon block (`icon`): renders one icon on the public site and the editor canvas, with the renderer chosen per block (`svg` inline SVG, or `font` using the Lucide icon font from `lucide-static`, ISC). Markup and glyphs come from the shared icon resolver (`iikiti\CMS\Web\Icon`); unknown names render nothing. Icon is allowed in the default header, main, sidebar, footer and dialog regions.
+- 2026-10-10: Lucide icon font is shipped with the build (`build/vendor/lucide-font`) and linked only on pages that use a font icon, or on editor/admin pages. Public loading can be disabled with `ICON_PUBLIC_FONT=false`.
+- 2026-10-10: Admin-managed icon sets: `icon_sets` and `icons` tables (migration `Version20261010120000`), an `/api/admin/icon-sets` API (write needs Template write), and icons referenced as `set/name`. Every upload passes a strict allowlist SVG sanitiser (`SvgSanitizer`) that rejects, rather than repairs, unsafe files; rejected uploads are never stored.
+- 2026-10-10: Fixed icon names that did not exist in the installed `@lucide/svelte` (`history`, `filter`, `trash-2`) so they render their intended icons instead of the search fallback.
 - 2026-10-10: Layers tree collapses and expands: rows whose block type accepts children show a disclosure arrow, a single click toggles children, double-click toggles the whole subtree, and the header icon expands or collapses all containers. Expansion persists per browser.
 - 2026-10-10: `Dialog` opt-in state persistence (`persistState`, `getState`, `setState`, `notifyStateChanged`) and a `headerActions` snippet; enabled for the Layers dialog.
 - 2026-10-10: Layers menu supports drag-and-drop reordering: drop above/below a row to reorder within its parent, or onto a container's middle band to nest it. Validation reuses the canvas rules (`assets/svelte/editor/layerDrop.js`).

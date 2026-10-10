@@ -25,6 +25,9 @@
             })();
             </script>
             {{ encore_entry_link_tags('tailwind') }}
+            {% if iikiti_icon_font|default(false) %}
+                <link rel="stylesheet" href="{{ asset('build/vendor/lucide-font/lucide.css') }}">
+            {% endif %}
             {% if iikiti_can_edit %}
                 {{ encore_entry_link_tags('editor') }}
             {% endif %}

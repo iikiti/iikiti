@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Tests\Web\BlockEditor\Render;
 
+use iikiti\CMS\Tests\Support\IconResolverFactory;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\DbObject;
@@ -41,7 +42,7 @@ final class BlockRendererTest extends TestCase
 		}, ['is_safe' => ['html']]));
 
 		return new BlockRenderer(
-			new BlockTypeRegistry([new CoreBlockTypeProvider()]),
+			new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly())]),
 			$twig,
 			new QueryExecutor(null !== $source ? [$source] : []),
 			new QueryFieldCatalog($this->createStub(EntityManagerInterface::class)),

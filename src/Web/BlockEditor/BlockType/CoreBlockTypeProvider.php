@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Web\BlockEditor\BlockType;
 
+use iikiti\CMS\Web\Icon\IconResolver;
+
 /**
  * Provides iikiti's core block types. Plugins provide additional (or replacement)
  * types by implementing {@see BlockTypeInterface}; tagging happens automatically
@@ -11,6 +13,10 @@ namespace iikiti\CMS\Web\BlockEditor\BlockType;
  */
 final class CoreBlockTypeProvider implements BlockTypeInterface
 {
+	public function __construct(private readonly IconResolver $iconResolver)
+	{
+	}
+
 	/**
 	 * Wrapper elements an `inline_text` child may render as. `plain` renders a
 	 * bare (escaped) text node. The allowlist is enforced both here and in
@@ -31,7 +37,41 @@ final class CoreBlockTypeProvider implements BlockTypeInterface
 			$this->videoEmbed(),
 			$this->socialEmbed(),
 			$this->query(),
+			$this->icon(),
 		];
+	}
+
+	/**
+	 * Icon block: renders one icon from the configured IconSet. The picker options
+	 * come from the same set the renderer uses, so they cannot drift apart.
+	 */
+	private function icon(): BlockType
+	{
+		$iconOptions = array_map(
+			static fn (string $name): array => ['value' => $name, 'label' => $name],
+			$this->iconResolver->allReferences(),
+		);
+
+		return new BlockType(
+			type: 'icon',
+			label: 'Icon',
+			category: 'media',
+			acceptsChildren: false,
+			contentFields: [
+				['key' => 'name', 'label' => 'Icon', 'type' => 'select', 'options' => $iconOptions, 'required' => true,
+					'default' => $iconOptions[0]['value'] ?? ''],
+				['key' => 'renderer', 'label' => 'Renderer', 'type' => 'select',
+					'options' => [['value' => 'svg', 'label' => 'Inline SVG'], ['value' => 'font', 'label' => 'Icon font']], 'default' => 'svg'],
+			],
+			styleFields: [
+				['key' => 'size', 'label' => 'Size', 'type' => 'number', 'prefix' => 'px', 'default' => 24],
+				['key' => 'color', 'label' => 'Color', 'type' => 'color'],
+			],
+			renderTemplate: 'blocks/icon.twig',
+			editorComponent: 'IconBlock',
+			elementFields: $this->elementFields(),
+			defaults: ['content' => ['name' => 'box', 'renderer' => 'svg'], 'style' => ['base' => ['size' => 24]]],
+		);
 	}
 
 	/**

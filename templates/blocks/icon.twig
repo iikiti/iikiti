@@ -1,0 +1,9 @@
+{# Icon block. `iikiti_icon` validates the name and renderer against the icon set
+   and emits only server-generated SVG; an unknown name renders nothing.
+
+   Size and colour come from the block's own style (`style` is a CSS string
+   here, not an array), so the SVG scales with the wrapper (`1em`) and inherits
+   `currentColor`. The wrapper's inline `width`/`height`/`color` do the styling. #}
+{% set iconName = content.name ?? '' %}
+{% set iconRenderer = content.renderer ?? 'svg' %}
+<span class="iikiti-icon-block" data-block-icon="{{ iconName|e }}" style="{{ style|raw }}display:inline-block;line-height:0;">{{ iikiti_icon(iconName, iconRenderer, null, 'currentColor') }}</span>

@@ -20,9 +20,24 @@ is pure server-rendered HTML (no editor JS for visitors).
   `site_ui` bundles. Editor chunk is code-split / on demand for visitors.
 
 ## Block types (core)
-container, dynamic, heading, inline_text, text, image, video_embed,
+container, dynamic, heading, inline_text, text, image, icon, video_embed,
 social_embed, query
 (`src/Web/BlockEditor/BlockType/CoreBlockTypeProvider.php`).
+
+- **icon** renders one icon from the shared `IconSet` (`src/Web/Icon/`) as
+  server-generated inline SVG. Content: `name` (picked from the set) and
+  `renderer` (`svg`; an unsupported renderer renders nothing). The SVG sizes to
+  its container (`1em`) and inherits `currentColor`, so the block's inline
+  `font-size`/`color` style controls it. Unknown names render nothing on both the
+  public site and the canvas. The canvas receives the same SVG through
+  `/api/editor/context` (`iconSvgs`), so the two cannot drift. The bundled set is
+  Lucide (ISC), with geometry generated into `src/Web/Icon/LucideIconData.php`.
+  `renderer: font` renders the glyph from the Lucide icon font (`lucide-static`, ISC)
+  instead; the font stylesheet is linked only on pages that use it, and always on
+  editor/admin pages. Set `ICON_PUBLIC_FONT=false` to stop public pages loading it.
+  Admin-managed sets are referenced as `set/name` and managed through
+  `/api/admin/icon-sets` (writes need Template write). Every uploaded SVG is checked
+  by a strict allowlist sanitiser; unsafe files are rejected and never stored.
 
 - **heading** ("Header") is a mini-container for emphasised text: it accepts
   only `inline_text` children (plus an optional direct `text` field). Its

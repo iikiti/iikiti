@@ -106,6 +106,10 @@ services:
         arguments:
             $cache: '@cache.database'
 
+    # Icon block: the bundled Lucide set is the default IconSet. Plugins may
+    # alias this interface to a different set.
+    iikiti\CMS\Web\Icon\IconSet: '@iikiti\CMS\Web\Icon\LucideIconSet'
+
     # Security services that may be accessed directly by plugins
     iikiti\CMS\Security\PermissionChecker:
         public: true

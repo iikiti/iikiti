@@ -145,9 +145,12 @@
 		});
 		const data = (await res.json().catch(() => ({ blockTypes: [] }))) as {
 			blockTypes?: Array<Record<string, unknown>>;
+			iconSvgs?: Record<string, string>;
+			iconGlyphs?: Record<string, string>;
 		};
 		blockTypesList = data.blockTypes ?? [];
-		init(config, blockTypesList);
+		// Icon markup is server-generated; the canvas reads it from config (see state.js iconSvgs).
+		init({ ...config, iconSvgs: data.iconSvgs ?? {}, iconGlyphs: data.iconGlyphs ?? {} }, blockTypesList);
 
 		await loadPluginEditorUis();
 

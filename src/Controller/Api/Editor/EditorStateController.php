@@ -12,6 +12,7 @@ use iikiti\CMS\Web\BlockEditor\Query\QueryFieldCatalog;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderContext;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderer;
 use iikiti\CMS\Web\BlockEditor\Workflow\SaveWorkflowRegistry;
+use iikiti\CMS\Web\Icon\IconResolver;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -28,7 +29,7 @@ use Symfony\Component\Security\Core\User\UserInterface;
 class EditorStateController extends AppController
 {
 	#[Route('/api/editor/context', name: 'api_editor_context', methods: ['GET'])]
-	public function editorContext(Request $request, PermissionChecker $permissionChecker, BlockEditorComponent $blockEditor): JsonResponse
+	public function editorContext(Request $request, PermissionChecker $permissionChecker, BlockEditorComponent $blockEditor, IconResolver $iconResolver): JsonResponse
 	{
 		$user = $this->getUser();
 		$payload = $this->payload($request);
@@ -39,7 +40,52 @@ class EditorStateController extends AppController
 			'canEdit' => $this->can($user, $permissionChecker, $type, 'write'),
 			'canPublish' => $this->can($user, $permissionChecker, $type, 'publish'),
 			'blockTypes' => $blockEditor->getBlockTypes(),
+			// Server-generated icon markup so the canvas renders exactly what the public site does.
+			'iconSvgs' => $this->iconSvgs($iconResolver),
+			'iconGlyphs' => $this->iconGlyphs($iconResolver),
 		]);
+	}
+
+	/**
+	 * @return array<string, string> icon name => SVG markup at container size
+	 */
+	private function iconSvgs(IconResolver $iconResolver): array
+	{
+		$svgs = [];
+		foreach ($iconResolver->allReferences() as $reference) {
+			$resolved = $iconResolver->resolve($reference);
+			if (null === $resolved) {
+				continue;
+			}
+			$svg = $resolved['set']->svg($resolved['name']);
+			if (null !== $svg) {
+				$svgs[$reference] = $svg;
+			}
+		}
+
+		return $svgs;
+	}
+
+	/**
+	 * Font glyph references (numeric character references) for icons that have one.
+	 *
+	 * @return array<string, string> icon reference => glyph markup
+	 */
+	private function iconGlyphs(IconResolver $iconResolver): array
+	{
+		$glyphs = [];
+		foreach ($iconResolver->allReferences() as $reference) {
+			$resolved = $iconResolver->resolve($reference);
+			if (null === $resolved) {
+				continue;
+			}
+			$glyph = $resolved['set']->glyph($resolved['name']);
+			if (null !== $glyph) {
+				$glyphs[$reference] = $glyph;
+			}
+		}
+
+		return $glyphs;
 	}
 
 	#[Route('/api/editor/save', name: 'api_editor_save', methods: ['POST'])]
