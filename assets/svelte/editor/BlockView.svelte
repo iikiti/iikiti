@@ -8,10 +8,12 @@
 		openAddBlockDialog,
 		allowedChildTypes,
 		blockTypes,
+		editorConfig,
 		searchNode,
 	} from './state';
 	import type { BlockNode } from './state';
 	import BlockContent from './BlockContent.svelte';
+	import { hasResponsiveOverrides, responsiveStyleText, styleText } from './styleValues.js';
 
 	let {
 		node,
@@ -40,6 +42,19 @@
 	let lastPointerX = 0;
 	let lastPointerY = 0;
 	const isSelected = $derived(!readonly && $selected === node.id);
+	const schema = $derived(($blockTypes[node.type] ?? {}) as Record<string, unknown>);
+	const styleFields = $derived((schema['styleFields'] as Array<Record<string, unknown>> | undefined) ?? []);
+	const targetStyle = $derived(styleText(node.style ?? {}, node.type, styleFields));
+	const hasResponsiveStyle = $derived(
+		hasResponsiveOverrides(node, styleFields, ($editorConfig['breakpoints'] as Record<string, number> | undefined) ?? {}),
+	);
+	const inlineStyle = $derived(hasResponsiveStyle ? '' : targetStyle);
+	const baseStyle = $derived(['container', 'query', 'image', 'icon'].includes(node.type) ? '' : inlineStyle);
+
+	function styleTargetSelector() {
+		const host = `[data-style-target="${CSS.escape(node.id)}"]`;
+		return host + ({ container: ' .iikiti-container', query: ' .iikiti-query-preview', image: ' .iikiti-image', icon: ' .iikiti-icon-block' }[node.type] ?? '');
+	}
 
 	function clearHoverTimer() {
 		if (hoverTimer === null) return;
@@ -117,6 +132,19 @@
 	});
 
 	$effect(() => {
+		if (typeof document === 'undefined') return;
+		const breakpoints = ($editorConfig['breakpoints'] as Record<string, number> | undefined) ?? {};
+		const selector = styleTargetSelector();
+		const css = responsiveStyleText(node, breakpoints, styleFields, selector);
+		if (!css) return;
+		const styleElement = document.createElement('style');
+		styleElement.dataset.iikitiResponsiveStyle = node.id;
+		styleElement.textContent = css;
+		document.head.append(styleElement);
+		return () => styleElement.remove();
+	});
+
+	$effect(() => {
 		if (!blockElement || readonly) return;
 		blockElement.addEventListener('iikiti-pointer-target', handlePointerTarget);
 		return () => blockElement?.removeEventListener('iikiti-pointer-target', handlePointerTarget);
@@ -130,7 +158,9 @@
 
 {#if readonly}
 	<div bind:this={blockElement} class="iikiti-block-preview iikiti-block-preview--readonly" data-block-node data-block-readonly>
-		<BlockContent {node} {regionId} {readonly} parentId={node.id} />
+		<div class="iikiti-block-preview__content" data-style-target={node.id} style={baseStyle || undefined}>
+			<BlockContent {node} {regionId} {readonly} parentId={node.id} targetStyle={inlineStyle} />
+		</div>
 	</div>
 {:else}
 	<div
@@ -155,7 +185,9 @@
 			}
 		}}
 	>
-		<BlockContent {node} {regionId} {parentId} {readonly} />
+		<div class="iikiti-block-preview__content" data-style-target={node.id} style={baseStyle || undefined}>
+			<BlockContent {node} {regionId} {parentId} {readonly} targetStyle={inlineStyle} />
+		</div>
 		<button type="button" class="iikiti-insert-btn iikiti-insert-btn--before" title="Insert block before" aria-label="Insert block before" onclick={(event) => insertAt(index, event)}>
 			<span aria-hidden="true">+</span>
 		</button>

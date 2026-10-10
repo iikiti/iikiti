@@ -17,11 +17,13 @@
 		regionId,
 		readonly = false,
 		parentId = null,
+		targetStyle = '',
 	}: {
 		node: BlockNode;
 		regionId: string;
 		readonly?: boolean;
 		parentId?: string | null;
+		targetStyle?: string;
 	} = $props();
 
 	const schema = $derived($blockTypes[node.type] as Record<string, unknown> | undefined);
@@ -120,12 +122,12 @@
 	{/if}
 {:else if node.type === 'image'}
 	{#if node.content?.source?.url}
-		<img src={node.content.source.url} alt={node.content.alt ?? ''} class="iikiti-image" />
+		<img src={node.content.source.url} alt={node.content.alt ?? ''} class="iikiti-image" style={targetStyle || undefined} />
 	{:else}
 		<em class="iikiti-block--placeholder">Image URL missing</em>
 	{/if}
 {:else if node.type === 'container'}
-	<div class="iikiti-container" data-block-children>
+	<div class="iikiti-container" data-block-children style={targetStyle || undefined}>
 		{#each node.children ?? [] as child, index (child.id)}
 			<BlockView
 				node={child}
@@ -203,7 +205,7 @@
 		<a href={node.content.url} class="iikiti-embed--link-card">{node.content.url}</a>
 	{/if}
 {:else if node.type === 'query'}
-	<div class="iikiti-query-preview" data-block-children>
+	<div class="iikiti-query-preview" data-block-children style={targetStyle || undefined}>
 		{#each node.children ?? [] as child, index (child.id)}
 			<BlockView
 				node={child}
@@ -238,7 +240,7 @@
 	<em class="iikti-block--placeholder">Dynamic content region</em>
 {:else if node.type === 'icon'}
 	{@const iconRef = String(node.content?.name ?? '')}
-	<span class="iikiti-icon-block" data-block-icon={iconRef}>
+	<span class="iikiti-icon-block" data-block-icon={iconRef} style={targetStyle || undefined}>
 		{@html (node.content?.renderer === 'font' ? $iconGlyphs[iconRef] : $iconSvgs[iconRef]) ?? ''}
 	</span>
 {:else}

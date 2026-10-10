@@ -5,6 +5,9 @@
 		type?: 'text' | 'email' | 'password' | 'number' | 'tel' | 'url';
 		disabled?: boolean;
 		required?: boolean;
+		min?: number;
+		max?: number;
+		step?: number;
 		oninput?: (value: string | number | null) => void;
 	}
 
@@ -14,6 +17,9 @@
 		type = 'text',
 		disabled = false,
 		required = false,
+		min,
+		max,
+		step,
 		oninput,
 	}: Props = $props();
 
@@ -37,5 +43,8 @@
 	bind:value={inputValue}
 	{disabled}
 	{required}
+	{min}
+	{max}
+	{step}
 	oninput={handleInput}
 />

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Tests\Support;
 
-use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Repository\IconRepository;
 use iikiti\CMS\Repository\IconSetRepository;
 use iikiti\CMS\Web\Icon\IconResolver;
@@ -39,7 +38,11 @@ final class EmptyIconSetRepository extends IconSetRepository
 		return null;
 	}
 
-	/** @return list<never> */
+	/**
+	 * @return list<never>
+	 *
+	 * @phpstan-pure
+	 */
 	public function findBy(array $criteria, ?array $orderBy = null, $limit = null, $offset = null): array
 	{
 		return [];

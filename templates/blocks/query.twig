@@ -10,14 +10,14 @@
 {% if items is empty %}
     {% if editor_mode and children_template is defined and children_template is not empty %}
         {# Editor only: keep the child template hydratable while there are no rows #}
-        <div class="iikiti-query--empty" data-block-item-children>{{ children_template|raw }}</div>
+        <div class="iikiti-query--empty" data-block-item-children style="{{ style|raw }}">{{ children_template|raw }}</div>
     {% elseif query_error is defined %}
-        <div class="iikiti-query--empty">{{ query_error }}</div>
+        <div class="iikiti-query--empty" style="{{ style|raw }}">{{ query_error }}</div>
     {% else %}
-        <div class="iikiti-query--empty">No results found.</div>
+        <div class="iikiti-query--empty" style="{{ style|raw }}">No results found.</div>
     {% endif %}
 {% else %}
-    <div class="iikiti-query iikiti-query--{{ layout }}" data-layout="{{ layout|e }}">
+    <div class="iikiti-query iikiti-query--{{ layout }}" data-layout="{{ layout|e }}" style="{{ style|raw }}">
         {% for item in items %}
             <div class="iikiti-query__item" data-item-id="{{ item.id ?? '—' }}"
                 {# The first item also hydrates the editor's child template #}

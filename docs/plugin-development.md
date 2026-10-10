@@ -274,16 +274,57 @@ sb.registerSection({
   ],
 });
 
-// 3. Modify an existing tab: insert/reorder/remove nodes.
+// 3. Register an ordered group in a tab, then place settings in it.
+sb.registerGroup('seo', { id: 'social', label: 'Social metadata', order: 20 });
+sb.registerSection({
+  id: 'seo', label: 'SEO', order: 40,
+  build: (ctx) => [{
+    kind: 'field', path: 'content',
+    field: { key: 'og_title', label: 'Open Graph title', type: 'text', group: 'social', order: 10 },
+  }],
+});
+
+// 4. Modify an existing tab: insert/reorder/remove nodes.
 sb.patchSection('style', (nodes) => [...nodes, myNode], { priority: 0 });
 
-// 4. Switch the active tab programmatically (e.g. from a tour).
+// 5. Switch the active tab programmatically (e.g. from a tour).
 sb.setActiveSection('element');
+
+// 6. Inspect registered groups in their display order.
+const groups = sb.getGroups('seo');
+console.log(groups);
 ```
 
 Field write paths map to the block node: `content → node.content`, `element →
-node.element`, `style → node.style.base`. To write elsewhere, give a node a
-`get(ctx)`/`set(ctx, value)` pair instead of `path`.
+node.element`, `style → node.style.<active-breakpoint>` in the Style tab (other
+tabs use `base`). Core and plugin style fields can specify `group` and numeric
+`order`; settings sort ascending inside
+their accordion, with declaration order breaking ties. An unregistered group id
+falls back to General until the plugin registers it.
+
+```php
+new BlockType(
+    type: 'acme-card',
+    label: 'Card',
+    category: 'layout',
+    styleFields: [
+        ['key' => 'backgroundColor', 'label' => 'Card background', 'type' => 'color', 'group' => 'appearance', 'order' => 20],
+    ],
+);
+```
+
+The Style tab provides base and configured responsive breakpoints; values not
+specified at a breakpoint inherit from the nearest smaller breakpoint. Clear a
+specific responsive value to remove its override. To write elsewhere, give a
+sidebar node a `get(ctx)`/`set(ctx, value)` pair instead of `path`.
+
+Registered groups are section-scoped. `order` determines accordion placement;
+field `order` determines ordering within it:
+
+```js
+sb.registerGroup('style', { id: 'appearance', label: 'Appearance', order: 55 });
+const styleGroups = sb.getGroups('style');
+```
 
 A reusable **group + repeater** pattern (the built-in "Attributes" group is a
 concrete example):

@@ -1,10 +1,12 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { selected, blockTypes, tree, updateNode, searchNode } from './state';
 	import type { BlockNode } from './state';
 	import {
 		getSections,
 		buildSectionNodes,
 		resolveFieldControl,
+		groupSectionNodes,
 		resolveFieldDecorators,
 		sidebarVersion,
 		activeSectionId,
@@ -12,6 +14,7 @@
 	} from './extensions.js';
 	import FormField from '$components/FormField.svelte';
 	import TextControl from './controls/TextControl.svelte';
+	import { cleanExpiredSidebarStates, readAccordionStates, writeAccordionStates } from './sidebarPreferences.js';
 
 	/**
 	 * Dockable settings sidebar. Docks via the viewport bars standard (default
@@ -22,9 +25,64 @@
 	interface Props {
 		side?: string;
 		onFlip?: () => void;
+		config?: Record<string, unknown>;
 	}
 
-	let { side = 'left', onFlip }: Props = $props();
+	let { side = 'left', onFlip, config = {} }: Props = $props();
+	let expandedGroups = $state<Record<string, boolean>>({});
+	let activeBreakpoint = $state('base');
+
+	onMount(() => cleanExpiredSidebarStates());
+
+	const breakpoints = $derived.by(() => {
+		const configured = config['breakpoints'] as Record<string, number> | undefined;
+		return [
+			{ id: 'base', label: 'Base', width: 0 },
+			...Object.entries(configured ?? {})
+				.filter(([id, width]) => id !== 'base' && Number.isFinite(Number(width)))
+				.map(([id, width]) => ({ id, label: `${id.toUpperCase()} (${width}px+)`, width: Number(width) }))
+				.sort((a, b) => a.width - b.width),
+		];
+	});
+
+	function currentBreakpoint(): string {
+		return tab === 'style' ? activeBreakpoint : 'base';
+	}
+
+	function legacyStyleKey(key: string): string | null {
+		if (node?.type === 'container' && key === 'display') return 'layout';
+		if (node?.type === 'container' && key === 'justifyContent') return 'align';
+		if (node?.type !== 'container' && key === 'textAlign') return 'align';
+		if (node?.type === 'icon' && key === 'fontSize') return 'size';
+		return null;
+	}
+
+	function responsiveValue(key: string): unknown {
+		const style = (node?.style ?? {}) as Record<string, Record<string, unknown>>;
+		const legacyKey = legacyStyleKey(key);
+		const index = breakpoints.findIndex((breakpoint) => breakpoint.id === currentBreakpoint());
+		for (let current = index < 0 ? 0 : index; current >= 0; current--) {
+			const layer = style[breakpoints[current].id];
+			let value = layer?.[key] ?? (legacyKey ? layer?.[legacyKey] : undefined);
+			if (key === 'justifyContent' && value === 'start') value = 'flex-start';
+			if (key === 'justifyContent' && value === 'end') value = 'flex-end';
+			if (value !== undefined && value !== null && value !== '') return value;
+		}
+		return undefined;
+	}
+
+	function hasBreakpointOverride(n: Record<string, unknown>): boolean {
+		if (n.path !== 'style' || tab !== 'style' || activeBreakpoint === 'base') return false;
+		const key = String((n.field as Record<string, unknown>).key ?? '');
+		const layer = (node?.style as Record<string, Record<string, unknown>> | undefined)?.[activeBreakpoint];
+		const legacyKey = legacyStyleKey(key);
+		return Object.hasOwn(layer ?? {}, key) || Boolean(legacyKey && Object.hasOwn(layer ?? {}, legacyKey));
+	}
+
+	function clearBreakpointOverride(n: Record<string, unknown>) {
+		if (n.path !== 'style' || !node) return;
+		fieldOnChange(n, '');
+	}
 
 	const node = $derived.by(() => {
 		const id = $selected;
@@ -58,13 +116,63 @@
 		return buildSectionNodes(tab, ctx);
 	});
 
+	const groups = $derived(groupSectionNodes(tab, nodes));
+
+	$effect(() => {
+		if (!node || !tab) {
+			expandedGroups = {};
+			return;
+		}
+		expandedGroups = readAccordionStates(
+			{ type: String(config['contextType'] ?? 'unknown'), id: String(config['contextId'] ?? 'unknown') },
+			node.id,
+			tab,
+		);
+	});
+
+	function persistExpandedGroups(next: Record<string, boolean>) {
+		if (!node) return;
+		expandedGroups = next;
+		writeAccordionStates(
+			{ type: String(config['contextType'] ?? 'unknown'), id: String(config['contextId'] ?? 'unknown') },
+			node.id,
+			tab,
+			next,
+		);
+	}
+
+	function toggleGroup(groupId: string) {
+		persistExpandedGroups({ ...expandedGroups, [groupId]: !expandedGroups[groupId] });
+	}
+
+	function groupIds(nodes: Record<string, unknown>[], ids: string[] = []): string[] {
+		for (const item of nodes) {
+			if (item.kind !== 'accordion' && item.kind !== 'group') continue;
+			const id = String(item.id ?? 'general');
+			if (!ids.includes(id)) ids.push(id);
+			const children = item.nodes;
+			if (Array.isArray(children)) groupIds(children as Record<string, unknown>[], ids);
+		}
+		return ids;
+	}
+
+	function setAllGroups(open: boolean) {
+		persistExpandedGroups(Object.fromEntries(groupIds(groups).map((id) => [id, open])));
+	}
+
+	function groupPanelId(groupId: string) {
+		return `iikiti-settings-${String(tab).replace(/[^a-zA-Z0-9_-]/g, '-')}-${groupId.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+	}
+
+	function groupIsOpen(groupId: string) {
+		return expandedGroups[groupId] === true;
+	}
+
 	function fieldValue(n: Record<string, unknown>): unknown {
 		if (typeof n.get === 'function') return (n.get as (c: unknown) => unknown)(ctx);
 		const key = (n.field as Record<string, unknown>).key as string;
 		if (n.path === 'element') return node?.element?.[key];
-		if (n.path === 'style') return (node?.style as Record<string, unknown> | undefined)?.base
-			? ((node?.style as Record<string, unknown>).base as Record<string, unknown>)[key]
-			: undefined;
+		if (n.path === 'style') return responsiveValue(key);
 		return node?.content?.[key];
 	}
 
@@ -78,9 +186,17 @@
 		if (n.path === 'element') {
 			updateNode(node.id, { element: { ...(node.element ?? {}), [key]: value } });
 		} else if (n.path === 'style') {
-			const style = (node.style ?? {}) as Record<string, unknown>;
-			const base = (style.base ?? {}) as Record<string, unknown>;
-			updateNode(node.id, { style: { ...style, base: { ...base, [key]: value } } });
+			const style = (node.style ?? {}) as Record<string, Record<string, unknown>>;
+			const breakpoint = currentBreakpoint();
+			const layer = { ...(style[breakpoint] ?? {}) };
+			const legacyKey = legacyStyleKey(key);
+			if (legacyKey) delete layer[legacyKey];
+			if (value === '' || value === null || value === undefined) delete layer[key];
+			else layer[key] = value;
+			const nextStyle = { ...style };
+			if (Object.keys(layer).length === 0) delete nextStyle[breakpoint];
+			else nextStyle[breakpoint] = layer;
+			updateNode(node.id, { style: nextStyle });
 		} else {
 			updateNode(node.id, { content: { ...(node.content ?? {}), [key]: value } });
 		}
@@ -137,7 +253,21 @@
 		</div>
 
 		<div class="iikiti-settings__body" role="tabpanel" data-tour="sidebar.section.{tab}">
-			{#each nodes as child, i (child.id ?? i)}
+			{#if tab === 'style'}
+				<label class="iikiti-settings__breakpoint">
+					<span>Responsive breakpoint</span>
+					<select value={activeBreakpoint} onchange={(event) => (activeBreakpoint = (event.currentTarget as HTMLSelectElement).value)}>
+						{#each breakpoints as breakpoint (breakpoint.id)}
+							<option value={breakpoint.id}>{breakpoint.label}</option>
+						{/each}
+					</select>
+				</label>
+			{/if}
+			<div class="iikiti-settings__group-actions">
+				<button type="button" onclick={() => setAllGroups(true)} disabled={groups.length === 0}>Expand all</button>
+				<button type="button" onclick={() => setAllGroups(false)} disabled={groups.length === 0}>Collapse all</button>
+			</div>
+			{#each groups as child, i (child.id ?? i)}
 				{@render renderNode(child)}
 			{/each}
 		</div>
@@ -157,6 +287,9 @@
 					onChange={(v: unknown) => fieldOnChange(n, v)}
 				/>
 			</FormField>
+			{#if hasBreakpointOverride(n)}
+				<button type="button" class="iikiti-settings__reset-override" onclick={() => clearBreakpointOverride(n)}>Reset breakpoint override</button>
+			{/if}
 			{#each decorators as dec (dec.id)}
 				{@const Decorator = dec.component}
 				<span class="iikiti-field__decorator">
@@ -164,10 +297,24 @@
 				</span>
 			{/each}
 		</div>
-	{:else if n.kind === 'group'}
-		<section class="iikiti-settings__group" data-tour="sidebar.group.{n.id}">
-			<h4 class="iikiti-settings__group-title">{n.header ?? n.label}</h4>
-			<div class="iikiti-settings__group-body">
+	{:else if n.kind === 'accordion' || n.kind === 'group'}
+		{@const groupId = String(n.id ?? 'general')}
+		{@const panelId = groupPanelId(groupId)}
+		{@const open = groupIsOpen(groupId)}
+		<section class="iikiti-settings__group" data-tour="sidebar.group.{groupId}">
+			<h4 class="iikiti-settings__group-title">
+				<button
+					type="button"
+					class="iikiti-settings__group-toggle"
+					aria-expanded={open}
+					aria-controls={panelId}
+					onclick={() => toggleGroup(groupId)}
+				>
+					<span>{n.header ?? n.label}</span>
+					<span class="iikiti-settings__group-chevron" aria-hidden="true">{open ? '−' : '+'}</span>
+				</button>
+			</h4>
+			<div class="iikiti-settings__group-body" id={panelId} hidden={!open}>
 				{#each (n.nodes as Record<string, unknown>[]) ?? [] as sub, i (sub.id ?? i)}
 					{@render renderNode(sub)}
 				{/each}
@@ -303,6 +450,27 @@
 		flex-direction: column;
 		gap: 10px;
 	}
+	.iikiti-settings__breakpoint { display: flex; flex-direction: column; gap: 4px; font-weight: 500; }
+	.iikiti-settings__breakpoint select { width: 100%; min-height: 36px; border: 1px solid var(--ik-panel-border, #e5e7eb); border-radius: 6px; padding: 4px 8px; background: var(--ik-panel-bg, #fff); color: inherit; font: inherit; }
+	.iikiti-settings__reset-override { margin-top: 4px; border: 0; padding: 2px 0; background: none; color: var(--ik-panel-text-muted, #6b7280); font: inherit; cursor: pointer; text-align: left; }
+	.iikiti-settings__reset-override:hover { color: var(--ik-panel-text, #111827); }
+	.iikiti-settings__group-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 8px;
+	}
+	.iikiti-settings__group-actions button {
+		border: 0;
+		background: none;
+		color: var(--ik-panel-text-muted, #6b7280);
+		font: inherit;
+		font-size: 0.875rem;
+		padding: 4px 2px;
+		cursor: pointer;
+	}
+	.iikiti-settings__group-actions button:disabled { opacity: 0.5; cursor: default; }
+	.iikiti-settings__group-actions button:not(:disabled):hover { color: var(--ik-panel-text, #111827); }
+	.iikiti-settings__group-actions button:focus-visible { outline: 2px solid var(--ik-accent, #3569a8); outline-offset: 2px; }
 
 	/* ── Field decorator affordances (e.g. query field bindings) ──
 	 * Relative wrapper so decorators can sit in the input's corner. Revealed
@@ -336,14 +504,26 @@
 		border-radius: 8px;
 		padding: 8px;
 	}
-	.iikiti-settings__group-title {
-		margin: 0 0 6px;
+	.iikiti-settings__group-title { margin: 0; }
+	.iikiti-settings__group-toggle {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+		border: 0;
+		padding: 2px 0 8px;
+		background: none;
+		color: var(--ik-panel-text-muted, #6b7280);
+		font: inherit;
 		font-size: 1rem;
 		font-weight: 600;
+		text-align: left;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		color: var(--ik-panel-text-muted, #6b7280);
+		cursor: pointer;
 	}
+	.iikiti-settings__group-toggle:focus-visible { outline: 2px solid var(--ik-accent, #3569a8); outline-offset: 2px; }
+	.iikiti-settings__group-chevron { font-size: 1.25rem; line-height: 1; }
 	.iikiti-settings__group-body {
 		display: flex;
 		flex-direction: column;

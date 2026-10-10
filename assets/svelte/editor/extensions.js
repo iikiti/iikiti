@@ -19,6 +19,16 @@
  */
 import { writable, get } from 'svelte/store';
 import { markReady } from '../../js/iikiti/ready.js';
+import { getGroups, groupSectionNodes, registerGroup as registerGroupDefinition } from './sidebarGroups.js';
+
+export { getGroups, groupSectionNodes };
+
+export function registerGroup(sectionId, group) {
+	const registered = registerGroupDefinition(sectionId, group);
+	if (!registered) return undefined;
+	bump();
+	return { id: registered.id, label: registered.label, order: registered.order };
+}
 
 /** @type {Array<{type:string, component:any, priority:number, seq:number}>} */
 const fieldControls = [];
@@ -198,6 +208,8 @@ export function installSidebarApi() {
 		resolveFieldDecorators,
 		registerSection,
 		getSections,
+		registerGroup,
+		getGroups,
 		patchSection,
 		buildSectionNodes,
 		setActiveSection,

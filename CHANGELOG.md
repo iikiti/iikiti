@@ -18,6 +18,8 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-10-10: Sidebar tabs now organize settings into ordered accordion groups, persist each block's open state per template for one week, and expose group registration plus field group/order metadata to plugins.
+- 2026-10-10: Core blocks gain grouped style controls with base and responsive breakpoint editing for layout, size, spacing, typography, background, borders, effects and position.
 - 2026-10-10: Added a Button block with safe button/submit types, available in any container.
 - 2026-10-10: Added nine native form blocks with accessible rendering and validated form/fieldset hierarchy.
 - 2026-10-10: Header "Add block" respects the selection: with a container selected it offers that container's child types, with a non-container selected it inserts a sibling after it, and with nothing selected it targets the region root (`addBlockTarget` in `blockClipboard.js`).
@@ -65,6 +67,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Fixed
 
+- 2026-10-10: Symfony `cache:clear` raises the CLI memory limit to 512M during cache rebuilds.
 - 2026-10-10: Layers drop zones inside containers work: the nesting check treats an empty `allowedChildTypes` as "any child" (matching the canvas and the server schema), so dropping a block into a container's middle band is accepted (`layerDrop.js` `parentAllowsType`).
 - 2026-10-10: Leaf rows in the Layers panel split just below the midline (60%), so dropping on a row's label reorders upwards instead of landing on a no-op "below" zone (`layerDrop.js` `resolveDropZone`).
 - 2026-10-10: The Layers panel reopens in the state it was left in: its open state is persisted to `localStorage` (`iikiti.editor.layers.open`) (`state.js`).
@@ -109,6 +112,10 @@ The top-level file keeps the latest 5 dated entries; older entries live in
   error), public rendering (`BlockRenderer::renderTree` skips root non-containers),
   and the editor (`addBlock`/`moveBlock` in `state.js` and the Add block dialog
   offer only Container at root).
+
+### Security
+
+- 2026-10-10: Block style properties and values are validated before public inline/media CSS output, preventing saved style data from injecting declarations or markup.
 
 ### Removed
 

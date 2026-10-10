@@ -5,11 +5,13 @@
  * sections through the same public API plugins use. Also installs
  * `window.iikiti.editor.sidebar`.
  */
-import { registerFieldControl, registerFieldDecorator, registerSection, installSidebarApi } from './extensions.js';
+import { registerFieldControl, registerFieldDecorator, registerGroup, registerSection, installSidebarApi } from './extensions.js';
 import TextControl from './controls/TextControl.svelte';
 import TextareaControl from './controls/TextareaControl.svelte';
 import SelectControl from './controls/SelectControl.svelte';
 import ToggleControl from './controls/ToggleControl.svelte';
+import CssLengthControl from './controls/CssLengthControl.svelte';
+import ColorControl from './controls/ColorControl.svelte';
 import { queryBindingDecorator } from './queryBinding.js';
 
 let registered = false;
@@ -33,6 +35,7 @@ function attributesGroup(ctx) {
 	return {
 		kind: 'group',
 		id: 'attributes',
+		order: 20,
 		label: 'Attributes',
 		header: 'Attributes',
 		nodes: [
@@ -57,11 +60,13 @@ function attributesGroup(ctx) {
 /** @param {any} ctx */
 function buildContent(ctx) {
 	return (ctx.schema?.contentFields ?? []).map((field) => {
-		if (field.type !== 'repeater') return fieldNode(field, 'content');
+		if (field.type !== 'repeater') return fieldNode({ ...field, group: field.group ?? 'content' }, 'content');
 		const key = String(field.key);
 		return {
 			kind: 'repeater',
 			id: key,
+			group: field.group ?? 'content',
+			order: field.order,
 			label: field.label,
 			showLabel: true,
 			fields: field.fields ?? [],
@@ -75,7 +80,7 @@ function buildContent(ctx) {
 
 /** @param {any} ctx */
 function buildElement(ctx) {
-	const fields = (ctx.schema?.elementFields ?? []).map((f) => fieldNode(f, 'element'));
+	const fields = (ctx.schema?.elementFields ?? []).map((f) => fieldNode({ ...f, group: f.group ?? 'element' }, 'element'));
 	return [...fields, attributesGroup(ctx)];
 }
 
@@ -92,7 +97,8 @@ export function registerCoreSidebar() {
 
 	registerFieldControl('text', TextControl);
 	registerFieldControl('url', TextControl);
-	registerFieldControl('color', TextControl);
+	registerFieldControl('color', ColorControl);
+	registerFieldControl('cssLength', CssLengthControl);
 	registerFieldControl('media', TextControl);
 	registerFieldControl('filters', TextControl);
 	registerFieldControl('spacing', TextControl);
@@ -102,6 +108,19 @@ export function registerCoreSidebar() {
 	registerFieldControl('select', SelectControl);
 	registerFieldControl('align', SelectControl);
 	registerFieldControl('toggle', ToggleControl);
+
+	registerGroup('content', { id: 'content', label: 'Content', order: 10 });
+	registerGroup('element', { id: 'element', label: 'Element', order: 10 });
+	registerGroup('element', { id: 'attributes', label: 'Attributes', order: 20 });
+	registerGroup('style', { id: 'layout', label: 'Layout', order: 10 });
+	registerGroup('style', { id: 'size', label: 'Size', order: 20 });
+	registerGroup('style', { id: 'spacing', label: 'Spacing', order: 30 });
+	registerGroup('style', { id: 'typography', label: 'Typography', order: 40 });
+	registerGroup('style', { id: 'background', label: 'Background', order: 50 });
+	registerGroup('style', { id: 'borders', label: 'Borders', order: 60 });
+	registerGroup('style', { id: 'effects', label: 'Effects', order: 70 });
+	registerGroup('style', { id: 'position', label: 'Position', order: 80 });
+	registerGroup('style', { id: 'general', label: 'General', order: 1000 });
 
 	registerSection({ id: 'content', label: 'Content', icon: 'type', order: 10, build: buildContent });
 	registerSection({ id: 'element', label: 'Element', icon: 'cursor', order: 20, build: buildElement });

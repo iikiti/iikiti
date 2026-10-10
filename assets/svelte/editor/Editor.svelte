@@ -61,7 +61,7 @@
 		});
 		if (bar) {
 			sidebarBar = bar;
-			sidebarApp = mount(SettingsSidebar, { target: bar.el, props: { side, onFlip: flipSide } });
+			sidebarApp = mount(SettingsSidebar, { target: bar.el, props: { side, onFlip: flipSide, config } });
 		}
 	}
 

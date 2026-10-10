@@ -66,6 +66,28 @@ final class BlockTypeRegistryTest extends TestCase
 		self::assertSame('post', $formMethodField['default'] ?? null);
 	}
 
+	public function testCoreTypesExposeOrderedStyleGroupMetadata(): void
+	{
+		$registry = new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly())]);
+
+		foreach ($registry->all() as $type) {
+			$fields = [];
+			foreach ($type->styleFields as $field) {
+				$fields[$field['key']] = $field;
+			}
+
+			self::assertSame('layout', $fields['display']['group'] ?? null);
+			self::assertSame(10, $fields['display']['order'] ?? null);
+			self::assertSame('size', $fields['width']['group'] ?? null);
+			self::assertSame('spacing', $fields['padding']['group'] ?? null);
+			self::assertSame('typography', $fields['color']['group'] ?? null);
+			self::assertSame('background', $fields['backgroundColor']['group'] ?? null);
+			self::assertSame('borders', $fields['borderRadius']['group'] ?? null);
+			self::assertSame('effects', $fields['opacity']['group'] ?? null);
+			self::assertSame('position', $fields['position']['group'] ?? null);
+		}
+	}
+
 	public function testGetReturnsNullForUnknownType(): void
 	{
 		$registry = new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly())]);

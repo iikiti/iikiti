@@ -197,34 +197,48 @@ Rules (tagged `iikiti.cms.template_rule`): `object_type`, `object`, `site`.
   dismissible, scrollable on overflow.
 
 ## Settings sidebar extension API
-- The sidebar tabs, field controls, and field lists are all built through one
-  plugin-shared API. Core registers them first; plugin `editor_ui` bundles
-  register theirs after.
+
+- Content, Element, Style and plugin tabs use independently expandable accordion
+  groups. Every tab provides Expand all / Collapse all; groups start collapsed.
+  State is saved per context, block, tab and group in `localStorage` and context
+  records expire after seven days without a read or write.
 - `window.iikiti.editor.sidebar` exposes:
   - `registerSection({id,label,icon,order,build(ctx)})` — add a tab; `build`
-    returns a node list from `{node, schema, blockTypes, update}`.
+    returns nodes from `{node, schema, blockTypes, update}`.
+  - `registerGroup(sectionId, {id,label,order})` — register a tab-scoped
+    accordion. `order` sorts groups ascending; equal orders retain registration
+    order.
+  - `getGroups(sectionId)` — return that tab's registered groups ordered by
+    `order`.
   - `registerFieldControl(type, Component, {priority})` — map a schema field
-    `type` → a Svelte control `{field, value, onChange}`; higher priority wins
-    (overridable).
+    `type` to a Svelte control `{field, value, onChange}`; higher priority wins.
   - `registerFieldDecorator({id, applies(ctx, fieldNode), component},
     {priority})` — render a decorator affordance in the corner of any sidebar
     field control. `applies` gates visibility; `component` receives
-    `{node, fieldNode, fieldKey}`. The core "query binding" decorator
-    (`queryBinding.js` / `BindingTrigger.svelte`) registers through this same
-    API.
+    `{node, fieldNode, fieldKey}`.
   - `patchSection(sectionId, (nodes, ctx) => nodes, {priority})` — insert,
-    remove or reorder any node in an existing tab.
+    remove or reorder nodes in an existing tab.
   - `getSections()`, `buildSectionNodes(id, ctx)`, `setActiveSection(id)`.
-- Node model: `{kind:'field', field, path}` | `{kind:'group', id, label,
-  header?, nodes}` | `{kind:'repeater', id, fields, items, onChange,
-  addLabel}`. Groups/repeaters compose (e.g. the built-in "Attributes"
-  repeater lives inside an "Attributes" group in the Element tab).
+- A field schema may specify `group` (registered group id) and numeric `order`.
+  Fields sort by ascending order within that group; ties retain schema order.
+  Unassigned or unknown-group fields are placed in General. Plugin-built group
+  nodes can specify `order`, and their children may also use field `order`.
+- Core Style groups are Layout, Size, Spacing, Typography, Background, Borders,
+  Effects and Position. Every core block exposes the common style controls.
+  Values are left unset unless the block already has a saved value. Style fields
+  expose their `group` and `order` in `blockTypes` for plugin providers.
+- The Style tab breakpoint selector uses `base`, `sm`, `md`, `lg` and `xl`
+  (mobile-first min-widths from editor config). A setting not set at a selected
+  breakpoint inherits the closest smaller breakpoint; Reset breakpoint override
+  removes that explicit value. Saved style values remain in the `node.style`
+  breakpoint map and public output applies scoped media rules.
 - Field write paths: `path:'content'` → `node.content.<key>`, `path:'element'` →
-  `node.element.<key>`, `path:'style'` → `node.style.base.<key>`. Plugins can
-  override with a node-level `get(ctx)`/`set(ctx,v)`.
-- `BlockType` gained an `elementFields` list (parallel to `contentFields`/
-  `styleFields`) and a `source` provider slug, surfaced in `blockTypes` output
-  (used by the editor and by the block-widget enumeration API).
+  `node.element.<key>`, `path:'style'` →
+  `node.style.<active-breakpoint>.<key>` in the Style tab (other tabs use
+  `base`). Plugins can override with a node-level `get(ctx)`/`set(ctx,v)`.
+- `BlockType` exposes `elementFields` (parallel to `contentFields`/
+  `styleFields`) and a `source` provider slug in `blockTypes` output (used by
+  the editor and block-widget enumeration API).
 
 ## Tour / spotlight framework
 - `window.iikiti.tour` (shared editor + admin SPA):

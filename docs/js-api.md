@@ -370,6 +370,28 @@ const sidebar = await window.iikiti.whenReady('editor.sidebar')
 sidebar.registerSection({ id: 'acme', label: 'Acme', build: (ctx) => [] });
 ```
 
+`sidebar.registerGroup(sectionId, { id, label, order })` registers an ordered,
+section-scoped accordion group for plugin settings. Groups sort by ascending
+`order`; registration order breaks ties.
+
+```js
+sidebar.registerGroup('acme', { id: 'appearance', label: 'Appearance', order: 20 });
+```
+
+`sidebar.getGroups(sectionId)` returns the registered groups in display order.
+
+```js
+const groups = sidebar.getGroups('acme');
+console.log(groups.map((group) => group.id));
+```
+
+Block type field schemas can assign fields to a registered accordion and order
+them inside it with `group` and numeric `order`:
+
+```js
+const field = { key: 'surface', label: 'Surface', type: 'color', group: 'appearance', order: 10 };
+```
+
 `editor.sidebar` is set only in editor mode. On public pages it never exists
 and `whenReady` never resolves for it.
 

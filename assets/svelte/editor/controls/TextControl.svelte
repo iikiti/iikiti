@@ -16,5 +16,8 @@
 	value={String(value ?? '')}
 	type={type as 'text' | 'url' | 'number'}
 	placeholder={String(field.placeholder ?? '')}
-	oninput={(v) => onChange(field.type === 'number' ? Number(v) : v)}
+	min={typeof field.min === 'number' ? field.min : undefined}
+	max={typeof field.max === 'number' ? field.max : undefined}
+	step={typeof field.step === 'number' ? field.step : undefined}
+	oninput={(v) => onChange(field.type === 'number' ? (v === '' ? '' : Number(v)) : v)}
 />

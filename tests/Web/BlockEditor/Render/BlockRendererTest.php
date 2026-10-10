@@ -577,4 +577,43 @@ final class BlockRendererTest extends TestCase
 		self::assertStringContainsString('&lt;script&gt;bad&lt;/script&gt;</option>', $html);
 		self::assertStringNotContainsString('<script>bad</script>', $html);
 	}
+
+	public function testStyleValuesRenderOnBlocksAndAtResponsiveBreakpoints(): void
+	{
+		$tree = $this->inContainer([[
+			'id' => 'responsive-title',
+			'type' => 'heading',
+			'content' => ['level' => '2', 'text' => 'Responsive'],
+			'style' => [
+				'base' => ['width' => 320, 'fontSize' => '24', 'color' => '#123456'],
+				'md' => ['width' => '80%', 'backgroundColor' => '#abcdef'],
+			],
+		]]);
+
+		$html = $this->renderer->renderRegionTree($tree, new BlockRenderContext(editorMode: false));
+
+		self::assertStringNotContainsString('style="width:320px;color:#123456;"', $html);
+		self::assertStringContainsString('.iikiti-block-id--responsive-title.iikiti-block-id--responsive-title{width:320px;font-size:24px;color:#123456}', $html);
+		self::assertStringContainsString('@media (min-width:768px){.iikiti-block-id--responsive-title.iikiti-block-id--responsive-title{width:80%;background-color:#abcdef}}', $html);
+	}
+
+	public function testInvalidStyleValuesAreOmittedFromInlineAndResponsiveCss(): void
+	{
+		$tree = $this->inContainer([[
+			'id' => 'unsafe-style',
+			'type' => 'text',
+			'content' => ['content' => 'Safe'],
+			'style' => [
+				'base' => ['color' => 'red;position:fixed', 'backgroundColor' => 'red</style><script>alert(1)</script>'],
+				'xl' => ['boxShadow' => 'none;}</style><script>alert(1)</script>'],
+			],
+		]]);
+
+		$html = $this->renderer->renderRegionTree($tree, new BlockRenderContext(editorMode: false));
+
+		self::assertStringNotContainsString('red;position:fixed', $html);
+		self::assertStringNotContainsString('</style><script>', $html);
+		self::assertStringNotContainsString('alert(1)', $html);
+		self::assertStringContainsString('Safe', $html);
+	}
 }

@@ -10,6 +10,7 @@ use iikiti\CMS\Web\BlockEditor\BlockType\BlockTypeRegistry;
 use iikiti\CMS\Web\BlockEditor\Query\QueryDefinition;
 use iikiti\CMS\Web\BlockEditor\Query\QueryExecutor;
 use iikiti\CMS\Web\BlockEditor\Query\QueryFieldCatalog;
+use iikiti\CMS\Web\BlockEditor\ResponsiveBreakpoints;
 use Twig\Environment;
 
 /**
@@ -44,6 +45,11 @@ final class BlockRenderer
 	/** Schema field types whose resolved binding values may be overlaid. */
 	private const BINDABLE_FIELD_TYPES = ['text', 'textarea', 'richtext', 'url'];
 
+	private const CSS_LENGTH_PROPERTIES = [
+		'width', 'height', 'min-width', 'max-width', 'min-height', 'max-height', 'margin', 'padding', 'gap',
+		'row-gap', 'column-gap', 'font-size', 'border-width', 'border-radius', 'top', 'right', 'bottom', 'left',
+	];
+
 	/** @var array<string,true> query block ids currently being rendered (cycle guard) */
 	private array $activeQueryIds = [];
 
@@ -72,16 +78,16 @@ final class BlockRenderer
 			return '';
 		}
 
-		$html = '';
+		$rules = [];
+		$nodes = [];
 		foreach ($tree as $node) {
 			$type = (string) ($node['type'] ?? '');
-			if (!$context->editorMode && !RootContainerRule::isAllowedAtRoot($type)) {
-				continue;
+			if ($context->editorMode || RootContainerRule::isAllowedAtRoot($type)) {
+				$nodes[] = $node;
 			}
-			$html .= $this->renderNode($node, $context);
 		}
 
-		return $html;
+		return $this->renderNodesWithRules($nodes, $context, $rules).$this->responsiveStylesheet($rules);
 	}
 
 	/**
@@ -96,9 +102,20 @@ final class BlockRenderer
 			return '';
 		}
 
+		$rules = [];
+
+		return $this->renderNodesWithRules($tree, $context, $rules).$this->responsiveStylesheet($rules);
+	}
+
+	/**
+	 * @param list<array<string,mixed>>                                                      $nodes
+	 * @param array<string,array<string,array{width:int,declarations:array<string,string>}>> $rules
+	 */
+	private function renderNodesWithRules(array $nodes, BlockRenderContext $context, array &$rules): string
+	{
 		$html = '';
-		foreach ($tree as $node) {
-			$html .= $this->renderNode($node, $context);
+		foreach ($nodes as $node) {
+			$html .= $this->renderNodeWithRules($node, $context, $rules);
 		}
 
 		return $html;
@@ -109,13 +126,24 @@ final class BlockRenderer
 	 */
 	public function renderNode(array $node, BlockRenderContext $context): string
 	{
+		$rules = [];
+
+		return $this->renderNodeWithRules($node, $context, $rules).$this->responsiveStylesheet($rules);
+	}
+
+	/**
+	 * @param array<string,mixed>                                                            $node
+	 * @param array<string,array<string,array{width:int,declarations:array<string,string>}>> $rules
+	 */
+	private function renderNodeWithRules(array $node, BlockRenderContext $context, array &$rules): string
+	{
 		$type = (string) ($node['type'] ?? '');
 		$blockType = $this->registry->get($type);
 
 		// Unknown block type: render a safe placeholder but still emit metadata so
 		// the editor recognises the node.
 		if (null === $blockType) {
-			return $this->wrap($this->placeholder($type), $node, $context, null);
+			return $this->wrap($this->placeholder($type), $node, $context, null, [], $rules);
 		}
 
 		$content = is_array($node['content'] ?? null) ? $node['content'] : [];
@@ -140,7 +168,7 @@ final class BlockRenderer
 		// query's row loop) fall back to the legacy rendering to bound the work.
 		$extraVars = [];
 		if ('query' === $type && $blockType->acceptsChildren && is_array($children) && [] !== $children && 0 === $context->queryDepth) {
-			$extraVars = $this->queryRowVars($node, $content, $children, $context);
+			$extraVars = $this->queryRowVars($node, $content, $children, $context, $rules);
 		}
 
 		// Per-item dynamic bindings: overlay resolved row values onto the block's
@@ -150,12 +178,12 @@ final class BlockRenderer
 		}
 
 		$childrenHtml = ($blockType->acceptsChildren && is_array($children) && [] === $extraVars) ?
-			$this->renderTree($children, $context) :
+			$this->renderNodesWithRules($children, $context, $rules) :
 			'';
 
 		$inner = $this->renderTemplate($blockType, $node, $content, $childrenHtml, $context, $extraVars);
 
-		return $this->wrap($inner, $node, $context, $blockType, $content);
+		return $this->wrap($inner, $node, $context, $blockType, $content, $rules);
 	}
 
 	/**
@@ -167,13 +195,14 @@ final class BlockRenderer
 	 * - In editor mode the child template is always emitted (even with zero rows)
 	 *   so an editor draft saved while the query is empty keeps its children.
 	 *
-	 * @param array<string,mixed>       $node
-	 * @param array<string,mixed>       $content
-	 * @param list<array<string,mixed>> $children
+	 * @param array<string,mixed>                                                            $node
+	 * @param array<string,mixed>                                                            $content
+	 * @param list<array<string,mixed>>                                                      $children
+	 * @param array<string,array<string,array{width:int,declarations:array<string,string>}>> $rules
 	 *
 	 * @return array<string,mixed> template variables (`items`, `children_items`, `children_template`)
 	 */
-	private function queryRowVars(array $node, array $content, array $children, BlockRenderContext $context): array
+	private function queryRowVars(array $node, array $content, array $children, BlockRenderContext $context, array &$rules): array
 	{
 		$blockId = (string) ($node['id'] ?? '');
 		if ('' !== $blockId && isset($this->activeQueryIds[$blockId])) {
@@ -192,7 +221,7 @@ final class BlockRenderer
 		}
 		try {
 			foreach ($items as $item) {
-				$childrenItems[] = $this->renderTree($children, $context->withItem($item));
+				$childrenItems[] = $this->renderNodesWithRules($children, $context->withItem($item), $rules);
 			}
 		} finally {
 			if ('' !== $blockId) {
@@ -202,7 +231,7 @@ final class BlockRenderer
 
 		$vars = ['items' => $items, 'children_items' => $childrenItems];
 		if ($context->editorMode) {
-			$vars['children_template'] = $this->renderTree($children, $context);
+			$vars['children_template'] = $this->renderNodesWithRules($children, $context, $rules);
 		}
 
 		return $vars;
@@ -224,9 +253,10 @@ final class BlockRenderer
 	}
 
 	/**
-	 * @param array<string,mixed> $node
+	 * @param array<string,mixed>                                                            $node
+	 * @param array<string,array<string,array{width:int,declarations:array<string,string>}>> $rules
 	 */
-	private function wrap(string $inner, array $node, BlockRenderContext $context, ?BlockType $blockType, mixed $content = []): string
+	private function wrap(string $inner, array $node, BlockRenderContext $context, ?BlockType $blockType, mixed $content, array &$rules): string
 	{
 		$type = (string) ($node['type'] ?? '');
 		$sanitizedType = preg_replace('/[^a-z0-9_-]/i', '-', $type);
@@ -247,6 +277,11 @@ final class BlockRenderer
 		}
 
 		$html = ' class="'.htmlspecialchars($class, ENT_QUOTES).'"';
+		$hasResponsiveStyle = $this->hasResponsiveStyles($node, $blockType, $type);
+		$style = $this->styleForOutput(is_array($node['style'] ?? null) ? $node['style'] : [], $blockType, $type, $hasResponsiveStyle);
+		if ('' !== $style && !in_array($type, ['container', 'query', 'icon', 'image'], true)) {
+			$html .= ' style="'.htmlspecialchars($style, ENT_QUOTES).'"';
+		}
 
 		$elementId = is_string($element['id'] ?? null) ? trim($element['id']) : '';
 		if ('' !== $elementId) {
@@ -277,6 +312,8 @@ final class BlockRenderer
 		if (1 !== preg_match('/^[a-z][a-z0-9-]*$/i', $tag)) {
 			$tag = self::WRAPPER_TAG;
 		}
+
+		$this->collectResponsiveStyles($node, $blockType, $type, $rules);
 
 		return '<'.$tag.$html.'>'.$inner.'</'.$tag.'>';
 	}
@@ -412,7 +449,12 @@ final class BlockRenderer
 			return $this->twig->render($blockType->renderTemplate, [
 				'block' => $node,
 				'content' => $content,
-				'style' => $this->styleForOutput($node['style'] ?? []),
+				'style' => $this->styleForOutput(
+					is_array($node['style'] ?? null) ? $node['style'] : [],
+					$blockType,
+					$blockType->type,
+					$this->hasResponsiveStyles($node, $blockType, $blockType->type),
+				),
 				'children_html' => $childrenHtml,
 				'editor_mode' => $context->editorMode,
 				'site' => $context->site,
@@ -506,30 +548,190 @@ final class BlockRenderer
 		return htmlspecialchars((string) $encoded, ENT_QUOTES);
 	}
 
-	/**
-	 * Reduce the per-breakpoint style map to a flat inline `style` attribute string
-	 * for the `base` breakpoint. The editor reads the full map from
-	 * `data-block-style`; the public render only needs base styles here.
-	 *
-	 * @param array<string,mixed> $style
-	 */
-	private function styleForOutput(array $style): string
+	/** @param array<string,mixed> $style */
+	private function styleForOutput(array $style, ?BlockType $blockType, string $type, bool $responsive = false): string
 	{
-		$base = $style['base'] ?? [];
-		if (!is_array($base)) {
+		if ($responsive) {
 			return '';
 		}
-
+		$declarations = $this->styleDeclarations($style['base'] ?? [], $blockType, $type);
 		$pairs = [];
-		foreach ($base as $key => $value) {
-			if (!is_string($key) || null === $value) {
-				continue;
-			}
-			$property = $this->cssProperty($key);
-			$pairs[] = $property.':'.htmlspecialchars((string) $value, ENT_QUOTES).';';
+		foreach ($declarations as $property => $value) {
+			$pairs[] = $property.':'.$value.';';
 		}
 
 		return implode('', $pairs);
+	}
+
+	/**
+	 * @param array<string,mixed>                                                            $node
+	 * @param array<string,array<string,array{width:int,declarations:array<string,string>}>> $rules
+	 */
+	private function collectResponsiveStyles(array $node, ?BlockType $blockType, string $type, array &$rules): void
+	{
+		$blockId = $node['id'] ?? null;
+		$style = $node['style'] ?? null;
+		if (!is_string($blockId) || '' === $blockId || !is_array($style)) {
+			return;
+		}
+
+		$blockClass = self::blockIdClass($blockId);
+		$blockSelector = '.'.$blockClass.'.'.$blockClass;
+		$selector = match ($type) {
+			'container' => $blockSelector.' > .iikiti-container',
+			'query' => $blockSelector.' .iikiti-query, '.$blockSelector.' .iikiti-query--empty',
+			'icon' => $blockSelector.' > .iikiti-icon-block',
+			'image' => $blockSelector.' .iikiti-image',
+			default => $blockSelector,
+		};
+
+		$responsiveLayers = [];
+		foreach (ResponsiveBreakpoints::WIDTHS as $breakpoint => $width) {
+			$declarations = $this->styleDeclarations($style[$breakpoint] ?? [], $blockType, $type);
+			if ([] !== $declarations) {
+				$responsiveLayers[$breakpoint] = ['width' => $width, 'declarations' => $declarations];
+			}
+		}
+		if ([] === $responsiveLayers) {
+			return;
+		}
+		$baseDeclarations = $this->styleDeclarations($style['base'] ?? [], $blockType, $type);
+		if ([] !== $baseDeclarations) {
+			$rules[$selector]['base'] = ['width' => 0, 'declarations' => $baseDeclarations];
+		}
+		$rules[$selector] = array_replace($rules[$selector] ?? [], $responsiveLayers);
+	}
+
+	/** @param array<string,mixed> $node */
+	private function hasResponsiveStyles(array $node, ?BlockType $blockType, string $type): bool
+	{
+		$blockId = $node['id'] ?? null;
+		$style = $node['style'] ?? null;
+		if (!is_string($blockId) || '' === $blockId || !is_array($style)) {
+			return false;
+		}
+		foreach (ResponsiveBreakpoints::WIDTHS as $breakpoint => $width) {
+			if ([] !== $this->styleDeclarations($style[$breakpoint] ?? [], $blockType, $type)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/** @param array<string,array<string,array{width:int,declarations:array<string,string>}>> $rules */
+	private function responsiveStylesheet(array $rules): string
+	{
+		$css = '';
+		foreach ($rules as $selector => $breakpoints) {
+			foreach ($breakpoints as $breakpoint => $rule) {
+				$declarations = [];
+				foreach ($rule['declarations'] as $property => $value) {
+					$declarations[] = $property.':'.$value;
+				}
+				$blockRule = $selector.'{'.implode(';', $declarations).'}';
+				$css .= 'base' === $breakpoint ? $blockRule : '@media (min-width:'.$rule['width'].'px){'.$blockRule.'}';
+			}
+		}
+
+		return '' === $css ? '' : '<style data-iikiti-responsive-styles>'.$css.'</style>';
+	}
+
+	/** @return array<string,string> */
+	private function styleDeclarations(mixed $layer, ?BlockType $blockType, string $type): array
+	{
+		if (!is_array($layer)) {
+			return [];
+		}
+
+		$schemaProperties = [];
+		$styleFields = null === $blockType ? [] : $blockType->styleFields;
+		foreach ($styleFields as $field) {
+			$key = $field['key'] ?? null;
+			if (!is_string($key)) {
+				continue;
+			}
+			$property = is_string($field['cssProperty'] ?? null) ? $field['cssProperty'] : $this->cssProperty($key);
+			if (1 === preg_match('/^[a-z][a-z0-9-]*$/', $property)) {
+				$schemaProperties[$key] = $property;
+			}
+		}
+
+		$declarations = [];
+		foreach ($layer as $key => $value) {
+			if (!is_string($key) || null === $value) {
+				continue;
+			}
+			$property = $schemaProperties[$key] ?? $this->legacyCssProperty($key, $type);
+			if (null === $property || 1 !== preg_match('/^[a-z][a-z0-9-]*$/', $property)) {
+				continue;
+			}
+			$normalized = $this->normalizeCssValue($property, $value);
+			if (null !== $normalized) {
+				$declarations[$property] = $normalized;
+			}
+		}
+
+		return $declarations;
+	}
+
+	private function legacyCssProperty(string $key, string $type): ?string
+	{
+		return match ($key) {
+			'layout' => 'display',
+			'align' => 'container' === $type ? 'justify-content' : 'text-align',
+			'size' => 'icon' === $type ? 'font-size' : null,
+			default => null,
+		};
+	}
+
+	private function normalizeCssValue(string $property, mixed $value): ?string
+	{
+		if (is_int($value) || is_float($value)) {
+			if (!is_finite((float) $value)) {
+				return null;
+			}
+			if ('opacity' === $property && ($value < 0 || $value > 1)) {
+				return null;
+			}
+			$unitless = in_array($property, ['opacity', 'font-weight', 'line-height', 'z-index'], true);
+
+			return $unitless || 0.0 === (float) $value ? (string) $value : (string) $value.'px';
+		}
+		if (!is_string($value)) {
+			return null;
+		}
+
+		$value = trim($value);
+		if ('' === $value || strlen($value) > 256 || 1 === preg_match('/[;{}<>\\\\"\'\x00-\x1F\x7F]/', $value)) {
+			return null;
+		}
+		if (1 === preg_match('/\\b(?:url|expression|var|attr)\\s*\\(/i', $value)) {
+			return null;
+		}
+		if (in_array($property, ['color', 'background-color', 'border-color'], true)) {
+			if (1 !== preg_match('/^(?:#[0-9a-f]{3,8}|[a-z]+|(?:rgb|rgba|hsl|hsla)\([0-9a-zA-Z.,%\/+\s-]+\))$/i', $value)) {
+				return null;
+			}
+		} elseif (1 !== preg_match('/^[a-zA-Z0-9#.%(),\/:+\\s_-]+$/', $value)) {
+			return null;
+		}
+		if ('aspect-ratio' === $property) {
+			if ('original' === $value) {
+				return null;
+			}
+			$value = preg_replace('/^(\\d+)\\s*:\\s*(\\d+)$/', '$1 / $2', $value) ?? $value;
+		}
+		if ('justify-content' === $property && 'start' === $value) {
+			$value = 'flex-start';
+		} elseif ('justify-content' === $property && 'end' === $value) {
+			$value = 'flex-end';
+		}
+		if (in_array($property, self::CSS_LENGTH_PROPERTIES, true) && 1 === preg_match('/^[+-]?(?:\d+\.?\d*|\.\d+)$/', $value)) {
+			$value .= 'px';
+		}
+
+		return $value;
 	}
 
 	private function cssProperty(string $key): string

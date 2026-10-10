@@ -55,6 +55,7 @@ export const tree = derived(state, ($) => $.tree);
 export const selected = derived(state, ($) => $.selected);
 export const blockTypes = derived(state, ($) => $.blockTypes);
 export const regions = derived(state, ($) => $.regions);
+export const editorConfig = derived(state, ($) => $.config);
 export const canPublish = derived(state, ($) => $.config['canPublish']);
 export const apiBase = derived(state, ($) => ($.config['apiBase'] || '/api'));
 export const apiToken = derived(state, ($) => $.config['apiToken']);

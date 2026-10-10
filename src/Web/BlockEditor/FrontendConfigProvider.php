@@ -33,8 +33,8 @@ final class FrontendConfigProvider
 
 	/**
 	 * @param 'template'|'object' $contextType
-	 * @param int $version Current draft version the editor must echo back as
-	 *                     `If-Match` on save (omit to keep the legacy 0 default)
+	 * @param int                 $version     Current draft version the editor must echo back as
+	 *                                         `If-Match` on save (omit to keep the legacy 0 default)
 	 *
 	 * @return array<string,mixed>|null
 	 */
@@ -60,7 +60,7 @@ final class FrontendConfigProvider
 			'contextId' => $contextId,
 			'version' => $version,
 			'room' => $this->roomChannel($contextType, $contextId),
-			'breakpoints' => ['sm' => 640, 'md' => 768, 'lg' => 1024, 'xl' => 1280],
+			'breakpoints' => ResponsiveBreakpoints::WIDTHS,
 			'notifications' => $this->notifications($user),
 			'timezone' => $user->getTimeZone()?->getId(),
 			'plugins' => $this->pluginEditorUis(),
@@ -81,8 +81,8 @@ final class FrontendConfigProvider
 			return false;
 		}
 
-		return $this->permissionChecker->canAccess($user, 'Page', 'write')
-			|| $this->permissionChecker->canAccess($user, 'Template', 'write');
+		return $this->permissionChecker->canAccess($user, 'Page', 'write') ||
+			$this->permissionChecker->canAccess($user, 'Template', 'write');
 	}
 
 	private function roomChannel(string $contextType, int $contextId): string
