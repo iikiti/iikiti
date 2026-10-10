@@ -26,7 +26,9 @@ export function resolveDropZone(offsetY, height, acceptsChildren) {
 		if (offsetY > height * 0.75) return 'below';
 		return 'inside';
 	}
-	return offsetY < height / 2 ? 'above' : 'below';
+	// Leaf rows split just below the midline: users aim at the label, which sits at
+	// the centre, so the centre must resolve to "above" for reordering upwards to work.
+	return offsetY < height * 0.6 ? 'above' : 'below';
 }
 
 /**
@@ -120,10 +122,13 @@ function containsId(nodes, id) {
  */
 export function parentAllowsType(type, parentType, blockTypes) {
 	const schema = blockTypes[parentType];
-	if (!schema) return false;
-	// Mirrors state.js allowedChildTypes(): null means "any type" for containers.
-	if (schema.allowedChildTypes == null) return Boolean(schema.acceptsChildren);
-	return schema.allowedChildTypes.includes(type);
+	if (!schema || !schema.acceptsChildren) return false;
+	// Mirrors state.js allowedChildTypes() and CoreBlockTypeProvider: a null or
+	// empty list means "any block type" (containers ship with []), otherwise the
+	// list is an explicit allowlist.
+	const allowed = schema.allowedChildTypes;
+	if (allowed == null || allowed.length === 0) return true;
+	return allowed.includes(type);
 }
 
 /**

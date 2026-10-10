@@ -16,7 +16,12 @@
 		openAddBlockDialog,
 		openLayoutDialog,
 		regionAllowedTypes,
+		selected,
+		blockTypes,
+		allowedChildTypes,
+		searchNode,
 	} from './state';
+	import { addBlockTarget } from './blockClipboard';
 	import Icon from '$components/Icon.svelte';
 	import Tooltip from '$components/Tooltip.svelte';
 
@@ -62,18 +67,28 @@
 	}
 
 	/**
-	 * Open the shared Add block dialog appending to the end of the active
-	 * region's root list (the same dialog the canvas pluses and context menus
-	 * use — see AddBlockDialog.svelte).
+	 * Open the shared Add block dialog. With a block selected it targets that block
+	 * (its children, or the next sibling for a non-container) so the palette lists
+	 * what that block allows; with nothing selected it appends to the region root.
 	 */
 	function openAddBlock() {
 		const rid = $activeRegion;
 		if (!rid) return;
-		openAddBlockDialog({
+		const target = addBlockTarget({
+			selectedId: $selected,
+			tree: $tree,
 			regionId: rid,
-			parentId: null,
-			position: ($tree[rid] ?? []).length,
-			allowedTypes: regionAllowedTypes(rid, $regions),
+			blockTypes: $blockTypes,
+		});
+		if (!target) return;
+		const allowedTypes = target.parentId
+			? allowedChildTypes(searchNode(target.parentId)?.type ?? '', $blockTypes)
+			: regionAllowedTypes(rid, $regions);
+		openAddBlockDialog({
+			regionId: target.regionId,
+			parentId: target.parentId,
+			position: target.position,
+			allowedTypes,
 		});
 	}
 </script>

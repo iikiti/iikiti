@@ -15,6 +15,7 @@
 	import { registerAction } from '$framework/tour.js';
 	import { registerCoreSidebar } from './coreSidebar.js';
 	import { setActiveSection } from './extensions.js';
+	import { registerCoreBlockActions, handleDeleteKey } from './coreBlockActions.js';
 
 	export interface Props {
 		config: Record<string, unknown>;
@@ -127,6 +128,11 @@
 		// plugins use, then plugin editor UI bundles may extend it.
 		registerCoreSidebar();
 		mountSidebar(sidebarSide);
+		// Core block actions (copy / paste / delete) use the same registry plugins do.
+		registerCoreBlockActions();
+
+		// Delete removes the selected block (see coreBlockActions.handleDeleteKey).
+		window.addEventListener('keydown', handleDeleteKey);
 
 		// Tour actions the editor contributes (the framework provides the rest).
 		registerAction('sidebar.tab', (action) => setActiveSection(String(action?.value ?? 'content')));
@@ -164,6 +170,7 @@
 	});
 
 	onDestroy(() => {
+		window.removeEventListener('keydown', handleDeleteKey);
 		if (toolbarApp) unmount(toolbarApp);
 		toolbarApp = null;
 		toolbarBar?.destroy();

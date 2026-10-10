@@ -1,5 +1,6 @@
 import { derived, get, writable } from 'svelte/store';
 import { notifications } from '../../js/iikiti/notifications.js';
+import { cloneForPaste, duplicateUserIds, pasteTarget } from './blockClipboard.js';
 
 /**
  * @typedef {object} BlockNode
@@ -70,7 +71,27 @@ export const canRedo = derived(state, ($) => $.history.length > 0 && $.historyPo
  *
  * @type {import('svelte/store').Writable<boolean>}
  */
-export const layersOpen = writable(false);
+const LAYERS_OPEN_STORAGE_KEY = 'iikiti.editor.layers.open';
+
+/** Read the persisted open state; storage may be unavailable (private mode). */
+function readLayersOpen() {
+	try {
+		return localStorage.getItem(LAYERS_OPEN_STORAGE_KEY) === '1';
+	} catch {
+		return false;
+	}
+}
+
+export const layersOpen = writable(readLayersOpen());
+
+// Persist every change so the Layers panel reopens in the same state.
+layersOpen.subscribe((open) => {
+	try {
+		localStorage.setItem(LAYERS_OPEN_STORAGE_KEY, open ? '1' : '0');
+	} catch {
+		/* storage unavailable: the panel still works, it just won't persist */
+	}
+});
 
 /**
  * The region currently being edited (defaults to the `main` region — the page
@@ -311,17 +332,18 @@ function findRegionFor(parentId, s) {
  * @param {number} [position]
  * @returns {Record<string, BlockNode[]>}
  */
-function insertNode(tree, regionId, parentId, node, position) {
-	if (!tree[regionId]) tree[regionId] = [];
+export function insertNode(tree, regionId, parentId, node, position) {
+	// Never mutate the input tree: history snapshots share references with it.
+	const regionNodes = tree[regionId] || [];
 
 	if (!parentId) {
-		const list = [...(tree[regionId] || [])];
+		const list = [...regionNodes];
 		if (typeof position === 'number') list.splice(position, 0, node);
 		else list.push(node);
 		return { ...tree, [regionId]: list };
 	}
 
-	return { ...tree, [regionId]: tree[regionId].map((n) => insertChild(n, parentId, node, position)) };
+	return { ...tree, [regionId]: regionNodes.map((n) => insertChild(n, parentId, node, position)) };
 }
 
 /**
@@ -589,6 +611,63 @@ export function setTree(next) {
  */
 export function select(id) {
 	state.update((s) => ({ ...s, selected: id }));
+}
+
+/**
+ * In-memory clipboard for copy / paste (not persisted across reloads).
+ * Holds a deep snapshot of the copied block subtree.
+ *
+ * @type {import('svelte/store').Writable<BlockNode | null>}
+ */
+export const clipboard = writable(null);
+
+/**
+ * Copy a block subtree into the clipboard.
+ *
+ * @param {string} id
+ * @returns {boolean} true when a block was found and copied
+ */
+export function copyBlock(id) {
+	const node = searchNode(id);
+	if (!node) return false;
+	clipboard.set(structuredClone(node));
+	return true;
+}
+
+/**
+ * Paste the clipboard block according to the paste rules in blockClipboard.js.
+ * Returns false when there is nothing to paste or no valid target.
+ *
+ * @param {string | null} selectedId
+ * @param {string} regionId active region
+ * @returns {boolean}
+ */
+export function pasteBlock(selectedId, regionId) {
+	const source = get(clipboard);
+	if (!source) return false;
+	const s = get(state);
+	const target = pasteTarget({
+		selectedId,
+		tree: s.tree,
+		regionId,
+		blockTypes: s.blockTypes,
+		pastedType: source.type,
+	});
+	if (!target) return false;
+	// Generated ids are replaced so the paste never duplicates one; user ids are kept.
+	const node = cloneForPaste(source, () => 'blk_' + crypto.randomUUID().slice(0, 12));
+	state.update((st) => pushHistory(st, insertNode(st.tree, target.regionId, target.parentId, node, target.position)));
+	select(node.id);
+	return true;
+}
+
+/**
+ * Ids of user-defined block ids that appear more than once (Layers warning).
+ *
+ * @returns {Set<string>}
+ */
+export function duplicateBlockIds() {
+	return duplicateUserIds(get(tree));
 }
 
 /**

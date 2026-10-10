@@ -113,8 +113,7 @@ body.iikiti-editor-body [data-component="BlockEditorComponent"] {
 /* Desktop: enlarge the small canvas affordances so they are easier to hit. */
 .iikiti-editor .iikiti-btn,
 .iikiti-editor .iikiti-btn--sm,
-.iikiti-editor .iikiti-insert-btn,
-.iikiti-editor .iikiti-context-menu .iikiti-btn {
+.iikiti-editor .iikiti-insert-btn {
 	min-width: var(--iikiti-editor-control);
 	min-height: var(--iikiti-editor-control);
 }
@@ -135,7 +134,6 @@ body.iikiti-editor-body [data-component="BlockEditorComponent"] {
 	}
 
 	.iikiti-editor .iikiti-insert-btn,
-	.iikiti-editor .iikiti-context-menu .iikiti-btn,
 	.iikiti-editor .iikiti-btn--sm,
 	.iikiti-editor .iikiti-region-controls .iikiti-btn--add {
 		width: var(--iikiti-editor-touch-target);

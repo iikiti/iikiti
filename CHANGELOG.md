@@ -14,10 +14,17 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ## [Unreleased]
 
-> Last updated: 2026-10-07
+> Last updated: 2026-10-10
 
 ### Added
 
+- 2026-10-10: Header "Add block" respects the selection: with a container selected it offers that container's child types, with a non-container selected it inserts a sibling after it, and with nothing selected it targets the region root (`addBlockTarget` in `blockClipboard.js`).
+- 2026-10-10: Layers right-click menu (Copy, Paste, Delete) built on a new generic `ContextMenu` component (`assets/svelte/shared/components/ContextMenu.svelte`) that holds no block logic and can be reused elsewhere. Paste works with or without a selection; Delete and Copy apply to the right-clicked block.
+- 2026-10-10: Pressing Delete removes the selected block; Backspace is not bound, and the key is ignored while typing in a field or while a dialog is open.
+- 2026-10-10: `window.iikiti.editor.blockActions` plugin API (`registerBlockAction`, `unregisterBlockAction`, `patchBlockActions`, `resolveBlockActions`) adds per-block-type or general actions to the Layers right-click menu; core Copy, Paste and Delete use the same registry (`assets/svelte/editor/blockActions.js`, `coreBlockActions.js`). Documented in `docs/js-api.md`.
+- 2026-10-10: Rendered blocks carry a per-block class `iikiti-block-id--<id>` derived from the block id, so styles can target one block; ids with unsafe characters get a short hash suffix so distinct ids stay distinct (`BlockRenderer::blockIdClass()`).
+- 2026-10-10: Layers rows warn with an icon and tooltip when a user-defined block id is used by more than one block; generated ids never warn.
+- 2026-10-10: Pasted copies keep user-defined ids; generated ids are replaced with fresh ones (`assets/svelte/editor/blockClipboard.js`).
 - 2026-10-10: Icon block (`icon`): renders one icon on the public site and the editor canvas, with the renderer chosen per block (`svg` inline SVG, or `font` using the Lucide icon font from `lucide-static`, ISC). Markup and glyphs come from the shared icon resolver (`iikiti\CMS\Web\Icon`); unknown names render nothing. Icon is allowed in the default header, main, sidebar, footer and dialog regions.
 - 2026-10-10: Lucide icon font is shipped with the build (`build/vendor/lucide-font`) and linked only on pages that use a font icon, or on editor/admin pages. Public loading can be disabled with `ICON_PUBLIC_FONT=false`.
 - 2026-10-10: Admin-managed icon sets: `icon_sets` and `icons` tables (migration `Version20261010120000`), an `/api/admin/icon-sets` API (write needs Template write), and icons referenced as `set/name`. Every upload passes a strict allowlist SVG sanitiser (`SvgSanitizer`) that rejects, rather than repairs, unsafe files; rejected uploads are never stored.
@@ -56,6 +63,11 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Fixed
 
+- 2026-10-10: Layers drop zones inside containers work: the nesting check treats an empty `allowedChildTypes` as "any child" (matching the canvas and the server schema), so dropping a block into a container's middle band is accepted (`layerDrop.js` `parentAllowsType`).
+- 2026-10-10: Leaf rows in the Layers panel split just below the midline (60%), so dropping on a row's label reorders upwards instead of landing on a no-op "below" zone (`layerDrop.js` `resolveDropZone`).
+- 2026-10-10: The Layers panel reopens in the state it was left in: its open state is persisted to `localStorage` (`iikiti.editor.layers.open`) (`state.js`).
+- 2026-10-10: Layers rows can be dragged: the row label is no longer a `<button>`, since a press on a button is a click and never starts a native drag (`LayerMenu.svelte`).
+- 2026-10-10: Layers drag-and-drop reorders and nests blocks reliably: the drop indicator no longer clears when the pointer moves into a nested child row (`LayerMenu.svelte`), and `insertNode` no longer mutates the source tree, so undo history snapshots stay intact.
 - 2026-10-08: Block query with a non-empty object type no longer fails in DQL: the filter uses `INSTANCE OF` on the discriminator instead of the unmapped `o.type` field.
 - 2026-10-08: PHPStan reports no errors: removed redundant `array_values`/`is_array` checks, added missing iterable generics, dropped a stale ignore pattern, and widened the `SaveWorkflowInterface::save()` return type to include the validation-failure shape.
 - 2026-10-08: PHPUnit suite no longer exhausts memory: the PostgreSQL search engine test uses a real platform instance instead of a doubled class; the always-true TimeZone assertion now checks the concrete zone class for the runtime; `phpunit.xml.dist` sets `memory_limit` to 512M to remove intermittent fatals.
@@ -75,6 +87,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Changed
 
+- 2026-10-10: Block reordering is drag-and-drop only: the Move up and Move down actions were removed with the hover toolbar, and reordering uses the Layers drop targets.
 - 2026-10-08: `loadIf` now takes a probe and polyfill spec and resolves to the value (native or polyfill reference) instead of a boolean; the boolean/expression-string condition form and `resolveCondition` are removed. `ensureTemporal()` uses it.
 - 2026-10-08: Shared Svelte components, lib and types moved from `assets/svelte/admin/` to `assets/svelte/shared/` (`components`, `lib`, `types`) so the admin, editor and front-end use one set; aliases `$components`, `$lib`, `$types`, `$iikiti` and `@iikiti/ui` (formerly `@iikiti/admin`, kept as an alias) point there. `$routes` stays admin-only.
 - 2026-10-08: `AuditLogger` writes sub-events under the open request event; `AuditSubscriber` records ObjectProperty deletions with name/value and readable summaries.
@@ -94,6 +107,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Removed
 
+- 2026-10-10: Block hover toolbar removed from the editor canvas: the ✏ "Select block" and ⋮ "More actions" buttons and their menu (Add child, Move up, Move down, Delete). Insert "+" buttons and the dashed child slot remain; Delete and reordering moved to the Layers menu and the Delete key.
 - 2026-10-08: Migration `Version20261008120000` converts existing non-main region blocks into
   global shells (sites/creators are copied from the template; templates lacking them are skipped).
 - 2026-10-08: Cleared all stored block trees (`blocks`, `blocks_draft`) via

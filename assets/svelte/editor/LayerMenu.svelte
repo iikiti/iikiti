@@ -2,6 +2,7 @@
 	import { regions, tree, blockTypes, selected, select, getBlockElement, layersOpen, activeRegion, moveBlock } from './state';
 	import type { BlockNode } from './state';
 	import { computeDropPlan, resolveDropZone } from './layerDrop';
+	import { duplicateUserIds } from './blockClipboard';
 	import {
 		hasChildSlot,
 		isAllExpanded,
@@ -11,8 +12,80 @@
 		toggleNode,
 		toggleSubtree,
 	} from './layerTree';
+	import { resolveBlockActions } from './blockActions';
 	import Dialog from '$components/Dialog.svelte';
 	import Icon from '$components/Icon.svelte';
+	import ContextMenu from '$components/ContextMenu.svelte';
+	import type { ContextMenuItem } from '$components/ContextMenu.svelte';
+
+	/** Right-click menu state. `nodeId` is null when opened on the empty area. */
+	let menu = $state<{ x: number; y: number; nodeId: string | null } | null>(null);
+
+	function openContextMenu(event: MouseEvent, node: BlockNode | null) {
+		event.preventDefault();
+		event.stopPropagation();
+		if (node) select(node.id);
+		menu = { x: event.clientX, y: event.clientY, nodeId: node?.id ?? null };
+	}
+
+	/** Items for the open menu, resolved from the block-action registry for its context. */
+	const menuItems = $derived.by((): ContextMenuItem[] => {
+		if (!menu) return [];
+		const nodeId = menu.nodeId;
+		const node = nodeId ? findNodeInTree($tree, nodeId) : null;
+		const region = $activeRegion ?? '';
+		const location = node ? locateParent($tree, nodeId) : { parentId: null, index: null };
+		return resolveBlockActions({
+			node,
+			parentId: location.parentId,
+			regionId: region,
+			index: location.index,
+		}).map((item) => ({ ...item, onSelect: () => { item.onSelect(); } }));
+	});
+
+	function closeContextMenu() {
+		menu = null;
+	}
+
+	/** Finds a node by id across all regions (kept local so the menu stays pure). */
+	function findNodeInTree(t: Record<string, BlockNode[]>, id: string): BlockNode | null {
+		for (const regionId of Object.keys(t)) {
+			const hit = searchList(t[regionId] ?? [], id);
+			if (hit) return hit;
+		}
+		return null;
+	}
+
+	function searchList(nodes: BlockNode[], id: string): BlockNode | null {
+		for (const n of nodes) {
+			if (n.id === id) return n;
+			const hit = searchList(n.children ?? [], id);
+			if (hit) return hit;
+		}
+		return null;
+	}
+
+	/** Parent id and index of a node for the action context. */
+	function locateParent(t: Record<string, BlockNode[]>, id: string | null): { parentId: string | null; index: number | null } {
+		if (!id) return { parentId: null, index: null };
+		for (const regionId of Object.keys(t)) {
+			const found = locateInList(t[regionId] ?? [], id, null);
+			if (found) return found;
+		}
+		return { parentId: null, index: null };
+	}
+
+	function locateInList(nodes: BlockNode[], id: string, parentId: string | null): { parentId: string | null; index: number } | null {
+		for (let index = 0; index < nodes.length; index++) {
+			if (nodes[index].id === id) return { parentId, index };
+			const nested = locateInList(nodes[index].children ?? [], id, nodes[index].id);
+			if (nested) return nested;
+		}
+		return null;
+	}
+
+	/** User-defined ids used by more than one block; these rows show a warning. */
+	const duplicateIds = $derived(duplicateUserIds($tree));
 
 	/** localStorage key for expansion; the Dialog persists it through getState/setState. */
 	const EXPANDED_STORAGE_KEY = 'iikiti.layers.expanded';
@@ -85,6 +158,19 @@
 		const zone = resolveDropZone(event.clientY - rect.top, rect.height, isContainer(node.type));
 		const plan = computeDropPlan({ tree: $tree, blockTypes: $blockTypes, draggedId: draggingId, targetId: node.id, zone });
 		dropTarget = plan ? { id: node.id, zone } : null;
+	}
+
+	/**
+	 * Rows are nested, so `dragleave` also fires on a parent row when the pointer
+	 * moves into one of its children. Only clear the indicator when the pointer
+	 * has actually left this row's box.
+	 */
+	function onDragLeave(event: DragEvent, node: BlockNode) {
+		if (dropTarget?.id !== node.id) return;
+		const row = event.currentTarget as HTMLElement;
+		const next = event.relatedTarget as Node | null;
+		if (next && row.contains(next)) return;
+		dropTarget = null;
 	}
 
 	function onDrop(event: DragEvent, node: BlockNode) {
@@ -165,7 +251,16 @@
 			<Icon name="chevrons-down-up" size={16} />
 		</button>
 	{/snippet}
-	<div class="iikiti-layer-tree" role="tree" aria-label="Page layers" data-tour="editor.layers">
+	<div
+		class="iikiti-layer-tree"
+		role="tree"
+		tabindex="0"
+		aria-label="Page layers"
+		data-tour="editor.layers"
+		oncontextmenu={(event) => {
+			if (event.target === event.currentTarget) openContextMenu(event, null);
+		}}
+	>
 		{#if activeRegionInfo}
 			<div class="iikiti-layer-tree__region">
 				<span class="iikiti-layer-tree__region-name">{activeRegionInfo.name || activeRegionInfo.id}</span>
@@ -182,6 +277,16 @@
 	</div>
 </Dialog>
 
+{#if menu}
+	<ContextMenu
+		items={menuItems}
+		x={menu.x}
+		y={menu.y}
+		ariaLabel="Layer actions"
+		onclose={closeContextMenu}
+	/>
+{/if}
+
 {#snippet row(node: BlockNode, depth: number)}
 	{@const isOpen = expanded.has(node.id)}
 	{@const expandable = hasChildSlot(node.type, $blockTypes)}
@@ -197,9 +302,10 @@
 		class:drop-below={dropTarget?.id === node.id && dropTarget.zone === 'below'}
 		class:drop-inside={dropTarget?.id === node.id && dropTarget.zone === 'inside'}
 		draggable="true"
+		oncontextmenu={(event) => openContextMenu(event, node)}
 		ondragstart={(event) => onDragStart(event, node.id)}
 		ondragover={(event) => onDragOver(event, node)}
-		ondragleave={() => { if (dropTarget?.id === node.id) dropTarget = null; }}
+		ondragleave={(event) => onDragLeave(event, node)}
 		ondrop={(event) => onDrop(event, node)}
 		ondragend={resetDrag}
 	>
@@ -223,17 +329,37 @@
 			{:else}
 				<span class="iikiti-layer-tree__chevron-spacer" aria-hidden="true"></span>
 			{/if}
-			<button
-				type="button"
+			<!--
+				A press on a <button> is a click, not a drag, so the label is a plain
+				element: the native drag starts from the draggable row. Keyboard
+				selection is handled by onkeydown; the row stays the tree item.
+			-->
+			<div
 				class="iikiti-layer-tree__select"
+				role="button"
+				tabindex="0"
 				onclick={() => pick(node.id)}
+				onkeydown={(event) => {
+					if (event.key === 'Enter' || event.key === ' ') {
+						event.preventDefault();
+						pick(node.id);
+					}
+				}}
 				ondblclick={() => {
 					if (expandable) onRowDoubleClick(node);
 				}}
 			>
 				<span class="iikiti-layer-tree__icon" aria-hidden="true"><Icon name={iconFor(node.type)} size={14} /></span>
 				<span class="iikiti-layer-tree__label">{labelFor(node)}</span>
-			</button>
+			</div>
+			{#if duplicateIds.has(node.id)}
+				<span
+					class="iikiti-layer-tree__duplicate"
+					role="img"
+					aria-label="Duplicate block id"
+					title="Duplicate block id “{node.id}”: another block uses the same id. Rename one of them in the block’s element settings."
+				><Icon name="alert-circle" size={14} /></span>
+			{/if}
 		</div>
 	</div>
 	{#if expandable && isOpen && node.children && node.children.length}
@@ -250,6 +376,14 @@
 		display: flex;
 		flex-direction: column;
 		min-height: 100%;
+	}
+
+	.iikiti-layer-tree__duplicate {
+		display: inline-flex;
+		align-items: center;
+		color: var(--ik-warning, #b8860b);
+		cursor: help;
+		margin-left: 4px;
 	}
 
 	.iikiti-layer-tree__region {

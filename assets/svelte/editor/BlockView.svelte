@@ -5,8 +5,6 @@
 		selected,
 		select,
 		registerBlock,
-		deleteBlock,
-		moveBlock,
 		blockTypes,
 		tree,
 		regions,
@@ -17,7 +15,6 @@
 		iconGlyphs,
 	} from './state';
 	import type { BlockNode } from './state';
-	import Popover from '$components/Popover.svelte';
 	import Icon from '$components/Icon.svelte';
 	// Self-import: nested block previews recurse into this component (Svelte 5
 	// replaces the deprecated <svelte:self> with an explicit self-import).
@@ -63,8 +60,6 @@
 		select(node.id);
 	}
 
-	let menuAnchor: HTMLElement | null = $state(null);
-
 	const schema = $derived($blockTypes[node.type] as Record<string, unknown> | undefined);
 	const acceptsChildren = $derived(Boolean(schema?.acceptsChildren));
 	const childTypes = $derived.by(() => {
@@ -85,44 +80,6 @@
 
 	/** Tag allowlist for inline text children (preview copy; the server allowlist is CoreBlockTypeProvider::INLINE_TAGS). */
 	const INLINE_TAGS = ['span', 'em', 'strong', 'b', 'u', 'i', 'small', 'code', 'mark'];
-
-	function deleteNode(ev: MouseEvent) {
-		ev.stopPropagation();
-		ev.preventDefault();
-		deleteBlock(node.id);
-		menuAnchor = null;
-		select(null);
-	}
-
-	function moveUp(ev: MouseEvent) {
-		ev.stopPropagation();
-		ev.preventDefault();
-		moveBlockUp(regionId, node);
-		menuAnchor = null;
-	}
-
-	function moveDown(ev: MouseEvent) {
-		ev.stopPropagation();
-		ev.preventDefault();
-		moveBlockDown(regionId, node);
-		menuAnchor = null;
-	}
-
-	function moveBlockUp(region: string, n: BlockNode) {
-		const nodes = (get(tree)[region] ?? []);
-		const idx = nodes.findIndex((x) => x.id === n.id);
-		if (idx > 0) {
-			moveBlock(n.id, null, idx - 1);
-		}
-	}
-
-	function moveBlockDown(region: string, n: BlockNode) {
-		const nodes = (get(tree)[region] ?? []);
-		const idx = nodes.findIndex((x) => x.id === n.id);
-		if (idx >= 0 && idx < nodes.length - 1) {
-			moveBlock(n.id, null, idx + 1);
-		}
-	}
 
 	/**
 	 * Insertable types at the parent of this block: the region's `allowed` list at
@@ -149,13 +106,6 @@
 			position,
 			allowedTypes: parentAllowedTypes(),
 		});
-	}
-
-	function openAddChild(ev: MouseEvent) {
-		ev.stopPropagation();
-		ev.preventDefault();
-		openAddChildDialog();
-		menuAnchor = null;
 	}
 
 	/** Opens the Add block dialog appending a child to this block. */
@@ -279,22 +229,6 @@
 			<Icon name="plus" size={compact ? 10 : 12} />
 		</button>
 
-		<div class="iikiti-context-menu">
-			<button class="iikiti-btn iikiti-btn--sm" title="Select block" onclick={() => { select(node.id); }}>✏</button>
-			<button class="iikiti-btn iikiti-btn--sm" title="More actions" onclick={(e) => { e.stopPropagation(); e.preventDefault(); menuAnchor = e.currentTarget as HTMLElement; }}>⋮</button>
-		</div>
-		{#if menuAnchor}
-			<Popover anchor={menuAnchor} placement="bottom-end" closeOnOutside onclose={() => (menuAnchor = null)}>
-				<div class="iikiti-block-menu">
-					{#if acceptsChildren}
-						<button class="iikiti-block-menu__item" onclick={openAddChild}>Add child…</button>
-					{/if}
-					<button class="iikiti-block-menu__item" onclick={moveUp}>Move up</button>
-					<button class="iikiti-block-menu__item" onclick={moveDown}>Move down</button>
-					<button class="iikiti-block-menu__item iikiti-block-menu__item--destructive" onclick={deleteNode}>Delete</button>
-				</div>
-			</Popover>
-		{/if}
 	</div>
 {/if}
 
@@ -430,58 +364,4 @@
 		font-style: italic;
 	}
 
-	.iikiti-context-menu {
-		position: absolute;
-		top: 2px;
-		right: 2px;
-		display: flex;
-		gap: 2px;
-		opacity: 0;
-		transition: opacity 0.15s ease;
-		pointer-events: auto;
-		z-index: var(--iikiti-z-editor-controls);
-	}
-	.iikiti-block-preview:hover .iikiti-context-menu,
-	.iikiti-block-preview.selected .iikiti-context-menu {
-		opacity: 1;
-	}
-	:global(.iikiti-touch) .iikiti-context-menu {
-		opacity: 1;
-	}
-	.iikiti-btn--sm {
-		width: 36px;
-		height: 36px;
-		padding: 0 2px;
-		min-width: 36px;
-		font-size: 1rem;
-		border-radius: 3px;
-	}
-	.iikiti-block-menu {
-		display: flex;
-		flex-direction: column;
-		min-width: 140px;
-		padding: 4px;
-		background: #ffffff;
-		border: 1px solid #d1d5db;
-		border-radius: 4px;
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-	}
-	.iikiti-block-menu__item {
-		padding: 4px 8px;
-		font-size: 1rem;
-		text-align: left;
-		border: none;
-		background: transparent;
-		color: #111827;
-		cursor: pointer;
-		border-radius: 3px;
-	}
-	.iikiti-block-menu__item:hover { background: #f3f4f6; }
-	.iikiti-block-menu__item--destructive { color: #dc2626; }
-	.iikiti-block-menu__item--destructive:hover { background: #fef2f2; }
-	@media (prefers-color-scheme: dark) {
-		.iikiti-block-menu { background: #1f2937; border-color: #374151; color: #f3f4f6; }
-		.iikiti-block-menu__item:hover { background: #374151; }
-		.iikiti-block-menu__item--destructive:hover { background: #7f1d1d; }
-	}
 </style>

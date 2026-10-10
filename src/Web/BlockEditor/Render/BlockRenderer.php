@@ -208,6 +208,21 @@ final class BlockRenderer
 	}
 
 	/**
+	 * CSS class naming one block, derived from its node id. Ids made only of safe
+	 * characters are used as-is; any other id gets a short hash of the original
+	 * so distinct ids stay distinct after sanitizing.
+	 */
+	public static function blockIdClass(string $blockId): string
+	{
+		$safe = preg_replace('/[^a-z0-9_-]/i', '-', $blockId);
+		if ($safe !== $blockId) {
+			$safe .= '-'.substr(hash('sha256', $blockId), 0, 8);
+		}
+
+		return 'iikiti-block-id--'.$safe;
+	}
+
+	/**
 	 * @param array<string,mixed> $node
 	 */
 	private function wrap(string $inner, array $node, BlockRenderContext $context, ?BlockType $blockType): string
@@ -216,6 +231,14 @@ final class BlockRenderer
 		$sanitizedType = preg_replace('/[^a-z0-9_-]/i', '-', $type);
 		$element = is_array($node['element'] ?? null) ? $node['element'] : [];
 		$class = 'iikiti-block iikiti-block--'.$sanitizedType;
+
+		// Per-block class so styles can target one specific block. Built from the
+		// node id; a hash suffix is added only when sanitizing changed the id, so
+		// two distinct ids can never collapse onto the same class.
+		$blockId = (string) ($node['id'] ?? '');
+		if ('' !== $blockId) {
+			$class .= ' '.self::blockIdClass($blockId);
+		}
 
 		$extraClass = is_string($element['cssClass'] ?? null) ? trim($element['cssClass']) : '';
 		if ('' !== $extraClass) {

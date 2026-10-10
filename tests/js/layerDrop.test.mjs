@@ -107,7 +107,48 @@ test('a container can be reordered at the region root', () => {
 	expect(plan).toEqual({ toParent: null, position: 0 });
 });
 
+test('dragging a block onto a nested child row resolves to that child, not its parent', () => {
+	// d1 lives inside C; dropping onto d1 "below" must plan a sibling move in C.
+	const plan = computeDropPlan({ tree: sampleTree(), blockTypes, draggedId: 'A', targetId: 'd1', zone: 'below' });
+	expect(plan).toEqual({ toParent: 'C', position: 1 });
+});
+
 test('an unknown dragged or target id yields no plan', () => {
 	expect(computeDropPlan({ tree: sampleTree(), blockTypes, draggedId: 'nope', targetId: 'A', zone: 'above' })).toBeNull();
 	expect(computeDropPlan({ tree: sampleTree(), blockTypes, draggedId: 'A', targetId: 'nope', zone: 'above' })).toBeNull();
+});
+
+test('an empty allowedChildTypes list on a container means any child type (live schema shape)', () => {
+	// CoreBlockTypeProvider ships containers with allowedChildTypes: [] ("any").
+	const types = { container: { acceptsChildren: true, allowedChildTypes: [] }, icon: { acceptsChildren: false } };
+	const tree = { main: [{ id: 'C', type: 'container', children: [{ id: 'I', type: 'icon' }] }] };
+	expect(computeDropPlan({ tree, blockTypes: types, draggedId: 'I', targetId: 'C', zone: 'inside' })).toEqual({ toParent: 'C', position: 0 });
+});
+
+test('a child can be reordered among siblings inside a container', () => {
+	const types = { container: { acceptsChildren: true, allowedChildTypes: [] }, icon: { acceptsChildren: false }, text: { acceptsChildren: false } };
+	const tree = { main: [{ id: 'C', type: 'container', children: [{ id: 'a', type: 'icon' }, { id: 'b', type: 'text' }, { id: 'c', type: 'icon' }] }] };
+	// Move 'c' above 'a' (both inside C): expected position 0 within C.
+	expect(computeDropPlan({ tree, blockTypes: types, draggedId: 'c', targetId: 'a', zone: 'above' })).toEqual({ toParent: 'C', position: 0 });
+	// Move 'a' below 'c' (same list, later index): shifts by one for the removal.
+	expect(computeDropPlan({ tree, blockTypes: types, draggedId: 'a', targetId: 'c', zone: 'below' })).toEqual({ toParent: 'C', position: 2 });
+});
+
+test('a child can be dragged out of its container to a root sibling only when it is a container', () => {
+	const types = { container: { acceptsChildren: true, allowedChildTypes: [] }, icon: { acceptsChildren: false } };
+	const tree = { main: [{ id: 'C', type: 'container', children: [{ id: 'I', type: 'icon' }] }, { id: 'D', type: 'container', children: [] }] };
+	// Icon onto a root container's upper edge: root accepts only containers, so rejected.
+	expect(computeDropPlan({ tree, blockTypes: types, draggedId: 'I', targetId: 'D', zone: 'above' })).toBeNull();
+});
+
+test('a drop on the centre of a leaf row resolves above, so upward reorder is reachable', () => {
+	// Users aim at the label (vertical centre). The centre must give "above".
+	expect(resolveDropZone(18, 36, false)).toBe('above');
+	expect(resolveDropZone(22, 36, false)).toBe("below");
+});
+
+test('moving a sibling above the one it sits under is a valid reorder inside a container', () => {
+	const types = { container: { acceptsChildren: true, allowedChildTypes: [] }, icon: { acceptsChildren: false }, text: { acceptsChildren: false } };
+	const tree = { main: [{ id: 'C', type: 'container', children: [{ id: 'I', type: 'icon' }, { id: 'T', type: 'text' }] }] };
+	expect(computeDropPlan({ tree, blockTypes: types, draggedId: 'T', targetId: 'I', zone: 'above' })).toEqual({ toParent: 'C', position: 0 });
 });

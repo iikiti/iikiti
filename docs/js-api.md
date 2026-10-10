@@ -34,6 +34,7 @@ is no built-in timeout or rejection. Add your own timeout if you need one.
 | `tour` | tour framework is installed | stable |
 | `iikiti:ready` | every base name above is ready | stable |
 | `editor.sidebar` | front-end editor has installed its sidebar API | experimental |
+| `editor.blockActions` | front-end editor has installed its block action API | experimental |
 
 `editor.sidebar` is **not** part of `iikiti:ready`. It exists only in editor
 mode, so waiting for it on every page would block readiness on public pages.
@@ -371,6 +372,42 @@ sidebar.registerSection({ id: 'acme', label: 'Acme', build: (ctx) => [] });
 
 `editor.sidebar` is set only in editor mode. On public pages it never exists
 and `whenReady` never resolves for it.
+
+- `editor.blockActions` (experimental, available after
+  `whenReady('editor.blockActions')`): adds items to the Layers right-click
+  menu. Each action can target specific block types (`blockTypes`) or apply to
+  every block when `blockTypes` is omitted. Core Copy, Paste and Delete use the
+  same registry, so a plugin can reorder or remove them.
+
+```js
+const blockActions = await window.iikiti.whenReady('editor.blockActions')
+  .then(() => window.iikiti.editor.blockActions);
+
+// registerBlockAction(action): add or replace an action by id.
+// Shown only for `acme-card` blocks; `run` receives { node, parentId, regionId, index }.
+blockActions.registerBlockAction({
+  id: 'acme.duplicate-card',
+  label: 'Duplicate card',
+  order: 40,
+  blockTypes: ['acme-card'],
+  applies: (ctx) => Boolean(ctx.node?.content?.title),
+  run: (ctx) => console.log('duplicate', ctx.node.id),
+});
+
+// unregisterBlockAction(id): remove an action previously added by id.
+blockActions.unregisterBlockAction('acme.duplicate-card');
+
+// patchBlockActions(transform, opts): add, remove or reorder the resolved items.
+// Lower priority runs first. A throwing transform leaves the items unchanged.
+blockActions.patchBlockActions((items, ctx) => items.filter((item) => item.id !== 'core.delete'), { priority: 10 });
+
+// resolveBlockActions(ctx): the items the menu would show for a context.
+const items = blockActions.resolveBlockActions({ node: null, parentId: null, regionId: 'main', index: null });
+```
+
+Action `run` callbacks and `applies` checks are wrapped in `try`/`catch`, so a
+broken plugin action cannot break the editor. `editor.blockActions` is set only in
+editor mode, like `editor.sidebar`.
 
 ## Related
 

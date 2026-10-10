@@ -242,6 +242,34 @@ final class BlockRendererTest extends TestCase
 		]);
 	}
 
+	public function testEachBlockGetsAPerBlockClassFromItsId(): void
+	{
+		$tree = [[
+			'id' => 'hero-title',
+			'type' => 'container',
+			'children' => [],
+		]];
+
+		$html = $this->renderer->renderRegionTree($this->inContainer($tree), new BlockRenderContext(editorMode: false));
+
+		self::assertStringContainsString('iikiti-block-id--hero-title', $html);
+	}
+
+	public function testUnsafeIdsGetAHashSuffixSoDistinctIdsStayDistinct(): void
+	{
+		$spaced = BlockRenderer::blockIdClass('my block');
+		$dotted = BlockRenderer::blockIdClass('my.block');
+
+		self::assertMatchesRegularExpression('/^iikiti-block-id--my-block-[0-9a-f]{8}$/', $spaced);
+		self::assertMatchesRegularExpression('/^iikiti-block-id--my-block-[0-9a-f]{8}$/', $dotted);
+		self::assertNotSame($spaced, $dotted);
+	}
+
+	public function testSafeIdsAreUsedWithoutAHashSuffix(): void
+	{
+		self::assertSame('iikiti-block-id--blk_abc123', BlockRenderer::blockIdClass('blk_abc123'));
+	}
+
 	public function testElementIdAndCssClassRenderOnTheWrapper(): void
 	{
 		$tree = [[

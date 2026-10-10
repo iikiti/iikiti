@@ -43,6 +43,7 @@
 	/* Overlay band (2000-4999): floating layers. */
 	--iikiti-z-popover: 2000;  /* popovers, menus, palettes, inspector */
 	--iikiti-z-floating: 3000; /* draggable floating panels (layers) */
+	--iikiti-z-menu: 3950;     /* context menus opened from floating panels (above them, below tooltips) */
 	--iikiti-z-tour: 3900;     /* guided tour spotlight (below its own tooltips) */
 	--iikiti-z-modal: 3500;    /* modal dialogs + backdrops */
 	--iikiti-z-tooltip: 4000;  /* hover/focus tooltips */
