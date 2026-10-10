@@ -176,6 +176,7 @@
 	{:else if n.kind === 'repeater'}
 		{@const items = (n.items as unknown[]) ?? []}
 		<div class="iikiti-settings__repeater" data-tour="sidebar.repeater.{n.id}">
+			{#if n.showLabel}<h4 class="iikiti-settings__group-title">{n.label}</h4>{/if}
 			{#if items.length === 0}
 				<p class="iikiti-settings__hint">No {n.itemLabel ?? 'items'} yet.</p>
 			{/if}

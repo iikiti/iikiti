@@ -26,15 +26,7 @@
 
 	const schema = $derived($blockTypes[node.type] as Record<string, unknown> | undefined);
 	const acceptsChildren = $derived(Boolean(schema?.acceptsChildren));
-	const childTypes = $derived.by(() => {
-		const types = $blockTypes;
-		const blockSchema = types?.[node.type];
-		if (!blockSchema) return [];
-		if (blockSchema.allowedChildTypes == null) {
-			return blockSchema.acceptsChildren ? Object.keys(types ?? {}) : [];
-		}
-		return (blockSchema.allowedChildTypes as string[]) ?? [];
-	});
+	const childTypes = $derived.by(() => allowedChildTypes(node.type, $blockTypes ?? {}));
 
 	const inlineTags = ['span', 'em', 'strong', 'b', 'u', 'i', 'small', 'code', 'mark'];
 
@@ -58,6 +50,33 @@
 		addChild();
 	}
 </script>
+
+{#snippet childBlocks()}
+	{#each node.children ?? [] as child, index (child.id)}
+		<BlockView
+			node={child}
+			{regionId}
+			{readonly}
+			parentId={node.id}
+			index
+			isFirst={index === 0}
+			isLast={index === (node.children?.length ?? 0) - 1}
+		/>
+	{/each}
+	{#if acceptsChildren && !readonly}
+		<button
+			type="button"
+			class="iikiti-child-slot"
+			data-child-slot={node.id}
+			aria-label="Add child to {node.type}"
+			title="Add child"
+			onclick={addChildFromSlot}
+		>
+			<Icon name="plus" size={14} />
+			<span class="iikiti-child-slot__label">Add child</span>
+		</button>
+	{/if}
+{/snippet}
 
 {#if node.type === 'text'}
 	{@html node.content?.content ?? ''}
@@ -132,6 +151,51 @@
 			</button>
 		{/if}
 	</div>
+{:else if node.type === 'form'}
+	<form class="iikiti-form-preview" data-block-children onsubmit={(event) => event.preventDefault()}>
+		{@render childBlocks()}
+	</form>
+{:else if node.type === 'fieldset'}
+	<fieldset class="iikiti-fieldset-preview" data-block-children>
+		{@render childBlocks()}
+	</fieldset>
+{:else if node.type === 'button'}
+	{@const configuredButtonType = String(node.content?.type ?? 'button')}
+	{@const buttonType = ['button', 'submit'].includes(configuredButtonType) ? configuredButtonType : 'button'}
+	<button class="iikiti-button-preview" type={buttonType} disabled>{String(node.content?.text ?? 'Button')}</button>
+{:else if node.type === 'input'}
+	{@const configuredType = String(node.content?.type ?? 'text')}
+	{@const inputType = ['text', 'password', 'email', 'number'].includes(configuredType) ? configuredType : 'text'}
+	<label class="iikiti-form-control-preview">
+		{#if node.content?.label}<span>{node.content.label}</span>{/if}
+		<input type={inputType} value={String(node.content?.value ?? '')} disabled />
+	</label>
+{:else if node.type === 'textarea'}
+	<label class="iikiti-form-control-preview">
+		{#if node.content?.label}<span>{node.content.label}</span>{/if}
+		<textarea rows={Number(node.content?.rows ?? 4) || 4} disabled>{String(node.content?.value ?? '')}</textarea>
+	</label>
+{:else if node.type === 'select'}
+	<label class="iikiti-form-control-preview">
+		{#if node.content?.label}<span>{node.content.label}</span>{/if}
+		<select disabled>
+			{#each Array.isArray(node.content?.options) ? node.content.options : [] as option, index (`${index}-${String(option?.value ?? '')}`)}
+				<option value={String(option?.value ?? '')} selected={String(option?.value ?? '') === String(node.content?.value ?? '')}>{String(option?.label ?? option?.value ?? '')}</option>
+			{/each}
+		</select>
+	</label>
+{:else if node.type === 'range'}
+	<label class="iikiti-form-control-preview">
+		{#if node.content?.label}<span>{node.content.label}</span>{/if}
+		<input type="range" min={node.content?.min ?? 0} max={node.content?.max ?? 100} step={node.content?.step ?? 1} value={node.content?.value ?? 50} disabled />
+	</label>
+{:else if node.type === 'checkbox' || node.type === 'radio'}
+	<label class="iikiti-form-control-preview">
+		<input type={node.type} value={String(node.content?.value ?? '')} checked={Boolean(node.content?.checked)} disabled />
+		{#if node.content?.label}<span>{node.content.label}</span>{/if}
+	</label>
+{:else if node.type === 'legend'}
+	<strong class="iikiti-legend-preview">{node.content?.text ?? ''}</strong>
 {:else if node.type === 'video_embed'}
 	<iframe src={node.content?.url} title="Embedded content" class="iikiti-embed__iframe" allowfullscreen loading="lazy"></iframe>
 {:else if node.type === 'social_embed'}
@@ -217,4 +281,8 @@
 	.iikiti-child-slot--compact .iikiti-child-slot__label { display: none; }
 	:global(.iikiti-block-preview--hover-active) .iikiti-child-slot { display: flex; }
 	:global(.iikiti-block-preview--hover-active) .iikiti-child-slot--compact { display: inline-flex; }
+	.iikiti-form-preview { display: flex; flex-direction: column; gap: 8px; }
+	.iikiti-fieldset-preview { min-width: 0; padding: 12px; }
+	.iikiti-form-control-preview { display: flex; flex-direction: column; gap: 4px; }
+	.iikiti-legend-preview { display: block; }
 </style>

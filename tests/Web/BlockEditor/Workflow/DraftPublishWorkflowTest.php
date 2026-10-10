@@ -54,6 +54,21 @@ final class DraftPublishWorkflowTest extends TestCase
 		$this->assertSame(1, $template->getDraftVersion());
 	}
 
+	public function testSaveRejectsInvalidFormHierarchy(): void
+	{
+		$workflow = $this->workflow($this->template());
+		$tree = ['main' => [[
+			'type' => 'container',
+			'children' => [['type' => 'form', 'children' => [['type' => 'legend']]]],
+		]]];
+
+		$result = $workflow->save('template', 1, $tree, null, $this->user());
+
+		self::assertArrayNotHasKey('ok', $result);
+		self::assertSame('Form, fieldset, and legend blocks must follow the allowed form hierarchy.', $result['error']);
+		self::assertSame(['region' => 'main', 'index' => 0, 'type' => 'legend'], $result['violations'][0]);
+	}
+
 	public function testSaveConflictsOnStaleVersion(): void
 	{
 		$template = $this->template();

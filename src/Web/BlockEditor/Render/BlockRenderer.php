@@ -155,7 +155,7 @@ final class BlockRenderer
 
 		$inner = $this->renderTemplate($blockType, $node, $content, $childrenHtml, $context, $extraVars);
 
-		return $this->wrap($inner, $node, $context, $blockType);
+		return $this->wrap($inner, $node, $context, $blockType, $content);
 	}
 
 	/**
@@ -167,9 +167,10 @@ final class BlockRenderer
 	 * - In editor mode the child template is always emitted (even with zero rows)
 	 *   so an editor draft saved while the query is empty keeps its children.
 	 *
-	 * @param array<string,mixed>   $node
-	 * @param array<string,mixed>   $content
+	 * @param array<string,mixed>       $node
+	 * @param array<string,mixed>       $content
 	 * @param list<array<string,mixed>> $children
+	 *
 	 * @return array<string,mixed> template variables (`items`, `children_items`, `children_template`)
 	 */
 	private function queryRowVars(array $node, array $content, array $children, BlockRenderContext $context): array
@@ -225,7 +226,7 @@ final class BlockRenderer
 	/**
 	 * @param array<string,mixed> $node
 	 */
-	private function wrap(string $inner, array $node, BlockRenderContext $context, ?BlockType $blockType): string
+	private function wrap(string $inner, array $node, BlockRenderContext $context, ?BlockType $blockType, mixed $content = []): string
 	{
 		$type = (string) ($node['type'] ?? '');
 		$sanitizedType = preg_replace('/[^a-z0-9_-]/i', '-', $type);
@@ -252,7 +253,12 @@ final class BlockRenderer
 			$html .= ' id="'.htmlspecialchars($elementId, ENT_QUOTES).'"';
 		}
 
-		$html .= $this->renderElementAttributes($element);
+		$html .= $this->renderElementAttributes($element, $blockType);
+		$html .= $this->renderWrapperContentAttributes($blockType, $content);
+
+		if ($blockType?->childrenInWrapper) {
+			$html .= ' data-block-children';
+		}
 
 		if ($context->editorMode) {
 			$html .= ' data-block-id="'.htmlspecialchars((string) ($node['id'] ?? ''), ENT_QUOTES).'"';
@@ -275,6 +281,58 @@ final class BlockRenderer
 		return '<'.$tag.$html.'>'.$inner.'</'.$tag.'>';
 	}
 
+	private function renderWrapperContentAttributes(?BlockType $blockType, mixed $content): string
+	{
+		if (null === $blockType || !is_array($content)) {
+			return '';
+		}
+		$out = '';
+		foreach ($blockType->contentFields as $field) {
+			if (($field['wrapperAttribute'] ?? false) !== true) {
+				continue;
+			}
+			$key = is_string($field['key'] ?? null) ? $field['key'] : '';
+			if ('' === $key || !$this->isSafeAttributeName($key)) {
+				continue;
+			}
+			$value = $content[$key] ?? $field['default'] ?? null;
+			if ('method' === strtolower($key)) {
+				$value = is_string($value) ? strtolower(trim($value)) : '';
+				if (!in_array($value, ['get', 'post'], true)) {
+					$value = 'post';
+				}
+			} elseif ('action' === strtolower($key)) {
+				if (!is_string($value) && !is_int($value) && !is_float($value)) {
+					continue;
+				}
+				$value = trim((string) $value);
+				if ('' === $value || !$this->isSafeFormAction($value)) {
+					continue;
+				}
+			} else {
+				if (!is_string($value) && !is_int($value) && !is_float($value)) {
+					continue;
+				}
+				$value = (string) $value;
+			}
+			$out .= ' '.$key.'="'.htmlspecialchars($value, ENT_QUOTES).'"';
+		}
+
+		return $out;
+	}
+
+	private function isSafeFormAction(string $action): bool
+	{
+		if (preg_match('/[\x00-\x1F\x7F]/', $action)) {
+			return false;
+		}
+		if (1 === preg_match('/^([a-z][a-z0-9+.-]*):/i', $action, $match)) {
+			return in_array(strtolower($match[1]), ['http', 'https'], true);
+		}
+
+		return true;
+	}
+
 	/**
 	 * Render the user-editable arbitrary HTML attributes onto the block wrapper.
 	 * Applies an allowlist/deny-list to prevent attribute-injection XSS: attribute
@@ -283,11 +341,17 @@ final class BlockRenderer
 	 *
 	 * @param array<string,mixed> $element
 	 */
-	private function renderElementAttributes(array $element): string
+	private function renderElementAttributes(array $element, ?BlockType $blockType = null): string
 	{
 		$attributes = $element['attributes'] ?? null;
 		if (!is_array($attributes)) {
 			return '';
+		}
+		$excludedNames = [];
+		foreach ($blockType->contentFields ?? [] as $field) {
+			if (($field['wrapperAttribute'] ?? false) === true && is_string($field['key'] ?? null)) {
+				$excludedNames[] = strtolower($field['key']);
+			}
 		}
 
 		$out = '';
@@ -297,7 +361,7 @@ final class BlockRenderer
 			}
 			$name = (string) ($attribute['name'] ?? '');
 			$value = (string) ($attribute['value'] ?? '');
-			if ('' === $name || !$this->isSafeAttributeName($name) || !$this->isSafeAttributeValue($value)) {
+			if (in_array(strtolower($name), $excludedNames, true) || '' === $name || !$this->isSafeAttributeName($name) || !$this->isSafeAttributeValue($value)) {
 				continue;
 			}
 			$out .= ' '.$name.'="'.htmlspecialchars($value, ENT_QUOTES).'"';
@@ -371,6 +435,7 @@ final class BlockRenderer
 	 *
 	 * @param array<string,mixed> $node
 	 * @param array<string,mixed> $content
+	 *
 	 * @return array<string,mixed>
 	 */
 	private function resolveBindings(array $node, array $content, mixed $item, BlockType $blockType): array

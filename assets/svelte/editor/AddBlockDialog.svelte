@@ -33,13 +33,17 @@
 		// insertion keeps the parent's allowed list.
 		const rootOnly = context.parentId ? null : new Set(['container']);
 		const explicit = rootOnly ?? (allowed.length > 0 ? new Set(allowed) : null);
-		// Query blocks never nest: a query inside a query would re-execute per row.
 		const insideQuery = context.parentId ? isInsideQuery(context.parentId) : false;
-		const categoryOrder: Record<string, number> = { layout: 0, text: 1, media: 2, content: 3 };
+		const insideForm = context.parentId ? isInsideForm(context.parentId) : false;
+		const parent = context.parentId ? searchNode(context.parentId) : null;
+		const hasLegend = (parent?.children ?? []).some((child) => child.type === 'legend');
+		const categoryOrder: Record<string, number> = { layout: 0, text: 1, media: 2, content: 3, form: 4 };
 		const list = Object.values(bt)
 			.filter((t) => {
 				const type = String(t.type);
 				if (insideQuery && type === 'query') return false;
+				if (insideForm && type === 'form') return false;
+				if (type === 'legend' && (parent?.type !== 'fieldset' || hasLegend || context.position !== 0)) return false;
 				if (explicit) return explicit.has(type);
 				return String(t.category ?? '') !== 'inline';
 			})
@@ -65,6 +69,12 @@
 		if (searchNode(parentId)?.type === 'query') return true;
 		const found = pathToNode(parentId);
 		return Boolean(found?.path.some((n) => n.type === 'query'));
+	}
+
+	function isInsideForm(parentId: string): boolean {
+		if (searchNode(parentId)?.type === 'form') return true;
+		const found = pathToNode(parentId);
+		return Boolean(found?.path.some((n) => n.type === 'form'));
 	}
 
 	/** Mirrors LayerMenu's type→icon mapping (same kebab-case Lucide names). */
@@ -94,6 +104,7 @@
 	function insert(type: string) {
 		if (!context) return;
 		const id = addBlock(context.regionId, context.parentId, type, context.position);
+		if (!id) return;
 		select(id);
 		closeAddBlockDialog();
 	}

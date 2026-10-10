@@ -1,0 +1,4 @@
+<label class="iikiti-form-control">
+	<input type="checkbox"{% if content.name|default('') %} name="{{ content.name|e }}"{% endif %}{% if content.value is defined %} value="{{ content.value|e }}"{% endif %}{% if content.checked|default(false) is same as(true) %} checked{% endif %}{% if content.required|default(false) is same as(true) %} required{% endif %}>
+	{% if content.label|default('') %}<span>{{ content.label|e }}</span>{% endif %}
+</label>

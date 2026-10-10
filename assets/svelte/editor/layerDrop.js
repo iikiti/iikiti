@@ -123,12 +123,42 @@ function containsId(nodes, id) {
 export function parentAllowsType(type, parentType, blockTypes) {
 	const schema = blockTypes[parentType];
 	if (!schema || !schema.acceptsChildren) return false;
-	// Mirrors state.js allowedChildTypes() and CoreBlockTypeProvider: a null or
-	// empty list means "any block type" (containers ship with []), otherwise the
-	// list is an explicit allowlist.
+	if (type === 'legend' && parentType !== 'fieldset') return false;
 	const allowed = schema.allowedChildTypes;
 	if (allowed == null || allowed.length === 0) return true;
 	return allowed.includes(type);
+}
+
+export function canPlaceBlock({ tree, blockTypes, type, parentId, position, excludingId = null }) {
+	if (!blockTypes[type]) return false;
+	if (parentId === null) return type === ROOT_CONTAINER_TYPE;
+	const parent = findNodeById(tree, parentId);
+	if (!parent || !parentAllowsType(type, parent.type, blockTypes)) return false;
+	if (type === 'form' && hasAncestorType(tree, parentId, 'form')) return false;
+
+	const siblings = (parent.children ?? []).filter((node) => excludingId === null || node.id !== excludingId);
+	const insertAt = Math.max(0, Math.min(position, siblings.length));
+	siblings.splice(insertAt, 0, { type });
+	if (parent.type === 'fieldset') {
+		const legends = siblings.flatMap((node, index) => node.type === 'legend' ? [index] : []);
+		if (legends.length > 1 || (legends.length === 1 && legends[0] !== 0)) return false;
+	}
+
+	return true;
+}
+
+function hasAncestorType(tree, targetId, type) {
+	const visit = (nodes, ancestors) => {
+		for (const node of nodes ?? []) {
+			if (node.id === targetId) return ancestors.includes(type) || node.type === type;
+			if (visit(node.children ?? [], [...ancestors, node.type])) return true;
+		}
+		return false;
+	};
+	for (const regionId of Object.keys(tree)) {
+		if (visit(tree[regionId] ?? [], [])) return true;
+	}
+	return false;
 }
 
 /**
@@ -160,31 +190,35 @@ export function computeDropPlan({ tree, blockTypes, draggedId, targetId, zone })
 
 	if (zone === 'inside') {
 		const targetNode = findNodeById(tree, targetId);
-		const targetType = targetNode?.type ?? '';
-		if (!parentAllowsType(draggedType, targetType, blockTypes)) return null;
-		// Append as the last child. If the dragged node already sits among the
-		// target's children, it is removed first, so the post-removal count is
-		// one smaller than the current child count.
-		const childCount = (targetNode?.children ?? []).length;
+		if (!targetNode) return null;
 		const alreadyChild = source.parentId === targetId;
-		return { toParent: targetId, position: alreadyChild ? childCount - 1 : childCount };
+		const childCount = (targetNode.children ?? []).length - (alreadyChild ? 1 : 0);
+		const position = Math.max(0, childCount);
+		if (!canPlaceBlock({
+			tree,
+			blockTypes,
+			type: draggedType,
+			parentId: targetId,
+			position,
+			excludingId: alreadyChild ? draggedId : null,
+		})) return null;
+		return { toParent: targetId, position };
 	}
 
-	// above / below: place as a sibling of the target.
 	const toParent = target.parentId;
-	if (toParent === null) {
-		if (draggedType !== ROOT_CONTAINER_TYPE) return null;
-	} else {
-		const parentNode = findNodeById(tree, toParent);
-		if (!parentAllowsType(draggedType, parentNode?.type ?? '', blockTypes)) return null;
-	}
-
 	let position = target.index + (zone === 'below' ? 1 : 0);
 
 	const samelist = source.regionId === target.regionId && source.parentId === target.parentId;
 	if (samelist && source.index < position) position -= 1;
-	// Dropping back into the exact same slot is a no-op.
 	if (samelist && position === source.index) return null;
+	if (!canPlaceBlock({
+		tree,
+		blockTypes,
+		type: draggedType,
+		parentId: toParent,
+		position,
+		excludingId: samelist ? draggedId : null,
+	})) return null;
 
 	return { toParent, position };
 }

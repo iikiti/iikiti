@@ -56,7 +56,21 @@ function attributesGroup(ctx) {
 
 /** @param {any} ctx */
 function buildContent(ctx) {
-	return (ctx.schema?.contentFields ?? []).map((f) => fieldNode(f, 'content'));
+	return (ctx.schema?.contentFields ?? []).map((field) => {
+		if (field.type !== 'repeater') return fieldNode(field, 'content');
+		const key = String(field.key);
+		return {
+			kind: 'repeater',
+			id: key,
+			label: field.label,
+			showLabel: true,
+			fields: field.fields ?? [],
+			items: Array.isArray(ctx.node?.content?.[key]) ? ctx.node.content[key] : [],
+			itemLabel: field.itemLabel ?? 'item',
+			addLabel: field.addLabel ?? 'Add',
+			onChange: (items) => ctx.update({ content: { ...(ctx.node?.content ?? {}), [key]: items } }),
+		};
+	});
 }
 
 /** @param {any} ctx */

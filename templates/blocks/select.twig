@@ -1,0 +1,11 @@
+<label class="iikiti-form-control">
+	{% if content.label|default('') %}<span>{{ content.label|e }}</span>{% endif %}
+	<select{% if content.name|default('') %} name="{{ content.name|e }}"{% endif %}{% if content.required|default(false) is same as(true) %} required{% endif %}>
+		{% for option in content.options|default([]) %}
+			{% if option is iterable %}
+				{% set value = option.value|default('') %}
+				<option value="{{ value|e }}"{% if value == content.value|default('') %} selected{% endif %}>{{ option.label|default(value)|e }}</option>
+			{% endif %}
+		{% endfor %}
+	</select>
+</label>

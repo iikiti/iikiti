@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Tests\Web\BlockEditor\Render;
 
-use iikiti\CMS\Tests\Support\IconResolverFactory;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\DbObject;
+use iikiti\CMS\Tests\Support\IconResolverFactory;
 use iikiti\CMS\Web\BlockEditor\BlockType\BlockTypeRegistry;
 use iikiti\CMS\Web\BlockEditor\BlockType\CoreBlockTypeProvider;
 use iikiti\CMS\Web\BlockEditor\Query\QueryDefinition;
@@ -496,5 +496,85 @@ final class BlockRendererTest extends TestCase
 		self::assertStringContainsString('Template', $editorHtml);
 		self::assertStringContainsString('No results found.', $publicHtml);
 		self::assertStringNotContainsString('Template', $publicHtml);
+	}
+
+	public function testFormBlocksRenderNativeSemanticElementsAndEditorMetadata(): void
+	{
+		$tree = $this->inContainer([[
+			'id' => 'form-1',
+			'type' => 'form',
+			'content' => ['action' => '/send', 'method' => 'POST'],
+			'children' => [[
+				'id' => 'fieldset-1',
+				'type' => 'fieldset',
+				'children' => [
+					['id' => 'legend-1', 'type' => 'legend', 'content' => ['text' => 'Profile']],
+					['type' => 'input', 'content' => ['label' => 'Name', 'name' => 'name', 'type' => 'text']],
+					['type' => 'textarea', 'content' => ['label' => 'Biography', 'name' => 'bio', 'rows' => 4]],
+					['type' => 'select', 'content' => ['label' => 'Country', 'name' => 'country', 'options' => [['label' => 'Canada', 'value' => 'ca']]]],
+					['type' => 'range', 'content' => ['label' => 'Rating', 'name' => 'rating', 'min' => 0, 'max' => 10, 'step' => 1, 'value' => 5]],
+					['type' => 'checkbox', 'content' => ['label' => 'Subscribe', 'name' => 'subscribe', 'value' => 'yes', 'checked' => true]],
+					['type' => 'radio', 'content' => ['label' => 'Option A', 'name' => 'choice', 'value' => 'a']],
+					['type' => 'button', 'content' => ['text' => 'Action']],
+					['type' => 'button', 'content' => ['text' => 'Send', 'type' => 'submit']],
+				],
+			]],
+		]]);
+
+		$publicHtml = $this->renderer->renderRegionTree($tree, new BlockRenderContext(editorMode: false));
+		$editorHtml = $this->renderer->renderRegionTree($tree, new BlockRenderContext(editorMode: true));
+
+		self::assertStringContainsString('<form class="iikiti-block iikiti-block--form iikiti-block-id--form-1" action="/send" method="post" data-block-children>', $publicHtml);
+		self::assertStringContainsString('<fieldset class="iikiti-block iikiti-block--fieldset iikiti-block-id--fieldset-1" data-block-children><legend class="iikiti-block iikiti-block--legend iikiti-block-id--legend-1">Profile
+</legend>', $publicHtml);
+		self::assertStringContainsString('<input type="text" name="name">', $publicHtml);
+		self::assertStringContainsString('<textarea rows="4" name="bio"></textarea>', $publicHtml);
+		self::assertStringContainsString('<option value="ca">Canada</option>', $publicHtml);
+		self::assertStringContainsString('<input type="range" name="rating" min="0" max="10" step="1" value="5">', $publicHtml);
+		self::assertStringContainsString('<input type="checkbox" name="subscribe" value="yes" checked>', $publicHtml);
+		self::assertStringContainsString('<input type="radio" name="choice" value="a">', $publicHtml);
+		self::assertStringContainsString('<button type="button">Action</button>', $publicHtml);
+		self::assertStringContainsString('<button type="submit">Send</button>', $publicHtml);
+		self::assertStringNotContainsString('data-block-id', $publicHtml);
+		self::assertStringContainsString('data-block-id="form-1"', $editorHtml);
+		self::assertStringContainsString('data-block-children', $editorHtml);
+	}
+
+	public function testButtonDefaultsToButtonAndCanSubmitInsideAnyContainer(): void
+	{
+		$tree = $this->inContainer([
+			['type' => 'button', 'content' => ['text' => 'Open']],
+			['type' => 'button', 'content' => ['text' => 'Send', 'type' => 'submit']],
+		]);
+
+		$html = $this->renderer->renderRegionTree($tree, new BlockRenderContext(editorMode: false));
+
+		self::assertStringContainsString('<button type="button">Open</button>', $html);
+		self::assertStringContainsString('<button type="submit">Send</button>', $html);
+	}
+
+	public function testFormActionAndInputMarkupRejectUnsafeValuesAndEscapeText(): void
+	{
+		$tree = $this->inContainer([[
+			'type' => 'form',
+			'content' => ['action' => 'javascript:alert(1)', 'method' => 'delete'],
+			'element' => ['attributes' => [['name' => 'action', 'value' => 'javascript:alert(2)'], ['name' => 'method', 'value' => 'delete']]],
+			'children' => [[
+				'type' => 'input',
+				'content' => ['type' => 'submit" onfocus="alert(1)', 'label' => '<img src=x onerror=alert(1)>', 'name' => 'field', 'value' => '<script>bad</script>'],
+			], [
+				'type' => 'select',
+				'content' => ['options' => [['label' => '<script>bad</script>', 'value' => 'x']], 'value' => 'x'],
+			]],
+		]]);
+
+		$html = $this->renderer->renderRegionTree($tree, new BlockRenderContext(editorMode: false));
+
+		self::assertStringContainsString('<form class="iikiti-block iikiti-block--form" method="post" data-block-children>', $html);
+		self::assertStringNotContainsString('javascript:', $html);
+		self::assertStringContainsString('<input type="text" name="field" value="&lt;script&gt;bad&lt;/script&gt;">', $html);
+		self::assertStringContainsString('&lt;img src=x onerror=alert(1)&gt;', $html);
+		self::assertStringContainsString('&lt;script&gt;bad&lt;/script&gt;</option>', $html);
+		self::assertStringNotContainsString('<script>bad</script>', $html);
 	}
 }

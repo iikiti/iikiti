@@ -1,0 +1,4 @@
+<label class="iikiti-form-control">
+	{% if content.label|default('') %}<span>{{ content.label|e }}</span>{% endif %}
+	<input type="range"{% if content.name|default('') %} name="{{ content.name|e }}"{% endif %}{% if content.min is defined %} min="{{ content.min|e }}"{% endif %}{% if content.max is defined %} max="{{ content.max|e }}"{% endif %}{% if content.step is defined %} step="{{ content.step|e }}"{% endif %}{% if content.value is defined %} value="{{ content.value|e }}"{% endif %}>
+</label>

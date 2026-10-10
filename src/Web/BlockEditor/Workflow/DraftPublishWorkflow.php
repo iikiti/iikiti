@@ -8,6 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Entity\Object\Template;
 use iikiti\CMS\Entity\Object\User;
+use iikiti\CMS\Web\BlockEditor\Render\FormBlockRule;
 use iikiti\CMS\Web\BlockEditor\Render\RootContainerRule;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 
@@ -38,6 +39,15 @@ final class DraftPublishWorkflow implements SaveWorkflowInterface
 				'conflict' => false,
 				'error' => 'Only container blocks may be placed at the root of a region.',
 				'violations' => $violations,
+			];
+		}
+
+		$formViolation = FormBlockRule::firstViolation($tree);
+		if (null !== $formViolation) {
+			return [
+				'conflict' => false,
+				'error' => 'Form, fieldset, and legend blocks must follow the allowed form hierarchy.',
+				'violations' => [['region' => $formViolation->region, 'index' => $formViolation->index, 'type' => $formViolation->type]],
 			];
 		}
 

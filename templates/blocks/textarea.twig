@@ -1,0 +1,6 @@
+{% set rows = content.rows|default(4) %}
+{% if not (rows matches '/^[1-9][0-9]{0,2}$/') %}{% set rows = 4 %}{% endif %}
+<label class="iikiti-form-control">
+	{% if content.label|default('') %}<span>{{ content.label|e }}</span>{% endif %}
+	<textarea rows="{{ rows|e }}"{% if content.name|default('') %} name="{{ content.name|e }}"{% endif %}{% if content.placeholder|default('') %} placeholder="{{ content.placeholder|e }}"{% endif %}{% if content.required|default(false) is same as(true) %} required{% endif %}>{{ content.value|default('')|e }}</textarea>
+</label>

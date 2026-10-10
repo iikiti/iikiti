@@ -1,0 +1,3 @@
+{% set type = content.type|default('button') %}
+{% if type not in ['button', 'submit'] %}{% set type = 'button' %}{% endif %}
+<button type="{{ type|e }}">{{ content.text|default('Button')|e }}</button>

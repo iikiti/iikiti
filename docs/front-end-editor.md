@@ -21,8 +21,29 @@ is pure server-rendered HTML (no editor JS for visitors).
 
 ## Block types (core)
 container, dynamic, heading, inline_text, text, image, icon, video_embed,
-social_embed, query
+social_embed, query, form, button, input, textarea, select, range, checkbox,
+radio, legend, fieldset
 (`src/Web/BlockEditor/BlockType/CoreBlockTypeProvider.php`).
+
+- **Form blocks** render native HTML controls and containers only; they do not
+  provide submission endpoints or server-side processing. Form exposes an
+  action URL and GET/POST method (POST by default). Input supports text,
+  password, email and number types (text by default). Text Area, Select, Range,
+  Checkbox and Radio expose applicable labels and native attributes; Select
+  options are editable label/value pairs, and radios with the same name form a
+  native group. Labels wrap controls for accessibility. Button has editable
+  text and `button`/`submit` types; it is available in generic containers,
+  Forms and Fieldsets, and defaults to `button`. User content is escaped, input
+  and button types and methods are allowlisted, and form actions accept relative
+  or HTTP(S) destinations.
+- **Form hierarchy:** Form accepts controls (including Button) and Fieldset;
+  Fieldset accepts controls and at most one Legend, which must be its first
+  child. Forms cannot nest, and Legend is only offered inside Fieldset. These
+  rules are checked by editor insertion/reorder controls and draft-save API
+  validation. Form blocks must still be nested under a region-root Container.
+- Form and Fieldset are semantic container elements; Legend renders as the
+  Fieldset's semantic `<legend>` child. Form controls may also be used directly
+  inside existing generic containers.
 
 - **icon** renders one icon from the shared `IconSet` (`src/Web/Icon/`) as
   server-generated inline SVG. Content: `name` (picked from the set) and

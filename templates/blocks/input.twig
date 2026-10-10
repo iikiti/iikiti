@@ -1,0 +1,6 @@
+{% set type = content.type|default('text') %}
+{% if type not in ['text', 'password', 'email', 'number'] %}{% set type = 'text' %}{% endif %}
+<label class="iikiti-form-control">
+	{% if content.label|default('') %}<span>{{ content.label|e }}</span>{% endif %}
+	<input type="{{ type|e }}"{% if content.name|default('') %} name="{{ content.name|e }}"{% endif %}{% if content.value is defined %} value="{{ content.value|e }}"{% endif %}{% if content.placeholder|default('') %} placeholder="{{ content.placeholder|e }}"{% endif %}{% if type == 'number' %}{% if content.min is defined and content.min != '' %} min="{{ content.min|e }}"{% endif %}{% if content.max is defined and content.max != '' %} max="{{ content.max|e }}"{% endif %}{% if content.step is defined and content.step != '' %} step="{{ content.step|e }}"{% endif %}{% endif %}{% if content.required|default(false) is same as(true) %} required{% endif %}>
+</label>

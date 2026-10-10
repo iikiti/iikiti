@@ -1,6 +1,7 @@
 import { derived, get, writable } from 'svelte/store';
 import { notifications } from '../../js/iikiti/notifications.js';
 import { cloneForPaste, duplicateUserIds, pasteTarget } from './blockClipboard.js';
+import { canPlaceBlock } from './layerDrop.js';
 
 /**
  * @typedef {object} BlockNode
@@ -237,10 +238,10 @@ export function defaultElementFor(type, bt) {
 export function allowedChildTypes(parentType, bt) {
 	const schema = bt[parentType];
 	if (!schema) return [];
-	if (schema.allowedChildTypes == null) {
-		return schema.acceptsChildren ? Object.keys(bt) : [];
-	}
-	return schema.allowedChildTypes ?? [];
+	const types = schema.allowedChildTypes == null
+		? (schema.acceptsChildren ? Object.keys(bt) : [])
+		: schema.allowedChildTypes;
+	return types.filter((type) => type !== 'legend' || parentType === 'fieldset');
 }
 
 /** Only this block type may sit at the root of a region (see RootContainerRule). */
@@ -254,13 +255,15 @@ const ROOT_CONTAINER_TYPE = 'container';
  * @param {string|null} parentId
  * @param {string} type
  * @param {number} [position]
- * @returns {string} the new block id
+ * @returns {string|null} the new block id, or null when placement is invalid
  */
 export function addBlock(regionId, parentId, type, position) {
 	const id = 'blk_' + crypto.randomUUID().slice(0, 12);
-	// Root-level blocks must be containers (mirrors RootContainerRule on the server).
-	if (!parentId && type !== ROOT_CONTAINER_TYPE) return null;
+	let inserted = false;
 	state.update((s) => {
+		const parent = parentId ? findNode(Object.values(s.tree).flat(), parentId) : null;
+		const targetPosition = position ?? (parent?.children?.length ?? (s.tree[regionId] ?? []).length);
+		if (!canPlaceBlock({ tree: s.tree, blockTypes: s.blockTypes, type, parentId, position: targetPosition })) return s;
 		/** @type {BlockNode} */
 		const node = {
 			id,
@@ -270,9 +273,10 @@ export function addBlock(regionId, parentId, type, position) {
 			children: s.blockTypes[type]?.acceptsChildren ? [] : undefined,
 		};
 		const next = insertNode(s.tree, regionId, parentId, node, position);
+		inserted = true;
 		return pushHistory(s, next);
 	});
-	return id;
+	return inserted ? id : null;
 }
 
 /**
@@ -294,8 +298,7 @@ export function moveBlock(id, toParent, position) {
 	state.update((s) => {
 		const { node, tree: afterRemove, regionId: srcRegion } = extractNode(s.tree, id);
 		if (!node) return s;
-		// Moving a non-container to the root would break the container-only rule.
-		if (!toParent && node.type !== ROOT_CONTAINER_TYPE) return s;
+		if (!canPlaceBlock({ tree: afterRemove, blockTypes: s.blockTypes, type: node.type, parentId: toParent, position })) return s;
 		const targetRegion = toParent ? findRegionFor(toParent, s) : srcRegion;
 		const next = insertNode(afterRemove, targetRegion, toParent, node, position);
 		return pushHistory(s, next);
@@ -573,7 +576,7 @@ function parseNode(el) {
 	// `[data-block-children]` deep scan would absorb a nested container's
 	// children wrapper (and flatten one level).
 	const marker = type === 'query' ? '[data-block-item-children]' : '[data-block-children]';
-	const childrenWrap = el.querySelector(marker);
+	const childrenWrap = el.matches(marker) ? el : el.querySelector(marker);
 	const children = childrenWrap ? parseNodes(childrenWrap) : undefined;
 	return { id, type, content, style, element, bindings, children };
 }
@@ -653,8 +656,13 @@ export function pasteBlock(selectedId, regionId) {
 		blockTypes: s.blockTypes,
 		pastedType: source.type,
 	});
-	if (!target) return false;
-	// Generated ids are replaced so the paste never duplicates one; user ids are kept.
+	if (!target || !canPlaceBlock({
+		tree: s.tree,
+		blockTypes: s.blockTypes,
+		type: source.type,
+		parentId: target.parentId,
+		position: target.position,
+	})) return false;
 	const node = cloneForPaste(source, () => 'blk_' + crypto.randomUUID().slice(0, 12));
 	state.update((st) => pushHistory(st, insertNode(st.tree, target.regionId, target.parentId, node, target.position)));
 	select(node.id);

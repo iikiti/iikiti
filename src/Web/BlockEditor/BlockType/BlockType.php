@@ -46,6 +46,7 @@ final class BlockType
 		public readonly array $elementFields = [],
 		public readonly string $source = 'core',
 		public readonly string $wrapperTag = 'div',
+		public readonly bool $childrenInWrapper = false,
 	) {
 	}
 

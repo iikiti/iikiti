@@ -28,6 +28,42 @@ final class BlockTypeRegistryTest extends TestCase
 		$this->assertContains('social_embed', $types);
 		$this->assertContains('query', $types);
 		$this->assertContains('icon', $types);
+		$this->assertContains('form', $types);
+		$this->assertContains('button', $types);
+		$this->assertContains('input', $types);
+		$this->assertContains('textarea', $types);
+		$this->assertContains('select', $types);
+		$this->assertContains('range', $types);
+		$this->assertContains('checkbox', $types);
+		$this->assertContains('radio', $types);
+		$this->assertContains('legend', $types);
+		$this->assertContains('fieldset', $types);
+	}
+
+	public function testFormBlockSchemasExposeDefaultsAndNativeChildRules(): void
+	{
+		$registry = new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly())]);
+
+		$form = $registry->get('form');
+		$button = $registry->get('button');
+		$input = $registry->get('input');
+		$fieldset = $registry->get('fieldset');
+		$select = $registry->get('select');
+		$buttonTypeField = array_values(array_filter($button->contentFields, static fn (array $field): bool => 'type' === $field['key']))[0] ?? [];
+		$inputTypeField = array_values(array_filter($input->contentFields, static fn (array $field): bool => 'type' === $field['key']))[0] ?? [];
+		$selectOptionsField = array_values(array_filter($select->contentFields, static fn (array $field): bool => 'options' === $field['key']))[0] ?? [];
+		$formMethodField = array_values(array_filter($form->contentFields, static fn (array $field): bool => 'method' === $field['key']))[0] ?? [];
+
+		self::assertTrue($form->acceptsChildren);
+		self::assertSame(['input', 'textarea', 'select', 'range', 'checkbox', 'radio', 'button', 'fieldset'], $form->childTypes());
+		self::assertSame(['legend', 'input', 'textarea', 'select', 'range', 'checkbox', 'radio', 'button'], $fieldset->childTypes());
+		self::assertSame(['button', 'submit'], array_column($buttonTypeField['options'] ?? [], 'value'));
+		self::assertSame('button', $buttonTypeField['default'] ?? null);
+		self::assertSame('form', $form->wrapperTag);
+		self::assertSame('fieldset', $fieldset->wrapperTag);
+		self::assertSame(['text', 'password', 'email', 'number'], array_column($inputTypeField['options'] ?? [], 'value'));
+		self::assertSame([['label' => 'Choose an option', 'value' => '']], $selectOptionsField['default'] ?? []);
+		self::assertSame('post', $formMethodField['default'] ?? null);
 	}
 
 	public function testGetReturnsNullForUnknownType(): void
@@ -58,8 +94,7 @@ final class BlockTypeRegistryTest extends TestCase
 
 		$allowed = $registry->getAllowedChildrenFor('container');
 
-		// All 10 core types, including `inline_text` and `icon` (any container accepts all).
-		$this->assertCount(10, $allowed);
+		$this->assertCount(20, $allowed);
 	}
 
 	public function testGetAllowedChildrenForNonContainerReturnsEmpty(): void
@@ -86,7 +121,6 @@ final class BlockTypeRegistryTest extends TestCase
 		$registry = new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly()), $plugin]);
 
 		$this->assertNotNull($registry->get('plugin_hero'));
-		// 10 core types + 1 plugin type.
-		$this->assertCount(11, $registry->all());
+		$this->assertCount(21, $registry->all());
 	}
 }

@@ -18,6 +18,8 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-10-10: Added a Button block with safe button/submit types, available in any container.
+- 2026-10-10: Added nine native form blocks with accessible rendering and validated form/fieldset hierarchy.
 - 2026-10-10: Header "Add block" respects the selection: with a container selected it offers that container's child types, with a non-container selected it inserts a sibling after it, and with nothing selected it targets the region root (`addBlockTarget` in `blockClipboard.js`).
 - 2026-10-10: Layers right-click menu (Copy, Paste, Delete) built on a new generic `ContextMenu` component (`assets/svelte/shared/components/ContextMenu.svelte`) that holds no block logic and can be reused elsewhere. Paste works with or without a selection; Delete and Copy apply to the right-clicked block.
 - 2026-10-10: Pressing Delete removes the selected block; Backspace is not bound, and the key is ignored while typing in a field or while a dialog is open.

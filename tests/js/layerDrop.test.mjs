@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test';
-import { resolveDropZone, computeDropPlan, isSelfOrDescendant } from '../../assets/svelte/editor/layerDrop.js';
+import { resolveDropZone, computeDropPlan, isSelfOrDescendant, canPlaceBlock } from '../../assets/svelte/editor/layerDrop.js';
 
 const blockTypes = {
 	container: { acceptsChildren: true, allowedChildTypes: null },
@@ -151,4 +151,62 @@ test('moving a sibling above the one it sits under is a valid reorder inside a c
 	const types = { container: { acceptsChildren: true, allowedChildTypes: [] }, icon: { acceptsChildren: false }, text: { acceptsChildren: false } };
 	const tree = { main: [{ id: 'C', type: 'container', children: [{ id: 'I', type: 'icon' }, { id: 'T', type: 'text' }] }] };
 	expect(computeDropPlan({ tree, blockTypes: types, draggedId: 'T', targetId: 'I', zone: 'above' })).toEqual({ toParent: 'C', position: 0 });
+});
+
+test('fieldset accepts one Legend only at the first child position', () => {
+	const types = {
+		container: { acceptsChildren: true, allowedChildTypes: [] },
+		form: { acceptsChildren: true, allowedChildTypes: ['input', 'fieldset'] },
+		fieldset: { acceptsChildren: true, allowedChildTypes: ['legend', 'input'] },
+		legend: { acceptsChildren: false },
+		input: { acceptsChildren: false },
+	};
+	const emptyFieldset = { main: [{ id: 'root', type: 'container', children: [{ id: 'form', type: 'form', children: [{ id: 'set', type: 'fieldset', children: [] }] }] }] };
+	const fieldsetWithLegend = { main: [{ id: 'root', type: 'container', children: [{ id: 'form', type: 'form', children: [{ id: 'set', type: 'fieldset', children: [{ id: 'legend', type: 'legend' }, { id: 'input', type: 'input' }] }] }] }] };
+	const fieldsetWithoutLegend = { main: [{ id: 'root', type: 'container', children: [{ id: 'form', type: 'form', children: [{ id: 'set', type: 'fieldset', children: [{ id: 'input', type: 'input' }] }] }] }] };
+
+	expect(canPlaceBlock({ tree: emptyFieldset, blockTypes: types, type: 'legend', parentId: 'set', position: 0 })).toBe(true);
+	expect(canPlaceBlock({ tree: fieldsetWithoutLegend, blockTypes: types, type: 'legend', parentId: 'set', position: 1 })).toBe(false);
+	expect(canPlaceBlock({ tree: fieldsetWithLegend, blockTypes: types, type: 'legend', parentId: 'set', position: 1 })).toBe(false);
+	expect(canPlaceBlock({ tree: fieldsetWithLegend, blockTypes: types, type: 'input', parentId: 'set', position: 0 })).toBe(false);
+	expect(canPlaceBlock({ tree: emptyFieldset, blockTypes: types, type: 'legend', parentId: 'root', position: 0 })).toBe(false);
+});
+
+test('moving Legend before a fieldset control is allowed but moving it after is rejected', () => {
+	const types = {
+		container: { acceptsChildren: true, allowedChildTypes: [] },
+		form: { acceptsChildren: true, allowedChildTypes: ['input', 'fieldset'] },
+		fieldset: { acceptsChildren: true, allowedChildTypes: ['legend', 'input'] },
+		legend: { acceptsChildren: false },
+		input: { acceptsChildren: false },
+	};
+	const tree = { main: [{ id: 'root', type: 'container', children: [{ id: 'form', type: 'form', children: [{ id: 'set', type: 'fieldset', children: [{ id: 'input', type: 'input' }, { id: 'legend', type: 'legend' }] }] }] }] };
+
+	expect(computeDropPlan({ tree, blockTypes: types, draggedId: 'legend', targetId: 'input', zone: 'above' })).toEqual({ toParent: 'set', position: 0 });
+	expect(computeDropPlan({ tree, blockTypes: types, draggedId: 'legend', targetId: 'input', zone: 'below' })).toBeNull();
+});
+
+test('forms cannot be inserted under any ancestor Form', () => {
+	const types = {
+		container: { acceptsChildren: true, allowedChildTypes: [] },
+		form: { acceptsChildren: true, allowedChildTypes: ['input', 'fieldset'] },
+		input: { acceptsChildren: false },
+	};
+	const tree = { main: [{ id: 'root', type: 'container', children: [{ id: 'outer', type: 'form', children: [{ id: 'nested-container', type: 'container', children: [] }] }] }] };
+
+	expect(canPlaceBlock({ tree, blockTypes: types, type: 'form', parentId: 'nested-container', position: 0 })).toBe(false);
+});
+
+test('Button can be inserted in generic containers, Forms, and Fieldsets', () => {
+	const types = {
+		container: { acceptsChildren: true, allowedChildTypes: [] },
+		form: { acceptsChildren: true, allowedChildTypes: ['button', 'fieldset'] },
+		fieldset: { acceptsChildren: true, allowedChildTypes: ['legend', 'button'] },
+		button: { acceptsChildren: false },
+	};
+	const tree = { main: [{ id: 'root', type: 'container', children: [{ id: 'form', type: 'form', children: [{ id: 'fieldset', type: 'fieldset', children: [] }] }] }] };
+
+	expect(canPlaceBlock({ tree, blockTypes: types, type: 'button', parentId: 'root', position: 1 })).toBe(true);
+	expect(canPlaceBlock({ tree, blockTypes: types, type: 'button', parentId: 'form', position: 0 })).toBe(true);
+	expect(canPlaceBlock({ tree, blockTypes: types, type: 'button', parentId: 'fieldset', position: 0 })).toBe(true);
 });

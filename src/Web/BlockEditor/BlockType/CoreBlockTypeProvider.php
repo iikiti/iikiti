@@ -38,6 +38,16 @@ final class CoreBlockTypeProvider implements BlockTypeInterface
 			$this->socialEmbed(),
 			$this->query(),
 			$this->icon(),
+			$this->form(),
+			$this->button(),
+			$this->input(),
+			$this->textArea(),
+			$this->select(),
+			$this->range(),
+			$this->checkbox(),
+			$this->radio(),
+			$this->legend(),
+			$this->fieldset(),
 		];
 	}
 
@@ -325,6 +335,199 @@ final class CoreBlockTypeProvider implements BlockTypeInterface
 			elementFields: $this->elementFields(),
 			defaults: ['content' => ['source' => 'objects', 'objectType' => '', 'filters' => [], 'limit' => 10, 'layout' => 'list'],
 				'style' => ['base' => ['columns' => 1]]],
+		);
+	}
+
+	private function form(): BlockType
+	{
+		return new BlockType(
+			type: 'form',
+			label: 'Form',
+			category: 'form',
+			acceptsChildren: true,
+			allowedChildTypes: ['input', 'textarea', 'select', 'range', 'checkbox', 'radio', 'button', 'fieldset'],
+			contentFields: [
+				['key' => 'action', 'label' => 'Action URL', 'type' => 'url', 'wrapperAttribute' => true],
+				['key' => 'method', 'label' => 'Method', 'type' => 'select',
+					'options' => [['value' => 'post', 'label' => 'POST'], ['value' => 'get', 'label' => 'GET']],
+					'default' => 'post', 'wrapperAttribute' => true],
+			],
+			renderTemplate: 'blocks/form.twig',
+			elementFields: $this->elementFields(),
+			wrapperTag: 'form',
+			childrenInWrapper: true,
+		);
+	}
+
+	private function button(): BlockType
+	{
+		return new BlockType(
+			type: 'button',
+			label: 'Button',
+			category: 'form',
+			contentFields: [
+				['key' => 'text', 'label' => 'Text', 'type' => 'text', 'default' => 'Button'],
+				['key' => 'type', 'label' => 'Type', 'type' => 'select',
+					'options' => [['value' => 'button', 'label' => 'Button'], ['value' => 'submit', 'label' => 'Submit']],
+					'default' => 'button'],
+			],
+			renderTemplate: 'blocks/button.twig',
+			elementFields: $this->elementFields(),
+			defaults: ['content' => ['text' => 'Button', 'type' => 'button']],
+		);
+	}
+
+	private function input(): BlockType
+	{
+		return new BlockType(
+			type: 'input',
+			label: 'Input',
+			category: 'form',
+			contentFields: [
+				['key' => 'label', 'label' => 'Label', 'type' => 'text', 'default' => 'Input'],
+				['key' => 'name', 'label' => 'Name', 'type' => 'text'],
+				['key' => 'type', 'label' => 'Type', 'type' => 'select',
+					'options' => [['value' => 'text', 'label' => 'Text'], ['value' => 'password', 'label' => 'Password'],
+						['value' => 'email', 'label' => 'Email'], ['value' => 'number', 'label' => 'Number']], 'default' => 'text'],
+				['key' => 'value', 'label' => 'Value', 'type' => 'text'],
+				['key' => 'placeholder', 'label' => 'Placeholder', 'type' => 'text'],
+				['key' => 'required', 'label' => 'Required', 'type' => 'toggle', 'default' => false],
+				['key' => 'min', 'label' => 'Minimum', 'type' => 'number'],
+				['key' => 'max', 'label' => 'Maximum', 'type' => 'number'],
+				['key' => 'step', 'label' => 'Step', 'type' => 'number'],
+			],
+			renderTemplate: 'blocks/input.twig',
+			elementFields: $this->elementFields(),
+			defaults: ['content' => ['label' => 'Input', 'type' => 'text', 'value' => '', 'required' => false]],
+		);
+	}
+
+	private function textArea(): BlockType
+	{
+		return new BlockType(
+			type: 'textarea',
+			label: 'Text Area',
+			category: 'form',
+			contentFields: [
+				['key' => 'label', 'label' => 'Label', 'type' => 'text', 'default' => 'Text Area'],
+				['key' => 'name', 'label' => 'Name', 'type' => 'text'],
+				['key' => 'value', 'label' => 'Value', 'type' => 'textarea'],
+				['key' => 'placeholder', 'label' => 'Placeholder', 'type' => 'text'],
+				['key' => 'rows', 'label' => 'Rows', 'type' => 'number', 'default' => 4],
+				['key' => 'required', 'label' => 'Required', 'type' => 'toggle', 'default' => false],
+			],
+			renderTemplate: 'blocks/textarea.twig',
+			elementFields: $this->elementFields(),
+			defaults: ['content' => ['label' => 'Text Area', 'value' => '', 'rows' => 4, 'required' => false]],
+		);
+	}
+
+	private function select(): BlockType
+	{
+		return new BlockType(
+			type: 'select',
+			label: 'Select',
+			category: 'form',
+			contentFields: [
+				['key' => 'label', 'label' => 'Label', 'type' => 'text', 'default' => 'Select'],
+				['key' => 'name', 'label' => 'Name', 'type' => 'text'],
+				['key' => 'value', 'label' => 'Selected value', 'type' => 'text'],
+				['key' => 'required', 'label' => 'Required', 'type' => 'toggle', 'default' => false],
+				['key' => 'options', 'label' => 'Options', 'type' => 'repeater', 'itemLabel' => 'option', 'addLabel' => 'Add option',
+					'fields' => [['key' => 'label', 'label' => 'Label', 'type' => 'text'], ['key' => 'value', 'label' => 'Value', 'type' => 'text']],
+					'default' => [['label' => 'Choose an option', 'value' => '']]],
+			],
+			renderTemplate: 'blocks/select.twig',
+			elementFields: $this->elementFields(),
+			defaults: ['content' => ['label' => 'Select', 'value' => '', 'required' => false,
+				'options' => [['label' => 'Choose an option', 'value' => '']]]],
+		);
+	}
+
+	private function range(): BlockType
+	{
+		return new BlockType(
+			type: 'range',
+			label: 'Range',
+			category: 'form',
+			contentFields: [
+				['key' => 'label', 'label' => 'Label', 'type' => 'text', 'default' => 'Range'],
+				['key' => 'name', 'label' => 'Name', 'type' => 'text'],
+				['key' => 'min', 'label' => 'Minimum', 'type' => 'number', 'default' => 0],
+				['key' => 'max', 'label' => 'Maximum', 'type' => 'number', 'default' => 100],
+				['key' => 'step', 'label' => 'Step', 'type' => 'number', 'default' => 1],
+				['key' => 'value', 'label' => 'Value', 'type' => 'number', 'default' => 50],
+			],
+			renderTemplate: 'blocks/range.twig',
+			elementFields: $this->elementFields(),
+			defaults: ['content' => ['label' => 'Range', 'min' => 0, 'max' => 100, 'step' => 1, 'value' => 50]],
+		);
+	}
+
+	private function checkbox(): BlockType
+	{
+		return new BlockType(
+			type: 'checkbox',
+			label: 'Checkbox',
+			category: 'form',
+			contentFields: [
+				['key' => 'label', 'label' => 'Label', 'type' => 'text', 'default' => 'Checkbox'],
+				['key' => 'name', 'label' => 'Name', 'type' => 'text'],
+				['key' => 'value', 'label' => 'Value', 'type' => 'text', 'default' => '1'],
+				['key' => 'checked', 'label' => 'Checked', 'type' => 'toggle', 'default' => false],
+				['key' => 'required', 'label' => 'Required', 'type' => 'toggle', 'default' => false],
+			],
+			renderTemplate: 'blocks/checkbox.twig',
+			elementFields: $this->elementFields(),
+			defaults: ['content' => ['label' => 'Checkbox', 'value' => '1', 'checked' => false, 'required' => false]],
+		);
+	}
+
+	private function radio(): BlockType
+	{
+		return new BlockType(
+			type: 'radio',
+			label: 'Radio',
+			category: 'form',
+			contentFields: [
+				['key' => 'label', 'label' => 'Label', 'type' => 'text', 'default' => 'Radio'],
+				['key' => 'name', 'label' => 'Name', 'type' => 'text'],
+				['key' => 'value', 'label' => 'Value', 'type' => 'text', 'default' => 'option'],
+				['key' => 'checked', 'label' => 'Checked', 'type' => 'toggle', 'default' => false],
+				['key' => 'required', 'label' => 'Required', 'type' => 'toggle', 'default' => false],
+			],
+			renderTemplate: 'blocks/radio.twig',
+			elementFields: $this->elementFields(),
+			defaults: ['content' => ['label' => 'Radio', 'value' => 'option', 'checked' => false, 'required' => false]],
+		);
+	}
+
+	private function legend(): BlockType
+	{
+		return new BlockType(
+			type: 'legend',
+			label: 'Legend',
+			category: 'form',
+			contentFields: [['key' => 'text', 'label' => 'Text', 'type' => 'text', 'default' => 'Legend']],
+			renderTemplate: 'blocks/legend.twig',
+			elementFields: $this->elementFields(),
+			defaults: ['content' => ['text' => 'Legend']],
+			wrapperTag: 'legend',
+		);
+	}
+
+	private function fieldset(): BlockType
+	{
+		return new BlockType(
+			type: 'fieldset',
+			label: 'Fieldset',
+			category: 'form',
+			acceptsChildren: true,
+			allowedChildTypes: ['legend', 'input', 'textarea', 'select', 'range', 'checkbox', 'radio', 'button'],
+			renderTemplate: 'blocks/fieldset.twig',
+			elementFields: $this->elementFields(),
+			wrapperTag: 'fieldset',
+			childrenInWrapper: true,
 		);
 	}
 }
