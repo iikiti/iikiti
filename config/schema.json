@@ -5421,6 +5421,20 @@
                                 "default": true,
                                 "description": "Whether redeliveries should be rejected and retried through a new message instead of being handled directly. This mostly makes sense for AMQP, which redelivers messages that were neither acknowledged nor rejected. Disabling it avoids losing a message when the retry or the failure transport is unreachable, at the risk of a redelivery loop that blocks the queue."
                             },
+                            "deduplication": {
+                                "$ref": "#/$defs/types/object_null",
+                                "properties": {
+                                    "lock_factory": {
+                                        "$ref": "#/$defs/types/scalar",
+                                        "default": null,
+                                        "description": "The service ID of the lock factory used to deduplicate messages, \"lock.factory\" when not set."
+                                    }
+                                },
+                                "additionalProperties": false,
+                                "default": {
+                                    "lock_factory": null
+                                }
+                            },
                             "identity_stamps": {
                                 "$ref": "#/$defs/types/boolean",
                                 "default": false,
@@ -5579,6 +5593,9 @@
                     "failure_transport": null,
                     "stop_worker_on_signals": [],
                     "reject_redelivered_messages": true,
+                    "deduplication": {
+                        "lock_factory": null
+                    },
                     "identity_stamps": false,
                     "default_bus": null,
                     "buses": {
