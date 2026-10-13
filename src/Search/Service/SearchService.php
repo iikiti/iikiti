@@ -12,6 +12,7 @@ use iikiti\CMS\Search\Repository\SearchFilterRepository;
 use iikiti\CMS\Search\Repository\SearchIndexRepository;
 use iikiti\CMS\Search\Strategy\SearchEngineRegistry;
 use iikiti\CMS\Search\Strategy\SearchFilterRegistry;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
@@ -31,6 +32,7 @@ final class SearchService
 		private readonly SearchFilterRepository $filterRepository,
 		private readonly SearchFilterRegistry $filterRegistry,
 		private readonly EventDispatcherInterface $eventDispatcher,
+		private readonly Security $security,
 		#[Autowire('%iikiti_search.enabled%')]
 		private readonly bool $enabled = true,
 	) {
@@ -69,7 +71,15 @@ final class SearchService
 	 */
 	public function searchAdmin(string $query, array $options = []): SearchResult
 	{
-		return $this->searchBySlug('admin', $query, $options);
+		if (!$this->security->isGranted('ROLE_ADMIN')) {
+			return new SearchResult();
+		}
+		$index = $this->resolveIndex('admin');
+		if (null === $index) {
+			return new SearchResult();
+		}
+
+		return $this->searchWithIndex($index, $query, SearchParams::fromOptions($options), true);
 	}
 
 	/**
@@ -87,11 +97,17 @@ final class SearchService
 		return $this->searchWithIndex($index, $query, SearchParams::fromOptions($options));
 	}
 
-	private function searchWithIndex(SearchIndex $index, string $query, SearchParams $params): SearchResult
+	private function searchWithIndex(SearchIndex $index, string $query, SearchParams $params, bool $includePrivateAssets = false): SearchResult
 	{
 		if (!$this->enabled) {
 			return new SearchResult();
 		}
+		$siteId = null;
+		try {
+			$siteId = SiteRegistry::getCurrent()->getId();
+		} catch (\Throwable) {
+		}
+		$params = $params->withAssetAccess($siteId, $includePrivateAssets);
 
 		// Resolve active filters for this index + user context
 		$filters = $this->filterRepository->findEnabledByIndex($index->getId() ?? 0);

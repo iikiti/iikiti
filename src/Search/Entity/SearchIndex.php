@@ -6,6 +6,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use iikiti\CMS\Search\Enum\SearchFieldSourceType;
 use iikiti\CMS\Search\Enum\SearchIndexType;
 use iikiti\CMS\Search\Exception\SystemLockedException;
 use iikiti\CMS\Search\Repository\SearchIndexRepository;
@@ -91,6 +92,7 @@ class SearchIndex
 		$this->updatedAt = new \DateTimeImmutable();
 		$this->fields = new ArrayCollection();
 		$this->filters = new ArrayCollection();
+		$this->addField(new SearchIndexField('asset_content', SearchFieldSourceType::Property, 'extracted_text'));
 	}
 
 	public function getId(): int|string|null

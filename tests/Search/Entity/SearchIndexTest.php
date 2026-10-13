@@ -22,6 +22,16 @@ final class SearchIndexTest extends TestCase
 		self::assertTrue($index->isEnabled());
 	}
 
+	public function testNewSearchIndexesIncludeExtractedAssetText(): void
+	{
+		$index = new SearchIndex('asset-index', 'Asset Index');
+		$field = $index->getFields()->first();
+
+		self::assertNotFalse($field);
+		self::assertSame('asset_content', $field->getName());
+		self::assertSame('extracted_text', $field->getSource());
+	}
+
 	public function testCustomTypeIsDeletable(): void
 	{
 		$index = new SearchIndex('test', 'Test', SearchIndexType::Custom);

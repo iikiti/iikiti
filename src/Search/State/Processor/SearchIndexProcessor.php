@@ -135,6 +135,16 @@ readonly class SearchIndexProcessor implements ProcessorInterface
 	 */
 	private function syncFields(SearchIndex $index, array $fieldData): void
 	{
+		$fieldData = array_values(array_filter(
+			$fieldData,
+			static fn (array $fieldInfo): bool => 'asset_content' !== $fieldInfo['name'],
+		));
+		$fieldData[] = [
+			'name' => 'asset_content',
+			'source_type' => SearchFieldSourceType::Property->value,
+			'source' => 'extracted_text',
+			'weight' => 1,
+		];
 		$existing = [];
 		foreach ($index->getFields() as $field) {
 			$existing[$field->getName()] = $field;

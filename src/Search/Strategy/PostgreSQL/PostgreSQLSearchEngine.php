@@ -212,26 +212,35 @@ final class PostgreSQLSearchEngine implements SearchEngineInterface
 		$func = 'websearch_to_tsquery' === $params->queryType ? 'WEBSEARCH_TO_TSQUERY' : 'PLAINTO_TSQUERY';
 		$tsQueryExpr = sprintf('%s(\'%s\', :query)', $func, $language);
 
+		$schema = $this->schema ?: 'iikiti_iikiti';
+		$assetVisibilityFilter = sprintf(
+			" AND (lower(indexed.object_type) NOT IN ('uploadeddigitalasset', 'externaldigitalasset') OR EXISTS (SELECT 1 FROM %s.objects asset_object INNER JOIN %s.digital_asset_site_grants site_grant ON site_grant.asset_id = asset_object.id WHERE asset_object.id = indexed.object_id AND site_grant.site_id = :asset_site_id AND (:include_private_assets = TRUE OR asset_object.asset_visibility = 'public'))) ",
+			$schema,
+			$schema,
+		);
 		$sql = sprintf(
-			'SELECT object_type, object_id, data, ts_rank(search_vector, %s) AS rank '.
-			'FROM %s WHERE search_vector @@ %s '.
-			'ORDER BY rank DESC LIMIT :limit OFFSET :offset',
+			'SELECT indexed.object_type, indexed.object_id, indexed.data, ts_rank(indexed.search_vector, %s) AS rank '.
+			'FROM %s indexed WHERE indexed.search_vector @@ %s '.
+			$assetVisibilityFilter,
 			$tsQueryExpr,
 			$tableName,
-			$tsQueryExpr
+			$tsQueryExpr,
 		);
 
 		$boundParams = [
 			'query' => $query,
 			'limit' => $params->limit ?? 20,
 			'offset' => $params->offset ?? 0,
+			'asset_site_id' => $params->assetSiteId ?? -1,
+			'include_private_assets' => $params->includePrivateAssets,
 		];
 
 		foreach ($params->filters as $filterName => $filterValue) {
-			$sql .= sprintf(' AND data ->> :fkey_%s = :fval_%s', $filterName, $filterName);
+			$sql .= sprintf(' AND indexed.data ->> :fkey_%s = :fval_%s', $filterName, $filterName);
 			$boundParams['fkey_'.$filterName] = $filterName;
 			$boundParams['fval_'.$filterName] = $filterValue;
 		}
+		$sql .= ' ORDER BY rank DESC LIMIT :limit OFFSET :offset';
 
 		$rows = $connection->executeQuery($sql, $boundParams)->fetchAllAssociative();
 
@@ -266,7 +275,7 @@ final class PostgreSQLSearchEngine implements SearchEngineInterface
 
 		$sql = sprintf(
 			'SELECT object_type, object_id, data->>\'name\' AS label '.
-			'FROM %s WHERE data ? \'name\' AND data->>\'name\' ILIKE :pattern '.
+			'FROM %s WHERE lower(object_type) NOT IN (\'uploadeddigitalasset\', \'externaldigitalasset\') AND data ? \'name\' AND data->>\'name\' ILIKE :pattern '.
 			'ORDER BY similarity(data->>\'name\', :query) DESC LIMIT :limit',
 			$tableName
 		);
@@ -404,6 +413,9 @@ final class PostgreSQLSearchEngine implements SearchEngineInterface
 		$fieldExpressions = [];
 
 		foreach ($config->getFields() as $field) {
+			if (SearchFieldSourceType::Property === $field->getSourceType() && 'extracted_text' === $field->getSource()) {
+				continue;
+			}
 			$fieldExpr = $this->buildFieldExpression($field);
 			$fieldExpressions[] = sprintf("'%s', COALESCE(%s, '')::text", $field->getName(), $fieldExpr);
 		}

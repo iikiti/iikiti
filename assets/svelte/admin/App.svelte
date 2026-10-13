@@ -9,6 +9,7 @@
 	import RolesRoute from './routes/Roles.svelte';
 	import ApplicationsRoute from './routes/Applications.svelte';
 	import SitesRoute from './routes/Sites.svelte';
+	import AssetsRoute from './routes/Assets.svelte';
 	import SiteGroupsRoute from './routes/SiteGroups.svelte';
 	import AuditLogRoute from './routes/AuditLog.svelte';
 	import PluginsRoute from './routes/Plugins.svelte';
@@ -52,6 +53,7 @@
 		Roles: RolesRoute,
 		Applications: ApplicationsRoute,
 		Sites: SitesRoute,
+		Assets: AssetsRoute,
 		SiteGroups: SiteGroupsRoute,
 		AuditLog: AuditLogRoute,
 		Plugins: PluginsRoute,

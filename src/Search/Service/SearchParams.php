@@ -25,7 +25,28 @@ final readonly class SearchParams
 		public ?string $direction = 'desc',
 		public ?string $analyzer = null,
 		public ?int $minWordLength = null,
+		public int|string|null $assetSiteId = null,
+		public bool $includePrivateAssets = false,
 	) {
+	}
+
+	public function withAssetAccess(int|string|null $siteId, bool $includePrivate): self
+	{
+		return new self(
+			limit: $this->limit,
+			offset: $this->offset,
+			language: $this->language,
+			queryType: $this->queryType,
+			highlight: $this->highlight,
+			filters: $this->filters,
+			extraCriteria: $this->extraCriteria,
+			sort: $this->sort,
+			direction: $this->direction,
+			analyzer: $this->analyzer,
+			minWordLength: $this->minWordLength,
+			assetSiteId: $siteId,
+			includePrivateAssets: $includePrivate,
+		);
 	}
 
 	/**

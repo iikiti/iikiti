@@ -80,6 +80,8 @@ final class AdminWiringTest extends KernelTestCase
 			'admin_menu_list' => '/api/admin/menu',
 			'admin_screens_list' => '/api/admin/screens',
 			'admin_plugin_asset' => '/admin-plugins/{slug}/{path}',
+			'api_admin_digital_assets_index' => '/api/admin/assets',
+			'digital_asset_file' => '/assets/{publicToken}/{variant}',
 		];
 
 		foreach ($expectedRoutes as $name => $path) {
@@ -115,6 +117,18 @@ final class AdminWiringTest extends KernelTestCase
 		self::assertContains('/plugins', $paths);
 		self::assertContains('/roles', $paths);
 		self::assertContains('/audit-log', $paths);
+		self::assertContains('/assets', $paths);
+	}
+
+	public function testAssetDiscriminatorsExcludeAbstractBase(): void
+	{
+		self::bootKernel();
+		$entityManager = self::getContainer()->get(\Doctrine\ORM\EntityManagerInterface::class);
+		$metadata = $entityManager->getClassMetadata(\iikiti\CMS\Entity\DbObject::class);
+
+		self::assertArrayHasKey('uploadeddigitalasset', $metadata->discriminatorMap);
+		self::assertArrayHasKey('externaldigitalasset', $metadata->discriminatorMap);
+		self::assertArrayNotHasKey('abstractdigitalasset', $metadata->discriminatorMap);
 	}
 
 	public function testPluginAssetControllerIsRegistered(): void

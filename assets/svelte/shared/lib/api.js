@@ -16,31 +16,46 @@ export class ApiClient {
 		this.debug = debug;
 	}
 
-	getHeaders() {
-		return {
-			'Content-Type': 'application/json',
-			'X-AUTH-TOKEN': this.token,
-		};
+	getHeaders(body = null) {
+		const headers = { 'X-AUTH-TOKEN': this.token };
+		if (typeof FormData === 'undefined' || !(body instanceof FormData)) {
+			headers['Content-Type'] = 'application/json';
+		}
+
+		return headers;
 	}
 
 	async request(path, options = {}) {
+		const headers = {
+			...this.getHeaders(options.body),
+			...options.headers,
+		};
+		if (typeof FormData !== 'undefined' && options.body instanceof FormData) {
+			delete headers['Content-Type'];
+		}
+
 		const response = await fetch(`${this.baseUrl}${path}`, {
 			...options,
-			headers: {
-				...this.getHeaders(),
-				...options.headers,
-			},
+			headers,
 		});
 
 		if (!response.ok) {
 			const body = await response.json().catch(() => ({}));
-			const err = new Error(`${response.status}: ${body.title ?? response.statusText}`);
+			const err = new Error(`${response.status}: ${body.error ?? body.title ?? response.statusText}`);
 			err.status = response.status;
 			err.body = body;
 			throw err;
 		}
 
-		return response.json();
+		if (response.status === 204) {
+			return null;
+		}
+
+		if (response.headers.get('content-type')?.includes('application/json')) {
+			return response.json();
+		}
+
+		return response.text();
 	}
 
 	parsePaged(data) {

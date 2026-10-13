@@ -1,4 +1,5 @@
 parameters:
+    digital_asset_storage_dir: '%kernel.project_dir%/var/digital-assets'
 
 services:
     # default configuration for services in *this* file
@@ -20,6 +21,10 @@ services:
             # instantiated directly by the builder, not services.
             - '../src/Query/'
             - '../src/ORM/'
+
+    iikiti\CMS\Service\AssetStorage:
+        arguments:
+            $directory: '%env(default:digital_asset_storage_dir:DIGITAL_ASSET_STORAGE_DIRECTORY)%'
 
     # Services excluded from auto-registration live under src/Query/ and
     # src/ORM/. Their constructor arguments are resolved via PHP attributes
@@ -96,6 +101,8 @@ services:
             tags: ['iikiti.cms.save_workflow']
         iikiti\CMS\Web\BlockEditor\Collaboration\CollaborationTransportInterface:
             tags: ['iikiti.cms.collaboration_transport']
+        iikiti\CMS\Service\DigitalAssetProcessorInterface:
+            tags: ['iikiti.digital_asset_processor']
 
     # EmbedResolver + ObjectsQuerySource cache via the database-backed pool.
     iikiti\CMS\Web\BlockEditor\Embed\EmbedResolver:

@@ -27,6 +27,7 @@ class CoreAdminExtension implements AdminExtensionInterface
 			AdminMenuItem::create('Roles & Permissions', '/roles', 'shield', 80),
 			AdminMenuItem::create('Applications', '/applications', 'server', 70),
 			AdminMenuItem::create('Sites', '/sites', 'globe', 60),
+			AdminMenuItem::create('Assets', '/assets', 'image', 55),
 			AdminMenuItem::create('Templates', '/admin/templates', 'layout-template', 35),
 			AdminMenuItem::create('Layouts', '/admin/layouts', 'panels-top-left', 34),
 			AdminMenuItem::create('Site Groups', '/site-groups', 'layers', 50),
@@ -51,6 +52,8 @@ class CoreAdminExtension implements AdminExtensionInterface
 			AdminApiResource::create('roles', '/api/admin/roles', 'Roles'),
 			AdminApiResource::create('applications', '/api/applications', 'Applications'),
 			AdminApiResource::create('sites', '/api/sites', 'Sites'),
+			AdminApiResource::create('assets', '/api/admin/assets', 'Assets'),
+			AdminApiResource::create('asset-workflows', '/api/admin/asset-workflows', 'Asset Workflows'),
 			AdminApiResource::create('site-groups', '/api/admin/site-groups', 'Site Groups'),
 			AdminApiResource::create('plugins', '/api/admin/plugins', 'Plugins'),
 			AdminApiResource::create('search', '/api/admin/search/indexes', 'Search'),
@@ -95,6 +98,7 @@ class CoreAdminExtension implements AdminExtensionInterface
 					['key' => 'name', 'label' => 'Name'],
 				],
 			]),
+			new AdminScreen(path: '/assets', title: 'Digital Assets', type: 'custom', component: 'Assets'),
 			new AdminScreen(path: '/admin/templates', title: 'Templates', type: 'list', apiPath: '/admin/templates', config: [
 				'columns' => [
 					['key' => 'id', 'label' => 'ID'],

@@ -59,7 +59,12 @@ class DynamicDiscriminatorMapListener
 				continue;
 			}
 
-			$shortName = \strtolower((new \ReflectionClass($candidate))->getShortName());
+			$reflection = new \ReflectionClass($candidate);
+			if ($reflection->isAbstract()) {
+				continue;
+			}
+
+			$shortName = \strtolower($reflection->getShortName());
 
 			if (isset($map[$shortName])) {
 				continue;
@@ -68,6 +73,8 @@ class DynamicDiscriminatorMapListener
 			$map[$shortName] = $candidate;
 		}
 
+		$metadata->discriminatorMap = [];
+		$metadata->subClasses = [];
 		$metadata->setDiscriminatorMap($map);
 	}
 }

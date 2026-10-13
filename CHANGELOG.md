@@ -18,6 +18,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-10-12: Digital asset manager with protected uploads and HTTPS URI links, per-site access grants, public/private delivery, async extensible image/PDF/text workflows, search indexing and admin CRUD.
 - 2026-10-10: Sidebar tabs now organize settings into ordered accordion groups, persist each block's open state per template for one week, and expose group registration plus field group/order metadata to plugins.
 - 2026-10-10: Core blocks gain grouped style controls with base and responsive breakpoint editing for layout, size, spacing, typography, background, borders, effects and position.
 - 2026-10-10: Added a Button block with safe button/submit types, available in any container.
@@ -115,6 +116,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Security
 
+- 2026-10-12: Uploaded asset files are stored outside the public root and delivered only after site-grant and visibility checks; private assets require authentication, and administrators may manage only grants for sites they administer.
 - 2026-10-10: Block style properties and values are validated before public inline/media CSS output, preventing saved style data from injecting declarations or markup.
 
 ### Removed
