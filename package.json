@@ -11,8 +11,8 @@
         "cash-dom": "^8.1.5",
         "copy-webpack-plugin": "^14.0.0",
         "file-loader": "^6.2.0",
-        "postcss": "^8.5.29",
-        "postcss-import": "^17.0.0",
+        "postcss": "^8.5.30",
+        "postcss-import": "^17.0.1",
         "postcss-loader": "^8.2.1",
         "purgecss-webpack-plugin": "^8.0.0",
         "sass": "^1.105.1",
@@ -39,9 +39,9 @@
     ],
     "dependencies": {
         "@js-temporal/polyfill": "^0.5.1",
-        "@lucide/svelte": "^1.55.0",
+        "@lucide/svelte": "^1.57.0",
         "baseline-browser-mapping": "^2.11.28",
-        "caniuse-lite": "^1.0.30001815",
-        "lucide-static": "^1.55.0"
+        "caniuse-lite": "^1.0.30001816",
+        "lucide-static": "^1.57.0"
     }
 }
