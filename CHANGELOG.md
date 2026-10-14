@@ -14,7 +14,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ## [Unreleased]
 
-> Last updated: 2026-10-10
+> Last updated: 2026-10-14
 
 ### Added
 
@@ -68,6 +68,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Fixed
 
+- 2026-10-14: Admin SPA parses JSON-LD API responses: the shared `ApiClient` now detects any `…json` content type (e.g. `application/ld+json` for `/api/admin/menu` and `/api/admin/screens`), so the sidebar and registered screens load again instead of showing "Page Not Found" (`assets/svelte/shared/lib/api.js`).
 - 2026-10-10: Symfony `cache:clear` raises the CLI memory limit to 512M during cache rebuilds.
 - 2026-10-10: Layers drop zones inside containers work: the nesting check treats an empty `allowedChildTypes` as "any child" (matching the canvas and the server schema), so dropping a block into a container's middle band is accepted (`layerDrop.js` `parentAllowsType`).
 - 2026-10-10: Leaf rows in the Layers panel split just below the midline (60%), so dropping on a row's label reorders upwards instead of landing on a no-op "below" zone (`layerDrop.js` `resolveDropZone`).

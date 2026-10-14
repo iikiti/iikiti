@@ -51,7 +51,9 @@ export class ApiClient {
 			return null;
 		}
 
-		if (response.headers.get('content-type')?.includes('application/json')) {
+		// Accept any JSON flavour (application/json, application/ld+json,
+		// application/hal+json, …) so JSON-LD API responses are parsed too.
+		if (response.headers.get('content-type')?.includes('json')) {
 			return response.json();
 		}
 
