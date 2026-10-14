@@ -1,7 +1,7 @@
 {
     "name": "iikiti/cms",
     "type": "project",
-    "license": "Apache",
+    "license": "Apache-2.0",
     "description": "",
     "minimum-stability": "dev",
     "prefer-stable": true,
@@ -121,6 +121,9 @@
         ],
 		"test": [
             "XDEBUG_MODE=develop,coverage,profile,trace phpunit"
+		],
+		"lint:container": [
+			"php bin/console lint:container"
 		]
     },
     "conflict": {

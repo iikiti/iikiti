@@ -36,6 +36,23 @@ php bin/console messenger:setup-transports
 php bin/console messenger:consume asset_processing --time-limit=3600
 ```
 
+After every code deployment, rebuild the container and restart running workers so they pick up changed service constructors and compiled workflow definitions:
+
+```sh
+composer lint:container
+php bin/console cache:clear
+php bin/console messenger:restart-workers
+```
+
+`composer lint:container` verifies the container compiles (run it after dependency updates too: the digital-asset state machines are declared with Symfony 8.2 workflow attributes and are registered at container compile time).
+
+Asset lifecycle transitions are validated by two attribute-defined state machines (`src/StateMachine/`), both visible in the WebProfiler workflow panel during development:
+
+- `asset_processing` marks `AbstractDigitalAsset::processingStatus` (`pending` → `processing` → `complete`/`failed`). `process` and `requeue` stay reachable from every state so Messenger re-deliveries can always run, while `complete` and `fail` require the asset to be processing.
+- `asset_run` marks `AssetWorkflowRun::status` (`pending` → `running` → `complete`/`failed`/`skipped`). `start` is reachable from every open state (interrupted runs are retried), and `complete`, `fail` and `skip` require the run to be running; a completed run never restarts.
+
+Refused transitions throw `Symfony\Component\Workflow\Exception\NotEnabledTransitionException`; the machines also apply the run bookkeeping (`attempts`, `lastError`, `updatedAt`), so no code path should write these columns directly.
+
 The default rules generate 320×320 thumbnails and 1280×1280 previews for supported images, and extract text from PDFs and supported text formats. `AssetWorkflowRun` records attempts and outcomes; Messenger retries failed jobs and moves exhausted messages to its failure transport.
 
 Lifecycle events are dispatched through Symfony EventDispatcher and can be subscribed to by core or plugin services:

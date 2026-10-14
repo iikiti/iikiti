@@ -16,6 +16,7 @@ use iikiti\CMS\Message\ProcessDigitalAsset;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\DigitalAssetVariantRepository;
 use iikiti\CMS\Repository\Object\SiteRepository;
+use iikiti\CMS\StateMachine\AssetProcessingStateMachine;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -40,6 +41,7 @@ final class DigitalAssetManager
 		private readonly AssetStorage $storage,
 		private readonly MessageBusInterface $messageBus,
 		private readonly EventDispatcherInterface $eventDispatcher,
+		private readonly AssetProcessingStateMachine $assetProcessingStateMachine,
 	) {
 	}
 
@@ -167,7 +169,7 @@ final class DigitalAssetManager
 	public function queueProcessing(AbstractDigitalAsset $asset): void
 	{
 		if ($asset instanceof UploadedDigitalAsset) {
-			$asset->setProcessingStatus('pending');
+			$this->assetProcessingStateMachine->requeue($asset);
 			$this->entityManager->flush();
 			$this->messageBus->dispatch(new ProcessDigitalAsset($this->persistedId($asset)));
 		}

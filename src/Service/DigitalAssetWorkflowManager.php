@@ -13,6 +13,8 @@ use iikiti\CMS\Event\DigitalAssetEvent;
 use iikiti\CMS\Event\DigitalAssetEvents;
 use iikiti\CMS\Repository\AssetWorkflowDefinitionRepository;
 use iikiti\CMS\Repository\DigitalAssetRepository;
+use iikiti\CMS\StateMachine\AssetProcessingStateMachine;
+use iikiti\CMS\StateMachine\AssetRunStateMachine;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final class DigitalAssetWorkflowManager
@@ -23,6 +25,8 @@ final class DigitalAssetWorkflowManager
 		private readonly AssetWorkflowDefinitionRepository $workflows,
 		private readonly DigitalAssetProcessorRegistry $processors,
 		private readonly EventDispatcherInterface $eventDispatcher,
+		private readonly AssetProcessingStateMachine $assetProcessingStateMachine,
+		private readonly AssetRunStateMachine $assetRunStateMachine,
 	) {
 	}
 
@@ -33,7 +37,7 @@ final class DigitalAssetWorkflowManager
 			return;
 		}
 
-		$asset->setProcessingStatus('processing');
+		$this->assetProcessingStateMachine->process($asset);
 		$this->entityManager->flush();
 		$this->eventDispatcher->dispatch(new DigitalAssetEvent($asset), DigitalAssetEvents::PROCESSING_STARTED);
 
@@ -44,7 +48,7 @@ final class DigitalAssetWorkflowManager
 			$this->processWorkflow($asset, $workflow);
 		}
 
-		$asset->setProcessingStatus('complete');
+		$this->assetProcessingStateMachine->complete($asset);
 		$this->entityManager->flush();
 		$this->eventDispatcher->dispatch(new DigitalAssetEvent($asset), DigitalAssetEvents::PROCESSING_COMPLETED);
 	}
@@ -61,22 +65,22 @@ final class DigitalAssetWorkflowManager
 			$this->entityManager->persist($run);
 		}
 
-		$run->start();
+		$this->assetRunStateMachine->start($run);
 		$this->entityManager->flush();
 
 		try {
 			if (!$this->matchesConditions($asset, $workflow->getConditions())) {
-				$run->skip();
+				$this->assetRunStateMachine->skip($run);
 				$this->entityManager->flush();
 
 				return;
 			}
 			$this->processors->get($workflow->getProcessorKey())->process($asset, $workflow);
-			$run->complete();
+			$this->assetRunStateMachine->complete($run);
 			$this->entityManager->flush();
 		} catch (\Throwable $exception) {
-			$run->fail($exception->getMessage());
-			$asset->setProcessingStatus('failed');
+			$this->assetRunStateMachine->fail($run, $exception->getMessage());
+			$this->assetProcessingStateMachine->fail($asset);
 			$this->entityManager->flush();
 			$this->eventDispatcher->dispatch(new DigitalAssetEvent($asset), DigitalAssetEvents::PROCESSING_FAILED);
 			throw $exception;

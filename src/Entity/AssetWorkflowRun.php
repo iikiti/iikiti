@@ -69,38 +69,34 @@ class AssetWorkflowRun
 		return $this->attempts;
 	}
 
+	public function setStatus(string $status): static
+	{
+		$this->status = $status;
+		$this->touch();
+
+		return $this;
+	}
+
+	public function bumpAttempts(): void
+	{
+		++$this->attempts;
+		$this->touch();
+	}
+
 	public function getLastError(): ?string
 	{
 		return $this->lastError;
 	}
 
-	public function start(): void
+	public function setLastError(?string $error): void
 	{
-		$this->status = 'running';
-		++$this->attempts;
-		$this->lastError = null;
+		$this->lastError = $error;
 		$this->touch();
 	}
 
-	public function complete(): void
+	public function clearLastError(): void
 	{
-		$this->status = 'complete';
-		$this->lastError = null;
-		$this->touch();
-	}
-
-	public function fail(string $error): void
-	{
-		$this->status = 'failed';
-		$this->lastError = mb_substr($error, 0, 2000);
-		$this->touch();
-	}
-
-	public function skip(): void
-	{
-		$this->status = 'skipped';
-		$this->lastError = null;
-		$this->touch();
+		$this->setLastError(null);
 	}
 
 	private function touch(): void

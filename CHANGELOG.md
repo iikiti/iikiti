@@ -18,6 +18,8 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-10-14: `composer lint:container` script and digital-asset deployment notes (container warmup + `messenger:restart-workers` after deploys; state machine transition reference in `docs/digital-asset-manager.md`).
+- 2026-10-14: Attribute-based state machines (`#[AsWorkflow]`, Symfony 8.2) for digital-asset lifecycles: `AssetProcessingStateMachine` (`asset_processing`, marking `processingStatus`) and `AssetRunStateMachine` (`asset_run`, marking run `status`), injected into the asset services.
 - 2026-10-12: Digital asset manager with protected uploads and HTTPS URI links, per-site access grants, public/private delivery, async extensible image/PDF/text workflows, search indexing and admin CRUD.
 - 2026-10-10: Sidebar tabs now organize settings into ordered accordion groups, persist each block's open state per template for one week, and expose group registration plus field group/order metadata to plugins.
 - 2026-10-10: Core blocks gain grouped style controls with base and responsive breakpoint editing for layout, size, spacing, typography, background, borders, effects and position.
@@ -94,6 +96,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Changed
 
+- 2026-10-14: Digital-asset processing/run lifecycle is now validated by the Symfony 8.2 attribute-defined state machines instead of ad-hoc setters: run `complete`/`fail`/`skip` require the run to be running, and asset `complete`/`fail` require processing; queueing (`requeue`) and retries keep full re-entrancy. Stored values, DB schema and API responses are unchanged, `AssetWorkflowRun` swaps its transition methods for storage mutators, and transitions surface in the WebProfiler workflow panel.
 - 2026-10-10: Pointer-target tracking switches the active hover to the block under the pointer and schedules the owning ancestor when leaving a descendant for its content.
 - 2026-10-10: Editor canvas block rendering is split into focused components; hover activates after 140ms only when no descendant is hovered, hovered ancestors get subdued dashed clearance, and before/after buttons translate by -100%/+100%.
 - 2026-10-10: Editor canvas hides selection chrome and child-add slots while idle, reveals controls only for the active block, uses one insertion control per sibling gap, and keeps region add controls hidden until hovered or focused.
