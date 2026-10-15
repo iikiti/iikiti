@@ -40,7 +40,7 @@
     "dependencies": {
         "@js-temporal/polyfill": "^0.5.1",
         "@lucide/svelte": "^1.57.0",
-        "baseline-browser-mapping": "^2.11.28",
+        "baseline-browser-mapping": "^2.11.29",
         "caniuse-lite": "^1.0.30001816",
         "lucide-static": "^1.57.0"
     }
