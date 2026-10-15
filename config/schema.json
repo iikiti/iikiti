@@ -3423,6 +3423,72 @@
                                                         "jitter": 0.1
                                                     }
                                                 },
+                                                "cooldown_strategy": {
+                                                    "anyOf": [
+                                                        {
+                                                            "$ref": "#/$defs/types/object_null",
+                                                            "properties": {
+                                                                "enabled": {
+                                                                    "$ref": "#/$defs/types/boolean",
+                                                                    "default": false
+                                                                },
+                                                                "service": {
+                                                                    "$ref": "#/$defs/types/scalar",
+                                                                    "default": null,
+                                                                    "description": "Service id to override the cooldown strategy entirely."
+                                                                },
+                                                                "failure_threshold": {
+                                                                    "$ref": "#/$defs/types/integer",
+                                                                    "minimum": 1,
+                                                                    "default": 5,
+                                                                    "description": "Number of failures in a row that start a cooldown."
+                                                                },
+                                                                "delay": {
+                                                                    "$ref": "#/$defs/types/integer",
+                                                                    "minimum": 0,
+                                                                    "default": 1000,
+                                                                    "description": "Duration in ms of the first cooldown (or the initial value when multiplier is used)."
+                                                                },
+                                                                "multiplier": {
+                                                                    "$ref": "#/$defs/types/number",
+                                                                    "minimum": 1,
+                                                                    "default": 2,
+                                                                    "description": "If greater than 1, the cooldown will grow exponentially for each further failure in a row: this delay = (delay * (multiplier ^ (failures - failure_threshold)))."
+                                                                },
+                                                                "max_delay": {
+                                                                    "$ref": "#/$defs/types/integer",
+                                                                    "minimum": 0,
+                                                                    "default": 60000,
+                                                                    "description": "Max duration in ms of a cooldown (0 = infinite)."
+                                                                },
+                                                                "jitter": {
+                                                                    "$ref": "#/$defs/types/number",
+                                                                    "minimum": 0,
+                                                                    "maximum": 1,
+                                                                    "default": 0.1,
+                                                                    "description": "Randomness to apply to the duration (between 0 and 1)."
+                                                                }
+                                                            },
+                                                            "additionalProperties": false
+                                                        },
+                                                        {
+                                                            "type": [
+                                                                "string",
+                                                                "boolean"
+                                                            ]
+                                                        }
+                                                    ],
+                                                    "default": {
+                                                        "enabled": false,
+                                                        "service": null,
+                                                        "failure_threshold": 5,
+                                                        "delay": 1000,
+                                                        "multiplier": 2,
+                                                        "max_delay": 60000,
+                                                        "jitter": 0.1
+                                                    },
+                                                    "description": "Stops consuming this transport for a while after its messages fail. With the default strategy, each worker counts its own failures."
+                                                },
                                                 "rate_limiter": {
                                                     "$ref": "#/$defs/types/scalar",
                                                     "default": null,
@@ -5392,7 +5458,7 @@
                                 },
                                 "re_authentication_entry_point": {
                                     "$ref": "#/$defs/types/scalar",
-                                    "description": "An enabled authenticator name or a service id implementing \"Symfony\\Component\\Security\\Http\\EntryPoint\\ReAuthenticationEntryPointInterface\", asking an already authenticated user to prove possession of their credentials again when IS_AUTHENTICATED_RECENTLY or IS_AUTHENTICATED_VERY_RECENTLY is denied. Defaults to the firewall entry point when that one implements it."
+                                    "description": "An enabled authenticator name or a service id implementing \"Symfony\\Component\\Security\\Http\\EntryPoint\\ReAuthenticationEntryPointInterface\", started when the vote denying access asks for a re-authentication. Defaults to the firewall entry point when it implements this interface."
                                 },
                                 "provider": {
                                     "$ref": "#/$defs/types/scalar"
