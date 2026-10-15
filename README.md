@@ -57,7 +57,10 @@ iikiti is a content management system with the goal of making building webpages 
 >> 
 >> Theme developers focus on components that provide the user the ability to shape their site the way they see fit. Components can even be combined in to form composites that combine the features of multiple components into one. There is also full control over the style and color palette, including automated or manual light/dark theming tools.
 
-# Multi-Factor Authentication
-A multi-factor authentication (MFA/2FA) bundle is being developed that is required. It is not necessary to use it, but is provided as a primary way to increase user login security:
+## License
 
-https://github.com/iikiti/mfa
+Copyright (c) 2026 Jim Robinson <jimbo2150@gmail.com>
+
+This project is licensed under the **GNU General Public License v3.0**. 
+
+See the [LICENSE](LICENSE) file for the full license text.
