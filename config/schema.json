@@ -3324,6 +3324,47 @@
                                                     "default": null,
                                                     "description": "Name or DSN of the transport that stores the messages inside the current database transaction; consume that transport to forward them to this one. A value that is not the name of a configured transport is a DSN, used to create the \"orders.outbox\" transport for an \"orders\" transport."
                                                 },
+                                                "inbox": {
+                                                    "anyOf": [
+                                                        {
+                                                            "$ref": "#/$defs/types/object_null",
+                                                            "properties": {
+                                                                "enabled": {
+                                                                    "$ref": "#/$defs/types/boolean",
+                                                                    "default": false
+                                                                },
+                                                                "connection": {
+                                                                    "$ref": "#/$defs/types/scalar",
+                                                                    "default": null,
+                                                                    "description": "Name of the Doctrine DBAL connection of that transaction, the default connection when not set."
+                                                                },
+                                                                "table_name": {
+                                                                    "$ref": "#/$defs/types/scalar",
+                                                                    "default": "messenger_inbox"
+                                                                },
+                                                                "retention": {
+                                                                    "$ref": "#/$defs/types/integer",
+                                                                    "minimum": 1,
+                                                                    "default": 604800,
+                                                                    "description": "Number of seconds a record is kept, which must exceed the time the transport can take to redeliver a message."
+                                                                }
+                                                            },
+                                                            "additionalProperties": false
+                                                        },
+                                                        {
+                                                            "type": [
+                                                                "boolean"
+                                                            ]
+                                                        }
+                                                    ],
+                                                    "default": {
+                                                        "enabled": false,
+                                                        "connection": null,
+                                                        "table_name": "messenger_inbox",
+                                                        "retention": 604800
+                                                    },
+                                                    "description": "Records the handled messages in a database table, in the transaction of their handlers, so that a redelivered message is not handled twice. Needs the \"identity_stamps\" option and a middleware that runs the handlers in a transaction."
+                                                },
                                                 "retry_strategy": {
                                                     "anyOf": [
                                                         {
