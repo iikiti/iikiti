@@ -19,7 +19,7 @@ use iikiti\CMS\State\Provider\AdminMenuProvider;
 			uriTemplate: '/admin/menu',
 			name: 'admin_menu_list',
 			provider: AdminMenuProvider::class,
-			security: 'is_granted("ROLE_ADMIN")',
+			security: 'is_granted("ROLE_USER")',
 		),
 	],
 )]

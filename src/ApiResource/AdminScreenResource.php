@@ -23,7 +23,7 @@ use iikiti\CMS\State\Provider\AdminScreenProvider;
 			uriTemplate: '/admin/screens',
 			name: 'admin_screens_list',
 			provider: AdminScreenProvider::class,
-			security: 'is_granted("ROLE_ADMIN")',
+			security: 'is_granted("ROLE_USER")',
 		),
 	],
 )]

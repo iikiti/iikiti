@@ -7,9 +7,9 @@ namespace iikiti\CMS\Controller\Api\Admin;
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Controller\AppController;
 use iikiti\CMS\Entity\AbstractDigitalAsset;
-use iikiti\CMS\Entity\AssetWorkflowRun;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\User;
+use iikiti\CMS\Entity\Workflow\WorkflowInstance;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\DigitalAssetRepository;
 use iikiti\CMS\Repository\DigitalAssetVariantRepository;
@@ -191,8 +191,19 @@ final class DigitalAssetController extends AppController
 		}
 		$runs = [];
 		if (null !== $entityManager) {
-			foreach ($entityManager->getRepository(AssetWorkflowRun::class)->findBy(['asset' => $asset], ['id' => 'ASC']) as $run) {
-				$runs[] = ['workflow' => $run->getWorkflow()->getKey(), 'status' => $run->getStatus(), 'attempts' => $run->getAttempts(), 'error' => $run->getLastError()];
+			$assetId = $asset->getId();
+			if (null !== $assetId) {
+				foreach ($entityManager->getRepository(WorkflowInstance::class)->findBySubject('digital_asset', (string) $assetId) as $instance) {
+					$marking = $instance->getMarking();
+					$runs[] = [
+						'workflow' => $instance->getDefinitionVersion()->getDefinition()->getKey(),
+						'version' => $instance->getDefinitionVersion()->getVersion(),
+						'status' => 1 === count($marking) ? array_key_first($marking) : 'parallel',
+						'executionState' => $instance->getExecutionState(),
+						'attempts' => $instance->getAttempts(),
+						'error' => $instance->getLastError(),
+					];
+				}
 			}
 		}
 
@@ -207,7 +218,7 @@ final class DigitalAssetController extends AppController
 			'visibility' => $asset->getVisibility(),
 			'siteIds' => $siteIds,
 			'processingStatus' => $asset->getProcessingStatus(),
-			'workflowRuns' => $runs,
+			'workflowInstances' => $runs,
 			'variants' => $variantData,
 			'fileUrl' => '/assets/'.$asset->getPublicToken().'/original',
 		];

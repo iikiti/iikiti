@@ -5,6 +5,7 @@
 	}
 
 	interface Props {
+		name?: string;
 		value?: string | number | null | string[] | number[];
 		options: Option[];
 		placeholder?: string;
@@ -15,6 +16,7 @@
 	}
 
 	let {
+		name,
 		value,
 		options,
 		placeholder,
@@ -46,6 +48,7 @@
 	{#if multiple}
 		<select
 			class="admin-input w-full"
+			name={name ? `${name}[]` : undefined}
 			multiple
 			bind:value={value}
 			{disabled}
@@ -57,6 +60,7 @@
 	{:else}
 		<select
 			class="admin-input w-full"
+			{name}
 			bind:value={value}
 			{disabled}
 			{required}

@@ -27,7 +27,7 @@
 		visibility: 'private' | 'public';
 		siteIds: Array<number | string>;
 		processingStatus: string;
-		workflowRuns: Array<{ workflow: string; status: string; attempts: number; error: string | null }>;
+		workflowInstances: Array<{ workflow: string; version: number; status: string; executionState: string; attempts: number; error: string | null }>;
 		variants: Array<{ key: string; mimeType: string; width: number | null; height: number | null; url: string }>;
 		fileUrl: string;
 	}
@@ -259,9 +259,9 @@
 						<td>{asset.visibility}</td>
 						<td>
 							<div>{asset.processingStatus}</div>
-							{#each asset.workflowRuns as run (run.workflow)}
-								<div class="text-xs text-text-muted">{run.workflow}: {run.status}{#if run.error} — {run.error}{/if}</div>
-							{/each}
+			{#each asset.workflowInstances as run (`${run.workflow}:${run.version}`)}
+				<div class="text-xs text-text-muted">{run.workflow} v{run.version}: {run.status} ({run.executionState}){#if run.error} — {run.error}{/if}</div>
+			{/each}
 						</td>
 						<td><div class="flex gap-2"><Button variant="secondary" onclick={() => editAsset(asset)}>Edit</Button><Button variant="danger" onclick={() => removeAsset(asset)}>Delete</Button></div></td>
 					</tr>

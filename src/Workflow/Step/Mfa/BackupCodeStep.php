@@ -45,12 +45,23 @@ class BackupCodeStep extends AbstractMfaStep
 	 */
 	public function process(array $data, array $context): array
 	{
-		if (null !== $this->matchedHash) {
-			$this->consume($this->matchedHash);
-			$this->matchedHash = null;
+		if (null === $this->matchedHash) {
+			return [];
 		}
+		$used = $context['mfa_backup_code_hashes_used'] ?? [];
+		$used = is_array($used) ? $used : [];
+		$used[] = $this->matchedHash;
 
-		return ['backup_code_used' => true];
+		return ['backup_code_used' => true, 'mfa_backup_code_hashes_used' => array_values(array_unique($used))];
+	}
+
+	public function onTransitionCommitted(): void
+	{
+		if (null === $this->matchedHash) {
+			return;
+		}
+		$this->consume($this->matchedHash);
+		$this->matchedHash = null;
 	}
 
 	private function findMatchingHash(string $code): ?string

@@ -115,6 +115,82 @@ Symfony events are also dispatched (`iikiti.plugin.install`, `activate`,
 `deactivate`, `update`, `uninstall`) so plugins can subscribe without
 implementing the interface.
 
+## Workflow graph providers
+
+Plugins can provide versioned DB workflow definitions and register policy,
+transition-action, subject-resolver, task-assignment, and MFA-factor services.
+These extension points use stable keys rather than PHP class names in graph
+JSON. The plugin manifest ID owns its definitions, and the provider's source
+version participates in the persisted definition version hash.
+
+```php
+use iikiti\CMS\Workflow\Definition\WorkflowDefinitionData;
+use iikiti\CMS\Workflow\Definition\WorkflowDefinitionProviderInterface;
+
+final class ApprovalWorkflowProvider implements WorkflowDefinitionProviderInterface
+{
+    public function getOwnerKey(): string { return 'vendor/approval'; }
+    public function getSourceVersion(): string { return '1.2.0'; }
+
+    public function getDefinitions(): iterable
+    {
+        yield new WorkflowDefinitionData(
+            'review_request',
+            'Review request',
+            [
+                'type' => 'workflow',
+                'places' => ['draft', 'approved', 'rejected', 'complete'],
+                'transitions' => [
+                    ['name' => 'approve', 'from' => 'draft', 'to' => 'approved', 'metadata' => ['guardKeys' => ['vendor.approval.can_approve']]],
+                    ['name' => 'reject', 'from' => 'draft', 'to' => 'rejected'],
+                    ['name' => 'finish_approved', 'from' => 'approved', 'to' => 'complete'],
+                    ['name' => 'finish_rejected', 'from' => 'rejected', 'to' => 'complete'],
+                ],
+                'initialPlaces' => ['draft'],
+                'finalPlaces' => ['complete'],
+                'metadata' => ['policyKey' => 'vendor.approval.policy'],
+            ],
+            'vendor.approval.policy',
+        );
+    }
+}
+```
+
+The provider service is autoconfigured via `WorkflowDefinitionProviderInterface`.
+After a plugin install/update and container rebuild, synchronize active plugin
+sources into immutable DB versions with:
+
+```sh
+php bin/console iikiti:workflow:sync-definitions
+```
+
+Global admins may assign plugin definitions to sites. Site managers may use an
+assigned plugin definition or fork it into a site-owned editable version; they
+cannot mutate the plugin-owned source. Existing instances remain pinned to their
+definition version. If a plugin is disabled, its active instances pause with a
+visible reason and resume after activation once the pinned handler/policy keys
+are available.
+
+`WorkflowPolicyInterface` is the required authorization/guard hook; missing
+policy keys fail closed. `WorkflowTransitionActionInterface` handles trusted
+code effects, and `WorkflowSubjectResolverInterface` maps a registered subject
+type key plus opaque ID to plugin domain data. Human-task assignment may use a
+registered `WorkflowTaskAssignmentResolverInterface` or a direct user/site role.
+Action handlers execute inside the workflow transition transaction: queue
+external I/O through Messenger rather than performing non-transactional network
+side effects inline.
+
+MFA factor plugins implement `MfaFactorProviderInterface`, including
+`isAvailableFor()`, a provider version, and a unique proof key. Admin MFA graphs
+may reference registered factor keys, but the core proof policy verifies the
+current required proof set before authentication; plugin graphs cannot set
+proof flags directly or override `core.mfa_proof_gate`.
+
+Never put service FQCNs, PHP expressions, executable code, or raw SQL in graph
+documents. Use bounded graph metadata and registered stable keys only; update
+the source version when plugin behavior changes so sessions and instances can
+detect the new definition version.
+
 ## Per-site configuration
 
 Plugins are enabled per site. Their settings are stored in the site's

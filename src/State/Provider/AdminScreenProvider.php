@@ -45,7 +45,7 @@ readonly class AdminScreenProvider implements ProviderInterface
 
 		$filtered = array_filter($screens, function (AdminScreen $screen) use ($user): bool {
 			if (null === $screen->permission) {
-				return true;
+				return $this->authorizationChecker->isGranted('ROLE_ADMIN');
 			}
 
 			if (str_starts_with($screen->permission, 'ROLE_')) {

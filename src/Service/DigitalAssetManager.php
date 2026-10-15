@@ -10,6 +10,7 @@ use iikiti\CMS\Entity\Object\ExternalDigitalAsset;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\UploadedDigitalAsset;
 use iikiti\CMS\Entity\Object\User;
+use iikiti\CMS\Entity\Workflow\WorkflowInstance;
 use iikiti\CMS\Event\DigitalAssetEvent;
 use iikiti\CMS\Event\DigitalAssetEvents;
 use iikiti\CMS\Message\ProcessDigitalAsset;
@@ -157,6 +158,12 @@ final class DigitalAssetManager
 		foreach ($this->variants->findByAsset($asset) as $variant) {
 			$keys[] = $variant->getStorageKey();
 			$this->entityManager->remove($variant);
+		}
+		$assetId = $asset->getId();
+		if (null !== $assetId) {
+			foreach ($this->entityManager->getRepository(WorkflowInstance::class)->findBySubject('digital_asset', $assetId) as $instance) {
+				$this->entityManager->remove($instance);
+			}
 		}
 		$this->entityManager->remove($asset);
 		$this->entityManager->flush();

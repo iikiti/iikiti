@@ -22,7 +22,7 @@ Management endpoints require an authenticated administrator (`ROLE_ADMIN`):
 - `DELETE /api/admin/assets/{id}`
 - `GET /api/admin/assets/sites`
 
-Deletion removes the original, generated variants, workflow-run records and search entries.
+Deletion removes the original, generated variants, durable workflow instances (including task/history records), and search entries.
 
 ## Background processing and events
 
@@ -44,16 +44,15 @@ php bin/console cache:clear
 php bin/console messenger:restart-workers
 ```
 
-`composer lint:container` verifies the container compiles (run it after dependency updates too: the digital-asset state machines are declared with Symfony 8.2 workflow attributes and are registered at container compile time).
+`composer lint:container` verifies the container compiles (run it after dependency updates too: the asset aggregate state machine is attribute-defined, and runtime graphs are compiled from versioned definitions).
 
-Asset lifecycle transitions are validated by two attribute-defined state machines (`src/StateMachine/`), both visible in the WebProfiler workflow panel during development:
+The aggregate asset lifecycle remains a Symfony 8.2 attribute state machine in `src/StateMachine/AssetProcessingStateMachine.php`, marking `AbstractDigitalAsset::processingStatus` (`pending` → `processing` → `complete`/`failed`). `process` and `requeue` stay reachable from every state so Messenger redeliveries can run; `complete` and `fail` require `processing`.
 
-- `asset_processing` marks `AbstractDigitalAsset::processingStatus` (`pending` → `processing` → `complete`/`failed`). `process` and `requeue` stay reachable from every state so Messenger re-deliveries can always run, while `complete` and `fail` require the asset to be processing.
-- `asset_run` marks `AssetWorkflowRun::status` (`pending` → `running` → `complete`/`failed`/`skipped`). `start` is reachable from every open state (interrupted runs are retried), and `complete`, `fail` and `skip` require the run to be running; a completed run never restarts.
+Individual processor rules are versioned generic workflow definitions. Their `metadata.assetProcessor` records a registered `processorKey`, MIME pattern, conditions, options, and site scope. A run is a generic `WorkflowInstance` whose registered subject reference is `digital_asset:<id>` and whose marking is `pending`/`running`/`complete`/`failed`/`skipped`. The `start` transition is retryable from `pending`, `running`, `failed`, and `skipped`; attempt/error bookkeeping is applied by transition metadata. Completed runs are not processed again for the same rule/asset idempotency key.
 
-Refused transitions throw `Symfony\Component\Workflow\Exception\NotEnabledTransitionException`; the machines also apply the run bookkeeping (`attempts`, `lastError`, `updatedAt`), so no code path should write these columns directly.
+The generic workflow API is documented in `workflow-admin.md`. Asset-detail responses expose `workflowInstances` (definition key/version, marking status, execution state, attempts, and error) instead of the removed asset-specific `workflowRuns` shape.
 
-The default rules generate 320×320 thumbnails and 1280×1280 previews for supported images, and extract text from PDFs and supported text formats. `AssetWorkflowRun` records attempts and outcomes; Messenger retries failed jobs and moves exhausted messages to its failure transport.
+The migrated defaults generate 320×320 thumbnails and 1280×1280 previews for supported images, and extract text from PDFs and supported text formats. Messenger retries failed jobs and moves exhausted messages to its failure transport. Processor implementations remain tagged code services using `DigitalAssetProcessorInterface`; the `AssetWorkflowDefinition` argument is now a non-persisted compatibility value object, not a Doctrine entity.
 
 Lifecycle events are dispatched through Symfony EventDispatcher and can be subscribed to by core or plugin services:
 
@@ -66,28 +65,9 @@ Lifecycle events are dispatched through Symfony EventDispatcher and can be subsc
 
 Each event receives a `DigitalAssetEvent` with `getAsset()`. Custom processors implement `DigitalAssetProcessorInterface`, provide a unique processor key and `supportsMimePattern()`, and are tagged automatically. Rule configuration can invoke only registered processor services; it cannot execute configured code.
 
-Workflow definitions are managed through the secured API by global super administrators (`ROLE_SUPER_ADMIN` or `ROLE_SYSTEM`), since rules affect every site (there is no workflow configuration screen in this release):
+The old `/api/admin/asset-workflows` endpoints are removed. Manage processor definitions under the generic `/api/admin/workflows/definitions` API and the Workflows admin screen. Global asset rules use `allSites: true`; site-owned rules apply only to assets granted to that site. The graph editor offers only registered asset processor keys. Built-in processors validate supported MIME patterns, dimensions, pages, and output limits; plugin processors may provide their own typed options.
 
-- `GET /api/admin/asset-workflows`
-- `POST /api/admin/asset-workflows`
-- `PUT /api/admin/asset-workflows/{id}`
-- `DELETE /api/admin/asset-workflows/{id}`
-
-A rule contains `key`, `name`, `processorKey`, `mimePattern`, `enabled`, `conditions` and `options`. For example:
-
-```json
-{
-  "key": "large-image-thumbnails",
-  "name": "Large image thumbnails",
-  "processorKey": "image_thumbnail",
-  "mimePattern": "image/*",
-  "enabled": true,
-  "conditions": {"min_width": 1200, "min_height": 800, "min_size": 500000},
-  "options": {"variants": [{"name": "thumbnail", "width": 320, "height": 320}]}
-}
-```
-
-Built-in processors accept only their supported MIME patterns and validate dimensions, pages, and output limits. Plugin processors may define additional supported types and options.
+Migration `Version20261015002000` backfills existing asset rules and runs into generic workflow definition versions and instances. After code/UI cutover and count verification, `Version20261015003000` removes the legacy `digital_asset_workflows` and `digital_asset_workflow_runs` tables. Do not apply the contract migration before the generic backfill is verified.
 
 ## Search indexing
 

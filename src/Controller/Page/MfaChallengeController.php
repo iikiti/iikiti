@@ -2,8 +2,10 @@
 
 namespace iikiti\CMS\Controller\Page;
 
+use iikiti\CMS\Authentication\Mfa\MfaProofPolicy;
+use iikiti\CMS\Authentication\Mfa\MfaWorkflowDefinitionResolver;
+use iikiti\CMS\Authentication\Mfa\MfaWorkflowSnapshot;
 use iikiti\CMS\Authentication\MfaAttemptLimiter;
-use iikiti\CMS\Authentication\MfaPreferenceResolver;
 use iikiti\CMS\Authentication\Token\AuthenticationToken;
 use iikiti\CMS\Controller\AppController;
 use iikiti\CMS\Entity\Object\User;
@@ -45,7 +47,8 @@ class MfaChallengeController extends AppController
 		Security $security,
 		ContainerInterface $container,
 		private readonly MultiStepFormRunner $runner,
-		private readonly MfaPreferenceResolver $preferenceResolver,
+		private readonly MfaWorkflowDefinitionResolver $workflowDefinitions,
+		private readonly MfaProofPolicy $proofPolicy,
 		private readonly TokenStorageInterface $tokenStorage,
 		private readonly TargetPathStorage $targetPathStorage,
 		private readonly MfaAttemptLimiter $attemptLimiter,
@@ -68,53 +71,86 @@ class MfaChallengeController extends AppController
 			return $this->lockOut();
 		}
 
-		$workflow = $this->resolveWorkflow($token);
+		$user = $token->getUser();
+		if (!$user instanceof User) {
+			throw new \LogicException('Multi-factor authentication requires an identified user.');
+		}
+		$userId = $this->resolveUserId($token);
+		$state = $this->runner->loadState(self::SESSION_KEY);
+		$priorContext = $this->stateContextForUser($state, $userId);
+		$snapshot = $this->resolveSnapshot($user, $priorContext);
+		if (null === $snapshot) {
+			return $this->blockInvalidConfiguration();
+		}
+		[$workflow, $restarted] = $this->resolveWorkflow($userId, $snapshot, $state);
+		if (null === $workflow) {
+			$snapshot = $this->resolveSnapshot($user);
+			if (null === $snapshot) {
+				return $this->blockInvalidConfiguration();
+			}
+			$workflow = $this->startWorkflow($token, $userId, $snapshot);
+			$restarted = true;
+		}
+		if ($workflow->isComplete()) {
+			$currentSnapshot = $this->resolveSnapshot($user);
+			if (null === $currentSnapshot) {
+				return $this->blockInvalidConfiguration();
+			}
+			if ($currentSnapshot->versionKey === $snapshot->versionKey &&
+				$currentSnapshot->policyFingerprint === $snapshot->policyFingerprint &&
+				$this->proofPolicy->isSatisfied($currentSnapshot->requiredProofs, $workflow->getContext())) {
+				return $this->completeChallenge($token, $userIdentifier);
+			}
+			if ($currentSnapshot->versionKey !== $snapshot->versionKey || $currentSnapshot->policyFingerprint !== $snapshot->policyFingerprint) {
+				return $this->restartChallenge($token);
+			}
+
+			$this->runner->remove(self::SESSION_KEY);
+			$this->tokenStorage->setToken(null);
+			$this->addFlash('error', 'The MFA challenge did not satisfy the current security policy. Please sign in again.');
+
+			return $this->redirectToRoute('html_login');
+		}
 		$step = $this->requireFormStep($workflow);
 
-		if ($request->isMethod(Request::METHOD_POST)) {
-			return $this->handleSubmission($request, $workflow, $step, $token, $userIdentifier);
+		if ($request->isMethod(Request::METHOD_POST) && !$restarted) {
+			return $this->handleSubmission($request, $workflow, $step, $token, $userIdentifier, $snapshot);
 		}
 
 		$this->runner->prepare(self::SESSION_KEY, $workflow, $step);
+		if ($restarted && $request->isMethod(Request::METHOD_POST)) {
+			$this->addFlash('info', 'The MFA workflow changed. Complete the refreshed challenge to continue.');
+		}
 
 		return $this->renderTemplate($workflow, $step);
 	}
 
-	private function resolveWorkflow(AuthenticationToken $token): WorkflowInterface
+	/**
+	 * @param array<string,mixed>|null $state
+	 *
+	 * @return array{WorkflowInterface|null,bool}
+	 */
+	private function resolveWorkflow(int|string $userId, MfaWorkflowSnapshot $snapshot, ?array $state): array
 	{
-		$userId = $this->resolveUserId($token);
-		$state = $this->runner->loadState(self::SESSION_KEY);
-
-		if (null !== $state && $this->stateBelongsTo($state, $userId)) {
-			return $this->runner->restore($state);
+		if (null !== $state && $this->stateBelongsTo($state, $userId, $snapshot)) {
+			return [$this->runner->restore($state), false];
 		}
 
-		// A challenge left behind by a different user must not be reused.
 		if (null !== $state) {
 			$this->runner->remove(self::SESSION_KEY);
 		}
 
-		return $this->startWorkflow($token, $userId);
+		return [null, true];
 	}
 
-	private function startWorkflow(AuthenticationToken $token, int|string $userId): WorkflowInterface
+	private function startWorkflow(AuthenticationToken $token, int|string $userId, MfaWorkflowSnapshot $snapshot): WorkflowInterface
 	{
 		$user = $token->getUser();
 		if (!$user instanceof User) {
 			throw new \LogicException('Multi-factor authentication requires an identified user.');
 		}
 
-		$configuration = $this->preferenceResolver->resolve($user);
-		$emails = $user->getEmails() ?? [];
-		$email = $emails[0] ?? null;
-
-		return $this->runner->create(self::SESSION_KEY, self::WORKFLOW_NAME, [
-			'user_id' => $userId,
-			MfaStepProvider::CONTEXT_METHODS => $configuration->getEnabledMethods(),
-			MfaStepProvider::CONTEXT_EMAIL => is_string($email) ? $email : null,
-			MfaStepProvider::CONTEXT_TOTP_SECRET => $configuration->getTotpSecret(),
-			MfaStepProvider::CONTEXT_BACKUP_CODES => $configuration->getBackupCodeHashes(),
-		]);
+		return $this->runner->create(self::SESSION_KEY, self::WORKFLOW_NAME, $this->workflowDefinitions->createSessionContext($user, $snapshot));
 	}
 
 	private function resolveUserId(AuthenticationToken $token): int|string
@@ -130,19 +166,53 @@ class MfaChallengeController extends AppController
 	/**
 	 * @param array<string,mixed> $state
 	 */
-	private function stateBelongsTo(array $state, int|string $userId): bool
+	private function stateBelongsTo(array $state, int|string $userId, MfaWorkflowSnapshot $snapshot): bool
 	{
 		$context = $state['context'] ?? null;
 		if (!is_array($context)) {
 			return false;
 		}
 
-		$storedUserId = $context['user_id'] ?? null;
-		if (!is_int($storedUserId) && !is_string($storedUserId)) {
+		if (!$this->contextBelongsToUser($context, $userId)) {
 			return false;
 		}
+		$initialBackupCodes = $context[MfaStepProvider::CONTEXT_BACKUP_CODES] ?? [];
+		$usedBackupCodes = $context['mfa_backup_code_hashes_used'] ?? [];
+		if (!is_array($initialBackupCodes) || !is_array($usedBackupCodes)) {
+			return false;
+		}
+		foreach ([...$initialBackupCodes, ...$usedBackupCodes] as $backupCodeHash) {
+			if (!is_string($backupCodeHash)) {
+				return false;
+			}
+		}
+		$expectedBackupCodes = array_values(array_diff($initialBackupCodes, $usedBackupCodes));
+		$currentBackupCodes = $snapshot->configuration->getBackupCodeHashes();
+		sort($expectedBackupCodes);
+		sort($currentBackupCodes);
 
-		return (string) $storedUserId === (string) $userId;
+		return ($context[MfaStepProvider::CONTEXT_DEFINITION_VERSION] ?? null) === $snapshot->versionKey &&
+			($context[MfaStepProvider::CONTEXT_POLICY_FINGERPRINT] ?? null) === $snapshot->policyFingerprint &&
+			$expectedBackupCodes === $currentBackupCodes;
+	}
+
+	/** @param array<string,mixed>|null $state
+	 * @return array<string,mixed>
+	 */
+	private function stateContextForUser(?array $state, int|string $userId): array
+	{
+		$context = $state['context'] ?? null;
+
+		return is_array($context) && $this->contextBelongsToUser($context, $userId) ? $context : [];
+	}
+
+	/** @param array<string,mixed> $context */
+	private function contextBelongsToUser(array $context, int|string $userId): bool
+	{
+		$storedUserId = $context['user_id'] ?? null;
+
+		return (is_int($storedUserId) || is_string($storedUserId)) &&
+			(string) $storedUserId === (string) $userId;
 	}
 
 	private function requireFormStep(WorkflowInterface $workflow): FormStepInterface
@@ -166,11 +236,31 @@ class MfaChallengeController extends AppController
 		FormStepInterface $step,
 		AuthenticationToken $token,
 		string $userIdentifier,
+		MfaWorkflowSnapshot $snapshot,
 	): Response {
 		$result = $this->runner->submitRequest(self::SESSION_KEY, $workflow, $step, $request);
 
 		if ($result->accepted) {
 			if ($workflow->isComplete()) {
+				$user = $token->getUser();
+				if (!$user instanceof User) {
+					throw new \LogicException('Multi-factor authentication requires an identified user.');
+				}
+				$currentSnapshot = $this->resolveSnapshot($user);
+				if (null === $currentSnapshot) {
+					return $this->blockInvalidConfiguration();
+				}
+				if ($currentSnapshot->versionKey !== $snapshot->versionKey || $currentSnapshot->policyFingerprint !== $snapshot->policyFingerprint) {
+					return $this->restartChallenge($token);
+				}
+				if (!$this->proofPolicy->isSatisfied($currentSnapshot->requiredProofs, $workflow->getContext())) {
+					$this->runner->remove(self::SESSION_KEY);
+					$this->tokenStorage->setToken(null);
+					$this->addFlash('error', 'The MFA challenge did not satisfy the current security policy. Please sign in again.');
+
+					return $this->redirectToRoute('html_login');
+				}
+
 				return $this->completeChallenge($token, $userIdentifier);
 			}
 
@@ -204,6 +294,41 @@ class MfaChallengeController extends AppController
 		}
 
 		return $this->redirectToRoute('home');
+	}
+
+	private function restartChallenge(AuthenticationToken $token): Response
+	{
+		$user = $token->getUser();
+		if (!$user instanceof User || null === ($snapshot = $this->resolveSnapshot($user))) {
+			return $this->blockInvalidConfiguration();
+		}
+		$userId = $this->resolveUserId($token);
+		$this->runner->remove(self::SESSION_KEY);
+		$workflow = $this->startWorkflow($token, $userId, $snapshot);
+		$step = $this->requireFormStep($workflow);
+		$this->runner->prepare(self::SESSION_KEY, $workflow, $step);
+		$this->addFlash('info', 'The MFA workflow changed. Complete the refreshed challenge to continue.');
+
+		return $this->renderTemplate($workflow, $step);
+	}
+
+	/** @param array<string,mixed> $sessionContext */
+	private function resolveSnapshot(User $user, array $sessionContext = []): ?MfaWorkflowSnapshot
+	{
+		try {
+			return $this->workflowDefinitions->resolve($user, $sessionContext);
+		} catch (\InvalidArgumentException|\LogicException) {
+			return null;
+		}
+	}
+
+	private function blockInvalidConfiguration(): Response
+	{
+		$this->runner->remove(self::SESSION_KEY);
+		$this->tokenStorage->setToken(null);
+		$this->addFlash('error', 'Multi-factor authentication settings require attention. Please try again later or contact an administrator.');
+
+		return $this->redirectToRoute('html_login');
 	}
 
 	private function lockOut(): Response

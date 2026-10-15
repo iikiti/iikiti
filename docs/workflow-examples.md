@@ -1,8 +1,9 @@
 # Workflow examples
 
-This guide shows how to build multi-step workflows with the abstract workflow
-engine in `src/Workflow/`. Each example is based on the actual classes in the
-codebase, so the code can be copied and adapted.
+This guide shows how to build interactive workflows with the abstract flow
+engine in `src/Workflow/`, whose progression is backed by Symfony Workflow.
+Each example is based on the actual classes in the codebase, so the code can be
+copied and adapted.
 
 For the MFA implementation built on this engine, see [mfa-workflow.md](mfa-workflow.md).
 
@@ -11,7 +12,7 @@ For the MFA implementation built on this engine, see [mfa-workflow.md](mfa-workf
 | Class / interface                        | Role                                                                 |
 | ---------------------------------------- | -------------------------------------------------------------------- |
 | `WorkflowManager`                        | Creates workflows and holds step providers per workflow name.        |
-| `Workflow` (`WorkflowInterface`)         | Ordered list of steps, shared context, and navigation.               |
+| `Workflow` (`WorkflowInterface`)         | Step/form adapter over Symfony Workflow markings and transitions.    |
 | `WorkflowStepInterface`                  | A single step with `validate()` and `process()`.                     |
 | `AbstractWorkflowStep`                   | Base class for custom steps (id, name, required, skippable, config). |
 | `AbstractFormWorkflowStep`               | Base class for steps that render a Symfony `FormType`.               |
@@ -21,11 +22,16 @@ For the MFA implementation built on this engine, see [mfa-workflow.md](mfa-workf
 Workflow lifecycle:
 
 1. A workflow is created with an initial context.
-2. Steps are added (directly or by a step provider).
-3. `submitCurrentStep($data)` validates the current step, merges its output into
-   the context, and advances. Rejected data never reaches the persisted context.
-4. When the last step succeeds, the workflow is marked complete and
-   `WORKFLOW_COMPLETED` is dispatched.
+2. Steps are added directly or by a legacy step provider. The ordered step list
+   is compiled to a linear Symfony Workflow graph. A graph provider can instead
+   supply branches and parallel places.
+3. `submitCurrentStep($data)` validates and processes the active step, then
+   applies one enabled transition. If more than one user transition is enabled,
+   the caller must provide its name. Rejected or ambiguous submissions never
+   reach the persisted context.
+4. A marking containing only final places is complete; automatic transitions
+   (such as joins) run to a stable marking with a 32-transition safety bound.
+   The adapter dispatches the existing `WORKFLOW_COMPLETED` event on completion.
 
 ## Example 1: A minimal workflow with custom steps
 
@@ -216,32 +222,102 @@ final class PurchaseStepProvider implements StepProviderInterface
 
 Because the step list depends on `requires_shipping`, a digital-only order skips
 the shipping step entirely. The MFA workflow works the same way: `MfaStepProvider`
-produces one step per enabled method.
+uses a linear code default when the site has no configured MFA graph; when one is
+assigned, its graph arranges the registered factor steps and the core proof gate
+still requires every method in the current user policy.
 
-### Using the bundled dynamic form provider
+### Graph providers
 
-The codebase already ships a provider that builds steps from a JSON-style
-definition in the `steps` context key (`DynamicFormStepProvider`, workflow name
-`dynamic_form`). A definition looks like this:
+`WorkflowGraphProviderInterface` extends the legacy `StepProviderInterface`.
+It returns the step objects that render/validate active forms and a graph that
+defines their places and transitions. It is opt-in, so existing providers remain
+linear and source-compatible.
 
-```json
+```php
+use iikiti\CMS\Workflow\Graph\WorkflowGraph;
+use iikiti\CMS\Workflow\Graph\WorkflowGraphTransition;
+use iikiti\CMS\Workflow\WorkflowGraphProviderInterface;
+use iikiti\CMS\Workflow\WorkflowInterface;
+
+final class ApprovalStepProvider implements WorkflowGraphProviderInterface
 {
-  "steps": [
+    public function getWorkflowName(): string { return 'approval'; }
+
+    public function supports(mixed $context): bool { return true; }
+
+    public function provideSteps(WorkflowInterface $workflow, mixed $context): array
     {
-      "id": "personal",
-      "name": "Personal details",
-      "fields": [
-        { "name": "full_name", "type": "Symfony\\Component\\Form\\Extension\\Core\\Type\\TextType" },
-        { "name": "email", "type": "Symfony\\Component\\Form\\Extension\\Core\\Type\\EmailType" }
-      ]
+        return [new ReviewStep(), new ApprovedStep(), new RejectedStep()];
     }
-  ]
+
+    public function provideGraph(WorkflowInterface $workflow, mixed $context): WorkflowGraph
+    {
+        return new WorkflowGraph(
+            ['review', 'approved', 'rejected', 'complete'],
+            [
+                new WorkflowGraphTransition('approve', ['review'], ['approved']),
+                new WorkflowGraphTransition('reject', ['review'], ['rejected']),
+                new WorkflowGraphTransition('finish_approved', ['approved'], ['complete']),
+                new WorkflowGraphTransition('finish_rejected', ['rejected'], ['complete']),
+            ],
+            ['review'],
+            ['complete'],
+        );
+    }
 }
 ```
 
-It is limited to 20 steps and 50 fields per step. It is served by the
-`/forms/{workflow}` route and can be started by passing the JSON definition in
-the `steps` query parameter.
+For parallel places, a transition may have multiple targets (fork) or multiple
+sources (join). Mark a transition with `['automatic' => true]` as metadata to
+run it automatically when enabled, such as after all join branches finish.
+Automatic transitions are not presented as form buttons; transition guard
+listeners still decide whether Symfony permits them.
+
+### Admin-managed form graphs
+
+The Workflows admin screen stores interactive form graphs as immutable
+`WorkflowDefinitionVersion` records. An active assigned definition can be
+started at `/forms/db/{workflowKey}`; the session pins the version and stores the
+Symfony marking and context. The graph step factory maps registered form-place
+schemas to `DynamicFormStep` objects.
+
+```json
+{
+  "type": "workflow",
+  "places": [
+    {
+      "id": "personal",
+      "metadata": {
+        "label": "Personal details",
+        "form": {
+          "fields": [
+            { "name": "full_name", "type": "text", "label": "Full name", "required": true },
+            { "name": "email", "type": "email", "label": "Email", "required": true }
+          ]
+        }
+      }
+    },
+    "complete"
+  ],
+  "transitions": [
+    { "name": "finish_personal", "from": "personal", "to": "complete" }
+  ],
+  "initialPlaces": ["personal"],
+  "finalPlaces": ["complete"],
+  "metadata": { "policyKey": "core.site_workflow" }
+}
+```
+
+The graph format is bounded to 100 places, 200 transitions and 256 KiB. Form
+schemas allow only registered field types/options; API submissions are validated
+through Symfony Forms, and extra fields are rejected. The old
+`/forms/{workflow}?steps=...` query definition is no longer accepted.
+
+Code-defined providers that need to construct a step list from trusted runtime
+context can still use `StepProviderInterface`; use
+`WorkflowGraphProviderInterface` when the flow needs branches or parallel
+markings. For DB definitions, do not put executable PHP class names or
+expressions into graph JSON.
 
 ## Example 4: Building steps with `WorkflowManager::buildWorkflow()`
 
@@ -315,16 +391,17 @@ final class OnboardingAuditSubscriber implements EventSubscriberInterface
 | `STEP_VALIDATION_FAILED`   | The current step fails validation             | `WorkflowStepEvent`   |
 | `STEP_NEXT`                | The workflow advances to the next step        | `WorkflowStepEvent`   |
 | `STEP_PREVIOUS`            | The workflow returns to the previous step     | `WorkflowStepEvent`   |
-| `STEP_JUMP`                | The workflow jumps to a step by id            | `WorkflowStepEvent`   |
+| `STEP_JUMP`                | The workflow follows an enabled backward transition | `WorkflowStepEvent`   |
 | `WORKFLOW_COMPLETED`       | The last step succeeds                        | `WorkflowEvent`       |
 
 Validation events carry `['valid' => bool]` as event data.
 
 ## Example 6: Persisting state between requests
 
-Workflows are stateful. To survive across HTTP requests, store the context and
-rebuild the workflow on the next request. `WorkflowSessionStorage` and
-`WorkflowFactory` do this for the session.
+Workflows are stateful. `WorkflowSessionStorage` stores the context and
+multi-place marking in the session; `WorkflowFactory` rebuilds the provider and
+restores the marking on the next request. Step objects and services are never
+serialized.
 
 ```php
 // Request 1: start and advance.
@@ -349,6 +426,9 @@ one-time codes should be stored as hashes, as the MFA e-mail step does.
 - **Use `required` and `skippable` deliberately.** These flags describe the
   step; they do not enforce the flow on their own. `validate()` decides whether
   a step passes.
+- **Do not jump over unsubmitted steps.** `goToStep()` is limited to enabled
+  backward transitions. Forward progress requires a successfully submitted step
+  and an enabled graph transition.
 - **Keep `process()` pure.** It should return only the data to merge and not
   perform side effects. Put side effects (sending mail, writing audit records)
   in an event subscriber or a service.

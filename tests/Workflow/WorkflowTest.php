@@ -3,6 +3,8 @@
 namespace iikiti\CMS\Tests\Workflow;
 
 use iikiti\CMS\Tests\Fixtures\StubWorkflowStep;
+use iikiti\CMS\Workflow\Graph\WorkflowGraph;
+use iikiti\CMS\Workflow\Graph\WorkflowGraphTransition;
 use iikiti\CMS\Workflow\Workflow;
 use iikiti\CMS\Workflow\WorkflowStepInterface;
 use PHPUnit\Framework\TestCase;
@@ -39,7 +41,7 @@ final class WorkflowTest extends TestCase
 		$this->assertSame('a', $workflow->getCurrentStep()?->getId());
 	}
 
-	public function testGoToStepMovesToMatchingStep(): void
+	public function testGoToStepCannotSkipDisabledTransitions(): void
 	{
 		$workflow = $this->createWorkflow([
 			new StubWorkflowStep('a'),
@@ -49,8 +51,96 @@ final class WorkflowTest extends TestCase
 
 		$workflow->goToStep('c');
 
-		$this->assertSame('c', $workflow->getCurrentStep()?->getId());
-		$this->assertSame(2, $workflow->getCurrentStepIndex());
+		$this->assertSame('a', $workflow->getCurrentStep()?->getId());
+		$this->assertSame(0, $workflow->getCurrentStepIndex());
+
+		$workflow->goToStep('b');
+
+		$this->assertSame('a', $workflow->getCurrentStep()?->getId());
+		$workflow->nextStep();
+		$workflow->goToStep('a');
+
+		$this->assertSame('a', $workflow->getCurrentStep()?->getId());
+		$this->assertSame(0, $workflow->getCurrentStepIndex());
+	}
+
+	public function testBranchSubmissionRequiresAnExplicitEnabledTransition(): void
+	{
+		$graph = new WorkflowGraph(
+			['choice', 'left', 'right', 'complete'],
+			[
+				new WorkflowGraphTransition('choose_left', ['choice'], ['left']),
+				new WorkflowGraphTransition('choose_right', ['choice'], ['right']),
+				new WorkflowGraphTransition('finish_left', ['left'], ['complete']),
+				new WorkflowGraphTransition('finish_right', ['right'], ['complete']),
+			],
+			['choice'],
+			['complete'],
+		);
+		$workflow = new Workflow(
+			'branching',
+			new EventDispatcher(),
+			[
+				new StubWorkflowStep('choice', true, ['answer' => 'left']),
+				new StubWorkflowStep('left'),
+				new StubWorkflowStep('right'),
+			],
+			$graph,
+		);
+
+		$this->assertSame(['choose_left', 'choose_right'], $workflow->getEnabledTransitionNames());
+		$this->assertFalse($workflow->submitCurrentStep(['answer' => 'left']));
+		$this->assertSame('choice', $workflow->getCurrentStep()?->getId());
+		$this->assertSame([], $workflow->getContext());
+
+		$this->assertTrue($workflow->submitCurrentStepWithTransition(['answer' => 'left'], 'choose_left'));
+		$this->assertSame('left', $workflow->getCurrentStep()->getId());
+		$this->assertSame(['answer' => 'left'], $workflow->getContext());
+	}
+
+	public function testRestoringMarkingResumesAtTheSameStep(): void
+	{
+		$steps = [new StubWorkflowStep('a'), new StubWorkflowStep('b'), new StubWorkflowStep('c')];
+		$workflow = $this->createWorkflow($steps);
+		$workflow->nextStep();
+		$marking = $workflow->getWorkflowMarking();
+
+		$restored = $this->createWorkflow($steps);
+		$restored->restoreMarking($marking);
+
+		$this->assertSame(['b' => 1], $restored->getWorkflowMarking());
+		$this->assertSame('b', $restored->getCurrentStep()->getId());
+		$this->assertSame(1, $restored->getCurrentStepIndex());
+	}
+
+	public function testParallelFormBranchesAutoJoinAfterEachBranchCompletes(): void
+	{
+		$graph = new WorkflowGraph(
+			['left', 'right', 'left_done', 'right_done', 'complete'],
+			[
+				new WorkflowGraphTransition('finish_left', ['left'], ['left_done']),
+				new WorkflowGraphTransition('finish_right', ['right'], ['right_done']),
+				new WorkflowGraphTransition('join', ['left_done', 'right_done'], ['complete'], ['automatic' => true]),
+			],
+			['left', 'right'],
+			['complete'],
+		);
+		$workflow = new Workflow(
+			'parallel_forms',
+			new EventDispatcher(),
+			[new StubWorkflowStep('left'), new StubWorkflowStep('right')],
+			$graph,
+		);
+
+		$this->assertSame('left', $workflow->getCurrentStep()?->getId());
+		$this->assertSame(['finish_left'], $workflow->getEnabledTransitionNamesForPlace('left'));
+		$this->assertTrue($workflow->submitCurrentStepWithTransition([], 'finish_left'));
+		$this->assertSame('right', $workflow->getCurrentStep()->getId());
+		$this->assertFalse($workflow->isComplete());
+
+		$this->assertTrue($workflow->submitCurrentStepWithTransition([], 'finish_right'));
+		$this->assertTrue($workflow->isComplete());
+		$this->assertSame(['complete' => 1], $workflow->getWorkflowMarking());
 	}
 
 	public function testGoToUnknownStepIsIgnored(): void

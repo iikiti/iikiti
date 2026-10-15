@@ -12,6 +12,7 @@
 		label: string;
 		type: string;
 		required: boolean;
+		disabled?: boolean;
 		options?: Array<{ value: string; label: string }>;
 	}
 
@@ -24,6 +25,7 @@
 	let { flow, action, csrf }: Props = $props();
 
 	let fields = $state<Field[]>([]);
+	let transitions = $state<string[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let values = $state<Record<string, unknown>>({});
@@ -32,13 +34,14 @@
 		try {
 			const res = await fetch(`/flow/${encodeURIComponent(flow)}/step`, { credentials: 'same-origin' });
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
-			const data = (await res.json()) as { fields?: Field[]; complete?: boolean };
+			const data = (await res.json()) as { fields?: Field[]; complete?: boolean; enabledTransitions?: string[] };
 			if (data.complete) {
 				// Workflow finished server-side: reveal the live page.
 				window.location.assign(window.location.pathname);
 				return;
 			}
 			fields = data.fields ?? [];
+			transitions = (data.enabledTransitions ?? []).filter((transition) => transition !== 'back');
 		} catch (e: any) {
 			error = e?.message ?? 'Failed to load step';
 			notifications.notify({ message: error, type: 'error' });
@@ -51,13 +54,11 @@
 		values = { ...values, [key]: value };
 	}
 
-	function serialize(): Record<string, unknown> {
-		const out: Record<string, unknown> = {};
-		for (const f of fields) {
-			out[f.key] = values[f.key];
-		}
+	function transitionAction(transition: string): string {
+		const url = new URL(action, window.location.origin);
+		url.searchParams.set('_workflow_transition', transition);
 
-		return out;
+		return `${url.pathname}${url.search}`;
 	}
 </script>
 
@@ -72,23 +73,36 @@
 			<FormField label={field.label}>
 				{#if field.type === 'select'}
 					<SelectInput
+						name={field.key}
 						value={String(values[field.key] ?? '')}
 						options={field.options ?? []}
-						onChange={(v) => onChange(field.key, v)}
+						required={field.required}
+						disabled={field.disabled ?? false}
+						onchange={(v) => onChange(field.key, v)}
 					/>
 				{:else if field.type === 'toggle'}
 					<ToggleInput
-						checked={Boolean(values[field.key])}
-						onChange={(v) => onChange(field.key, v)}
+						name={field.key}
+						value={Boolean(values[field.key])}
+						disabled={field.disabled ?? false}
+						onchange={(v) => onChange(field.key, v)}
 					/>
 				{:else if field.type === 'textarea'}
-					<TextareaInput value={String(values[field.key] ?? '')} onInput={(v) => onChange(field.key, v)} />
+					<TextareaInput name={field.key} value={String(values[field.key] ?? '')} required={field.required} disabled={field.disabled ?? false} oninput={(v) => onChange(field.key, v)} />
 				{:else}
-					<TextInput value={String(values[field.key] ?? '')} onInput={(v) => onChange(field.key, v)} />
+					<TextInput name={field.key} value={String(values[field.key] ?? '')} required={field.required} disabled={field.disabled ?? false} oninput={(v) => onChange(field.key, v)} />
 				{/if}
 			</FormField>
 		{/each}
-		<button type="submit" class="iikiti-btn iikiti-btn--primary">Continue</button>
+		{#if transitions.length > 1}
+			{#each transitions as transition (transition)}
+				<button type="submit" formaction={transitionAction(transition)} class="iikiti-btn iikiti-btn--primary">
+					{transition.replaceAll('_', ' ')}
+				</button>
+			{/each}
+		{:else}
+			<button type="submit" class="iikiti-btn iikiti-btn--primary">Continue</button>
+		{/if}
 	</form>
 {/if}
 

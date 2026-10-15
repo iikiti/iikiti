@@ -1,5 +1,6 @@
 <script lang="ts">
 	interface Props {
+		name?: string;
 		value?: string | number | null;
 		placeholder?: string;
 		type?: 'text' | 'email' | 'password' | 'number' | 'tel' | 'url';
@@ -12,6 +13,7 @@
 	}
 
 	let {
+		name,
 		value,
 		placeholder,
 		type = 'text',
@@ -39,6 +41,7 @@
 <input
 	type={type}
 	class="admin-input w-full"
+	{name}
 	{placeholder}
 	bind:value={inputValue}
 	{disabled}

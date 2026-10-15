@@ -14,12 +14,16 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ## [Unreleased]
 
-> Last updated: 2026-10-14
+> Last updated: 2026-10-15
 
 ### Added
 
 - 2026-10-14: `composer lint:container` script and digital-asset deployment notes (container warmup + `messenger:restart-workers` after deploys; state machine transition reference in `docs/digital-asset-manager.md`).
-- 2026-10-14: Attribute-based state machines (`#[AsWorkflow]`, Symfony 8.2) for digital-asset lifecycles: `AssetProcessingStateMachine` (`asset_processing`, marking `processingStatus`) and `AssetRunStateMachine` (`asset_run`, marking run `status`), injected into the asset services.
+- 2026-10-14: Symfony 8.2 attribute state machine for aggregate digital-asset processing status (`AssetProcessingStateMachine`, marking `processingStatus`).
+- 2026-10-15: Shared Symfony Workflow runtime for interactive session flows and versioned DB graphs, including branching/fork-join, durable subject/context instances, optimistic locking, assigned user/site-role tasks, task inbox, generic workflow APIs, and Svelte definition/task screens.
+- 2026-10-15: Site/plugin workflow definition providers, stable policy/action/assignment/subject keys, version synchronization, plugin pause/resume lifecycle, and `iikiti:workflow:sync-definitions` command.
+- 2026-10-15: Admin-configurable per-site MFA graphs built from registered factor providers, with a code-enforced proof gate, per-request workflow/policy fingerprint invalidation, and parallel-factor proof-path validation.
+- 2026-10-15: Versioned generic workflow definitions/instances, parallel task assignments, and instance history; migrations `Version20261015001000`–`Version20261015005000` provide schema, asset backfill, contract drop, lock defaults, and schema-qualified assignment indexes.
 - 2026-10-12: Digital asset manager with protected uploads and HTTPS URI links, per-site access grants, public/private delivery, async extensible image/PDF/text workflows, search indexing and admin CRUD.
 - 2026-10-10: Sidebar tabs now organize settings into ordered accordion groups, persist each block's open state per template for one week, and expose group registration plus field group/order metadata to plugins.
 - 2026-10-10: Core blocks gain grouped style controls with base and responsive breakpoint editing for layout, size, spacing, typography, background, borders, effects and position.
@@ -39,7 +43,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 - 2026-10-10: Layers tree collapses and expands: rows whose block type accepts children show a disclosure arrow, a single click toggles children, double-click toggles the whole subtree, and the header icon expands or collapses all containers. Expansion persists per browser.
 - 2026-10-10: `Dialog` opt-in state persistence (`persistState`, `getState`, `setState`, `notifyStateChanged`) and a `headerActions` snippet; enabled for the Layers dialog.
 - 2026-10-10: Layers menu supports drag-and-drop reordering: drop above/below a row to reorder within its parent, or onto a container's middle band to nest it. Validation reuses the canvas rules (`assets/svelte/editor/layerDrop.js`).
-- 2026-10-09: `docs/workflow-examples.md` with examples for building workflows: custom steps via `WorkflowManager`, form steps via `AbstractFormWorkflowStep`, dynamic steps via `StepProviderInterface`, `addStepProvider()`/`buildWorkflow()`, event subscribers, session persistence and testing.
+- 2026-10-09: `docs/workflow-examples.md` with interactive flow examples; updated 2026-10-15 for Symfony graph providers, bounded admin form graphs, session markings, and branch/fork/join transitions.
 - 2026-10-09: `window.iikiti.loader.loadStyle(url, { strategy })` accepts `async` (low priority, `media="print"` until loaded, does not block layout), `onload` (after DOM ready) and `interaction` (after first pointer or key event); default `complete` is unchanged. Plugins can set `cssStrategy`.
 - 2026-10-09: `window.iikiti.whenReady(name)` readiness API (`assets/js/iikiti/ready.js`): resolves for each component (`components`, `bars`, `theme`, `notifications`, `plugins`, `tour`, `editor.sidebar`) including when it became ready earlier; `whenReady('iikiti:ready')` resolves once all base components are ready. Unregistered names stay pending with no built-in timeout.
 - 2026-10-09: `docs/js-api.md` reference for every public `window.iikiti` member, with stability tags and the verified `#iikiti-config` keys; linked from `plugin-development.md` and `front-end-ui-standard.md`.
@@ -70,6 +74,9 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Fixed
 
+- 2026-10-15: DB session workflow templates posted branch transitions to the wrong route/session for `/forms/db/{workflow}` flows; the controller now passes its route name/key into the rendered form (Twig + Svelte overlay).
+- 2026-10-15: Digital-asset processing failures no longer lose the aggregate failed status on detached entities: the workflow failure path reloads the instance/asset before bookkeeping after a rollback.
+- 2026-10-15: The workflow API reports stale concurrent updates as documented 409 responses (`Doctrine\ORM\OptimisticLockException`) instead of 500.
 - 2026-10-14: Admin SPA parses JSON-LD API responses: the shared `ApiClient` now detects any `…json` content type (e.g. `application/ld+json` for `/api/admin/menu` and `/api/admin/screens`), so the sidebar and registered screens load again instead of showing "Page Not Found" (`assets/svelte/shared/lib/api.js`).
 - 2026-10-10: Symfony `cache:clear` raises the CLI memory limit to 512M during cache rebuilds.
 - 2026-10-10: Layers drop zones inside containers work: the nesting check treats an empty `allowedChildTypes` as "any child" (matching the canvas and the server schema), so dropping a block into a container's middle band is accepted (`layerDrop.js` `parentAllowsType`).
@@ -96,7 +103,10 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Changed
 
-- 2026-10-14: Digital-asset processing/run lifecycle is now validated by the Symfony 8.2 attribute-defined state machines instead of ad-hoc setters: run `complete`/`fail`/`skip` require the run to be running, and asset `complete`/`fail` require processing; queueing (`requeue`) and retries keep full re-entrancy. Stored values, DB schema and API responses are unchanged, `AssetWorkflowRun` swaps its transition methods for storage mutators, and transitions surface in the WebProfiler workflow panel.
+- 2026-10-14: Interactive workflows now apply Symfony Workflow graph transitions with session-persisted multi-place markings; legacy linear step providers remain compatible, graph providers add branching/fork/join with bounded automatic joins, and forward step jumps are refused. Dynamic form definitions now use bounded field/type/option allowlists.
+- 2026-10-15: Digital-asset processor rules and per-asset runs now use generic versioned workflow definitions/instances; the aggregate `asset_processing` attribute machine remains. Backfill preserves processor keys/options/conditions, order, marking, attempts and errors; asset detail responses expose `workflowInstances`.
+- 2026-10-15: Generic workflow task forms validate server-side through Symfony Forms; globally unique transition names prevent parallel requests from accidentally applying multiple arcs, and only system-marked automatic transitions can auto-join.
+- 2026-10-15: Admin navigation/screens are permission-filtered so site managers can access the workflow studio/inbox without exposing global-admin screens; site-owned definitions are scoped, while shared/plugin definitions must be forked to edit.
 - 2026-10-10: Pointer-target tracking switches the active hover to the block under the pointer and schedules the owning ancestor when leaving a descendant for its content.
 - 2026-10-10: Editor canvas block rendering is split into focused components; hover activates after 140ms only when no descendant is hovered, hovered ancestors get subdued dashed clearance, and before/after buttons translate by -100%/+100%.
 - 2026-10-10: Editor canvas hides selection chrome and child-add slots while idle, reveals controls only for the active block, uses one insertion control per sibling gap, and keeps region add controls hidden until hovered or focused.
@@ -120,11 +130,16 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Security
 
+- 2026-10-15: MFA graph form places may no longer declare field names colliding with security-reserved context keys (`user_id`, `mfa_*`, `*_verified`, `*_used`, or any registered factor proof key) — a checked form field can no longer satisfy the proof gate without factor verification; enforced in the graph compiler at publish and runtime.
+- 2026-10-15: MFA graph topology cannot authenticate by itself: required proof keys are validated against the current user policy at every terminal path and again before token authentication; factor availability, version and policy changes invalidate in-flight challenges; backup codes are consumed only after an accepted transition.
+- 2026-10-15: DB workflow definitions accept only bounded JSON graph/form data and registered policy/action/subject/assignment/factor keys; no DB text is evaluated as PHP or arbitrary FormType/service classes. Workflow transitions are guarded by site scope and optimistic locking.
 - 2026-10-12: Uploaded asset files are stored outside the public root and delivered only after site-grant and visibility checks; private assets require authentication, and administrators may manage only grants for sites they administer.
 - 2026-10-10: Block style properties and values are validated before public inline/media CSS output, preventing saved style data from injecting declarations or markup.
 
 ### Removed
 
+- 2026-10-15: Removed `/api/admin/asset-workflows`, the `workflowRuns` asset-detail response, Doctrine `AssetWorkflowDefinition`/`AssetWorkflowRun` entities/repository, and `AssetRunStateMachine`; the generic workflow APIs/instances replace them. `AssetWorkflowDefinition` remains only as a non-persisted processor-plugin context DTO to preserve the processor extension signature.
+- 2026-10-15: Removed raw `steps` query-JSON workflow definitions and `DynamicFormStepProvider`; persisted `mode: session` graph definitions now run at `/forms/db/{workflowKey}` with a user/site/version-bound session marking.
 - 2026-10-10: Block hover toolbar removed from the editor canvas: the ✏ "Select block" and ⋮ "More actions" buttons and their menu (Add child, Move up, Move down, Delete). Insert "+" buttons and the dashed child slot remain; Delete and reordering moved to the Layers menu and the Delete key.
 - 2026-10-08: Migration `Version20261008120000` converts existing non-main region blocks into
   global shells (sites/creators are copied from the template; templates lacking them are skipped).

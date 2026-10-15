@@ -61,12 +61,17 @@ class WorkflowSessionStorage
 	 */
 	public static function extractState(WorkflowInterface $workflow): array
 	{
-		return [
+		$state = [
 			'name' => $workflow->getName(),
 			'context' => $workflow->getContext(),
 			'current_step' => $workflow->getCurrentStep()?->getId(),
 			'complete' => $workflow->isComplete(),
 		];
+		if ($workflow instanceof RuntimeWorkflowInterface) {
+			$state['marking'] = $workflow->getWorkflowMarking();
+		}
+
+		return $state;
 	}
 
 	/**

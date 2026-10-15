@@ -31,7 +31,10 @@ class MultiStepFormRunner
 	 */
 	public function create(string $sessionKey, string $workflowName, array $context = []): WorkflowInterface
 	{
-		$workflow = $this->workflowManager->buildWorkflow($workflowName, $context);
+		$graph = $context[WorkflowGraphFactoryInterface::CONTEXT_GRAPH_KEY] ?? null;
+		$workflow = $this->workflowFactory instanceof WorkflowGraphFactoryInterface && is_array($graph) ?
+			$this->workflowFactory->createFromDocument($workflowName, $context, $graph) :
+			$this->workflowManager->buildWorkflow($workflowName, $context);
 		$this->save($sessionKey, $workflow);
 
 		return $workflow;
@@ -131,7 +134,13 @@ class MultiStepFormRunner
 		}
 
 		$data = $form->getData();
-		$accepted = $this->submit($sessionKey, $workflow, is_array($data) ? $data : []);
+		$transitionName = $request->query->get('_workflow_transition');
+		$accepted = $this->submit(
+			$sessionKey,
+			$workflow,
+			is_array($data) ? $data : [],
+			is_string($transitionName) && '' !== $transitionName ? $transitionName : null,
+		);
 
 		return new FormSubmissionResult($form, $accepted);
 	}
@@ -143,9 +152,12 @@ class MultiStepFormRunner
 	 *
 	 * @return bool True when the step was accepted
 	 */
-	public function submit(string $sessionKey, WorkflowInterface $workflow, array $data): bool
+	public function submit(string $sessionKey, WorkflowInterface $workflow, array $data, ?string $transitionName = null): bool
 	{
-		if (false === $workflow->submitCurrentStep($data)) {
+		$accepted = $workflow instanceof RuntimeWorkflowInterface ?
+			$workflow->submitCurrentStepWithTransition($data, $transitionName) :
+			$workflow->submitCurrentStep($data);
+		if (false === $accepted) {
 			return false;
 		}
 

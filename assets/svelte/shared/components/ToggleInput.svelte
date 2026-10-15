@@ -1,17 +1,19 @@
 <script lang="ts">
 	interface Props {
+		name?: string;
 		value?: boolean;
 		label?: string;
 		disabled?: boolean;
 		onchange?: (checked: boolean) => void;
 	}
 
-	let { value = false, label, disabled = false, onchange }: Props = $props();
+	let { name, value = false, label, disabled = false, onchange }: Props = $props();
 
 	const checked = $derived(!!value);
 </script>
 
 <div class="flex items-center gap-3">
+	<input type="checkbox" class="sr-only" {name} value="1" checked={checked} {disabled} tabindex="-1" aria-hidden="true" />
 	<button
 		type="button"
 		role="switch"

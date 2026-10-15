@@ -3,9 +3,12 @@
 namespace iikiti\CMS\Controller\Page;
 
 use iikiti\CMS\Controller\AppController;
+use iikiti\CMS\Entity\Object\Site;
+use iikiti\CMS\Entity\Object\User;
+use iikiti\CMS\Registry\SiteRegistry;
+use iikiti\CMS\Workflow\Definition\WorkflowInteractiveDefinitionResolver;
 use iikiti\CMS\Workflow\FormStepInterface;
 use iikiti\CMS\Workflow\MultiStepFormRunner;
-use iikiti\CMS\Workflow\StepProvider\DynamicFormStepProvider;
 use iikiti\CMS\Workflow\WorkflowInterface;
 use Psr\Container\ContainerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -14,14 +17,13 @@ use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\AsController;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * Renders any form-based workflow as a multi-step form.
  *
- * This controller is the generic counterpart of the multi-factor challenge:
- * it contains no domain logic, so the same navigation and persistence can
- * later serve user-built forms.
+ * This controller drives code-defined workflows and persisted admin form graphs.
  */
 #[AsController]
 class MultiStepFormController extends AppController
@@ -29,7 +31,6 @@ class MultiStepFormController extends AppController
 	private const SESSION_PREFIX = 'multistep_form_';
 	private const TEMPLATE = 'multi_step_form.twig';
 	private const ERROR_MESSAGE = 'Please check the form and try again.';
-	private const MAX_STEPS_PAYLOAD = 10000;
 
 	public function __construct(
 		Security $security,
@@ -71,11 +72,81 @@ class MultiStepFormController extends AppController
 		return $this->renderTemplate($instance, $step);
 	}
 
+	#[Route(
+		'/forms/db/{workflow}',
+		name: 'multi_step_form_db',
+		methods: ['GET', 'POST'],
+		requirements: ['workflow' => '[a-z][a-z0-9_.-]{1,127}']
+	)]
+	public function runDatabaseWorkflow(string $workflow, Request $request, WorkflowInteractiveDefinitionResolver $definitions): Response
+	{
+		$user = $this->getUser();
+		$site = SiteRegistry::getCurrent();
+		if (!$user instanceof User || null === $user->getId() || null === $site->getId()) {
+			throw new NotFoundHttpException('Interactive workflow not found.');
+		}
+
+		$sessionKey = sprintf('multistep_db_%s_%s_%s', (string) $site->getId(), (string) $user->getId(), $workflow);
+		$state = $this->runner->loadState($sessionKey);
+		$instance = null;
+		$restarted = false;
+		if (null !== $state && $this->databaseStateBelongsTo($state, $workflow, $user, $site)) {
+			$context = $state['context'];
+			$versionId = $context[WorkflowInteractiveDefinitionResolver::SESSION_VERSION_ID] ?? null;
+			$definitionId = $context[WorkflowInteractiveDefinitionResolver::SESSION_DEFINITION_ID] ?? null;
+			if (is_int($versionId) || is_string($versionId)) {
+				$version = $definitions->resolvePinned($versionId, $workflow, $site);
+				if (null !== $version && (is_int($definitionId) || is_string($definitionId)) && (string) $version->getDefinition()->getId() === (string) $definitionId) {
+					$instance = $this->runner->restore($state);
+				}
+			}
+		}
+
+		if (null === $instance) {
+			if (null !== $state) {
+				$this->runner->remove($sessionKey);
+			}
+			$version = $definitions->resolveCurrent($workflow, $site);
+			if (null === $version) {
+				throw new NotFoundHttpException('Interactive workflow not found.');
+			}
+			$context = $definitions->createSessionContext($version, $user, $site, $workflow);
+			$instance = $this->runner->create($sessionKey, $definitions->runtimeName($workflow), $context);
+			$restarted = null !== $state;
+		}
+
+		$step = $instance->getCurrentStep();
+		if (null === $step) {
+			$this->runner->remove($sessionKey);
+			if ($instance->isComplete()) {
+				return $this->render('multi_step_form_complete.twig', [
+					'doc' => ['title' => 'Form submitted'],
+					'workflow' => $instance,
+				]);
+			}
+			throw new \LogicException('Interactive workflow has no active form place.');
+		}
+		if (!$step instanceof FormStepInterface) {
+			throw new \LogicException(sprintf('Workflow step "%s" does not render a form.', $step->getId()));
+		}
+		if ($request->isMethod(Request::METHOD_POST) && !$restarted) {
+			return $this->handleSubmission($request, $sessionKey, $instance, $step, 'multi_step_form_db', $workflow);
+		}
+		$this->runner->prepare($sessionKey, $instance, $step);
+		if ($restarted && $request->isMethod(Request::METHOD_POST)) {
+			$this->addFlash('info', 'The workflow definition changed; this form session restarted on its current version.');
+		}
+
+		return $this->renderTemplate($instance, $step, null, 'multi_step_form_db', $workflow);
+	}
+
 	private function handleSubmission(
 		Request $request,
 		string $sessionKey,
 		WorkflowInterface $workflow,
 		FormStepInterface $step,
+		string $routeName = 'multi_step_form',
+		?string $routeKey = null,
 	): Response {
 		$result = $this->runner->submitRequest($sessionKey, $workflow, $step, $request);
 
@@ -89,14 +160,14 @@ class MultiStepFormController extends AppController
 				]);
 			}
 
-			return $this->redirectToRoute('multi_step_form', ['workflow' => $workflow->getName()]);
+			return $this->redirectToRoute($routeName, ['workflow' => $routeKey ?? $workflow->getName()]);
 		}
 
 		if ($result->form->isValid()) {
 			$result->form->addError(new FormError(self::ERROR_MESSAGE));
 		}
 
-		return $this->renderTemplate($workflow, $step, $result->form);
+		return $this->renderTemplate($workflow, $step, $result->form, $routeName, $routeKey);
 	}
 
 	/**
@@ -106,19 +177,22 @@ class MultiStepFormController extends AppController
 		WorkflowInterface $workflow,
 		FormStepInterface $step,
 		?FormInterface $form = null,
+		string $routeName = 'multi_step_form',
+		?string $routeKey = null,
 	): Response {
 		return $this->render(self::TEMPLATE, [
 			'doc' => ['title' => $step->getName()],
 			'workflow' => $workflow,
 			'step' => $step,
 			'form' => $form ?? $this->runner->createForm($workflow, $step),
+			'routeName' => $routeName,
+			'routeKey' => $routeKey,
 		]);
 	}
 
 	/**
-	 * Builds the start context from the query string. Field-based workflows
-	 * accept a JSON-encoded "steps" definition so a future builder can seed
-	 * the same workflow without changing the controller.
+	 * Passes scalar start parameters to trusted code-defined step providers.
+	 * Admin-authored graphs are resolved from versioned database definitions.
 	 *
 	 * @return array<string,mixed>
 	 */
@@ -126,19 +200,33 @@ class MultiStepFormController extends AppController
 	{
 		$context = [];
 		foreach ($request->query->all() as $key => $value) {
-			if (is_scalar($value)) {
+			if ('steps' !== $key && is_scalar($value)) {
 				$context[$key] = $value;
 			}
 		}
 
-		$steps = $request->query->get('steps');
-		if (is_string($steps) && strlen($steps) <= self::MAX_STEPS_PAYLOAD) {
-			$decoded = json_decode($steps, true);
-			if (is_array($decoded)) {
-				$context[DynamicFormStepProvider::CONTEXT_KEY] = $decoded;
-			}
-		}
-
 		return $context;
+	}
+
+	/** @param array<string,mixed> $state */
+	private function databaseStateBelongsTo(array $state, string $key, User $user, Site $site): bool
+	{
+		$context = $state['context'] ?? null;
+		if (!is_array($context)) {
+			return false;
+		}
+		$versionId = $context[WorkflowInteractiveDefinitionResolver::SESSION_VERSION_ID] ?? null;
+		$definitionId = $context[WorkflowInteractiveDefinitionResolver::SESSION_DEFINITION_ID] ?? null;
+		$storedUserId = $context[WorkflowInteractiveDefinitionResolver::SESSION_USER_ID] ?? null;
+		$storedSiteId = $context[WorkflowInteractiveDefinitionResolver::SESSION_SITE_ID] ?? null;
+		$storedKey = $context[WorkflowInteractiveDefinitionResolver::SESSION_ROUTE_KEY] ?? null;
+
+		return (is_int($versionId) || is_string($versionId)) &&
+			(is_int($definitionId) || is_string($definitionId)) &&
+			(is_int($storedUserId) || is_string($storedUserId)) &&
+			(is_int($storedSiteId) || is_string($storedSiteId)) &&
+			(string) $storedUserId === (string) $user->getId() &&
+			(string) $storedSiteId === (string) $site->getId() &&
+			$storedKey === $key;
 	}
 }

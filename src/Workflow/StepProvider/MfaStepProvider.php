@@ -1,42 +1,41 @@
 <?php
 
+declare(strict_types=1);
+
 namespace iikiti\CMS\Workflow\StepProvider;
 
-use Doctrine\ORM\EntityManagerInterface;
-use iikiti\CMS\Authentication\Mail\MfaCodeMailerInterface;
+use iikiti\CMS\Authentication\Mfa\MfaFactorProviderInterface;
+use iikiti\CMS\Authentication\Mfa\MfaFactorProviderRegistry;
 use iikiti\CMS\Authentication\MfaUserConfiguration;
-use iikiti\CMS\Authentication\Strategy\EmailTokenStrategy;
-use iikiti\CMS\Authentication\Strategy\TotpTokenStrategy;
-use iikiti\CMS\Entity\Object\User;
-use iikiti\CMS\Workflow\Step\Mfa\BackupCodeStep;
-use iikiti\CMS\Workflow\Step\Mfa\EmailVerificationStep;
-use iikiti\CMS\Workflow\Step\Mfa\TotpVerificationStep;
-use iikiti\CMS\Workflow\StepProviderInterface;
+use iikiti\CMS\Workflow\Graph\WorkflowGraph;
+use iikiti\CMS\Workflow\Graph\WorkflowGraphCompiler;
+use iikiti\CMS\Workflow\Graph\WorkflowGraphTransition;
+use iikiti\CMS\Workflow\Step\DynamicFormStep;
+use iikiti\CMS\Workflow\Step\Mfa\MfaVerifiedFactorStep;
+use iikiti\CMS\Workflow\WorkflowGraphProviderInterface;
 use iikiti\CMS\Workflow\WorkflowInterface;
 use iikiti\CMS\Workflow\WorkflowStepInterface;
 
 /**
- * Supplies the multi-factor challenge steps for a user.
- *
- * Steps are built from the workflow context, which is seeded once when the
- * challenge starts and then restored from the session. This keeps the steps
- * stable for the whole challenge and avoids re-querying the user's
- * configuration on every request. The user entity is only loaded when a
- * step needs to persist a change (backup-code consumption).
+ * Builds session-backed MFA form steps from registered factor providers and,
+ * when present, an authorized/versioned workflow graph from the database.
  */
-class MfaStepProvider implements StepProviderInterface
+class MfaStepProvider implements WorkflowGraphProviderInterface
 {
 	public const WORKFLOW_NAME = 'mfa_authentication';
+	public const DEFAULT_GRAPH_VERSION = 'code-default-v1';
 	public const CONTEXT_METHODS = 'mfa_methods';
 	public const CONTEXT_EMAIL = 'mfa_email';
 	public const CONTEXT_TOTP_SECRET = 'mfa_totp_secret';
 	public const CONTEXT_BACKUP_CODES = 'mfa_backup_codes';
+	public const CONTEXT_GRAPH = 'mfa_graph';
+	public const CONTEXT_DEFINITION_VERSION = 'mfa_definition_version';
+	public const CONTEXT_POLICY_FINGERPRINT = 'mfa_policy_fingerprint';
+	public const CONTEXT_REQUIRED_PROOFS = 'mfa_required_proofs';
 
 	public function __construct(
-		private readonly EntityManagerInterface $entityManager,
-		private readonly EmailTokenStrategy $emailStrategy,
-		private readonly TotpTokenStrategy $totpStrategy,
-		private readonly MfaCodeMailerInterface $mailer,
+		private readonly MfaFactorProviderRegistry $factors,
+		private readonly WorkflowGraphCompiler $graphCompiler,
 	) {
 	}
 
@@ -51,107 +50,120 @@ class MfaStepProvider implements StepProviderInterface
 	}
 
 	/**
-	 * @return WorkflowStepInterface[]
+	 * @return list<WorkflowStepInterface>
 	 */
 	public function provideSteps(WorkflowInterface $workflow, mixed $context): array
 	{
-		if (!is_array($context)) {
+		if (!is_array($context) || !is_array($context[self::CONTEXT_METHODS] ?? null)) {
 			return [];
 		}
+		$methods = array_values(array_filter($context[self::CONTEXT_METHODS], 'is_string'));
+		$document = $context[self::CONTEXT_GRAPH] ?? null;
+		if (is_array($document)) {
+			$graph = $this->graphCompiler->compile($document);
+			$steps = [];
+			foreach ($graph->places as $place) {
+				$metadata = $graph->placeMetadata($place);
+				$factorKey = $metadata['mfaFactorKey'] ?? null;
+				if (is_string($factorKey)) {
+					if (!in_array($factorKey, $methods, true)) {
+						continue;
+					}
+					$provider = $this->factors->get($factorKey);
+					if (null === $provider || null === ($step = $this->createFactorStep($provider, $place, $context))) {
+						throw new \LogicException(sprintf('MFA factor "%s" is unavailable for this challenge.', $factorKey));
+					}
+					$steps[] = $step;
 
-		$methods = $context[self::CONTEXT_METHODS] ?? null;
-		if (!is_array($methods)) {
-			return [];
+					continue;
+				}
+				$form = $metadata['form'] ?? null;
+				if (is_array($form) && is_array($form['fields'] ?? null)) {
+					$steps[] = new DynamicFormStep($place, (string) ($metadata['label'] ?? $place), $form['fields']);
+				}
+			}
+
+			return $steps;
 		}
 
 		$steps = [];
 		foreach ($methods as $method) {
-			if (!is_string($method)) {
-				continue;
+			$provider = $this->factors->get($method);
+			if (null === $provider) {
+				throw new \LogicException(sprintf('MFA factor "%s" is not registered.', $method));
 			}
-
-			$step = $this->createStep($method, $context);
-			if (null !== $step) {
-				$steps[] = $step;
+			$stepId = $this->defaultStepId($method);
+			$step = $this->createFactorStep($provider, $stepId, $context);
+			if (null === $step) {
+				throw new \LogicException(sprintf('MFA factor "%s" is not available for this challenge.', $method));
 			}
+			$steps[] = $step;
 		}
 
 		return $steps;
 	}
 
-	/**
-	 * @param array<string,mixed> $context
-	 */
-	private function createStep(string $method, array $context): ?WorkflowStepInterface
+	public function provideGraph(WorkflowInterface $workflow, mixed $context): WorkflowGraph
 	{
-		return match ($method) {
-			MfaUserConfiguration::METHOD_EMAIL => $this->createEmailStep($context),
-			MfaUserConfiguration::METHOD_TOTP => $this->createTotpStep($context),
-			MfaUserConfiguration::METHOD_BACKUP_CODE => $this->createBackupCodeStep($context),
-			default => null,
+		if (is_array($context) && is_array($context[self::CONTEXT_GRAPH] ?? null)) {
+			return $this->graphCompiler->compile($context[self::CONTEXT_GRAPH]);
+		}
+
+		$steps = $this->provideSteps($workflow, $context);
+		if ([] === $steps) {
+			throw new \LogicException('MFA workflow requires at least one registered factor.');
+		}
+		$stepIds = array_map(static fn (WorkflowStepInterface $step): string => $step->getId(), $steps);
+		$complete = 'mfa_complete';
+		$places = [...$stepIds, $complete];
+		$transitions = [];
+		$placesMetadata = [];
+		foreach ($stepIds as $index => $stepId) {
+			$target = $stepIds[$index + 1] ?? $complete;
+			$transitions[] = new WorkflowGraphTransition(
+				sprintf('mfa_next_%d', $index),
+				[$stepId],
+				[$target],
+				['navigation' => 'forward'],
+			);
+			$factorKey = $this->factorKeyForStep($stepId);
+			if (null !== $factorKey) {
+				$placesMetadata[$stepId] = ['mfaFactorKey' => $factorKey];
+			}
+		}
+
+		return new WorkflowGraph($places, $transitions, [$stepIds[0]], [$complete], $placesMetadata, ['mode' => 'session', 'policyKey' => 'core.mfa_proof_gate']);
+	}
+
+	private function defaultStepId(string $factorKey): string
+	{
+		return match ($factorKey) {
+			MfaUserConfiguration::METHOD_EMAIL => 'mfa_email',
+			MfaUserConfiguration::METHOD_TOTP => 'mfa_totp',
+			MfaUserConfiguration::METHOD_BACKUP_CODE => 'mfa_backup_code',
+			default => 'mfa_'.$factorKey,
 		};
 	}
 
-	/**
-	 * @param array<string,mixed> $context
-	 */
-	private function createEmailStep(array $context): ?WorkflowStepInterface
+	private function factorKeyForStep(string $stepId): ?string
 	{
-		$email = $context[self::CONTEXT_EMAIL] ?? null;
-		if (!is_string($email) || '' === $email) {
-			return null;
+		foreach ($this->factors->getKeys() as $factorKey) {
+			if ($this->defaultStepId($factorKey) === $stepId) {
+				return $factorKey;
+			}
 		}
 
-		return new EmailVerificationStep($this->emailStrategy, $this->mailer, $email);
+		return null;
 	}
 
-	/**
-	 * @param array<string,mixed> $context
-	 */
-	private function createTotpStep(array $context): ?WorkflowStepInterface
+	/** @param array<string,mixed> $context */
+	private function createFactorStep(MfaFactorProviderInterface $provider, string $placeId, array $context): ?WorkflowStepInterface
 	{
-		$secret = $context[self::CONTEXT_TOTP_SECRET] ?? null;
-		if (!is_string($secret) || '' === $secret) {
-			return null;
+		$proofKey = $provider->getProofKey();
+		if (true === ($context[$proofKey] ?? false)) {
+			return new MfaVerifiedFactorStep($placeId, $provider->getKey(), $proofKey);
 		}
 
-		return new TotpVerificationStep($this->totpStrategy, $secret);
-	}
-
-	/**
-	 * @param array<string,mixed> $context
-	 */
-	private function createBackupCodeStep(array $context): ?WorkflowStepInterface
-	{
-		$hashes = $context[self::CONTEXT_BACKUP_CODES] ?? null;
-		if (!is_array($hashes)) {
-			return null;
-		}
-
-		$codeHashes = array_values(array_filter(
-			$hashes,
-			static fn (mixed $hash): bool => is_string($hash) && '' !== $hash
-		));
-		if ([] === $codeHashes) {
-			return null;
-		}
-
-		$user = $this->resolveUser($context['user_id'] ?? null);
-		if (null === $user) {
-			return null;
-		}
-
-		return new BackupCodeStep($user, $this->entityManager, $codeHashes);
-	}
-
-	private function resolveUser(mixed $userId): ?User
-	{
-		if (!is_int($userId) && !is_string($userId)) {
-			return null;
-		}
-
-		$user = $this->entityManager->find(User::class, $userId);
-
-		return $user instanceof User ? $user : null;
+		return $provider->createStep($placeId, $context);
 	}
 }

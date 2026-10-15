@@ -10,6 +10,8 @@
 	import ApplicationsRoute from './routes/Applications.svelte';
 	import SitesRoute from './routes/Sites.svelte';
 	import AssetsRoute from './routes/Assets.svelte';
+	import WorkflowDefinitionsRoute from './routes/WorkflowDefinitions.svelte';
+	import WorkflowTasksRoute from './routes/WorkflowTasks.svelte';
 	import SiteGroupsRoute from './routes/SiteGroups.svelte';
 	import AuditLogRoute from './routes/AuditLog.svelte';
 	import PluginsRoute from './routes/Plugins.svelte';
@@ -54,6 +56,8 @@
 		Applications: ApplicationsRoute,
 		Sites: SitesRoute,
 		Assets: AssetsRoute,
+		WorkflowDefinitions: WorkflowDefinitionsRoute,
+		WorkflowTasks: WorkflowTasksRoute,
 		SiteGroups: SiteGroupsRoute,
 		AuditLog: AuditLogRoute,
 		Plugins: PluginsRoute,

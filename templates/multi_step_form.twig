@@ -3,7 +3,7 @@
 {% block body %}
 	<main class="multi-step-form mx-auto mt-12 w-full max-w-md px-4"
 		data-flow="multistep"
-		data-flow-action="{{ path('multi_step_form', {'workflow': workflow.name }) }}"
+		data-flow-action="{{ path(routeName, {'workflow': routeKey ?? workflow.name }) }}"
 		data-flow-csrf="{{ csrf_token('multistep') }}">
 		<h1 class="mb-2 text-2xl font-semibold">{{ step.name }}</h1>
 
@@ -20,9 +20,18 @@
 					{{ form_row(field) }}
 				{% endfor %}
 
-				<button type="submit" class="mt-4 rounded bg-blue-600 px-4 py-2 text-white">
-					Continue
-				</button>
+				{% set transitions = workflow.getEnabledTransitionNamesForPlace(step.id)|filter(transition => not transition starts with 'back_') %}
+				{% if transitions|length > 1 %}
+					{% for transition in transitions %}
+						<button type="submit" formaction="{{ path(routeName, {'workflow': routeKey ?? workflow.name, '_workflow_transition': transition}) }}" class="mt-4 rounded bg-blue-600 px-4 py-2 text-white">
+							{{ transition|replace({'_': ' '})|capitalize }}
+						</button>
+					{% endfor %}
+				{% else %}
+					<button type="submit" class="mt-4 rounded bg-blue-600 px-4 py-2 text-white">
+						Continue
+					</button>
+				{% endif %}
 			{{ form_end(form) }}
 		</div>
 	</main>

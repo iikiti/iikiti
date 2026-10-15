@@ -40,4 +40,10 @@ final class DigitalAssetProcessorRegistry
 	{
 		return isset($this->processors[$key]);
 	}
+
+	/** @return list<string> */
+	public function getKeys(): array
+	{
+		return array_keys($this->processors);
+	}
 }

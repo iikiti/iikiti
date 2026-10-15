@@ -53,7 +53,6 @@ class CoreAdminExtension implements AdminExtensionInterface
 			AdminApiResource::create('applications', '/api/applications', 'Applications'),
 			AdminApiResource::create('sites', '/api/sites', 'Sites'),
 			AdminApiResource::create('assets', '/api/admin/assets', 'Assets'),
-			AdminApiResource::create('asset-workflows', '/api/admin/asset-workflows', 'Asset Workflows'),
 			AdminApiResource::create('site-groups', '/api/admin/site-groups', 'Site Groups'),
 			AdminApiResource::create('plugins', '/api/admin/plugins', 'Plugins'),
 			AdminApiResource::create('search', '/api/admin/search/indexes', 'Search'),

@@ -62,6 +62,7 @@ final class WorkflowSessionStorageTest extends TestCase
 				'context' => ['shipping' => 'express'],
 				'current_step' => 'address',
 				'complete' => false,
+				'marking' => ['address' => 1],
 			],
 			WorkflowSessionStorage::extractState($workflow)
 		);

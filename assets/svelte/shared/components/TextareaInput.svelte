@@ -1,5 +1,6 @@
 <script lang="ts">
 	interface Props {
+		name?: string;
 		value?: string | null;
 		placeholder?: string;
 		rows?: number;
@@ -9,6 +10,7 @@
 	}
 
 	let {
+		name,
 		value,
 		placeholder,
 		rows = 4,
@@ -31,6 +33,7 @@
 
 <textarea
 	class="admin-input w-full resize-y"
+	{name}
 	{placeholder}
 	rows={rows}
 	bind:value={inputValue}

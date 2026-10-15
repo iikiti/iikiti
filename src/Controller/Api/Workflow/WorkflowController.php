@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace iikiti\CMS\Controller\Api\Workflow;
 
 use iikiti\CMS\Controller\AppController;
+use iikiti\CMS\Web\Workflow\WorkflowSchemaExtractor;
 use iikiti\CMS\Workflow\FormStepInterface;
 use iikiti\CMS\Workflow\MultiStepFormRunner;
-use iikiti\CMS\Web\Workflow\WorkflowSchemaExtractor;
+use iikiti\CMS\Workflow\RuntimeWorkflowInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\AsController;
@@ -68,6 +69,10 @@ class WorkflowController extends AppController
 			'stepIndex' => $workflow->getCurrentStepIndex(),
 			'stepCount' => count($workflow->getSteps()),
 			'complete' => $workflow->isComplete(),
+			'activePlaces' => $workflow instanceof RuntimeWorkflowInterface ? $workflow->getActivePlaceIds() : [],
+			'enabledTransitions' => $workflow instanceof RuntimeWorkflowInterface && null !== $step ?
+				$workflow->getEnabledTransitionNamesForPlace($step->getId()) :
+				[],
 			'fields' => $fields,
 		]);
 	}

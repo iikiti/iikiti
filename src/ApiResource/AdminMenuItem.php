@@ -17,6 +17,7 @@ class AdminMenuItem
 		/** @var list<AdminMenuItem> */
 		public array $children = [],
 		public int $priority = 0,
+		public ?string $permission = null,
 	) {
 	}
 
@@ -29,7 +30,8 @@ class AdminMenuItem
 		?string $icon = null,
 		int $priority = 0,
 		array $children = [],
+		?string $permission = null,
 	): self {
-		return new self($label, $path, $icon, null, $children, $priority);
+		return new self($label, $path, $icon, null, $children, $priority, $permission);
 	}
 }
