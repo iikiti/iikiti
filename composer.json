@@ -1,7 +1,7 @@
 {
     "name": "iikiti/cms",
     "type": "project",
-    "license": "Apache-2.0",
+    "license": "GPL-3.0-or-later",
     "description": "",
     "minimum-stability": "dev",
     "prefer-stable": true,
