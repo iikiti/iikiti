@@ -74,6 +74,8 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Fixed
 
+- 2026-10-17: JSON property containment casts stored JSON and search values to PostgreSQL JSONB before applying `@>`.
+- 2026-10-17: Made legacy schema migrations tolerate an existing objects primary key and use valid empty JSON defaults for roles.
 - 2026-10-15: DB session workflow templates posted branch transitions to the wrong route/session for `/forms/db/{workflow}` flows; the controller now passes its route name/key into the rendered form (Twig + Svelte overlay).
 - 2026-10-15: Digital-asset processing failures no longer lose the aggregate failed status on detached entities: the workflow failure path reloads the instance/asset before bookkeeping after a rollback.
 - 2026-10-15: The workflow API reports stale concurrent updates as documented 409 responses (`Doctrine\ORM\OptimisticLockException`) instead of 500.
@@ -103,6 +105,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Changed
 
+- 2026-10-17: DbObject stores global/no-site scope as scalar `site_id = 0`; API tokens and managed icons now use the `objects` hierarchy, with standalone entity/repository exceptions documented in `docs/database-objects.md`.
 - 2026-10-14: Interactive workflows now apply Symfony Workflow graph transitions with session-persisted multi-place markings; legacy linear step providers remain compatible, graph providers add branching/fork/join with bounded automatic joins, and forward step jumps are refused. Dynamic form definitions now use bounded field/type/option allowlists.
 - 2026-10-15: Digital-asset processor rules and per-asset runs now use generic versioned workflow definitions/instances; the aggregate `asset_processing` attribute machine remains. Backfill preserves processor keys/options/conditions, order, marking, attempts and errors; asset detail responses expose `workflowInstances`.
 - 2026-10-15: Generic workflow task forms validate server-side through Symfony Forms; globally unique transition names prevent parallel requests from accidentally applying multiple arcs, and only system-marked automatic transitions can auto-join.

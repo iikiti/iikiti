@@ -5,6 +5,12 @@ declare(strict_types=1);
 namespace iikiti\CMS\Tests\Integration;
 
 use Doctrine\ORM\EntityManagerInterface;
+use iikiti\CMS\Entity\DbObject;
+use iikiti\CMS\Entity\IconEntity;
+use iikiti\CMS\Entity\IconSetEntity;
+use iikiti\CMS\Repository\IconRepository;
+use iikiti\CMS\Repository\IconSetRepository;
+use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Web\Icon\IconResolver;
 use iikiti\CMS\Web\Icon\IconSetManager;
 use iikiti\CMS\Web\Icon\SvgRejectedException;
@@ -36,10 +42,41 @@ final class IconSetIntegrationTest extends KernelTestCase
 		if ($this->em->getConnection()->isTransactionActive()) {
 			$this->em->getConnection()->rollBack();
 		}
+		self::resetSiteRegistry();
 		parent::tearDown();
 	}
 
 	private const CLEAN_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M1 1h22v22H1z"/></svg>';
+
+	private static function resetSiteRegistry(): void
+	{
+		(new \ReflectionProperty(SiteRegistry::class, 'initialized'))->setValue(null, false);
+		(new \ReflectionProperty(SiteRegistry::class, 'populated'))->setValue(null, false);
+		(new \ReflectionProperty(SiteRegistry::class, 'siteStack'))->setValue(null, new \SplStack());
+	}
+
+	public function testIconEntitiesUseDbObjectRepositoriesAndGlobalSiteId(): void
+	{
+		$slug = 'test-'.bin2hex(random_bytes(4));
+		$set = $this->manager->createSet($slug, 'Test set');
+		$icon = $this->manager->putIcon($set, 'logo', self::CLEAN_SVG);
+
+		self::assertInstanceOf(DbObject::class, $set);
+		self::assertInstanceOf(DbObject::class, $icon);
+		self::assertSame(0, $set->getSiteId());
+		self::assertSame(0, $icon->getSiteId());
+		self::assertInstanceOf(IconSetRepository::class, $this->em->getRepository(IconSetEntity::class));
+		self::assertInstanceOf(IconRepository::class, $this->em->getRepository(IconEntity::class));
+
+		$this->em->clear();
+		$reloadedSet = $this->em->getRepository(IconSetEntity::class)->findOneBySlug($slug);
+		self::assertInstanceOf(IconSetEntity::class, $reloadedSet);
+		self::assertSame(0, (int) $reloadedSet->getSiteId());
+		$icons = $this->manager->iconsIn($reloadedSet);
+		self::assertCount(1, $icons);
+		self::assertSame('logo', $icons[0]->getName());
+		self::assertSame(0, (int) $icons[0]->getSiteId());
+	}
 
 	public function testStoredIconResolvesFromSetSlashName(): void
 	{

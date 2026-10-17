@@ -27,18 +27,12 @@ class ApiTokenRepository extends ObjectRepository
         parent::__construct($registry, $siteRegistry, $cacheManager, ApiToken::class);
     }
 
-    /**
-     * ApiToken does not extend DbObject and has no site association, so
-     * site-scoping must be disabled by default for this repository.
-     *
-     * @param string $key The option name to look up.
-     */
-    protected static function _defaultOption(string $key): bool|string|int|null
-    {
-        if ($key === 'filterBySite') {
-            return false;
-        }
+	protected static function _defaultOption(string $key): bool|string|int|null
+	{
+		if ('filterBySite' === $key) {
+			return false;
+		}
 
-        return parent::_defaultOption($key);
-    }
+		return parent::_defaultOption($key);
+	}
 }

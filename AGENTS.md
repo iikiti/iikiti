@@ -32,6 +32,12 @@ You can use action `dbal:run-sql` ro run SQL directly on the database. Use this 
 
 For changes made that require configuration changes or user interaction, make sure to add or update existing documentation under /docs and include description of the feature, a walkthrough of any relevant workflows, and installation or configuration steps required to be completed.
 
+## Entity and repository conventions
+
+All persistent CMS entities should extend `iikiti\CMS\Entity\DbObject`, and their repositories should extend `iikiti\CMS\Repository\ObjectRepository`, unless there is a specific, very good reason not to. State each exception and its rationale in `docs/database-objects.md` and keep that list current. `DbObject` uses single-table inheritance in `objects`; subtype-specific columns must be nullable. `objects.site_id = 0` means global/no site, no Site row has id 0, and identity sequences start at 1.
+
+See `docs/database-objects.md` for the object/repository contract, global site behavior, and justified standalone entities.
+
 ## API-First
 
 Virtually all CMS data and actions should be available through the API in a secure way.

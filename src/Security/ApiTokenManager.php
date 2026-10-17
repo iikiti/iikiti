@@ -51,9 +51,12 @@ class ApiTokenManager
 		}
 
 		$token = new ApiToken();
+		$createdDate = new \DateTimeImmutable();
 		$token->setToken(bin2hex(random_bytes(32)));
+		$token->setSiteId(0);
+		$token->setCreatedDate($createdDate);
 		$token->setUser($user);
-		$token->setExpiresAt(new \DateTimeImmutable(sprintf('+%d seconds', self::TOKEN_TTL_SECONDS)));
+		$token->setExpiresAt($createdDate->modify(sprintf('+%d seconds', self::TOKEN_TTL_SECONDS)));
 
 		$this->entityManager->persist($token);
 		$this->entityManager->flush();

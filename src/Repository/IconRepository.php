@@ -2,19 +2,20 @@
 
 namespace iikiti\CMS\Repository;
 
-use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\IconEntity;
 use iikiti\CMS\Entity\IconSetEntity;
+use iikiti\CMS\Registry\SiteRegistry;
+use iikiti\CMS\Service\DatabaseCacheManager;
 
 /**
- * @extends ServiceEntityRepository<IconEntity>
+ * @template-extends ObjectRepository<IconEntity>
  */
-class IconRepository extends ServiceEntityRepository
+class IconRepository extends ObjectRepository
 {
-	public function __construct(ManagerRegistry $registry)
+	public function __construct(ManagerRegistry $registry, SiteRegistry $siteRegistry, DatabaseCacheManager $cacheManager)
 	{
-		parent::__construct($registry, IconEntity::class);
+		parent::__construct($registry, $siteRegistry, $cacheManager, IconEntity::class);
 	}
 
 	/**

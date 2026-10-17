@@ -4,65 +4,60 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Entity;
 
+use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Repository\IconRepository;
 
-/**
- * A single icon inside an admin-managed {@see IconSetEntity}. `svg` is always the
- * output of {@see \iikiti\CMS\Web\Icon\SvgSanitizer}: raw, unsanitised markup is never
- * stored.
- */
 #[ORM\Entity(repositoryClass: IconRepository::class)]
-#[ORM\Table(name: 'icons')]
-#[ORM\UniqueConstraint(name: 'uniq_icon_set_name', columns: ['icon_set_id', 'name'])]
-class IconEntity
+class IconEntity extends DbObject
 {
-	#[ORM\Id]
-	#[ORM\GeneratedValue(strategy: 'IDENTITY')]
-	#[ORM\Column(type: Types::BIGINT, options: ['unsigned' => true])]
-	private int|string|null $id = null;
+	public const SITE_SPECIFIC = false;
 
-	#[ORM\ManyToOne(targetEntity: IconSetEntity::class)]
-	#[ORM\JoinColumn(name: 'icon_set_id', nullable: false, onDelete: 'CASCADE')]
-	private IconSetEntity $iconSet;
+	#[ORM\ManyToOne(targetEntity: IconSetEntity::class, inversedBy: 'icons')]
+	#[ORM\JoinColumn(name: 'icon_set_id', nullable: true, onDelete: 'CASCADE')]
+	private ?IconSetEntity $iconSet = null;
 
-	/** Icon name within its set: lowercase letters, digits, dashes. */
-	#[ORM\Column(type: Types::STRING, length: 64)]
-	private string $name;
+	#[ORM\Column(name: 'icon_name', type: Types::STRING, length: 64, nullable: true)]
+	private ?string $name = null;
 
-	/** Sanitised SVG markup (see SvgSanitizer). */
-	#[ORM\Column(type: Types::TEXT)]
-	private string $svg;
-
-	#[ORM\Column(name: 'created_at', type: Types::DATETIME_IMMUTABLE)]
-	private \DateTimeImmutable $createdAt;
+	#[ORM\Column(type: Types::TEXT, nullable: true)]
+	private ?string $svg = null;
 
 	public function __construct(IconSetEntity $iconSet, string $name, string $sanitisedSvg)
 	{
 		$this->iconSet = $iconSet;
 		$this->name = $name;
 		$this->svg = $sanitisedSvg;
-		$this->createdAt = new \DateTimeImmutable();
-	}
-
-	public function getId(): int|string|null
-	{
-		return $this->id;
+		$this->setProperties(new ArrayCollection());
+		$this->setSiteId(0);
+		$this->setCreatorId(0);
+		$this->setCreatedDate(new \DateTimeImmutable());
+		$iconSet->addIcon($this);
 	}
 
 	public function getIconSet(): IconSetEntity
 	{
-		return $this->iconSet;
+		return $this->iconSet ?? throw new \LogicException('Icon has no set.');
 	}
 
 	public function getName(): string
 	{
-		return $this->name;
+		return $this->name ?? throw new \LogicException('Icon has no name.');
 	}
 
 	public function getSvg(): string
 	{
-		return $this->svg;
+		return $this->svg ?? throw new \LogicException('Icon has no SVG content.');
+	}
+
+	public function getCreatedAt(): \DateTimeImmutable
+	{
+		$createdDate = $this->getCreatedDate();
+		if (!$createdDate instanceof \DateTimeImmutable) {
+			throw new \LogicException('Icon has no creation date.');
+		}
+
+		return $createdDate;
 	}
 }

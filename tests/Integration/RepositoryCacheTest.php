@@ -57,7 +57,6 @@ final class RepositoryCacheTest extends KernelTestCase
 		$cacheManager = $container->get(DatabaseCacheManager::class);
 		$this->cacheManager = $cacheManager;
 
-		$this->ensurePlaceholderZero();
 		$this->cleanupLeftoverSites();
 
 		// SiteRegistry populates itself from the current request host on first
@@ -275,19 +274,6 @@ final class RepositoryCacheTest extends KernelTestCase
 				);
 			}
 		}
-	}
-
-	/**
-	 * Site query results are filtered to site_id 0 (sites are not
-	 * site-specific). The dev database satisfies this foreign key with an
-	 * id=0 placeholder object; create it when missing.
-	 */
-	private function ensurePlaceholderZero(): void
-	{
-		$this->em->getConnection()->executeStatement(
-			'INSERT INTO iikiti_iikiti.objects (id, created_date, creator_id, site_id, type) '.
-			"VALUES (0, NOW(), 0, NULL, 'application') ON CONFLICT (id) DO NOTHING"
-		);
 	}
 
 	/**

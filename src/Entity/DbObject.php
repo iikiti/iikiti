@@ -20,6 +20,11 @@ use iikiti\CMS\Trait\PropertiedTrait;
  */
 #[ORM\Entity(repositoryClass: ObjectRepository::class)]
 #[ORM\Table(name: 'objects')]
+#[ORM\Index(name: 'IDX_ADC517D4E10C7F9A', columns: ['api_token_user_id'])]
+#[ORM\Index(name: 'IDX_ADC517D448D16F3B', columns: ['icon_set_id'])]
+#[ORM\UniqueConstraint(name: 'uniq_api_token_token', columns: ['token'])]
+#[ORM\UniqueConstraint(name: 'uniq_object_icon_set_slug', columns: ['slug'])]
+#[ORM\UniqueConstraint(name: 'uniq_object_icon_set_name', columns: ['icon_set_id', 'icon_name'])]
 #[ORM\InheritanceType('SINGLE_TABLE')]
 #[ORM\DiscriminatorColumn(name: 'type', type: 'string')]
 #[ApiResource]
@@ -38,9 +43,8 @@ class DbObject
 	#[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
 	private \DateTimeImmutable $created_date;
 
-	#[ORM\ManyToOne(targetEntity: Site::class)]
-	#[ORM\JoinColumn(name: 'site_id', referencedColumnName: 'id')]
-	private ?Site $site;
+	#[ORM\Column(name: 'site_id', type: Types::BIGINT, options: ['unsigned' => true, 'default' => 0])]
+	private int|string $site = 0;
 
 	private ?string $type = null;
 
@@ -62,9 +66,19 @@ class DbObject
 		return $this->id ?? null;
 	}
 
+	public function getSiteId(): int|string
+	{
+		return $this->site;
+	}
+
 	public function getLinkedSiteId(): int|string|null
 	{
-		return $this->site->getId();
+		return $this->site;
+	}
+
+	public function setSiteId(int|string $siteId): void
+	{
+		$this->site = $siteId;
 	}
 
 	public function getType(): ?string
@@ -82,18 +96,14 @@ class DbObject
 		return $this->creator_id;
 	}
 
-	public function getSite(): ?Site
-	{
-		return $this instanceof Site ? null : $this->site;
-	}
-
-	/**
-	 * Owning site and creator are NOT NULL in the objects table. Callers creating
-	 * a new object must set both before persisting.
-	 */
 	public function setSite(Site $site): void
 	{
-		$this->site = $site;
+		$siteId = $site->getId();
+		if (null === $siteId) {
+			throw new \LogicException('Cannot assign an unpersisted site to an object.');
+		}
+
+		$this->setSiteId($siteId);
 	}
 
 	public function setCreatorId(int|string $creatorId): void

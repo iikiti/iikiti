@@ -43,7 +43,7 @@ final class EmptyIconSetRepository extends IconSetRepository
 	 *
 	 * @phpstan-pure
 	 */
-	public function findBy(array $criteria, ?array $orderBy = null, $limit = null, $offset = null): array
+	public function findBy(array $criteria, ?array $orderBy = null, $limit = null, $offset = null, array $options = []): array
 	{
 		return [];
 	}

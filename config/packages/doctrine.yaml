@@ -25,7 +25,7 @@ doctrine:
             string_functions:
               JSON_EXTRACT_PATH: Scienta\DoctrineJsonFunctions\Query\AST\Functions\Postgresql\JsonExtractPath
               JSON_GET_TEXT: Scienta\DoctrineJsonFunctions\Query\AST\Functions\Postgresql\JsonGetText
-              JSONB_CONTAINS: Scienta\DoctrineJsonFunctions\Query\AST\Functions\Postgresql\JsonbContains
+              JSONB_CONTAINS: iikiti\CMS\ORM\DQL\Function\JsonbContains
 
         result_cache_driver:
             type: pool
