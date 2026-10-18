@@ -11,7 +11,7 @@ final class DatabaseTableNameResolver
 {
 	private const TABLES = [
 		'batch_jobs', 'batch_items', 'batch_item_dependencies', 'batch_item_dependency_refs', 'batch_events',
-		'batch_schedules', 'batch_schedule_runs', 'site_transfer_identity', 'site_transfer_object_map',
+		'batch_schedules', 'batch_schedule_runs', 'maintenance_runner_state', 'site_transfer_identity', 'site_transfer_object_map',
 		'site_transfer_credentials', 'objects', 'object_properties', 'digital_asset_site_grants',
 	];
 
@@ -70,6 +70,7 @@ final class DatabaseTableNameResolver
 		$this->assetGrantSchemaResolved = true;
 		if ('' === $this->schema) {
 			$this->assetGrantSchema = $this->tableExists('digital_asset_site_grants') ? '' : null;
+
 			return $this->assetGrantSchema;
 		}
 		if ($this->tableExists($this->schema.'.digital_asset_site_grants')) {

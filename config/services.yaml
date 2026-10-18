@@ -2,6 +2,16 @@ parameters:
     digital_asset_storage_dir: '%kernel.project_dir%/var/digital-assets'
     scheduler_adapter_default: symfony
     scheduler_adapter_key: '%env(default:scheduler_adapter_default:SCHEDULER_ADAPTER)%'
+    lazy_queue_enabled_default: true
+    lazy_queue_enabled: '%env(bool:default:lazy_queue_enabled_default:LAZY_QUEUE_ENABLED)%'
+    background_runner_cooldown_default: 5
+    background_runner_cooldown_seconds: '%env(int:default:background_runner_cooldown_default:BACKGROUND_RUNNER_COOLDOWN_SECONDS)%'
+    background_runner_max_messages_default: 5
+    background_runner_max_messages: '%env(int:default:background_runner_max_messages_default:BACKGROUND_RUNNER_MAX_MESSAGES)%'
+    background_runner_time_limit_default: 2
+    background_runner_time_limit_seconds: '%env(float:default:background_runner_time_limit_default:BACKGROUND_RUNNER_TIME_LIMIT_SECONDS)%'
+    background_runner_excluded_receivers_default: 'failed'
+    background_runner_excluded_receivers: '%env(csv:default:background_runner_excluded_receivers_default:BACKGROUND_RUNNER_EXCLUDED_RECEIVERS)%'
 
 services:
     # default configuration for services in *this* file

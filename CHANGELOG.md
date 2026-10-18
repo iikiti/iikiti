@@ -20,6 +20,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 - 2026-10-18: Durable Messenger batch processing with typed plugin handlers, dependency DAGs, bounded retries, status/events, and reusable polling/SSE progress UI.
 - 2026-10-18: Symfony Scheduler as the default pluggable project scheduler, with registered site/global task providers and admin schedule management.
+- 2026-10-18: Bounded maintenance runner consumes due schedules and async queues from post-response web ticks or one-shot CLI cron, with lazy opt-out, incremental missed-run catch-up, and deferred non-overlapping occurrences.
 - 2026-10-18: Site export/import with type/property selection, tracked upserts, NDJSON manifests, authenticated DAM API downloads, and restricted-asset review issues.
 - 2026-10-14: `composer lint:container` script and digital-asset deployment notes (container warmup + `messenger:restart-workers` after deploys; state machine transition reference in `docs/digital-asset-manager.md`).
 - 2026-10-14: Symfony 8.2 attribute state machine for aggregate digital-asset processing status (`AssetProcessingStateMachine`, marking `processingStatus`).

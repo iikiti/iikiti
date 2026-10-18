@@ -115,6 +115,26 @@ Symfony events are also dispatched (`iikiti.plugin.install`, `activate`,
 `deactivate`, `update`, `uninstall`) so plugins can subscribe without
 implementing the interface.
 
+## Background and scheduled work
+
+Plugins can route asynchronous Messenger messages to a configured receiver and
+provide scheduled batch work through `ScheduledTaskProviderInterface` (tagged
+automatically). The CMS's bounded maintenance runner consumes configured async
+receivers, including plugin receivers, after eligible web responses and through
+`php bin/console iikiti:maintenance:run`. The `failed` receiver is never consumed
+by this fallback. Operators can exclude a plugin receiver by adding its name to
+the comma-separated `BACKGROUND_RUNNER_EXCLUDED_RECEIVERS` setting; excluded
+queues require a dedicated Messenger worker.
+
+Lazy execution is best-effort and only advances when web traffic arrives. It
+sends the response before processing, but still occupies a PHP process. Keep
+plugin handlers idempotent, bound their I/O and CPU work, and split large jobs
+into small messages. Each lazy tick is limited by
+`BACKGROUND_RUNNER_MAX_MESSAGES`, `BACKGROUND_RUNNER_TIME_LIMIT_SECONDS`, and
+`BACKGROUND_RUNNER_COOLDOWN_SECONDS`. Missed recurring occurrences are caught
+up incrementally. Sites with OS cron or persistent workers should set
+`LAZY_QUEUE_ENABLED=0`; the one-shot CLI runner shares the same execution path.
+
 ## Workflow graph providers
 
 Plugins can provide versioned DB workflow definitions and register policy,
@@ -475,7 +495,9 @@ alternative backend can implement `SchedulerAdapterInterface` and invoke the
 shared `BatchScheduleRunner`; select it with `SCHEDULER_ADAPTER=<registered-key>`.
 Only Symfony Scheduler is shipped as a backend. Alternative adapters must use
 the shared schedule occurrence claims to avoid duplicate dispatch. Consume
-`batch_processing` and `scheduler_default` with separate Messenger workers.
+`batch_processing` and `scheduler_default` with persistent workers for sustained
+throughput, or use the bounded `iikiti:maintenance:run` command / post-response
+fallback for low-volume deployments.
 
 The admin library exports `BatchProgress` from the `@iikiti/ui` alias. Plugins
 can embed it in custom screens with the shared API client and a batch ID. Its

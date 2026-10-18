@@ -24,6 +24,6 @@ final class DefaultScheduleProvider implements ScheduleProviderInterface
 			$schedule->add(RecurringMessage::every('1 minute', new RunDueBatchSchedules()));
 		}
 
-		return $schedule->processOnlyLastMissedRun(true);
+		return $schedule->processOnlyLastMissedRun(false);
 	}
 }

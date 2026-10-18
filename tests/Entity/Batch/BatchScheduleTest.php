@@ -28,4 +28,15 @@ final class BatchScheduleTest extends TestCase
 		$this->expectException(\InvalidArgumentException::class);
 		new BatchSchedule('Invalid', 'vendor.task', 'every day', 'UTC', 'global', null, [], true, false, 1);
 	}
+
+	public function testMarkRunAdvancesFromTheProcessedOccurrence(): void
+	{
+		$schedule = new BatchSchedule('Frequent', 'vendor.task', '* * * * *', 'UTC', 'global', null, [], true, false, 1);
+		$dueAt = new \DateTimeImmutable('2026-10-18 12:00:00', new \DateTimeZone('UTC'));
+
+		$schedule->markRun($dueAt);
+
+		self::assertSame($dueAt, $schedule->getLastRunAt());
+		self::assertSame('2026-10-18 12:01:00', $schedule->getNextRunAt()->format('Y-m-d H:i:s'));
+	}
 }

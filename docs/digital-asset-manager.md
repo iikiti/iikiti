@@ -28,7 +28,8 @@ Deletion removes the original, generated variants, durable workflow instances (i
 
 Install ImageMagick with the `magick` command and Poppler utilities with `pdftotext` on every worker host. ImageMagick runs with argument arrays and a timeout; uploaded images are dimension-checked and variants are bounded to 4096×4096. PDF extraction is limited by page count, time and output bytes. Plain-text extraction is bounded to 5 MB (1 MB by default). Configure external binary paths through the worker's `PATH`.
 
-After migrations, initialize Messenger's Doctrine transport and run a worker:
+After migrations, initialize Messenger's Doctrine transport. A persistent worker
+is the recommended option for reliable background throughput:
 
 ```sh
 php bin/console doctrine:migrations:migrate
@@ -61,6 +62,38 @@ checks the persisted recurring schedules. Select another registered backend
 with `SCHEDULER_ADAPTER`; an alternate backend must invoke the shared schedule
 runner so occurrence claims prevent duplicate dispatch. Schedule definitions
 are backend-neutral and use cron expressions plus an IANA time zone.
+
+For installations without cron or a persistent worker, the CMS defaults to a
+lazy background tick after eligible web responses. It checks due schedules and
+consumes a bounded number of messages from configured Messenger receivers. The
+HTTP response is sent first, but the PHP worker remains occupied while this
+small tick runs. `BACKGROUND_RUNNER_MAX_MESSAGES` (default `5`),
+`BACKGROUND_RUNNER_TIME_LIMIT_SECONDS` (default `2`), and
+`BACKGROUND_RUNNER_COOLDOWN_SECONDS` (default `5`) bound and throttle the work.
+The `failed` receiver is excluded by default; add any other receiver names to
+`BACKGROUND_RUNNER_EXCLUDED_RECEIVERS` as a comma-separated list to keep them
+for dedicated workers.
+
+Lazy execution is traffic-triggered: if the site receives no requests and no
+external runner is active, queued work remains pending. Missed schedule
+occurrences are retained and caught up incrementally within the per-tick limits.
+To use a one-shot OS cron instead, apply migrations and run this command at the
+desired cadence (for example, once per minute), then disable the web fallback:
+
+```sh
+php bin/console doctrine:migrations:migrate
+php bin/console messenger:setup-transports
+php bin/console iikiti:maintenance:run
+```
+
+```dotenv
+LAZY_QUEUE_ENABLED=0
+```
+
+The command uses the same bounded runner and may be run repeatedly to drain
+backlogs. Long-running workers remain supported and are preferable for sustained
+queues; avoid running both a worker and lazy ticks on a site with limited PHP
+capacity.
 
 ## Site transfer
 

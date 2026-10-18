@@ -23,15 +23,15 @@ final class BatchScheduleRunner
 	public function runDue(int $limit = 100): int
 	{
 		$now = new \DateTimeImmutable();
-		$schedules = $this->entityManager->getRepository(BatchSchedule::class)->createQueryBuilder('schedule')
-			->andWhere('schedule.enabled = :enabled')
-			->andWhere('schedule.nextRunAt <= :now')
-			->setParameter('enabled', true)
-			->setParameter('now', $now)
-			->orderBy('schedule.nextRunAt', 'ASC')
-			->setMaxResults(max(1, min(500, $limit)))
-			->getQuery()
-			->getResult();
+		$schedules = $this->entityManager->getRepository(BatchSchedule::class)->createQueryBuilder('schedule')->
+			andWhere('schedule.enabled = :enabled')->
+			andWhere('schedule.nextRunAt <= :now')->
+			setParameter('enabled', true)->
+			setParameter('now', $now)->
+			orderBy('schedule.nextRunAt', 'ASC')->
+			setMaxResults(max(1, min(500, $limit)))->
+			getQuery()->
+			getResult();
 		$count = 0;
 
 		foreach ($schedules as $schedule) {
@@ -55,7 +55,7 @@ final class BatchScheduleRunner
 				['schedule' => $id],
 			);
 			if (false !== $active) {
-				$this->recordOccurrence($schedule, $occurrenceKey, 'skipped', 'Previous scheduled batch is still active.', null, $dueAt);
+				// Preserve the due occurrence until the active batch completes.
 				return;
 			}
 		}
@@ -103,34 +103,17 @@ final class BatchScheduleRunner
 		}
 	}
 
-	private function recordOccurrence(BatchSchedule $schedule, string $occurrenceKey, string $status, string $summary, int|string|null $jobId, \DateTimeImmutable $dueAt): void
-	{
-		$id = $schedule->getId() ?? throw new \LogicException('Scheduled tasks must have a database ID.');
-		$connection = $this->entityManager->getConnection();
-		try {
-			$connection->executeStatement($this->sql('INSERT INTO batch_schedule_runs (schedule_id, occurrence_key, status, batch_job_id, summary, started_at, completed_at) VALUES (:schedule, :occurrence, :status, :job, :summary, :started, :completed)'), [
-				'schedule' => $id,
-				'occurrence' => $occurrenceKey,
-				'status' => $status,
-				'job' => $jobId,
-				'summary' => mb_substr($summary, 0, 512),
-				'started' => $this->dbDate(new \DateTimeImmutable()),
-				'completed' => $this->dbDate(new \DateTimeImmutable()),
-			]);
-		} catch (UniqueConstraintViolationException) {
-			return;
-		}
-		$this->advanceSchedule($schedule, $dueAt);
-	}
-
 	private function advanceSchedule(BatchSchedule $schedule, \DateTimeImmutable $dueAt): void
 	{
 		$next = CronExpressionTrigger::fromSpec($schedule->getCronExpression(), null, $schedule->getTimezone())->getNextRunDate($dueAt);
 		if (null === $next) {
 			$this->entityManager->getConnection()->executeStatement($this->sql('UPDATE batch_schedules SET enabled = FALSE, last_run_at = :lastRun, updated_at = :now WHERE id = :id'), ['lastRun' => $this->dbDate($dueAt), 'now' => $this->dbDate(new \DateTimeImmutable()), 'id' => $schedule->getId()]);
+			$schedule->markRun($dueAt);
+
 			return;
 		}
 		$this->entityManager->getConnection()->executeStatement($this->sql('UPDATE batch_schedules SET last_run_at = :lastRun, next_run_at = :nextRun, updated_at = :now WHERE id = :id'), ['lastRun' => $this->dbDate($dueAt), 'nextRun' => $this->dbDate($next), 'now' => $this->dbDate(new \DateTimeImmutable()), 'id' => $schedule->getId()]);
+		$schedule->markRun($dueAt);
 	}
 
 	private function sql(string $sql): string
