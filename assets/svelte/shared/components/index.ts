@@ -40,3 +40,4 @@ export { default as TourPopover } from './TourPopover.svelte';
 export { default as Toast } from './Toast.svelte';
 export { default as Tooltip } from './Tooltip.svelte';
 export { default as NotificationCenter } from './NotificationCenter.svelte';
+export { default as BatchProgress } from './BatchProgress.svelte';

@@ -391,6 +391,16 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     time_based_uuid_node?: scalar|Param|null,
  *     uuid47_secret?: scalar|Param|null, // A high-entropy secret used by the "uuid47_transformer" service. Defaults to the "kernel.secret" parameter; the service is not registered when neither is defined. // Default: null
  * }
+ * @psalm-type SchedulerConfig = bool|array{
+ *     enabled?: bool|Param, // Default: true
+ *     use_messenger_routing?: bool|Param|null, // Whether scheduled messages are routed to the Messenger senders configured for their class, as any other dispatched message is. A class with no sender configured still runs in the scheduler worker, and a "transports" option set on a task still wins. // Default: null
+ *     schedules?: array<string, array{ // Default: []
+ *         stateful?: bool|Param, // Whether the schedule keeps its state in the "cache.scheduler" pool and, when locks are enabled, runs in only one worker at a time. // Default: false
+ *         cache_pool?: scalar|Param|null, // The cache pool that stores the state of the schedule, so that a restarted worker resumes where the previous one stopped. // Default: null
+ *         lock_factory?: scalar|Param|null, // The service ID of the lock factory used to run the schedule in only one worker at a time. // Default: null
+ *         process_only_last_missed_run?: bool|Param, // Whether a task that missed several runs runs only once instead of once per missed run. // Default: false
+ *     }>,
+ * }
  * @psalm-type HttpClientConfig = bool|array{
  *     enabled?: bool|Param, // Default: true
  *     max_host_connections?: int|Param, // The maximum number of connections to a single host.
@@ -669,7 +679,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     lock?: mixed,
  *     semaphore?: mixed,
  *     messenger?: MessengerConfig,
- *     scheduler?: mixed,
+ *     scheduler?: SchedulerConfig,
  *     http_client?: HttpClientConfig,
  *     mailer?: MailerConfig,
  *     notifier?: NotifierConfig,
@@ -1990,6 +2000,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     property_access?: PropertyAccessConfig,
  *     property_info?: PropertyInfoConfig,
  *     uid?: UidConfig,
+ *     scheduler?: SchedulerConfig,
  *     http_client?: HttpClientConfig,
  *     mailer?: MailerConfig,
  *     notifier?: NotifierConfig,
@@ -2020,6 +2031,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         property_access?: PropertyAccessConfig,
  *         property_info?: PropertyInfoConfig,
  *         uid?: UidConfig,
+ *         scheduler?: SchedulerConfig,
  *         http_client?: HttpClientConfig,
  *         mailer?: MailerConfig,
  *         notifier?: NotifierConfig,
@@ -2054,6 +2066,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         property_access?: PropertyAccessConfig,
  *         property_info?: PropertyInfoConfig,
  *         uid?: UidConfig,
+ *         scheduler?: SchedulerConfig,
  *         http_client?: HttpClientConfig,
  *         mailer?: MailerConfig,
  *         notifier?: NotifierConfig,
@@ -2085,6 +2098,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         property_access?: PropertyAccessConfig,
  *         property_info?: PropertyInfoConfig,
  *         uid?: UidConfig,
+ *         scheduler?: SchedulerConfig,
  *         http_client?: HttpClientConfig,
  *         mailer?: MailerConfig,
  *         notifier?: NotifierConfig,

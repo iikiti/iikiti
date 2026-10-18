@@ -1405,7 +1405,7 @@
                         "$ref": "#/$defs/nodes/messenger"
                     },
                     "scheduler": {
-                        "$ref": "#/$defs/types/variable"
+                        "$ref": "#/$defs/nodes/scheduler"
                     },
                     "http_client": {
                         "$ref": "#/$defs/nodes/http_client"
@@ -4966,6 +4966,65 @@
                     "http_port": 80,
                     "https_port": 443,
                     "utf8": true
+                }
+            },
+            "scheduler": {
+                "anyOf": [
+                    {
+                        "$ref": "#/$defs/types/object_null",
+                        "properties": {
+                            "enabled": {
+                                "$ref": "#/$defs/types/boolean",
+                                "default": true
+                            },
+                            "use_messenger_routing": {
+                                "$ref": "#/$defs/types/boolean_null",
+                                "default": null,
+                                "description": "Whether scheduled messages are routed to the Messenger senders configured for their class, as any other dispatched message is. A class with no sender configured still runs in the scheduler worker, and a \"transports\" option set on a task still wins."
+                            },
+                            "schedules": {
+                                "$ref": "#/$defs/types/object_null",
+                                "additionalProperties": {
+                                    "$ref": "#/$defs/types/object_null",
+                                    "properties": {
+                                        "stateful": {
+                                            "$ref": "#/$defs/types/boolean",
+                                            "default": false,
+                                            "description": "Whether the schedule keeps its state in the \"cache.scheduler\" pool and, when locks are enabled, runs in only one worker at a time."
+                                        },
+                                        "cache_pool": {
+                                            "$ref": "#/$defs/types/scalar",
+                                            "default": null,
+                                            "description": "The cache pool that stores the state of the schedule, so that a restarted worker resumes where the previous one stopped."
+                                        },
+                                        "lock_factory": {
+                                            "$ref": "#/$defs/types/scalar",
+                                            "default": null,
+                                            "description": "The service ID of the lock factory used to run the schedule in only one worker at a time."
+                                        },
+                                        "process_only_last_missed_run": {
+                                            "$ref": "#/$defs/types/boolean",
+                                            "default": false,
+                                            "description": "Whether a task that missed several runs runs only once instead of once per missed run."
+                                        }
+                                    },
+                                    "additionalProperties": false
+                                },
+                                "description": "Options of the schedules, keyed by schedule name, whether their tasks are declared with attributes or returned by a schedule provider."
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": [
+                            "boolean"
+                        ]
+                    }
+                ],
+                "default": {
+                    "enabled": true,
+                    "use_messenger_routing": null,
+                    "schedules": []
                 }
             },
             "security": {
@@ -11672,6 +11731,9 @@
         "router": {
             "$ref": "#/$defs/nodes/router"
         },
+        "scheduler": {
+            "$ref": "#/$defs/nodes/scheduler"
+        },
         "security": {
             "$ref": "#/$defs/nodes/security"
         },
@@ -11760,6 +11822,9 @@
                 },
                 "router": {
                     "$ref": "#/$defs/nodes/router"
+                },
+                "scheduler": {
+                    "$ref": "#/$defs/nodes/scheduler"
                 },
                 "security": {
                     "$ref": "#/$defs/nodes/security"
@@ -11851,6 +11916,9 @@
                 "router": {
                     "$ref": "#/$defs/nodes/router"
                 },
+                "scheduler": {
+                    "$ref": "#/$defs/nodes/scheduler"
+                },
                 "security": {
                     "$ref": "#/$defs/nodes/security"
                 },
@@ -11940,6 +12008,9 @@
                 },
                 "router": {
                     "$ref": "#/$defs/nodes/router"
+                },
+                "scheduler": {
+                    "$ref": "#/$defs/nodes/scheduler"
                 },
                 "security": {
                     "$ref": "#/$defs/nodes/security"

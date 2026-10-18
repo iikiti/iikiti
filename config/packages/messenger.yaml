@@ -3,13 +3,16 @@ framework:
         failure_transport: failed
         transports:
             asset_processing: 'doctrine://default?queue_name=asset_processing'
+            batch_processing: 'doctrine://default?queue_name=batch_processing'
             failed: 'doctrine://default?queue_name=failed'
         routing:
             'iikiti\CMS\Message\ProcessDigitalAsset': asset_processing
+            'iikiti\CMS\Message\ProcessBatchItem': batch_processing
 
 when@test:
     framework:
         messenger:
             transports:
                 asset_processing: 'in-memory://'
+                batch_processing: 'in-memory://'
                 failed: 'in-memory://'

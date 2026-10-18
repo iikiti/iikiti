@@ -28,6 +28,9 @@ class CoreAdminExtension implements AdminExtensionInterface
 			AdminMenuItem::create('Applications', '/applications', 'server', 70),
 			AdminMenuItem::create('Sites', '/sites', 'globe', 60),
 			AdminMenuItem::create('Assets', '/assets', 'image', 55),
+			AdminMenuItem::create('Batch Jobs', '/batches', 'activity', 54),
+			AdminMenuItem::create('Schedules', '/schedules', 'clock', 53),
+			AdminMenuItem::create('Site Transfer', '/site-transfer', 'arrow-right-left', 52),
 			AdminMenuItem::create('Templates', '/admin/templates', 'layout-template', 35),
 			AdminMenuItem::create('Layouts', '/admin/layouts', 'panels-top-left', 34),
 			AdminMenuItem::create('Site Groups', '/site-groups', 'layers', 50),
@@ -98,6 +101,9 @@ class CoreAdminExtension implements AdminExtensionInterface
 				],
 			]),
 			new AdminScreen(path: '/assets', title: 'Digital Assets', type: 'custom', component: 'Assets'),
+			new AdminScreen(path: '/batches', title: 'Batch Jobs', type: 'custom', component: 'Batches'),
+			new AdminScreen(path: '/schedules', title: 'Schedules', type: 'custom', component: 'Schedules'),
+			new AdminScreen(path: '/site-transfer', title: 'Site Transfer', type: 'custom', component: 'SiteTransfer'),
 			new AdminScreen(path: '/admin/templates', title: 'Templates', type: 'list', apiPath: '/admin/templates', config: [
 				'columns' => [
 					['key' => 'id', 'label' => 'ID'],

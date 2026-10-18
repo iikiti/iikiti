@@ -43,6 +43,9 @@ Search
   ├── Filters
   └── Site Groups
 Audit Log
+Batch Jobs
+Schedules
+Site Transfer
 ```
 
 ## API Endpoints
@@ -65,6 +68,21 @@ All admin API endpoints are under `/api/admin/` and require `ROLE_ADMIN`.
 | GET | `/api/admin/sites` | List sites |
 | GET | `/api/admin/site-groups` | List site groups |
 | GET | `/api/admin/audit-logs` | List audit log entries |
+| GET | `/api/admin/batches` | List recent jobs in the caller's managed scope |
+| GET | `/api/admin/batches/{id}` | Get job status and progress snapshot |
+| GET | `/api/admin/batches/{id}/items` | Page message summaries and outcomes |
+| GET | `/api/admin/batches/{id}/events?mode=poll|stream` | Poll JSON updates or stream SSE from one endpoint |
+| POST | `/api/admin/batches/{id}/cancel` | Cancel queued work where safe |
+| POST | `/api/admin/batches/{id}/retry` | Retry failed/skipped messages for a finished job |
+| GET/POST | `/api/admin/batches/schedules` | List or create registered recurring task schedules |
+| PUT | `/api/admin/batches/schedules/{id}` | Edit a schedule |
+| PATCH | `/api/admin/batches/schedules/{id}/enabled` | Enable or disable a schedule |
+| GET | `/api/admin/site-transfer/sites` | List sites available for transfer |
+| GET | `/api/admin/site-transfer/catalog?siteId={id}` | List transferable object types and properties |
+| POST | `/api/admin/site-transfer/exports` | Queue a site export |
+| GET | `/api/admin/site-transfer/exports/{id}/manifest` | Stream a completed NDJSON manifest |
+| POST | `/api/admin/site-transfer/imports/preview` | Verify a remote export with a source API token |
+| POST | `/api/admin/site-transfer/imports` | Queue a selected remote site import |
 | GET | `/api/admin/menu` | Get admin navigation menu |
 | GET | `/api/admin/screens` | Get admin screen manifest (dynamic routing table) |
 
@@ -95,10 +113,45 @@ library reference and plugin screen development workflow.
 
 The admin UI ships with a library of reusable Svelte 5 components exported
 under the `@iikiti/ui` import alias. These include `AdminLayout`, `Icon`,
-`DataTable`, `PageHeader`, `Button`, `Badge`, `Dialog`, `Tabs`, `Breadcrumb`,
+`DataTable`, `PageHeader`, `Button`, `Badge`, `BatchProgress`, `Dialog`, `Tabs`, `Breadcrumb`,
 `Pagination`, `SearchForm`, `Form`, `DetailView`, `Card`, and input components
 (`TextInput`, `TextareaInput`, `SelectInput`, `CheckboxInput`, `ToggleInput`).
 Plugins can import these components in their own UI bundles.
+
+`BatchProgress` displays the job's status, percent complete, item summaries and
+activity messages. It accepts the core `api` client and a `batchId`; users can
+switch between JSON polling and SSE. The component uses authenticated `fetch`
+streaming for SSE so the admin `X-AUTH-TOKEN` stays in a header rather than the
+URL. Job and schedule APIs enforce site scope; global schedules require a
+super/system administrator.
+
+## Batches and Site Transfer
+
+The Batch Jobs screen lists recent jobs available to the caller and shows
+message outcomes, retries, dependencies and activity. The reusable progress
+component can also be embedded in plugin screens. Messages are summaries only;
+payloads and credentials are never included in the status API.
+
+The Schedules screen manages only registered core/plugin providers. A provider
+declares its scope, options schema, validation and batch message factory. The
+screen accepts a cron expression and IANA time zone. Schedule edits apply on
+the next scheduler tick. Only one run per schedule is active unless the
+provider opts into overlap; an overlapping occurrence is recorded as skipped.
+
+Site Transfer exports selected object types/properties to a versioned NDJSON
+manifest. It does not embed DAM binaries. Instead, records include asset IDs
+and authenticated source API links. On import, enter the source server URL,
+export ID and a source user's `X-AUTH-TOKEN`, inspect the manifest, select types
+and properties, then map to an existing site or create one (super/system admin
+only). Source credentials are encrypted only for the active import job and
+removed when it completes. A token expiry pauses the job until a replacement
+token is verified. Denied/missing assets are skipped with a review issue;
+transfers never bypass source asset grants. New destination site name/domain
+remain destination-specific.
+
+Tracked re-imports update only objects previously imported from the same source
+and only properties in the current selection. They do not delete destination-
+only objects. Unmapped references are reported for review rather than guessed.
 
 ### Icons
 

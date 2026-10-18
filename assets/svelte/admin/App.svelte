@@ -10,6 +10,9 @@
 	import ApplicationsRoute from './routes/Applications.svelte';
 	import SitesRoute from './routes/Sites.svelte';
 	import AssetsRoute from './routes/Assets.svelte';
+	import BatchesRoute from './routes/Batches.svelte';
+	import SchedulesRoute from './routes/Schedules.svelte';
+	import SiteTransferRoute from './routes/SiteTransfer.svelte';
 	import WorkflowDefinitionsRoute from './routes/WorkflowDefinitions.svelte';
 	import WorkflowTasksRoute from './routes/WorkflowTasks.svelte';
 	import SiteGroupsRoute from './routes/SiteGroups.svelte';
@@ -56,6 +59,9 @@
 		Applications: ApplicationsRoute,
 		Sites: SitesRoute,
 		Assets: AssetsRoute,
+		Batches: BatchesRoute,
+		Schedules: SchedulesRoute,
+		SiteTransfer: SiteTransferRoute,
 		WorkflowDefinitions: WorkflowDefinitionsRoute,
 		WorkflowTasks: WorkflowTasksRoute,
 		SiteGroups: SiteGroupsRoute,

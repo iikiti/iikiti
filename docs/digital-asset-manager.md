@@ -46,6 +46,54 @@ php bin/console messenger:restart-workers
 
 `composer lint:container` verifies the container compiles (run it after dependency updates too: the asset aggregate state machine is attribute-defined, and runtime graphs are compiled from versioned definitions).
 
+The generic batch worker and Symfony Scheduler have separate Messenger receivers:
+
+```sh
+php bin/console messenger:consume batch_processing --time-limit=3600
+php bin/console messenger:consume scheduler_default --time-limit=3600
+```
+
+After deployment, apply Doctrine migrations and run
+`php bin/console messenger:setup-transports` before starting these workers.
+
+Symfony Scheduler is the default project scheduler. It emits a minute tick that
+checks the persisted recurring schedules. Select another registered backend
+with `SCHEDULER_ADAPTER`; an alternate backend must invoke the shared schedule
+runner so occurrence claims prevent duplicate dispatch. Schedule definitions
+are backend-neutral and use cron expressions plus an IANA time zone.
+
+## Site transfer
+
+The Site Transfer admin screen creates resumable batch exports/imports. The
+versioned NDJSON manifest contains site/object IDs, selected object properties,
+and source API paths for DAM assets; it never contains file bytes. Export
+manifests are stored under `var/site-transfers`, outside the public directory.
+The source API exposes the file stream at
+`/api/admin/site-transfer/exports/{exportId}/assets/{assetId}`.
+
+The importing server must use HTTPS and provide an API token whose user has
+access to the selected export and can manage the requested assets. Asset grants
+are checked again for each download. A 403/404 skips the complete asset record
+and records the source asset ID and reason; it does not stop unrelated content.
+A 401 pauses the import and asks for a refreshed source token. Tokens are
+encrypted with the application's `APP_SECRET`, held only while the job is
+active, never put in a URL or event, and deleted on completion/cancellation.
+
+Remote requests reject private/loopback addresses and redirects, and uploaded
+asset streams are limited to the existing 25 MB upload maximum, MIME-checked,
+checksum-verified and written to protected asset storage. External assets keep
+their HTTPS URI metadata; they are not downloaded as binary files. A transfer
+user must be able to manage all sites in an asset's grants, matching normal DAM
+management rules.
+
+Imports map source identities to a selected existing destination site or, for
+super/system admins, a newly created site. Re-imports upsert records previously
+imported from that source, preserve unselected properties, and never delete
+destination-only records. Users can select transferable object types and
+properties on both export and import. Users, roles, API tokens, audit entries
+and workflow runtime history are excluded. Unresolved object references and
+skipped assets appear in the batch job's review issues.
+
 The aggregate asset lifecycle remains a Symfony 8.2 attribute state machine in `src/StateMachine/AssetProcessingStateMachine.php`, marking `AbstractDigitalAsset::processingStatus` (`pending` → `processing` → `complete`/`failed`). `process` and `requeue` stay reachable from every state so Messenger redeliveries can run; `complete` and `fail` require `processing`.
 
 Individual processor rules are versioned generic workflow definitions. Their `metadata.assetProcessor` records a registered `processorKey`, MIME pattern, conditions, options, and site scope. A run is a generic `WorkflowInstance` whose registered subject reference is `digital_asset:<id>` and whose marking is `pending`/`running`/`complete`/`failed`/`skipped`. The `start` transition is retryable from `pending`, `running`, `failed`, and `skipped`; attempt/error bookkeeping is applied by transition metadata. Completed runs are not processed again for the same rule/asset idempotency key.

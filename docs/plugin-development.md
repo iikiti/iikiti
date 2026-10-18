@@ -420,3 +420,64 @@ concrete example):
 Editor UI bundles ship via manifest `editor_ui.entry` (served from
 `/admin-plugins/{slug}/...`) and are loaded by the editor on mount before
 `tour`-style steps can target them.
+
+## Distributed batches and schedules
+
+The core batch engine runs messages through Symfony Messenger, persists item
+state and dependencies, and delivers at least once. Handlers must therefore be
+idempotent. Messages are JSON envelopes with stable type keys and payloads no
+larger than 64 KiB; keep image/video bytes in protected storage and put only an
+asset ID or API URI in the payload. The framework defines the common `text`,
+`image`, and `video` type keys but no default processing behavior. Register a
+handler for each type the plugin submits.
+
+```php
+use iikiti\CMS\Batch\BatchMessage;
+use iikiti\CMS\Batch\BatchMessageContext;
+use iikiti\CMS\Batch\BatchMessageHandlerInterface;
+use iikiti\CMS\Batch\BatchMessageType;
+
+final class VideoTranscodeHandler implements BatchMessageHandlerInterface
+{
+    public function getType(): string
+    {
+        return BatchMessageType::VIDEO;
+    }
+
+    public function handle(BatchMessage $message, BatchMessageContext $context): void
+    {
+        $context->report('Transcoding video', ['itemKey' => $message->key]);
+        // Resolve the protected video by ID and perform idempotent work.
+    }
+}
+```
+
+Implementing `BatchMessageHandlerInterface` registers the service automatically.
+Use `BatchManager::submit()` for one-off work. Each message has an item key,
+stable idempotency key, version and optional `dependsOn` item keys. Dependencies
+must be an acyclic graph. Ready items run independently; after the configurable
+maximum attempts (default 3) are exhausted, dependents are marked skipped while
+unrelated branches continue. Throw `RetryableBatchMessageFailure` for a retry,
+`PermanentBatchMessageFailure` for terminal failure, or `BatchMessageSkipped`
+for a reviewable skip. `BatchMessageContext::report()` publishes safe activity
+summaries without exposing payloads.
+
+To make a task schedulable, implement `ScheduledTaskProviderInterface` and
+provide a stable key, `site`/`global` scope, validated options schema and
+`createMessages()` factory, plus `getBatchConfiguration()` for safe job metadata.
+The Schedules admin screen only allows registered
+providers; it does not accept arbitrary code or message payloads. Global tasks
+require a super/system administrator. A provider may opt into overlapping runs
+only if its work is explicitly safe.
+
+Symfony Scheduler is the default backend (`SCHEDULER_ADAPTER=symfony`). An
+alternative backend can implement `SchedulerAdapterInterface` and invoke the
+shared `BatchScheduleRunner`; select it with `SCHEDULER_ADAPTER=<registered-key>`.
+Only Symfony Scheduler is shipped as a backend. Alternative adapters must use
+the shared schedule occurrence claims to avoid duplicate dispatch. Consume
+`batch_processing` and `scheduler_default` with separate Messenger workers.
+
+The admin library exports `BatchProgress` from the `@iikiti/ui` alias. Plugins
+can embed it in custom screens with the shared API client and a batch ID. Its
+single event endpoint supports polling (`mode=poll`) and SSE (`mode=stream`);
+the SSE reader uses authenticated `fetch` so API tokens stay in headers.

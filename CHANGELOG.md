@@ -18,6 +18,9 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-10-18: Durable Messenger batch processing with typed plugin handlers, dependency DAGs, bounded retries, status/events, and reusable polling/SSE progress UI.
+- 2026-10-18: Symfony Scheduler as the default pluggable project scheduler, with registered site/global task providers and admin schedule management.
+- 2026-10-18: Site export/import with type/property selection, tracked upserts, NDJSON manifests, authenticated DAM API downloads, and restricted-asset review issues.
 - 2026-10-14: `composer lint:container` script and digital-asset deployment notes (container warmup + `messenger:restart-workers` after deploys; state machine transition reference in `docs/digital-asset-manager.md`).
 - 2026-10-14: Symfony 8.2 attribute state machine for aggregate digital-asset processing status (`AssetProcessingStateMachine`, marking `processingStatus`).
 - 2026-10-15: Shared Symfony Workflow runtime for interactive session flows and versioned DB graphs, including branching/fork-join, durable subject/context instances, optimistic locking, assigned user/site-role tasks, task inbox, generic workflow APIs, and Svelte definition/task screens.

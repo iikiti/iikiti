@@ -60,6 +60,42 @@ export class ApiClient {
 		return response.text();
 	}
 
+	/**
+	 * Opens an authenticated streaming response (for example, server-sent events).
+	 * The token remains in the request header and is never added to the URL.
+	 *
+	 * @param {string} path
+	 * @param {{signal?: AbortSignal, headers?: Record<string,string>, lastEventId?: string|number}} [options]
+	 * @returns {Promise<ReadableStreamDefaultReader<Uint8Array>>}
+	 */
+	async openStream(path, options = {}) {
+		const headers = {
+			'X-AUTH-TOKEN': this.token,
+			Accept: 'text/event-stream',
+			...options.headers,
+		};
+		if (options.lastEventId != null) {
+			headers['Last-Event-ID'] = String(options.lastEventId);
+		}
+		const response = await fetch(`${this.baseUrl}${path}`, {
+			method: 'GET',
+			headers,
+			signal: options.signal,
+			cache: 'no-store',
+		});
+		if (!response.ok) {
+			const body = await response.json().catch(() => ({}));
+			const error = new Error(`${response.status}: ${body.error ?? response.statusText}`);
+			error.status = response.status;
+			throw error;
+		}
+		if (!response.body) {
+			throw new Error('Streaming responses are not supported by this browser.');
+		}
+
+		return response.body.getReader();
+	}
+
 	parsePaged(data) {
 		const members = data['hydra:member'] ?? data.members ?? data.member ?? data;
 		const total = data['hydra:totalItems'] ?? data.totalItems ?? members.length;

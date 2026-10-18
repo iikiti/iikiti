@@ -37,6 +37,7 @@ components to build consistent UI.
 | `EmptyState` | Empty results message |
 | `Button` | Button with variants (primary/secondary/danger/ghost/icon) |
 | `Badge` | Status badges (success/warning/danger/primary) |
+| `BatchProgress` | Reusable status, progress, item-summary and activity view for batch jobs |
 | `Tabs` | Tab navigation |
 | `Breadcrumb` | Breadcrumb trail |
 | `Pagination` | Page navigation controls |

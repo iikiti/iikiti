@@ -1,5 +1,7 @@
 parameters:
     digital_asset_storage_dir: '%kernel.project_dir%/var/digital-assets'
+    scheduler_adapter_default: symfony
+    scheduler_adapter_key: '%env(default:scheduler_adapter_default:SCHEDULER_ADAPTER)%'
 
 services:
     # default configuration for services in *this* file
@@ -103,6 +105,24 @@ services:
             tags: ['iikiti.cms.collaboration_transport']
         iikiti\CMS\Service\DigitalAssetProcessorInterface:
             tags: ['iikiti.digital_asset_processor']
+        iikiti\CMS\Batch\BatchMessageHandlerInterface:
+            tags: ['iikiti.batch.message_handler']
+        iikiti\CMS\Batch\ScheduledTaskProviderInterface:
+            tags: ['iikiti.scheduled_task_provider']
+        iikiti\CMS\Scheduler\SchedulerAdapterInterface:
+            tags: ['iikiti.scheduler_adapter']
+
+    iikiti\CMS\Scheduler\SchedulerAdapterRegistry:
+        arguments:
+            $selected: '%scheduler_adapter_key%'
+
+    iikiti\CMS\Transfer\SiteTransferManifestStore:
+        arguments:
+            $directory: '%kernel.project_dir%/var/site-transfers'
+
+    iikiti\CMS\Transfer\SiteTransferCredentialVault:
+        arguments:
+            $applicationSecret: '%kernel.secret%'
 
     # EmbedResolver + ObjectsQuerySource cache via the database-backed pool.
     iikiti\CMS\Web\BlockEditor\Embed\EmbedResolver:
