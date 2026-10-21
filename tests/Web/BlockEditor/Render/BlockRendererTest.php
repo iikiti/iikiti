@@ -17,6 +17,7 @@ use iikiti\CMS\Web\BlockEditor\Query\QueryFieldCatalog;
 use iikiti\CMS\Web\BlockEditor\Query\QuerySourceInterface;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderContext;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderer;
+use iikiti\CMS\Web\BlockEditor\Render\CustomCssCollector;
 use PHPUnit\Framework\TestCase;
 use Twig\Environment;
 use Twig\Loader\FilesystemLoader;
@@ -667,7 +668,7 @@ final class BlockRendererTest extends TestCase
 		self::assertStringNotContainsString('customCssCompiled', $editorHtml);
 	}
 
-	public function testIconCustomCssTargetsTheWidgetWrapper(): void
+	public function testIconCustomCssTargetsTheWidgetRootInEditor(): void
 	{
 		$tree = $this->inContainer([[
 			'id' => 'icon-css',
@@ -695,6 +696,23 @@ final class BlockRendererTest extends TestCase
 
 		self::assertStringContainsString('data-block-id="icon-preview"', $html);
 		self::assertStringContainsString('<style data-iikiti-custom-css>[data-block-id=icon-preview] .iikiti-icon-block{background:red}</style>', $html);
+	}
+
+	public function testEditorKeepsWidgetCustomCssInAnUpdatableOwnedStylesheet(): void
+	{
+		$collector = new CustomCssCollector();
+		$context = new BlockRenderContext(editorMode: true, customCssCollector: $collector);
+		$this->renderer->renderRegionTree([[
+			'id' => 'icon-preview',
+			'type' => 'icon',
+			'content' => ['name' => 'box', 'renderer' => 'svg'],
+			'style' => ['base' => ['customCss' => 'background:red;']],
+		]], $context);
+
+		self::assertSame(
+			'<style id="iikiti-custom-css-block-icon-preview" data-iikiti-custom-css>[data-block-id=icon-preview] .iikiti-icon-block{background:red}</style>',
+			$collector->stylesheets(),
+		);
 	}
 
 	public function testInvalidStyleValuesAreOmittedFromInlineAndResponsiveCss(): void

@@ -32,7 +32,11 @@
                 {{ encore_entry_link_tags('editor') }}
             {% endif %}
             {% if iikiti_custom_css|default('') is not empty %}
-                <style id="iikiti-custom-css">{{ iikiti_custom_css|raw }}</style>
+                {% if iikiti_editor_mode|default(false) %}
+                    {{ iikiti_custom_css|raw }}
+                {% else %}
+                    <style id="iikiti-custom-css">{{ iikiti_custom_css|raw }}</style>
+                {% endif %}
             {% endif %}
         {% endblock %}
         <title>{{ (doc.title ?? 'iikiti')|escape('html') }}</title>

@@ -130,18 +130,30 @@
 
 	$effect(() => {
 		if (typeof document === 'undefined') return;
+		const hasCompiledCustomCss = Object.values(node.style ?? {}).some((layer) =>
+			Boolean(layer) && typeof layer === 'object' && Object.prototype.hasOwnProperty.call(layer, 'customCssCompiled'),
+		);
+		if (!hasCompiledCustomCss) return;
+
 		const breakpoints = ($editorConfig['breakpoints'] as Record<string, number> | undefined) ?? {};
 		const selector = styleTargetSelector(node);
 		const css = [
 			responsiveStyleText(node, breakpoints, styleFields, selector),
 			customCssStyleText(node, breakpoints, selector),
 		].filter(Boolean).join('\n');
-		if (!css) return;
-		const styleElement = document.createElement('style');
-		styleElement.dataset.iikitiBlockStyle = node.id;
+		const styleId = `iikiti-custom-css-block-${node.id}`;
+		let styleElement = document.getElementById(styleId) as HTMLStyleElement | null;
+		if (!css) {
+			styleElement?.remove();
+			return;
+		}
+		if (!styleElement) {
+			styleElement = document.createElement('style');
+			styleElement.id = styleId;
+			styleElement.dataset.iikitiBlockStyle = node.id;
+			document.head.append(styleElement);
+		}
 		styleElement.textContent = css;
-		document.head.append(styleElement);
-		return () => styleElement.remove();
 	});
 
 	$effect(() => {

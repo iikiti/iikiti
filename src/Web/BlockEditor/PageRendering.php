@@ -75,12 +75,22 @@ final class PageRendering
 		$templateSettings = $editorMode && 'template' === ($settingsContext['type'] ?? null)
 			? $settingsContext['values']
 			: $this->settingsManager->publishedSettings($template);
-		$this->appendCustomCss($customCss, $templateSettings, $this->scopeClass('template', $template->getId()));
+		$this->appendCustomCss(
+			$customCss,
+			$templateSettings,
+			$this->scopeClass('template', $template->getId()),
+			$editorMode ? $this->customCssStyleId('template', $template->getId()) : null,
+		);
 		if ($object instanceof Page) {
 			$pageSettings = $editorMode && 'page' === ($settingsContext['type'] ?? null)
 				? $settingsContext['values']
 				: $this->settingsManager->publishedSettings($object);
-			$this->appendCustomCss($customCss, $pageSettings, $this->scopeClass('page', $object->getId()));
+			$this->appendCustomCss(
+				$customCss,
+				$pageSettings,
+				$this->scopeClass('page', $object->getId()),
+				$editorMode ? $this->customCssStyleId('page', $object->getId()) : null,
+			);
 		}
 
 		$renderContext = new BlockRenderContext(
@@ -122,7 +132,7 @@ final class PageRendering
 				$this->scopeClass('template', $template->getId()),
 				$object instanceof Page ? $this->scopeClass('page', $object->getId()) : null,
 			])),
-			'iikiti_custom_css' => $customCss->stylesheet(),
+			'iikiti_custom_css' => $editorMode ? $customCss->stylesheets() : $customCss->stylesheet(),
 		]));
 	}
 
@@ -176,7 +186,7 @@ final class PageRendering
 	}
 
 	/** @param array<string,mixed> $settings */
-	private function appendCustomCss(CustomCssCollector $collector, array $settings, ?string $scopeClass): void
+	private function appendCustomCss(CustomCssCollector $collector, array $settings, ?string $scopeClass, ?string $styleId = null): void
 	{
 		$source = $settings['customCss'] ?? null;
 		if (null === $scopeClass || !is_string($source) || '' === trim($source)) {
@@ -184,7 +194,7 @@ final class PageRendering
 		}
 
 		try {
-			$collector->append($this->customCssCompiler->compileScoped($source, 'body.'.$scopeClass));
+			$collector->append($this->customCssCompiler->compileScoped($source, 'body.'.$scopeClass), $styleId);
 		} catch (\InvalidArgumentException) {
 			// Invalid custom CSS remains editable but is omitted from the public stylesheet.
 		}
@@ -193,5 +203,10 @@ final class PageRendering
 	private function scopeClass(string $type, ?int $id): ?string
 	{
 		return null !== $id && $id > 0 ? 'iikiti-'.$type.'-id--'.$id : null;
+	}
+
+	private function customCssStyleId(string $type, ?int $id): ?string
+	{
+		return null !== $id && $id > 0 ? 'iikiti-custom-css-preview-'.$type.'-'.$id : null;
 	}
 }

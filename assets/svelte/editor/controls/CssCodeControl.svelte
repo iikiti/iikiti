@@ -10,6 +10,7 @@
 	import { get } from 'svelte/store';
 	import { editorSettings, searchNode, selected, validateEditorCss } from '../state.js';
 	import { createSettingsCssCompletionSource } from '../cssAutocomplete.js';
+	import { styleTargetSelector } from '../styleValues.js';
 
 	interface Props {
 		field: Record<string, unknown>;
@@ -70,11 +71,11 @@
 		validationInput = source;
 		validationSequence++;
 		if (null !== validationTimer) clearTimeout(validationTimer);
-		if (updateCompiled) applyPageCssPreview(null);
+		if (updateCompiled) applyCssPreview(null);
 		if ('' === source.trim()) {
 			validationError = '';
 			validationUnavailable = false;
-			applyPageCssPreview(null);
+			applyCssPreview(null);
 			if (updateCompiled) onChange({ source, compiled: '' });
 			return;
 		}
@@ -86,25 +87,34 @@
 				if (requestSequence !== validationSequence) return;
 				validationError = result.valid ? '' : result.error ?? 'CSS syntax is invalid.';
 				validationUnavailable = false;
-				applyPageCssPreview(result.valid ? result.compiled ?? null : null);
+				applyCssPreview(result.valid ? result.compiled ?? null : null);
 				if (updateCompiled) onChange({ source, compiled: result.valid ? result.compiled ?? '' : null });
 			} catch {
 				if (requestSequence !== validationSequence) return;
 				validationError = '';
 				validationUnavailable = true;
-				applyPageCssPreview(null);
+				applyCssPreview(null);
 				if (updateCompiled) onChange({ source, compiled: null });
 			}
 		}, 350);
 	}
 
-	function applyPageCssPreview(compiled: string | null) {
+	function applyCssPreview(compiled: string | null) {
 		const context = autocompleteContext();
-		if (!['page', 'template'].includes(String(context.targetType))) return;
-		const targetId = Number(context.targetId);
-		if (!Number.isInteger(targetId) || targetId < 1) return;
+		let id: string;
+		let scopeSelector: string;
+		if (context.targetType === 'block' && context.block?.id) {
+			id = `iikiti-custom-css-block-${context.block.id}`;
+			scopeSelector = styleTargetSelector(context.block);
+		} else if (['page', 'template'].includes(String(context.targetType))) {
+			const targetId = Number(context.targetId);
+			if (!Number.isInteger(targetId) || targetId < 1) return;
+			id = `iikiti-custom-css-preview-${context.targetType}-${targetId}`;
+			scopeSelector = `body.iikiti-${context.targetType}-id--${targetId}`;
+		} else {
+			return;
+		}
 
-		const id = `iikiti-custom-css-preview-${context.targetType}-${targetId}`;
 		let style = document.getElementById(id) as HTMLStyleElement | null;
 		if (!compiled) {
 			style?.remove();
@@ -116,7 +126,6 @@
 			style.dataset.iikitiCustomCssPreview = String(context.targetType);
 			document.head.append(style);
 		}
-		const scopeSelector = `body.iikiti-${context.targetType}-id--${targetId}`;
 		style.textContent = compiled.replaceAll('.iikiti-custom-css-scope-placeholder', scopeSelector);
 	}
 

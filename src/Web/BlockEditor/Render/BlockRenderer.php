@@ -799,7 +799,7 @@ final class BlockRenderer
 			}
 
 			if (null !== $context->customCssCollector) {
-				$context->customCssCollector->append($compiled);
+				$context->customCssCollector->append($compiled, 'iikiti-custom-css-block-'.$blockId);
 			} else {
 				$rules[] = $compiled;
 			}
