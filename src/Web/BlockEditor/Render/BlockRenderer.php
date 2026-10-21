@@ -17,10 +17,10 @@ use Twig\Environment;
 /**
  * Renders a block tree (stored as JSON) into HTML.
  *
- * - Each block is wrapped in a `.iikiti-block` element (`BlockType::$wrapperTag`,
- *   a `div` by default but e.g. `span` for inline-only types so they stay valid
- *   inside elements like `<h2>`).
- * - In editor mode (`BlockRenderContext::editorMode`) the wrapper also carries
+ * - A block's `.iikiti-block` classes and metadata are applied to its single
+ *   rendered root element. A wrapper is emitted only for multi-root or text-only
+ *   output, or when `BlockType::$childrenInWrapper` requires a semantic container.
+ * - In editor mode (`BlockRenderContext::editorMode`) the block root also carries
  *   `data-block-*` attributes (id, type, content, style, bindings) so the Svelte
  *   editor can hydrate the DOM. Public output is stripped of this metadata by
  *   construction (the attributes are only emitted in editor mode).
@@ -287,7 +287,7 @@ final class BlockRenderer
 		$html = ' class="'.htmlspecialchars($class, ENT_QUOTES).'"';
 		$hasResponsiveStyle = $this->hasResponsiveStyles($node, $blockType, $type);
 		$style = $this->styleForOutput(is_array($node['style'] ?? null) ? $node['style'] : [], $blockType, $type, $hasResponsiveStyle);
-		if ('' !== $style && !in_array($type, ['container', 'query', 'icon', 'image'], true)) {
+		if ('' !== $style && !in_array($type, ['container', 'query', 'image'], true)) {
 			$html .= ' style="'.htmlspecialchars($style, ENT_QUOTES).'"';
 		}
 
@@ -298,6 +298,9 @@ final class BlockRenderer
 
 		$html .= $this->renderElementAttributes($element, $blockType);
 		$html .= $this->renderWrapperContentAttributes($blockType, $content);
+		if ('icon' === $type && is_string($content['name'] ?? null)) {
+			$html .= ' data-block-icon="'.htmlspecialchars($content['name'], ENT_QUOTES).'"';
+		}
 
 		if ($blockType?->childrenInWrapper) {
 			$html .= ' data-block-children';
@@ -331,7 +334,110 @@ final class BlockRenderer
 		$this->collectResponsiveStyles($node, $blockType, $type, $rules['responsive']);
 		$this->collectCustomCss($node, $type, $context, $rules['customCss']);
 
+		if (!$blockType?->childrenInWrapper && null !== ($startTag = $this->singleRootStartTag($inner))) {
+			return $this->decorateRootElement($inner, $startTag, $html);
+		}
+
 		return '<'.$tag.$html.'>'.$inner.'</'.$tag.'>';
+	}
+
+	/**
+	 * Return the opening tag range only when the rendered content has exactly
+	 * one top-level element. Text-only and multi-root templates still need a block
+	 * wrapper to carry editor metadata and element-level styles.
+	 *
+	 * @return array{offset:int,length:int}|null
+	 */
+	private function singleRootStartTag(string $html): ?array
+	{
+		preg_match_all('/<!--[\\s\\S]*?-->|<\\/?[a-z][a-z0-9:-]*(?:\\s[^<>]*?)?\\s*\\/?>|[^<]+|</i', $html, $matches, PREG_OFFSET_CAPTURE);
+		$stack = [];
+		$root = null;
+		$rootClosed = false;
+		$voidTags = ['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'];
+
+		foreach ($matches[0] as [$token, $offset]) {
+			if (str_starts_with($token, '<!--')) {
+				continue;
+			}
+			if (!str_starts_with($token, '<') || '<' === $token) {
+				if ([] === $stack && '' !== trim($token)) {
+					return null;
+				}
+				continue;
+			}
+
+			if (1 !== preg_match('/^<(\\/?)([a-z][a-z0-9:-]*)\\b([^>]*)>$/i', $token, $tagMatch)) {
+				return null;
+			}
+			$closing = '/' === $tagMatch[1];
+			$name = strtolower($tagMatch[2]);
+			if ($closing) {
+				if ([] === $stack || array_pop($stack) !== $name) {
+					return null;
+				}
+				if ([] === $stack) {
+					$rootClosed = true;
+				}
+				continue;
+			}
+
+			if ($rootClosed) {
+				return null;
+			}
+			if (null === $root) {
+				$root = ['offset' => $offset, 'length' => strlen($token)];
+			} elseif ([] === $stack) {
+				return null;
+			}
+
+			if (!str_ends_with(rtrim($tagMatch[3]), '/') && !in_array($name, $voidTags, true)) {
+				$stack[] = $name;
+			} elseif ([] === $stack) {
+				$rootClosed = true;
+			}
+		}
+
+		return null !== $root && $rootClosed && [] === $stack ? $root : null;
+	}
+
+	/** @param array{offset:int,length:int} $startTag */
+	private function decorateRootElement(string $html, array $startTag, string $attributes): string
+	{
+		$openingTag = substr($html, $startTag['offset'], $startTag['length']);
+		preg_match('/^<([a-z][a-z0-9:-]*)/i', $openingTag, $tagMatch);
+		$tag = $tagMatch[1] ?? '';
+		$existingAttributes = substr($openingTag, strlen($tag) + 1, -1);
+		$mergedAttributes = $this->mergeRootAttributes($existingAttributes, $attributes);
+		$replacement = '<'.$tag.$mergedAttributes.(str_ends_with(rtrim($existingAttributes), '/') ? '/>' : '>');
+
+		return substr_replace($html, $replacement, $startTag['offset'], $startTag['length']);
+	}
+
+	private function mergeRootAttributes(string $existing, string $incoming): string
+	{
+		$attributes = [];
+		foreach ([$existing, $incoming] as $source) {
+			preg_match_all('/([a-zA-Z_:][a-zA-Z0-9:._-]*)(?:\\s*=\\s*"([^"]*)")?/', $source, $matches, PREG_SET_ORDER);
+			foreach ($matches as $match) {
+				$name = $match[1];
+				$key = strtolower($name);
+				$value = $match[2] ?? null;
+				if (isset($attributes[$key]) && in_array($key, ['class', 'style'], true)) {
+					$separator = 'class' === $key ? ' ' : ';';
+					$attributes[$key] = [$name, trim((string) $value.$separator.(string) $attributes[$key][1], ' ;')];
+				} else {
+					$attributes[$key] = [$name, $value];
+				}
+			}
+		}
+
+		$out = '';
+		foreach ($attributes as [$name, $value]) {
+			$out .= null === $value ? ' '.$name : ' '.$name.'="'.$value.'"';
+		}
+
+		return $out;
 	}
 
 	private function renderWrapperContentAttributes(?BlockType $blockType, mixed $content): string
@@ -594,10 +700,8 @@ final class BlockRenderer
 		$blockClass = self::blockIdClass($blockId);
 		$blockSelector = '.'.$blockClass.'.'.$blockClass;
 		$selector = match ($type) {
-			'container' => $blockSelector.' > .iikiti-container',
-			'query' => $blockSelector.' .iikiti-query, '.$blockSelector.' .iikiti-query--empty',
-			'icon' => $blockSelector.' > .iikiti-icon-block',
-			'image' => $blockSelector.' .iikiti-image',
+			'container', 'query', 'icon' => $blockSelector,
+			'image' => ':is('.$blockSelector.' .iikiti-image, '.$blockSelector.'.iikiti-image)',
 			default => $blockSelector,
 		};
 
@@ -670,12 +774,14 @@ final class BlockRenderer
 			? '[data-block-id="'.$this->escapeCssString($blockId).'"]'
 			: '.'.$blockClass.'.'.$blockClass;
 		$selector = match ($type) {
-			'container' => $blockSelector.($context->editorMode ? ' .iikiti-container' : ' > .iikiti-container'),
+			'container' => $context->editorMode ? $blockSelector.' .iikiti-container' : $blockSelector,
 			'query' => $context->editorMode
 				? $blockSelector.' .iikiti-query-preview'
-				: $blockSelector.' .iikiti-query, '.$blockSelector.' .iikiti-query--empty',
-			'icon' => $blockSelector,
-			'image' => $blockSelector.' .iikiti-image',
+				: $blockSelector,
+			'icon' => $context->editorMode ? $blockSelector.' .iikiti-icon-block' : $blockSelector,
+			'image' => $context->editorMode
+				? $blockSelector.' .iikiti-image'
+				: ':is('.$blockSelector.' .iikiti-image, '.$blockSelector.'.iikiti-image)',
 			default => $blockSelector,
 		};
 		$breakpoints = ['base' => 0] + ResponsiveBreakpoints::WIDTHS;

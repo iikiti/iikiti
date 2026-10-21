@@ -16,6 +16,12 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 > Last updated: 2026-10-15
 
+### Changed
+
+- 2026-10-21: Widget styles, classes, and editor metadata now decorate a single rendered root element; redundant wrappers are omitted except for text-only, multi-root, or semantic-container output. Icon display styles now apply to the icon element.
+- 2026-10-21: Icon custom CSS in the editor targets the SVG root instead of the full-width preview wrapper.
+- 2026-10-21: Editor widget roots mirror public type classes, custom classes, and IDs so ancestor nested selectors style descendant widgets instead of editor selection frames.
+
 ### Added
 
 - 2026-10-21: Page, Template and widget Custom CSS is syntax-validated, scoped to its target selector, minified, and emitted as a generated page stylesheet.

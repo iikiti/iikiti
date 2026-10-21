@@ -9,8 +9,13 @@ is pure server-rendered HTML (no editor JS for visitors).
 - Each block type declares a `renderTemplate` (Twig) and an `editorComponent` (Svelte).
 - `PageRendering` resolves a `Template` (via `TemplateResolver`) and renders its
   regions with `TemplateRenderer` -> `BlockRenderer`.
-- In **editor mode**, block wrappers carry `data-block-*` attributes so the editor
-  hydrates the DOM. These attributes are **not** emitted for public visitors.
+- Block classes, element styles, and `data-block-*` editor metadata are applied to
+  the widget's single root element whenever its template has one. A block wrapper
+  is kept only when content has multiple roots, is text-only, or needs a semantic
+  container. Editor metadata is **not** emitted for public visitors.
+- In the editor, selection controls use a separate preview frame; widget type
+  classes, element IDs, and custom classes are placed on the rendered content root
+  so nested CSS targets the widget rather than the full-width selection frame.
 
 ## Activation
 - Loaded only when authorised (`?edit` + logged-in user with `Page:write` /
@@ -65,8 +70,8 @@ radio, legend, fieldset
   children are **not** wysiwyg — an `inline_text` child is a basic text node or
   a non-block element (`span`, `em`, `strong`, `b`, `u`, `i`, `small`, `code`,
   `mark`, allowlist-enforced server-side; `plain` renders a bare escaped text
-  node). Inline blocks render with a `span` wrapper (`BlockType::$wrapperTag`)
-  so the markup stays valid inside `<h2>`….
+  node). The selected inline element is the block root; plain text uses a `span`
+  only because it needs an element for block metadata and styling.
 - **query** executes a query definition server-side and renders its children
   **once per result row** (per-result template). Each result row is exposed to
   child templates as `item`, and each child block can bind its content fields
@@ -147,7 +152,7 @@ Rules (tagged `iikiti.cms.template_rule`): `object_type`, `object`, `site`.
   button metrics). Tabs: **Content**, **Element**, **Style**
   (schema-driven). The Element tab includes built-in `id`/`cssClass` fields
   and an **Attributes** repeater (name/value rows, add/remove) that renders
-  onto the block wrapper.
+  onto the block root element.
 - **Page/Template settings**: the toolbar settings icon switches the same
   sidebar from block settings to **Page Settings** for the current Page object,
   or **Template Settings** in a template-only context. The settings target is

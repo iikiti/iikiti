@@ -41,6 +41,7 @@ final class BlockRendererTest extends TestCase
 		$twig->addFunction(new \Twig\TwigFunction('iikiti_query', static function (): never {
 			throw new \RuntimeException('iikiti_query must not be called when the renderer supplies items');
 		}, ['is_safe' => ['html']]));
+		$twig->addFunction(new \Twig\TwigFunction('iikiti_icon', static fn (): string => '<svg viewBox="0 0 24 24"><path d="M0 0"></path></svg>', ['is_safe' => ['html']]));
 
 		return new BlockRenderer(
 			new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly())]),
@@ -145,6 +146,48 @@ final class BlockRendererTest extends TestCase
 		$this->assertStringContainsString('iikiti-container', $html);
 		$this->assertStringContainsString('iikiti-heading', $html);
 		$this->assertStringContainsString('<h2', $html);
+	}
+
+	public function testSingleRootWidgetUsesItsContentElementAsTheBlockElement(): void
+	{
+		$html = $this->renderer->renderTree([[
+			'id' => 'button-root',
+			'type' => 'button',
+			'content' => ['text' => 'Save', 'type' => 'button'],
+			'style' => ['base' => ['display' => 'inline-block']],
+		]], new BlockRenderContext(editorMode: true));
+
+		self::assertStringContainsString('<button type="button" class="iikiti-block iikiti-block--button iikiti-block-id--button-root" style="display:inline-block;" data-block-id="button-root"', $html);
+		self::assertSame(1, substr_count($html, '<button'));
+		self::assertStringNotContainsString('<div class="iikiti-block iikiti-block--button', $html);
+	}
+
+	public function testIconUsesOneStyledSvgElement(): void
+	{
+		$html = $this->renderer->renderTree([[
+			'id' => 'icon-root',
+			'type' => 'icon',
+			'content' => ['name' => 'box', 'renderer' => 'svg'],
+			'style' => ['base' => ['display' => 'inline-block', 'size' => 24]],
+		]], new BlockRenderContext(editorMode: true));
+
+		self::assertStringContainsString('<svg viewBox="0 0 24 24" class="iikiti-block iikiti-block--icon iikiti-block-id--icon-root" style="display:inline-block;font-size:24px;" data-block-icon="box" data-block-id="icon-root"', $html);
+		self::assertSame(1, substr_count($html, '<svg'));
+		self::assertStringNotContainsString('<span class="iikiti-icon-block"', $html);
+		self::assertStringNotContainsString('<div class="iikiti-block iikiti-block--icon', $html);
+	}
+
+	public function testMultipleRootWidgetContentKeepsItsRequiredBlockWrapper(): void
+	{
+		$html = $this->renderer->renderTree([[
+			'id' => 'captioned-image',
+			'type' => 'image',
+			'content' => ['source' => ['url' => '/image.jpg'], 'alt' => 'A view', 'caption' => 'Image caption'],
+	]], new BlockRenderContext(editorMode: false));
+
+		self::assertStringContainsString('<div class="iikiti-block iikiti-block--image iikiti-block-id--captioned-image">', $html);
+		self::assertStringContainsString('<img src="/image.jpg"', $html);
+		self::assertStringContainsString('<figcaption class="iikiti-image-caption">Image caption</figcaption>', $html);
 	}
 
 	public function testUnknownBlockTypeRendersPlaceholder(): void
@@ -272,7 +315,7 @@ final class BlockRendererTest extends TestCase
 		self::assertSame('iikiti-block-id--blk_abc123', BlockRenderer::blockIdClass('blk_abc123'));
 	}
 
-	public function testElementIdAndCssClassRenderOnTheWrapper(): void
+	public function testElementIdAndCssClassRenderOnTheSingleRootElement(): void
 	{
 		$tree = [[
 			'type' => 'text',
@@ -282,7 +325,7 @@ final class BlockRendererTest extends TestCase
 
 		$html = $this->renderer->renderRegionTree($this->inContainer($tree), new BlockRenderContext(editorMode: false));
 
-		self::assertStringContainsString('class="iikiti-block iikiti-block--text lead muted"', $html);
+		self::assertStringContainsString('class="iikiti-block iikiti-block--text lead muted iikiti-text"', $html);
 		self::assertStringContainsString('id="hero"', $html);
 	}
 
@@ -340,10 +383,10 @@ final class BlockRendererTest extends TestCase
 
 		$html = $this->renderer->renderRegionTree($this->inContainer($tree), new BlockRenderContext(editorMode: false));
 
-		// Inline children use the block type's `span` wrapper so the markup
-		// stays valid inside an <h2> (the block wrapper itself remains a div).
+		// Inline children decorate their actual inline element; bare text still
+		// receives a span because it needs an element for block metadata.
 		self::assertStringContainsString(
-			'<h2 class="iikiti-heading" data-block-children>Hi <span class="iikiti-block iikiti-block--inline_text"><strong>world</strong></span><span class="iikiti-block iikiti-block--inline_text">!</span></h2>',
+			'<h2 class="iikiti-block iikiti-block--heading iikiti-heading" data-block-children>Hi <strong class="iikiti-block iikiti-block--inline_text">world</strong><span class="iikiti-block iikiti-block--inline_text">!</span></h2>',
 			$html
 		);
 	}
@@ -360,7 +403,7 @@ final class BlockRendererTest extends TestCase
 		// A disallowed `tag` falls back to a bare escaped text node.
 		self::assertStringNotContainsString('<script', $html);
 		self::assertStringContainsString('&lt;img src=x onerror=alert(1)&gt;', $html);
-		self::assertStringContainsString('<em>ok</em>', $html);
+		self::assertStringContainsString('<em class="iikiti-block iikiti-block--inline_text">ok</em>', $html);
 	}
 
 	public function testQueryChildrenRenderOncePerResultWithBindingsResolved(): void
@@ -391,10 +434,10 @@ final class BlockRendererTest extends TestCase
 
 		// One child render per result row, with the binding resolved per row.
 		self::assertSame(2, substr_count($html, 'iikiti-query__item'));
-		self::assertSame(2, substr_count($html, '<h3 class="iikiti-heading" data-block-children>'));
+		self::assertSame(2, substr_count($html, '<h3 class="iikiti-block iikiti-block--heading iikiti-heading" data-block-children>'));
 		// Resolved values are reduced to plain text (markup stripped) before the
 		// template escapes them once — raw markup never reaches the output.
-		self::assertStringContainsString('<h3 class="iikiti-heading" data-block-children>First row</h3>', $html);
+		self::assertStringContainsString('<h3 class="iikiti-block iikiti-block--heading iikiti-heading" data-block-children>First row</h3>', $html);
 		self::assertStringContainsString('Second', $html);
 		// The static fallback never leaks when the binding resolves.
 		self::assertStringNotContainsString('Fallback', $html);
@@ -466,7 +509,7 @@ final class BlockRendererTest extends TestCase
 		self::assertStringNotContainsString('hash-secret', $html);
 		self::assertStringContainsString('Static A', $html);
 		self::assertStringNotContainsString('Visible title', $html);
-		self::assertStringContainsString('<h3 class="iikiti-heading"', $html);
+		self::assertStringContainsString('<h3 class="iikiti-block iikiti-block--heading iikiti-heading"', $html);
 	}
 
 	public function testInvalidHeadingLevelFallsBackToH2(): void
@@ -478,7 +521,7 @@ final class BlockRendererTest extends TestCase
 		]], new BlockRenderContext(editorMode: false));
 
 		self::assertStringNotContainsString('onmouseover', $html);
-		self::assertStringContainsString('<h2 class="iikiti-heading"', $html);
+		self::assertStringContainsString('<h2 class="iikiti-block iikiti-block--heading iikiti-heading"', $html);
 	}
 
 	public function testEditorKeepsQueryChildTemplateWhenNoRows(): void
@@ -535,8 +578,8 @@ final class BlockRendererTest extends TestCase
 		self::assertStringContainsString('<input type="range" name="rating" min="0" max="10" step="1" value="5">', $publicHtml);
 		self::assertStringContainsString('<input type="checkbox" name="subscribe" value="yes" checked>', $publicHtml);
 		self::assertStringContainsString('<input type="radio" name="choice" value="a">', $publicHtml);
-		self::assertStringContainsString('<button type="button">Action</button>', $publicHtml);
-		self::assertStringContainsString('<button type="submit">Send</button>', $publicHtml);
+		self::assertStringContainsString('<button type="button" class="iikiti-block iikiti-block--button">Action</button>', $publicHtml);
+		self::assertStringContainsString('<button type="submit" class="iikiti-block iikiti-block--button">Send</button>', $publicHtml);
 		self::assertStringNotContainsString('data-block-id', $publicHtml);
 		self::assertStringContainsString('data-block-id="form-1"', $editorHtml);
 		self::assertStringContainsString('data-block-children', $editorHtml);
@@ -551,8 +594,8 @@ final class BlockRendererTest extends TestCase
 
 		$html = $this->renderer->renderRegionTree($tree, new BlockRenderContext(editorMode: false));
 
-		self::assertStringContainsString('<button type="button">Open</button>', $html);
-		self::assertStringContainsString('<button type="submit">Send</button>', $html);
+		self::assertStringContainsString('<button type="button" class="iikiti-block iikiti-block--button">Open</button>', $html);
+		self::assertStringContainsString('<button type="submit" class="iikiti-block iikiti-block--button">Send</button>', $html);
 	}
 
 	public function testFormActionAndInputMarkupRejectUnsafeValuesAndEscapeText(): void
@@ -651,7 +694,7 @@ final class BlockRendererTest extends TestCase
 		$html = $this->renderer->renderRegionTree($tree, new BlockRenderContext(editorMode: true));
 
 		self::assertStringContainsString('data-block-id="icon-preview"', $html);
-		self::assertStringContainsString('<style data-iikiti-custom-css>[data-block-id=icon-preview]{background:red}</style>', $html);
+		self::assertStringContainsString('<style data-iikiti-custom-css>[data-block-id=icon-preview] .iikiti-icon-block{background:red}</style>', $html);
 	}
 
 	public function testInvalidStyleValuesAreOmittedFromInlineAndResponsiveCss(): void

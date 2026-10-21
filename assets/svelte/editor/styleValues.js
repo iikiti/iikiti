@@ -79,6 +79,12 @@ export function styleText(style, type = '', fields = [], breakpoint = 'base') {
 	return styleDeclarations(layer, type, fields).map(([property, value]) => `${property}:${value}`).join(';');
 }
 
+export function blockRootClass(node) {
+	const type = String(node?.type ?? 'unknown').replace(/[^a-z0-9_-]/gi, '-');
+	const customClass = typeof node?.element?.cssClass === 'string' ? node.element.cssClass.trim() : '';
+	return ['iikiti-block', `iikiti-block--${type}`, customClass].filter(Boolean).join(' ');
+}
+
 function escapeCssString(value) {
 	return String(value)
 		.replace(/\\/g, '\\\\')
@@ -90,7 +96,7 @@ function escapeCssString(value) {
 
 export function styleTargetSelector(node) {
 	if (!node?.id) return '';
-	if (node.type === 'icon') return `[data-block-id="${escapeCssString(node.id)}"]`;
+	if (node.type === 'icon') return `[data-block-id="${escapeCssString(node.id)}"] .iikiti-icon-block`;
 
 	const host = `[data-style-target="${escapeCssString(node.id)}"]`;
 	return host + ({ container: ' .iikiti-container', query: ' .iikiti-query-preview', image: ' .iikiti-image' }[node.type] ?? '');

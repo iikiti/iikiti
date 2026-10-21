@@ -13,7 +13,7 @@
 	} from './state';
 	import type { BlockNode } from './state';
 	import BlockContent from './BlockContent.svelte';
-	import { customCssStyleText, hasResponsiveOverrides, responsiveStyleText, styleTargetSelector, styleText } from './styleValues.js';
+	import { blockRootClass, customCssStyleText, hasResponsiveOverrides, responsiveStyleText, styleTargetSelector, styleText } from './styleValues.js';
 
 	let {
 		node,
@@ -45,6 +45,8 @@
 	const schema = $derived(($blockTypes[node.type] ?? {}) as Record<string, unknown>);
 	const styleFields = $derived((schema['styleFields'] as Array<Record<string, unknown>> | undefined) ?? []);
 	const targetStyle = $derived(styleText(node.style ?? {}, node.type, styleFields));
+	const widgetClass = $derived(blockRootClass(node));
+	const elementId = $derived(typeof node.element?.id === 'string' ? node.element.id.trim() : '');
 	const hasResponsiveStyle = $derived(
 		hasResponsiveOverrides(node, styleFields, ($editorConfig['breakpoints'] as Record<string, number> | undefined) ?? {}),
 	);
@@ -157,7 +159,7 @@
 {#if readonly}
 	<div bind:this={blockElement} class="iikiti-block-preview iikiti-block-preview--readonly" data-block-node data-block-readonly data-block-id={node.id} data-block-type={node.type}>
 		<div class="iikiti-block-preview__content" data-style-target={node.id} style={baseStyle || undefined}>
-			<BlockContent {node} {regionId} {readonly} parentId={node.id} targetStyle={inlineStyle} />
+			<BlockContent {node} {regionId} {readonly} parentId={node.id} {widgetClass} {elementId} targetStyle={inlineStyle} />
 		</div>
 	</div>
 {:else}
@@ -186,7 +188,7 @@
 		}}
 	>
 		<div class="iikiti-block-preview__content" data-style-target={node.id} style={baseStyle || undefined}>
-			<BlockContent {node} {regionId} {parentId} {readonly} targetStyle={inlineStyle} />
+			<BlockContent {node} {regionId} {parentId} {readonly} {widgetClass} {elementId} targetStyle={inlineStyle} />
 		</div>
 		<button type="button" class="iikiti-insert-btn iikiti-insert-btn--before" title="Insert block before" aria-label="Insert block before" onclick={(event) => insertAt(index, event)}>
 			<span aria-hidden="true">+</span>
