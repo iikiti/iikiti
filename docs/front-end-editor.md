@@ -102,8 +102,9 @@ Rules (tagged `iikiti.cms.template_rule`): `object_type`, `object`, `site`.
 
 ## Saving / publishing
 - Snapshot autosave to `*_draft`; ETag concurrency (`409` on stale version ->
-  editor re-snapshots). `Publish` copies draft -> published. Public rendering
-  always reads published.
+  editor re-snapshots). `Publish` first saves any dirty block tree, then copies
+  draft -> published and updates the editor's version. Public rendering always
+  reads published.
 - API: `POST /api/editor/save`, `POST /api/editor/publish`,
   `GET /api/editor/context`, `POST /api/editor/render-block`,
   `GET /api/editor/query-fields` (mappable query result fields for the binding

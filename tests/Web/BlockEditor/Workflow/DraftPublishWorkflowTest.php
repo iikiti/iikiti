@@ -97,12 +97,14 @@ final class DraftPublishWorkflowTest extends TestCase
 	public function testPublishCopiesDraftToPublished(): void
 	{
 		$template = $this->template();
+		$template->setProperty('draft_version', 4);
 		$template->setProperty('blocks_draft', ['main' => [['type' => 'text']]]);
 		$workflow = $this->workflow($template);
 
 		$result = $workflow->publish('template', 1, $this->user());
 
-		$this->assertTrue($result['ok']);
+		$this->assertSame(['ok' => true, 'version' => 5], $result);
 		$this->assertSame(['main' => [['type' => 'text']]], $template->getBlocks());
+		$this->assertSame(5, $template->getDraftVersion());
 	}
 }

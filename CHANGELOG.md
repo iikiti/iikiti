@@ -89,6 +89,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Fixed
 
+- 2026-10-21: Publishing saves dirty block trees first and synchronizes the editor draft version, preventing the next save from conflicting.
 - 2026-10-21: Settings publish removes the draft property instead of writing a prohibited null value.
 - 2026-10-21: Widget Custom CSS now scopes to stable block-id selectors during editor hydration, so saved CSS reapplies after reload.
 - 2026-10-21: The Custom CSS editor toolbar and frame now follow the active light/dark panel palette.

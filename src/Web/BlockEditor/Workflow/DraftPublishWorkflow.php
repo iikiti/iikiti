@@ -87,7 +87,7 @@ final class DraftPublishWorkflow implements SaveWorkflowInterface
 		$this->em->persist($object);
 		$this->em->flush();
 
-		return ['ok' => true];
+		return ['ok' => true, 'version' => $version];
 	}
 
 	private function load(EntityManagerInterface $em, string $contextType, int $contextId): ?DbObject

@@ -30,7 +30,7 @@ interface SaveWorkflowInterface
 	/**
 	 * Promote draft state to published for the given context.
 	 *
-	 * @return array{ok:bool}
+	 * @return array{ok:bool, version?:int}
 	 */
 	public function publish(string $contextType, int $contextId, User $user): array;
 }

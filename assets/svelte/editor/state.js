@@ -819,6 +819,12 @@ export async function saveDraft() {
 
 export async function publish() {
 	let current = get(state);
+	if (current.dirty) {
+		const saved = await saveDraft();
+		if (!saved.ok || saved.conflict) return false;
+		current = get(state);
+	}
+
 	const res = await fetch(`${get(apiBase)}/editor/publish`, {
 		method: 'POST',
 		credentials: 'same-origin',
@@ -831,6 +837,7 @@ export async function publish() {
 		return false;
 	}
 
+	state.update((st) => ({ ...st, version: Number(publishResult.version ?? st.version) }));
 	current = get(state);
 	if (current.settingsDirty) {
 		const saved = await saveSettingsDraft(current);
