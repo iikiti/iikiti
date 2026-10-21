@@ -5515,6 +5515,10 @@
                                     "$ref": "#/$defs/types/scalar",
                                     "description": "An enabled authenticator name or a service id that implements \"Symfony\\Component\\Security\\Http\\EntryPoint\\AuthenticationEntryPointInterface\"."
                                 },
+                                "entry_point_path": {
+                                    "$ref": "#/$defs/types/scalar",
+                                    "description": "A path, an absolute URL or a route name to redirect anonymous users to when they need to authenticate."
+                                },
                                 "re_authentication_entry_point": {
                                     "$ref": "#/$defs/types/scalar",
                                     "description": "An enabled authenticator name or a service id implementing \"Symfony\\Component\\Security\\Http\\EntryPoint\\ReAuthenticationEntryPointInterface\", started when the vote denying access asks for a re-authentication. Defaults to the firewall entry point when it implements this interface."
@@ -6160,7 +6164,7 @@
                                                         },
                                                         "id": {
                                                             "$ref": "#/$defs/types/scalar",
-                                                            "description": "The id of a service implementing \"ClientAuthenticationInterface\", for a scheme Symfony does not ship. The method it reports is only known once it is built, so the rules a public client cannot bend are then checked on the first request to this firewall instead of while the container compiles."
+                                                            "description": "The id of a service implementing \"ClientAuthenticationInterface\", for a scheme Symfony does not ship. The method it reports is only known once it is built, so the rules a public client cannot bend are then checked when a login starts on this firewall instead of while the container compiles."
                                                         }
                                                     },
                                                     "additionalProperties": false

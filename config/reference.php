@@ -1221,6 +1221,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         access_denied_url?: scalar|Param|null,
  *         access_denied_handler?: scalar|Param|null,
  *         entry_point?: scalar|Param|null, // An enabled authenticator name or a service id that implements "Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface".
+ *         entry_point_path?: scalar|Param|null, // A path, an absolute URL or a route name to redirect anonymous users to when they need to authenticate.
  *         re_authentication_entry_point?: scalar|Param|null, // An enabled authenticator name or a service id implementing "Symfony\Component\Security\Http\EntryPoint\ReAuthenticationEntryPointInterface", started when the vote denying access asks for a re-authentication. Defaults to the firewall entry point when it implements this interface.
  *         provider?: scalar|Param|null,
  *         stateless?: bool|Param, // Default: false
@@ -1335,7 +1336,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                 },
  *                 tls_client_auth?: bool|Param, // Authenticate with "client_certificate", issued by a certificate authority.
  *                 self_signed_tls_client_auth?: bool|Param, // Authenticate with "client_certificate", self-signed.
- *                 id?: scalar|Param|null, // The id of a service implementing "ClientAuthenticationInterface", for a scheme Symfony does not ship. The method it reports is only known once it is built, so the rules a public client cannot bend are then checked on the first request to this firewall instead of while the container compiles.
+ *                 id?: scalar|Param|null, // The id of a service implementing "ClientAuthenticationInterface", for a scheme Symfony does not ship. The method it reports is only known once it is built, so the rules a public client cannot bend are then checked when a login starts on this firewall instead of while the container compiles.
  *             },
  *             dpop?: Param|string|array{ // Binds the tokens the provider issues to a key held by this client (DPoP); a token the provider did not bind is refused.
  *                 key?: scalar|Param|null, // The private key the proofs are signed with, as a JSON-encoded JWK.
