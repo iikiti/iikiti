@@ -176,6 +176,22 @@ export function updateEditorSetting(key, value) {
 	}));
 }
 
+/** @returns {Promise<{valid:boolean,error?:string,compiled?:string}>} */
+export async function validateEditorCss(css) {
+	const response = await fetch(`${get(apiBase)}/editor/css/validate`, {
+		method: 'POST',
+		credentials: 'same-origin',
+		headers: { 'Content-Type': 'application/json', ...authHeader(get(apiToken)) },
+		body: JSON.stringify({ css }),
+	});
+	const result = await response.json().catch(() => ({}));
+	if (!response.ok || typeof result.valid !== 'boolean') {
+		throw new Error(result.error || 'CSS validation is unavailable.');
+	}
+
+	return result;
+}
+
 const blockElements = new Map();
 export function registerBlock(id, el) {
 	if (el) blockElements.set(id, el);

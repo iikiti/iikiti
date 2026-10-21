@@ -202,13 +202,19 @@
 	}
 
 	function fieldOnChange(n: Record<string, unknown>, value: unknown) {
+		const field = n.field as Record<string, unknown>;
+		const key = field.key as string;
+		const isCssField = field.type === 'css';
+		const hasCompiledCss = isCssField && value !== null && typeof value === 'object' && 'source' in value;
+		const fieldValue = hasCompiledCss ? (value as { source: unknown }).source : value;
+		const compiledCss = hasCompiledCss ? (value as { compiled: unknown }).compiled : null;
+
 		if (isSettingsMode) {
 			if (typeof n.set === 'function') {
 				(n.set as (c: unknown, v: unknown) => void)(settingsCtx, value);
 				return;
 			}
-			const key = (n.field as Record<string, unknown>).key as string;
-			updateEditorSetting(key, value);
+			updateEditorSetting(key, fieldValue);
 			return;
 		}
 		if (!node) return;
@@ -216,23 +222,27 @@
 			(n.set as (c: unknown, v: unknown) => void)(ctx, value);
 			return;
 		}
-		const key = (n.field as Record<string, unknown>).key as string;
 		if (n.path === 'element') {
-			updateNode(node.id, { element: { ...(node.element ?? {}), [key]: value } });
+			updateNode(node.id, { element: { ...(node.element ?? {}), [key]: fieldValue } });
 		} else if (n.path === 'style') {
 			const style = (node.style ?? {}) as Record<string, Record<string, unknown>>;
 			const breakpoint = currentBreakpoint();
 			const layer = { ...(style[breakpoint] ?? {}) };
-			const legacyKey = legacyStyleKey(key);
-			if (legacyKey) delete layer[legacyKey];
-			if (value === '' || value === null || value === undefined) delete layer[key];
-			else layer[key] = value;
+			if (isCssField) {
+				layer[key] = fieldValue;
+				layer[`${key}Compiled`] = compiledCss;
+			} else {
+				const legacyKey = legacyStyleKey(key);
+				if (legacyKey) delete layer[legacyKey];
+				if (fieldValue === '' || fieldValue === null || fieldValue === undefined) delete layer[key];
+				else layer[key] = fieldValue;
+			}
 			const nextStyle = { ...style };
 			if (Object.keys(layer).length === 0) delete nextStyle[breakpoint];
 			else nextStyle[breakpoint] = layer;
 			updateNode(node.id, { style: nextStyle });
 		} else {
-			updateNode(node.id, { content: { ...(node.content ?? {}), [key]: value } });
+			updateNode(node.id, { content: { ...(node.content ?? {}), [key]: fieldValue } });
 		}
 	}
 

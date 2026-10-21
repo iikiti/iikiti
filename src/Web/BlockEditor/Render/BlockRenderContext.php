@@ -36,12 +36,13 @@ final class BlockRenderContext
 		public readonly array $dynamicBlocks = [],
 		public readonly mixed $item = null,
 		public readonly int $queryDepth = 0,
+		public readonly ?CustomCssCollector $customCssCollector = null,
 	) {
 	}
 
 	public function withEditorMode(bool $editorMode): self
 	{
-		return new self($editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $this->item, $this->queryDepth);
+		return new self($editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $this->item, $this->queryDepth, $this->customCssCollector);
 	}
 
 	/**
@@ -51,6 +52,6 @@ final class BlockRenderContext
 	 */
 	public function withItem(mixed $item): self
 	{
-		return new self($this->editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $item, $this->queryDepth + 1);
+		return new self($this->editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $item, $this->queryDepth + 1, $this->customCssCollector);
 	}
 }

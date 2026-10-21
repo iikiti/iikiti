@@ -78,6 +78,7 @@ final class EditorSettingsManagerTest extends TestCase
 		$published = $manager->publish($template, '1');
 		$this->assertSame(['ok' => true, 'version' => 2, 'conflict' => false, 'hasDraft' => false], $published);
 		$this->assertSame(['legacy' => 'updated', 'seoTitle' => 'Home'], $template->getSettings());
+		$this->assertNull($template->getProperties()->get('settings_draft'));
 		$this->assertFalse($manager->state($template)['hasDraft']);
 	}
 

@@ -9,6 +9,7 @@ use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Security\PermissionChecker;
 use iikiti\CMS\Web\BlockEditor\BlockEditorComponent;
+use iikiti\CMS\Web\BlockEditor\CustomCssCompiler;
 use iikiti\CMS\Web\BlockEditor\EditorSettingsManager;
 use iikiti\CMS\Web\BlockEditor\Query\QueryFieldCatalog;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderContext;
@@ -30,6 +31,26 @@ use Symfony\Component\Security\Core\User\UserInterface;
 #[AsController]
 class EditorStateController extends AppController
 {
+	#[Route('/api/editor/css/validate', name: 'api_editor_css_validate', methods: ['POST'])]
+	public function validateCustomCss(Request $request, PermissionChecker $permissionChecker, CustomCssCompiler $cssCompiler): JsonResponse
+	{
+		$user = $this->getUser();
+		if (!$user instanceof User || !$this->can($user, $permissionChecker, 'template', 'write')) {
+			return $this->json(['error' => 'Forbidden'], Response::HTTP_FORBIDDEN);
+		}
+		$source = $this->payload($request)['css'] ?? null;
+		if (!is_string($source)) {
+			return $this->json(['error' => 'CSS source must be a string'], Response::HTTP_BAD_REQUEST);
+		}
+
+		try {
+			$compiled = $cssCompiler->validate($source);
+			return $this->json(['valid' => true, 'compiled' => $compiled]);
+		} catch (\InvalidArgumentException $error) {
+			return $this->json(['valid' => false, 'error' => $error->getMessage()]);
+		}
+	}
+
 	#[Route('/api/editor/context', name: 'api_editor_context', methods: ['GET'])]
 	public function editorContext(Request $request, PermissionChecker $permissionChecker, BlockEditorComponent $blockEditor, IconResolver $iconResolver): JsonResponse
 	{
@@ -102,7 +123,7 @@ class EditorStateController extends AppController
 			return $forbidden ?? $this->json(['error' => 'Forbidden'], Response::HTTP_FORBIDDEN);
 		}
 		$payload = $this->payload($request);
-		$tree = is_array($payload['tree'] ?? null) ? (array) $payload['tree'] : [];
+		$tree = is_array($payload['tree'] ?? null) ? $this->stripCssPreviewData($payload['tree']) : [];
 
 		$result = $workflows->default()->save($type, (int) $id, $tree, $request->headers->get('If-Match'), $user);
 
@@ -283,6 +304,23 @@ class EditorStateController extends AppController
 		$decoded = json_decode((string) $request->getContent(), true);
 
 		return is_array($decoded) ? $decoded : [];
+	}
+
+	/**
+	 * @param array<mixed> $value
+	 * @return array<mixed>
+	 */
+	private function stripCssPreviewData(array $value): array
+	{
+		foreach ($value as $key => $item) {
+			if ('customCssCompiled' === $key) {
+				unset($value[$key]);
+			} elseif (is_array($item)) {
+				$value[$key] = $this->stripCssPreviewData($item);
+			}
+		}
+
+		return $value;
 	}
 
 	/**

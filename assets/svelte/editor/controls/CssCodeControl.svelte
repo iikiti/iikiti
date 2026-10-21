@@ -8,7 +8,7 @@
 	import { oneDark } from '@codemirror/theme-one-dark';
 	import { EditorView, drawSelection, highlightActiveLine, keymap, lineNumbers } from '@codemirror/view';
 	import { get } from 'svelte/store';
-	import { editorSettings, searchNode, selected } from '../state.js';
+	import { editorSettings, searchNode, selected, validateEditorCss } from '../state.js';
 	import { createSettingsCssCompletionSource } from '../cssAutocomplete.js';
 
 	interface Props {
@@ -21,6 +21,11 @@
 	let host: HTMLDivElement;
 	let editor = $state<EditorView | null>(null);
 	let syncing = false;
+	let validationError = $state('');
+	let validationUnavailable = $state(false);
+	let validationSequence = 0;
+	let validationTimer: ReturnType<typeof setTimeout> | null = null;
+	let validationInput = '';
 
 	const ariaLabel = $derived(String(field.label ?? 'Custom CSS'));
 	const theme = new Compartment();
@@ -61,7 +66,62 @@
 		return dark ? [oneDark, layoutTheme] : [layoutTheme, lightTheme];
 	}
 
+	function scheduleValidation(source: string, updateCompiled = false) {
+		validationInput = source;
+		validationSequence++;
+		if (null !== validationTimer) clearTimeout(validationTimer);
+		if (updateCompiled) applyPageCssPreview(null);
+		if ('' === source.trim()) {
+			validationError = '';
+			validationUnavailable = false;
+			applyPageCssPreview(null);
+			if (updateCompiled) onChange({ source, compiled: '' });
+			return;
+		}
+
+		const requestSequence = validationSequence;
+		validationTimer = setTimeout(async () => {
+			try {
+				const result = await validateEditorCss(source);
+				if (requestSequence !== validationSequence) return;
+				validationError = result.valid ? '' : result.error ?? 'CSS syntax is invalid.';
+				validationUnavailable = false;
+				applyPageCssPreview(result.valid ? result.compiled ?? null : null);
+				if (updateCompiled) onChange({ source, compiled: result.valid ? result.compiled ?? '' : null });
+			} catch {
+				if (requestSequence !== validationSequence) return;
+				validationError = '';
+				validationUnavailable = true;
+				applyPageCssPreview(null);
+				if (updateCompiled) onChange({ source, compiled: null });
+			}
+		}, 350);
+	}
+
+	function applyPageCssPreview(compiled: string | null) {
+		const context = autocompleteContext();
+		if (!['page', 'template'].includes(String(context.targetType))) return;
+		const targetId = Number(context.targetId);
+		if (!Number.isInteger(targetId) || targetId < 1) return;
+
+		const id = `iikiti-custom-css-preview-${context.targetType}-${targetId}`;
+		let style = document.getElementById(id) as HTMLStyleElement | null;
+		if (!compiled) {
+			style?.remove();
+			return;
+		}
+		if (!style) {
+			style = document.createElement('style');
+			style.id = id;
+			style.dataset.iikitiCustomCssPreview = String(context.targetType);
+			document.head.append(style);
+		}
+		const scopeSelector = `body.iikiti-${context.targetType}-id--${targetId}`;
+		style.textContent = compiled.replaceAll('.iikiti-custom-css-scope-placeholder', scopeSelector);
+	}
+
 	onMount(() => {
+		scheduleValidation(String(value ?? ''));
 		const customCompletionSource = createSettingsCssCompletionSource(autocompleteContext);
 		const isDark = () => document.documentElement.classList.contains('dark');
 		const state = EditorState.create({
@@ -80,7 +140,11 @@
 				autocompletion({ override: [cssCompletionSource, customCompletionSource] }),
 				EditorView.contentAttributes.of({ 'aria-label': ariaLabel, 'aria-multiline': 'true' }),
 				EditorView.updateListener.of((update) => {
-					if (update.docChanged && !syncing) onChange(update.state.doc.toString());
+					if (update.docChanged && !syncing) {
+						const source = update.state.doc.toString();
+						scheduleValidation(source, true);
+						onChange(source);
+					}
 				}),
 			],
 		});
@@ -91,6 +155,8 @@
 		themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
 		return () => {
+			validationSequence++;
+			if (null !== validationTimer) clearTimeout(validationTimer);
 			themeObserver.disconnect();
 			editor?.destroy();
 			editor = null;
@@ -99,6 +165,7 @@
 
 	$effect(() => {
 		const next = String(value ?? '');
+		if (next !== validationInput) scheduleValidation(next);
 		if (!editor || editor.state.doc.toString() === next) return;
 		syncing = true;
 		editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: next } });
@@ -118,6 +185,18 @@
 		<button type="button" class="css-code-control__format" onclick={formatCss}>Format</button>
 	</div>
 	<div class="css-code-control__editor" bind:this={host}></div>
+	{#if validationError}
+		<div class="css-code-control__warning" role="alert">
+			<strong>Invalid CSS. It will not be applied.</strong>
+			<span>{validationError}</span>
+			<a href="https://developer.mozilla.org/en-US/docs/Web/CSS" target="_blank" rel="noopener noreferrer">CSS syntax documentation</a>
+		</div>
+	{:else if validationUnavailable}
+		<div class="css-code-control__warning" role="status">
+			<span>CSS could not be validated and may not be applied.</span>
+			<a href="https://developer.mozilla.org/en-US/docs/Web/CSS" target="_blank" rel="noopener noreferrer">CSS syntax documentation</a>
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -154,4 +233,18 @@
 		font-size: 0.8125rem;
 		outline: none;
 	}
+
+	.css-code-control__warning {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		padding: 0.5rem 0.625rem;
+		border-top: 1px solid var(--ik-panel-border, #ddd6cb);
+		background: color-mix(in srgb, var(--iikiti-danger, #b42318) 8%, var(--ik-panel-bg, #f9f7f2));
+		color: var(--ik-panel-text, #3a3830);
+		font-size: 0.75rem;
+	}
+
+	.css-code-control__warning strong { color: var(--iikiti-danger, #b42318); }
+	.css-code-control__warning a { color: var(--ik-accent, #a6613c); text-decoration: underline; }
 </style>

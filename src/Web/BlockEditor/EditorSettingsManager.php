@@ -35,6 +35,14 @@ final class EditorSettingsManager
 		];
 	}
 
+	/** @return array<string,mixed> */
+	public function publishedSettings(DbObject $object): array
+	{
+		$value = $object->getProperties()->get('settings')?->getValue();
+
+		return is_array($value) ? $value : [];
+	}
+
 	public function findTarget(string $targetType, int $targetId): ?DbObject
 	{
 		$class = match ($targetType) {
@@ -92,7 +100,7 @@ final class EditorSettingsManager
 		}
 
 		$target->setProperty('settings', $draft);
-		$target->setProperty('settings_draft', null);
+		$target->getProperties()->remove('settings_draft');
 		$newVersion = $version + 1;
 		$target->setProperty('settings_version', $newVersion);
 		$this->entityManager->persist($target);

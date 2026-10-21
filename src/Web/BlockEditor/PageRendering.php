@@ -11,6 +11,7 @@ use iikiti\CMS\Entity\Object\Template;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderContext;
+use iikiti\CMS\Web\BlockEditor\Render\CustomCssCollector;
 use iikiti\CMS\Web\Template\TemplateRenderer;
 use iikiti\CMS\Web\Template\TemplateResolutionContext;
 use iikiti\CMS\Web\Template\TemplateResolver;
@@ -36,6 +37,7 @@ final class PageRendering
 		private readonly TemplateRenderer $templateRenderer,
 		private readonly FrontendConfigProvider $configProvider,
 		private readonly EditorSettingsManager $settingsManager,
+		private readonly CustomCssCompiler $customCssCompiler,
 		private readonly Security $security,
 		private readonly Environment $twig,
 	) {
@@ -55,6 +57,7 @@ final class PageRendering
 		$user = $this->security->getUser();
 		$canEdit = $user instanceof User && $this->configProvider->canEdit($user);
 		$editorMode = $canEdit && $request->query->has('edit');
+		$settingsContext = $canEdit ? $this->settingsContext($object, $template, $user) : null;
 		$config = $canEdit
 			? $this->configProvider->build(
 				contextId: (int) ($template->getId() ?? 0),
@@ -63,11 +66,22 @@ final class PageRendering
 				// The current draft version — the editor echoes it back as
 				// `If-Match` on save; a missing version would 409 every save.
 				version: $template->getDraftVersion(),
-				settingsContext: $this->settingsContext($object, $template, $user),
+				settingsContext: $settingsContext ?? [],
 			)
 			: null;
 		$regionTrees = ($editorMode && $template->getBlocksDraft() ? $template->getBlocksDraft() : ($template->getBlocks() ?: []));
 		$dynamicBlocks = $this->dynamicBlocksFor($object, $editorMode);
+		$customCss = new CustomCssCollector();
+		$templateSettings = $editorMode && 'template' === ($settingsContext['type'] ?? null)
+			? $settingsContext['values']
+			: $this->settingsManager->publishedSettings($template);
+		$this->appendCustomCss($customCss, $templateSettings, $this->scopeClass('template', $template->getId()));
+		if ($object instanceof Page) {
+			$pageSettings = $editorMode && 'page' === ($settingsContext['type'] ?? null)
+				? $settingsContext['values']
+				: $this->settingsManager->publishedSettings($object);
+			$this->appendCustomCss($customCss, $pageSettings, $this->scopeClass('page', $object->getId()));
+		}
 
 		$renderContext = new BlockRenderContext(
 			editorMode: $editorMode,
@@ -76,6 +90,7 @@ final class PageRendering
 			object: $object,
 			request: $request,
 			dynamicBlocks: $dynamicBlocks,
+			customCssCollector: $customCss,
 		);
 
 		$resolutionContext = new TemplateResolutionContext(
@@ -103,6 +118,11 @@ final class PageRendering
 			'iikiti_config' => $config,
 			// Editor/admin always load the font; public pages only when an icon used it and it is enabled.
 			'iikiti_icon_font' => $this->iconFontAssets->shouldLink($canEdit || $editorMode),
+			'iikiti_scope_classes' => array_values(array_filter([
+				$this->scopeClass('template', $template->getId()),
+				$object instanceof Page ? $this->scopeClass('page', $object->getId()) : null,
+			])),
+			'iikiti_custom_css' => $customCss->stylesheet(),
 		]));
 	}
 
@@ -153,5 +173,25 @@ final class PageRendering
 			'version' => $state['version'],
 			'hasDraft' => $state['hasDraft'],
 		];
+	}
+
+	/** @param array<string,mixed> $settings */
+	private function appendCustomCss(CustomCssCollector $collector, array $settings, ?string $scopeClass): void
+	{
+		$source = $settings['customCss'] ?? null;
+		if (null === $scopeClass || !is_string($source) || '' === trim($source)) {
+			return;
+		}
+
+		try {
+			$collector->append($this->customCssCompiler->compileScoped($source, 'body.'.$scopeClass));
+		} catch (\InvalidArgumentException) {
+			// Invalid custom CSS remains editable but is omitted from the public stylesheet.
+		}
+	}
+
+	private function scopeClass(string $type, ?int $id): ?string
+	{
+		return null !== $id && $id > 0 ? 'iikiti-'.$type.'-id--'.$id : null;
 	}
 }

@@ -31,12 +31,15 @@
             {% if iikiti_can_edit %}
                 {{ encore_entry_link_tags('editor') }}
             {% endif %}
+            {% if iikiti_custom_css|default('') is not empty %}
+                <style id="iikiti-custom-css">{{ iikiti_custom_css|raw }}</style>
+            {% endif %}
         {% endblock %}
         <title>{{ (doc.title ?? 'iikiti')|escape('html') }}</title>
         {% block head_js %}{% endblock %}
     {% endblock %}
 </head>
-	<body class="text-black bg-white dark:text-white dark:bg-gray-900{% if iikiti_can_edit %} iikiti-can-edit{% endif %}{% if iikiti_editor_mode %} iikiti-editor-body{% endif %}">
+	<body class="text-black bg-white dark:text-white dark:bg-gray-900{% for scopeClass in iikiti_scope_classes|default([]) %} {{ scopeClass|escape('html_attr') }}{% endfor %}{% if iikiti_can_edit %} iikiti-can-edit{% endif %}{% if iikiti_editor_mode %} iikiti-editor-body{% endif %}">
 		{% block body_before %}{% endblock %}
 		{% block body %}{{ iikiti_page_body|default('')|raw }}{% endblock %}
 		{% if iikiti_config %}

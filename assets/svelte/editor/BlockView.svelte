@@ -13,7 +13,7 @@
 	} from './state';
 	import type { BlockNode } from './state';
 	import BlockContent from './BlockContent.svelte';
-	import { customCssStyleText, hasResponsiveOverrides, responsiveStyleText, styleText } from './styleValues.js';
+	import { customCssStyleText, hasResponsiveOverrides, responsiveStyleText, styleTargetSelector, styleText } from './styleValues.js';
 
 	let {
 		node,
@@ -50,11 +50,6 @@
 	);
 	const inlineStyle = $derived(hasResponsiveStyle ? '' : targetStyle);
 	const baseStyle = $derived(['container', 'query', 'image', 'icon'].includes(node.type) ? '' : inlineStyle);
-
-	function styleTargetSelector() {
-		const host = `[data-style-target="${CSS.escape(node.id)}"]`;
-		return host + ({ container: ' .iikiti-container', query: ' .iikiti-query-preview', image: ' .iikiti-image', icon: ' .iikiti-icon-block' }[node.type] ?? '');
-	}
 
 	function clearHoverTimer() {
 		if (hoverTimer === null) return;
@@ -134,7 +129,7 @@
 	$effect(() => {
 		if (typeof document === 'undefined') return;
 		const breakpoints = ($editorConfig['breakpoints'] as Record<string, number> | undefined) ?? {};
-		const selector = styleTargetSelector();
+		const selector = styleTargetSelector(node);
 		const css = [
 			responsiveStyleText(node, breakpoints, styleFields, selector),
 			customCssStyleText(node, breakpoints, selector),
@@ -160,7 +155,7 @@
 </script>
 
 {#if readonly}
-	<div bind:this={blockElement} class="iikiti-block-preview iikiti-block-preview--readonly" data-block-node data-block-readonly>
+	<div bind:this={blockElement} class="iikiti-block-preview iikiti-block-preview--readonly" data-block-node data-block-readonly data-block-id={node.id} data-block-type={node.type}>
 		<div class="iikiti-block-preview__content" data-style-target={node.id} style={baseStyle || undefined}>
 			<BlockContent {node} {regionId} {readonly} parentId={node.id} targetStyle={inlineStyle} />
 		</div>
@@ -176,6 +171,8 @@
 		class:iikiti-block-preview--hover-active={hoverActive}
 		class:iikiti-block-preview--hover-ancestor={hoveredDescendant}
 		data-block-node
+		data-block-id={node.id}
+		data-block-type={node.type}
 		tabindex="0"
 		role="button"
 		aria-label="Select block"

@@ -163,6 +163,15 @@ Rules (tagged `iikiti.cms.template_rule`): `object_type`, `object`, `site`.
   the active responsive breakpoint and nested selectors using `&`.
   Selecting a block from the canvas or Layers menu switches back to that
   block's settings.
+- Page CSS is scoped to `body.iikiti-page-id--<id>`; Template CSS uses
+  `body.iikiti-template-id--<id>`. Widget CSS is scoped to the selected block
+  selector, minified, and delivered in one generated stylesheet after the
+  bundled styles. Invalid CSS is skipped and the editor warns with a link to
+  [CSS syntax documentation](https://developer.mozilla.org/en-US/docs/Web/CSS).
+  CSS is nested inside its scope: use `&` to target the Page, Template or widget
+  element itself, and normal nested selectors to target its descendants.
+  Public requests use published Page/Template CSS; the editor previews the active
+  settings draft. Publish the draft for its CSS to appear on public pages.
 - **Dark/light theme**: the bar and every floating panel follow the shared
   `--ik-*` tokens, which flip with the `.dark` class applied pre-paint by
   the theme bootstrap in `layout.twig` (stored preference, else OS

@@ -8,6 +8,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Tests\Support\IconResolverFactory;
+use iikiti\CMS\Web\BlockEditor\CustomCssCompiler;
 use iikiti\CMS\Web\BlockEditor\BlockType\BlockTypeRegistry;
 use iikiti\CMS\Web\BlockEditor\BlockType\CoreBlockTypeProvider;
 use iikiti\CMS\Web\BlockEditor\Query\QueryDefinition;
@@ -46,6 +47,7 @@ final class BlockRendererTest extends TestCase
 			$twig,
 			new QueryExecutor(null !== $source ? [$source] : []),
 			new QueryFieldCatalog($this->createStub(EntityManagerInterface::class)),
+			new CustomCssCompiler(),
 		);
 	}
 
@@ -604,16 +606,52 @@ final class BlockRendererTest extends TestCase
 			'type' => 'text',
 			'content' => ['content' => 'Card'],
 			'style' => [
-				'base' => ['customCss' => 'color: red; &:hover { color: blue; }</style><script>alert(1)</script>'],
-				'md' => ['customCss' => 'font-weight: bold;'],
+				'base' => [
+					'customCss' => 'color: red; content: "</style><script>alert(1)</script>"; &:hover { color: blue; }',
+					'customCssCompiled' => '.iikiti-custom-css-scope-placeholder{color:red}',
+				],
+				'md' => ['customCss' => 'font-weight: bold;', 'customCssCompiled' => '.iikiti-custom-css-scope-placeholder{font-weight:bold}'],
 			],
 		]]);
 
 		$html = $this->renderer->renderRegionTree($tree, new BlockRenderContext(editorMode: false));
 
-		self::assertStringContainsString('.iikiti-block-id--card-css{color: red; &:hover { color: blue; }\\3C /style><script>alert(1)</script>}', $html);
-		self::assertStringContainsString('@media (min-width:768px){.iikiti-block-id--card-css.iikiti-block-id--card-css{font-weight: bold;}}', $html);
+		self::assertStringContainsString('.iikiti-block-id--card-css.iikiti-block-id--card-css{color:red;content:"\\3C /style><script>alert(1)</script>";&:hover{color:blue}}', $html);
+		self::assertStringContainsString('@media(min-width: 768px){.iikiti-block-id--card-css.iikiti-block-id--card-css{font-weight:bold}}', $html);
 		self::assertStringNotContainsString('</style><script>', $html);
+
+		$editorHtml = $this->renderer->renderRegionTree($tree, new BlockRenderContext(editorMode: true));
+		self::assertStringNotContainsString('customCssCompiled', $editorHtml);
+	}
+
+	public function testIconCustomCssTargetsTheWidgetWrapper(): void
+	{
+		$tree = $this->inContainer([[
+			'id' => 'icon-css',
+			'type' => 'icon',
+			'content' => ['name' => 'layout-dashboard', 'renderer' => 'svg'],
+			'style' => ['base' => ['customCss' => 'background: red;']],
+		]]);
+
+		$html = $this->renderer->renderRegionTree($tree, new BlockRenderContext(editorMode: false));
+
+		self::assertStringContainsString('.iikiti-block-id--icon-css.iikiti-block-id--icon-css{background:red}', $html);
+		self::assertStringNotContainsString('>.iikiti-icon-block{background:red}', $html);
+	}
+
+	public function testEditorReloadCustomCssUsesTheHydratedBlockId(): void
+	{
+		$tree = $this->inContainer([[
+			'id' => 'icon-preview',
+			'type' => 'icon',
+			'content' => ['name' => 'layout-dashboard', 'renderer' => 'svg'],
+			'style' => ['base' => ['customCss' => 'background: red;']],
+		]]);
+
+		$html = $this->renderer->renderRegionTree($tree, new BlockRenderContext(editorMode: true));
+
+		self::assertStringContainsString('data-block-id="icon-preview"', $html);
+		self::assertStringContainsString('<style data-iikiti-custom-css>[data-block-id=icon-preview]{background:red}</style>', $html);
 	}
 
 	public function testInvalidStyleValuesAreOmittedFromInlineAndResponsiveCss(): void

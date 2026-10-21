@@ -9,6 +9,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Entity\Object\Template;
+use iikiti\CMS\Web\BlockEditor\CustomCssCompiler;
 use iikiti\CMS\Web\BlockEditor\BlockType\BlockTypeRegistry;
 use iikiti\CMS\Web\BlockEditor\BlockType\CoreBlockTypeProvider;
 use iikiti\CMS\Web\BlockEditor\Query\QueryExecutor;
@@ -37,6 +38,7 @@ final class TemplateRendererTest extends TestCase
 			$blockTwig,
 			new QueryExecutor([]),
 			new QueryFieldCatalog($this->createStub(EntityManagerInterface::class)),
+			new CustomCssCompiler(),
 		);
 
 		return new TemplateRenderer($blockRenderer, $layoutEnv);

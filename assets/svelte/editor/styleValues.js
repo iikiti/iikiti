@@ -88,6 +88,14 @@ function escapeCssString(value) {
 		.replace(/[\n\r\f]/g, ' ');
 }
 
+export function styleTargetSelector(node) {
+	if (!node?.id) return '';
+	if (node.type === 'icon') return `[data-block-id="${escapeCssString(node.id)}"]`;
+
+	const host = `[data-style-target="${escapeCssString(node.id)}"]`;
+	return host + ({ container: ' .iikiti-container', query: ' .iikiti-query-preview', image: ' .iikiti-image' }[node.type] ?? '');
+}
+
 export function hasResponsiveOverrides(node, fields = [], breakpoints = {}) {
 	if (!node?.style || typeof node.style !== 'object') return false;
 	return Object.keys(breakpoints).some((id) => id !== 'base' && styleDeclarations(node.style[id], node.type, fields).length > 0);
@@ -120,13 +128,13 @@ export function responsiveStyleText(node, breakpoints, fields = [], selector = n
 export function customCssStyleText(node, breakpoints, selector) {
 	if (!node?.id || !node.style || typeof node.style !== 'object') return '';
 	const rules = [];
-	const baseCss = typeof node.style.base?.customCss === 'string' ? node.style.base.customCss.trim() : '';
-	if (baseCss) rules.push(`${selector}{${baseCss}}`);
+	const baseCss = typeof node.style.base?.customCssCompiled === 'string' ? node.style.base.customCssCompiled : '';
+	if (baseCss) rules.push(baseCss.replaceAll('.iikiti-custom-css-scope-placeholder', selector));
 
 	for (const [id, width] of Object.entries(breakpoints ?? {})) {
 		if (id === 'base' || !Number.isFinite(Number(width)) || Number(width) < 0) continue;
-		const css = typeof node.style[id]?.customCss === 'string' ? node.style[id].customCss.trim() : '';
-		if (css) rules.push(`@media (min-width:${Number(width)}px){${selector}{${css}}}`);
+		const css = typeof node.style[id]?.customCssCompiled === 'string' ? node.style[id].customCssCompiled : '';
+		if (css) rules.push(`@media (min-width:${Number(width)}px){${css.replaceAll('.iikiti-custom-css-scope-placeholder', selector)}}`);
 	}
 
 	return rules.join('\n');

@@ -18,6 +18,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-10-21: Page, Template and widget Custom CSS is syntax-validated, scoped to its target selector, minified, and emitted as a generated page stylesheet.
 - 2026-10-20: CSS editors follow the light/dark theme; widgets have responsive, block-scoped Custom CSS under Style > Advanced, with autocomplete providers receiving block context.
 - 2026-10-20: General settings now include Name; Advanced includes a syntax-highlighted, formatted Custom CSS editor with plugin autocomplete providers.
 - 2026-10-20: Contextual Page/Template Settings sidebar with General and Advanced tabs, plugin tab/patch API, and independently versioned draft/publish persistence.
@@ -81,6 +82,8 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Fixed
 
+- 2026-10-21: Settings publish removes the draft property instead of writing a prohibited null value.
+- 2026-10-21: Widget Custom CSS now scopes to stable block-id selectors during editor hydration, so saved CSS reapplies after reload.
 - 2026-10-21: The Custom CSS editor toolbar and frame now follow the active light/dark panel palette.
 - 2026-10-20: Selecting a block from the canvas or Layers menu returns the sidebar from Page/Template Settings to that block's settings.
 
@@ -114,6 +117,8 @@ The top-level file keeps the latest 5 dated entries; older entries live in
   NOT NULL owner and creation date.
 
 ### Changed
+
+- 2026-10-21: Invalid Custom CSS is omitted from rendered stylesheets and the editor warns with a CSS syntax documentation link.
 
 - 2026-10-20: The Page/Template Advanced settings accordion is labeled Style instead of General.
 
