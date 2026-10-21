@@ -68,6 +68,20 @@ describe('sidebar groups', () => {
 		expect(groups[0]).toMatchObject({ id: 'attributes', label: 'Attributes' });
 		expect(groups[0].nodes.map((node) => node.id)).toEqual(['attributes']);
 	});
+
+	test('supports the settings Style group and the block Style Advanced group', () => {
+		registerGroup('advanced', { id: 'style', label: 'Style', order: 10 });
+		registerGroup('style', { id: 'advanced', label: 'Advanced', order: 90 });
+		const settingsGroups = groupSectionNodes('advanced', [
+			{ kind: 'field', id: 'page-css', field: { key: 'customCss', label: 'Custom CSS', group: 'style' } },
+		]);
+		const blockGroups = groupSectionNodes('style', [
+			{ kind: 'field', id: 'block-css', field: { key: 'customCss', label: 'Custom CSS', group: 'advanced' } },
+		]);
+
+		expect(settingsGroups.map((group) => group.label)).toEqual(['Style']);
+		expect(blockGroups.map((group) => group.label)).toEqual(['Advanced']);
+	});
 });
 
 describe('sidebar accordion preferences', () => {

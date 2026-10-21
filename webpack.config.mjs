@@ -128,11 +128,11 @@ webpackConfig.resolve.alias = {
 };
 
 webpackConfig.resolve.conditionNames = (webpackConfig.resolve.conditionNames??[]);
-if(webpackConfig.resolve.conditionNames.indexOf('svelte') < 0) {
-	webpackConfig.resolve.conditionNames.push('svelte');
+for (const condition of ['import', 'svelte', 'browser']) {
+	if (!webpackConfig.resolve.conditionNames.includes(condition)) {
+		webpackConfig.resolve.conditionNames.push(condition);
+	}
 }
-
-webpackConfig.resolve.conditionNames.push('svelte', 'browser');
 
 webpackConfig.module.rules.push(
     {

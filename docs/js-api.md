@@ -385,6 +385,66 @@ const groups = sidebar.getGroups('acme');
 console.log(groups.map((group) => group.id));
 ```
 
+The settings panel has a separate section registry from block tabs. It defaults
+to General and Advanced; plugins may add a tab, scope it to `page` or `template`,
+or patch an existing tab's field nodes:
+
+```js
+sidebar.registerSettingsSection({
+  id: 'seo', label: 'SEO', order: 30, targetTypes: ['page'],
+  build: ({ targetType, targetId, values, update }) => [{
+    kind: 'field', path: 'settings',
+    field: { key: 'meta_title', label: 'Meta title', type: 'text' },
+  }],
+});
+sidebar.patchSettingsSection('advanced', (nodes) => [...nodes, mySettingNode], {
+  targetTypes: ['page'], priority: 10,
+});
+```
+
+`registerSettingsSection({id,label,icon?,order?,targetTypes?,build(ctx)})` adds
+or replaces a tab. `targetTypes` defaults to both supported targets. A settings
+build context contains `targetType`, `targetId`, `settings`, `values`, and
+`update(key, value)`. `patchSettingsSection(id, transformer, {priority?,
+targetTypes?})` inserts, removes or reorders nodes after the tab builds. The
+API also exposes `getSettingsSections(targetType)`,
+`buildSettingsSectionNodes(targetType,id,ctx)`, and
+`setActiveSettingsSection(id)`. Settings values are drafted/published separately
+from the block tree; custom-field authoring in the admin is not included.
+
+```js
+// Read the tabs available for Pages and build nodes with the editor context shape.
+const pageTabs = sidebar.getSettingsSections('page');
+const pageSettingsContext = {
+  targetType: 'page', targetId: 42,
+  settings: { meta_title: 'Example' },
+  values: { meta_title: 'Example' },
+  update: (key, value) => console.log('update', key, value),
+};
+const seoNodes = sidebar.buildSettingsSectionNodes('page', 'seo', pageSettingsContext);
+console.log(pageTabs, seoNodes);
+
+// Select a settings tab from a plugin action or guided tour.
+sidebar.setActiveSettingsSection('advanced');
+```
+
+`sidebar.registerCssAutocompleteProvider(provider, {priority?})` contributes
+suggestions to the Custom CSS editor. The provider receives the CodeMirror
+`completionContext`, settings `targetType`/`targetId`, `settings`, `fieldKey`,
+optional selected `block`, and current `value`. `targetType` is `page`,
+`template`, or `block`. The provider returns an array of CodeMirror completion
+options or a Promise of that array. Registration returns a cleanup function:
+
+```js
+const removeSuggestions = sidebar.registerCssAutocompleteProvider(
+  ({ targetType }) => [{
+    label: '--brand-color', type: 'variable', detail: `Shared ${targetType} color`,
+  }],
+  { priority: 20 },
+);
+removeSuggestions(); // unregister the provider when its plugin UI is removed
+```
+
 Block type field schemas can assign fields to a registered accordion and order
 them inside it with `group` and numeric `order`:
 

@@ -78,7 +78,7 @@ final class BlockRenderer
 			return '';
 		}
 
-		$rules = [];
+		$rules = ['responsive' => [], 'customCss' => []];
 		$nodes = [];
 		foreach ($tree as $node) {
 			$type = (string) ($node['type'] ?? '');
@@ -87,7 +87,9 @@ final class BlockRenderer
 			}
 		}
 
-		return $this->renderNodesWithRules($nodes, $context, $rules).$this->responsiveStylesheet($rules);
+		$html = $this->renderNodesWithRules($nodes, $context, $rules);
+
+		return $html.$this->responsiveStylesheet($rules['responsive']).$this->customCssStylesheet($rules['customCss']);
 	}
 
 	/**
@@ -102,14 +104,16 @@ final class BlockRenderer
 			return '';
 		}
 
-		$rules = [];
+		$rules = ['responsive' => [], 'customCss' => []];
 
-		return $this->renderNodesWithRules($tree, $context, $rules).$this->responsiveStylesheet($rules);
+		$html = $this->renderNodesWithRules($tree, $context, $rules);
+
+		return $html.$this->responsiveStylesheet($rules['responsive']).$this->customCssStylesheet($rules['customCss']);
 	}
 
 	/**
 	 * @param list<array<string,mixed>>                                                      $nodes
-	 * @param array<string,array<string,array{width:int,declarations:array<string,string>}>> $rules
+	 * @param array{responsive:array<string,array<string,array{width:int,declarations:array<string,string>}>>,customCss:array<string,array<string,string>>} $rules
 	 */
 	private function renderNodesWithRules(array $nodes, BlockRenderContext $context, array &$rules): string
 	{
@@ -126,14 +130,16 @@ final class BlockRenderer
 	 */
 	public function renderNode(array $node, BlockRenderContext $context): string
 	{
-		$rules = [];
+		$rules = ['responsive' => [], 'customCss' => []];
 
-		return $this->renderNodeWithRules($node, $context, $rules).$this->responsiveStylesheet($rules);
+		$html = $this->renderNodeWithRules($node, $context, $rules);
+
+		return $html.$this->responsiveStylesheet($rules['responsive']).$this->customCssStylesheet($rules['customCss']);
 	}
 
 	/**
 	 * @param array<string,mixed>                                                            $node
-	 * @param array<string,array<string,array{width:int,declarations:array<string,string>}>> $rules
+	 * @param array{responsive:array<string,array<string,array{width:int,declarations:array<string,string>}>>,customCss:array<string,array<string,string>>} $rules
 	 */
 	private function renderNodeWithRules(array $node, BlockRenderContext $context, array &$rules): string
 	{
@@ -198,7 +204,7 @@ final class BlockRenderer
 	 * @param array<string,mixed>                                                            $node
 	 * @param array<string,mixed>                                                            $content
 	 * @param list<array<string,mixed>>                                                      $children
-	 * @param array<string,array<string,array{width:int,declarations:array<string,string>}>> $rules
+	 * @param array{responsive:array<string,array<string,array{width:int,declarations:array<string,string>}>>,customCss:array<string,array<string,string>>} $rules
 	 *
 	 * @return array<string,mixed> template variables (`items`, `children_items`, `children_template`)
 	 */
@@ -254,7 +260,7 @@ final class BlockRenderer
 
 	/**
 	 * @param array<string,mixed>                                                            $node
-	 * @param array<string,array<string,array{width:int,declarations:array<string,string>}>> $rules
+	 * @param array{responsive:array<string,array<string,array{width:int,declarations:array<string,string>}>>,customCss:array<string,array<string,string>>} $rules
 	 */
 	private function wrap(string $inner, array $node, BlockRenderContext $context, ?BlockType $blockType, mixed $content, array &$rules): string
 	{
@@ -313,7 +319,8 @@ final class BlockRenderer
 			$tag = self::WRAPPER_TAG;
 		}
 
-		$this->collectResponsiveStyles($node, $blockType, $type, $rules);
+		$this->collectResponsiveStyles($node, $blockType, $type, $rules['responsive']);
+		$this->collectCustomCss($node, $type, $rules['customCss']);
 
 		return '<'.$tag.$html.'>'.$inner.'</'.$tag.'>';
 	}
@@ -635,6 +642,56 @@ final class BlockRenderer
 		}
 
 		return '' === $css ? '' : '<style data-iikiti-responsive-styles>'.$css.'</style>';
+	}
+
+	/**
+	 * @param array<string,mixed>               $node
+	 * @param array<string,array<string,string>> $rules
+	 */
+	private function collectCustomCss(array $node, string $type, array &$rules): void
+	{
+		$blockId = $node['id'] ?? null;
+		$style = $node['style'] ?? null;
+		if (!is_string($blockId) || '' === $blockId || !is_array($style)) {
+			return;
+		}
+
+		$blockClass = self::blockIdClass($blockId);
+		$blockSelector = '.'.$blockClass.'.'.$blockClass;
+		$selector = match ($type) {
+			'container' => $blockSelector.' > .iikiti-container',
+			'query' => $blockSelector.' .iikiti-query, '.$blockSelector.' .iikiti-query--empty',
+			'icon' => $blockSelector.' > .iikiti-icon-block',
+			'image' => $blockSelector.' .iikiti-image',
+			default => $blockSelector,
+		};
+		$breakpoints = ['base' => 0] + ResponsiveBreakpoints::WIDTHS;
+		foreach ($breakpoints as $breakpoint => $width) {
+			$layer = $style[$breakpoint] ?? null;
+			$css = is_array($layer) ? ($layer['customCss'] ?? null) : null;
+			if (!is_string($css) || '' === trim($css) || strlen($css) > 100_000) {
+				continue;
+			}
+			$rules[$selector][$breakpoint] = trim($css);
+		}
+	}
+
+	/** @param array<string,array<string,string>> $rules */
+	private function customCssStylesheet(array $rules): string
+	{
+		$css = '';
+		foreach ($rules as $selector => $layers) {
+			foreach ($layers as $breakpoint => $customCss) {
+				$cssSource = str_ireplace('</style', '\\3C /style', $customCss);
+				$rule = $selector.'{'.$cssSource.'}';
+				$width = ResponsiveBreakpoints::WIDTHS[$breakpoint] ?? null;
+				$css .= 'base' === $breakpoint || null === $width
+					? $rule
+					: '@media (min-width:'.$width.'px){'.$rule.'}';
+			}
+		}
+
+		return '' === $css ? '' : '<style data-iikiti-custom-css>'.$css.'</style>';
 	}
 
 	/** @return array<string,string> */

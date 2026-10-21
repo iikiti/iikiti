@@ -18,6 +18,9 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-10-20: CSS editors follow the light/dark theme; widgets have responsive, block-scoped Custom CSS under Style > Advanced, with autocomplete providers receiving block context.
+- 2026-10-20: General settings now include Name; Advanced includes a syntax-highlighted, formatted Custom CSS editor with plugin autocomplete providers.
+- 2026-10-20: Contextual Page/Template Settings sidebar with General and Advanced tabs, plugin tab/patch API, and independently versioned draft/publish persistence.
 - 2026-10-18: Durable Messenger batch processing with typed plugin handlers, dependency DAGs, bounded retries, status/events, and reusable polling/SSE progress UI.
 - 2026-10-18: Symfony Scheduler as the default pluggable project scheduler, with registered site/global task providers and admin schedule management.
 - 2026-10-18: Bounded maintenance runner consumes due schedules and async queues from post-response web ticks or one-shot CLI cron, with lazy opt-out, incremental missed-run catch-up, and deferred non-overlapping occurrences.
@@ -78,6 +81,9 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Fixed
 
+- 2026-10-21: The Custom CSS editor toolbar and frame now follow the active light/dark panel palette.
+- 2026-10-20: Selecting a block from the canvas or Layers menu returns the sidebar from Page/Template Settings to that block's settings.
+
 - 2026-10-17: JSON property containment casts stored JSON and search values to PostgreSQL JSONB before applying `@>`.
 - 2026-10-17: Made legacy schema migrations tolerate an existing objects primary key and use valid empty JSON defaults for roles.
 - 2026-10-15: DB session workflow templates posted branch transitions to the wrong route/session for `/forms/db/{workflow}` flows; the controller now passes its route name/key into the rendered form (Twig + Svelte overlay).
@@ -108,6 +114,8 @@ The top-level file keeps the latest 5 dated entries; older entries live in
   NOT NULL owner and creation date.
 
 ### Changed
+
+- 2026-10-20: The Page/Template Advanced settings accordion is labeled Style instead of General.
 
 - 2026-10-17: DbObject stores global/no-site scope as scalar `site_id = 0`; API tokens and managed icons now use the `objects` hierarchy, with standalone entity/repository exceptions documented in `docs/database-objects.md`.
 - 2026-10-14: Interactive workflows now apply Symfony Workflow graph transitions with session-persisted multi-place markings; legacy linear step providers remain compatible, graph providers add branching/fork/join with bounded automatic joins, and forward step jumps are refused. Dynamic form definitions now use bounded field/type/option allowlists.

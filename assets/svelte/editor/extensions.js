@@ -20,8 +20,28 @@
 import { writable, get } from 'svelte/store';
 import { markReady } from '../../js/iikiti/ready.js';
 import { getGroups, groupSectionNodes, registerGroup as registerGroupDefinition } from './sidebarGroups.js';
+import { registerCssAutocompleteProvider } from './cssAutocomplete.js';
+import {
+	activeSettingsSectionId,
+	buildSettingsSectionNodes,
+	getSettingsSections,
+	patchSettingsSection,
+	registerSettingsSection,
+	settingsSectionVersion,
+	setActiveSettingsSection,
+} from './settingsExtensions.js';
 
 export { getGroups, groupSectionNodes };
+export { registerCssAutocompleteProvider };
+export {
+	activeSettingsSectionId,
+	buildSettingsSectionNodes,
+	getSettingsSections,
+	patchSettingsSection,
+	registerSettingsSection,
+	settingsSectionVersion,
+	setActiveSettingsSection,
+};
 
 export function registerGroup(sectionId, group) {
 	const registered = registerGroupDefinition(sectionId, group);
@@ -186,10 +206,16 @@ export const sidebarVersion = { subscribe: versionStore.subscribe };
 
 /** Currently active sidebar tab id (programmatically settable, e.g. by a tour). */
 export const activeSectionId = writable('content');
+export const sidebarMode = writable('blocks');
 
 /** @param {string} id */
 export function setActiveSection(id) {
 	activeSectionId.set(id);
+}
+
+/** @param {'blocks'|'settings'} mode */
+export function setSidebarMode(mode) {
+	sidebarMode.set(mode === 'settings' ? 'settings' : 'blocks');
 }
 
 /**
@@ -213,6 +239,12 @@ export function installSidebarApi() {
 		patchSection,
 		buildSectionNodes,
 		setActiveSection,
+		registerSettingsSection,
+		getSettingsSections,
+		patchSettingsSection,
+		buildSettingsSectionNodes,
+		setActiveSettingsSection,
+		registerCssAutocompleteProvider,
 		activeSectionId,
 		version: sidebarVersion,
 	};

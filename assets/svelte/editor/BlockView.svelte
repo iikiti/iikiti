@@ -13,7 +13,7 @@
 	} from './state';
 	import type { BlockNode } from './state';
 	import BlockContent from './BlockContent.svelte';
-	import { hasResponsiveOverrides, responsiveStyleText, styleText } from './styleValues.js';
+	import { customCssStyleText, hasResponsiveOverrides, responsiveStyleText, styleText } from './styleValues.js';
 
 	let {
 		node,
@@ -135,10 +135,13 @@
 		if (typeof document === 'undefined') return;
 		const breakpoints = ($editorConfig['breakpoints'] as Record<string, number> | undefined) ?? {};
 		const selector = styleTargetSelector();
-		const css = responsiveStyleText(node, breakpoints, styleFields, selector);
+		const css = [
+			responsiveStyleText(node, breakpoints, styleFields, selector),
+			customCssStyleText(node, breakpoints, selector),
+		].filter(Boolean).join('\n');
 		if (!css) return;
 		const styleElement = document.createElement('style');
-		styleElement.dataset.iikitiResponsiveStyle = node.id;
+		styleElement.dataset.iikitiBlockStyle = node.id;
 		styleElement.textContent = css;
 		document.head.append(styleElement);
 		return () => styleElement.remove();

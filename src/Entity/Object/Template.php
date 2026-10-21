@@ -119,6 +119,14 @@ class Template extends DbObject
 		return is_array($value) ? $value : [];
 	}
 
+	/**
+	 * @param array<string,mixed> $settings
+	 */
+	public function setSettings(array $settings): void
+	{
+		$this->setProperty('settings', $settings);
+	}
+
 	public function getDraftVersion(): int
 	{
 		$value = $this->getProperties()->get('draft_version')?->getValue();

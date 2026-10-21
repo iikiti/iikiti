@@ -20,7 +20,9 @@
 		blockTypes,
 		allowedChildTypes,
 		searchNode,
+		editorConfig,
 	} from './state';
+	import { setSidebarMode, sidebarMode } from './extensions.js';
 	import { addBlockTarget } from './blockClipboard';
 	import Icon from '$components/Icon.svelte';
 	import Tooltip from '$components/Tooltip.svelte';
@@ -37,6 +39,7 @@
 	 * (`iikiti.theme.toggle()`, localStorage-persisted) directly on the bar.
 	 */
 	let dark = $state(false);
+	const settingsLabel = $derived(String($editorConfig['settingsLabel'] ?? 'Template Settings'));
 
 	onMount(() => {
 		dark = document.documentElement.classList.contains('dark');
@@ -64,6 +67,10 @@
 
 	function toggleLayers() {
 		layersOpen.update((v) => !v);
+	}
+
+	function toggleSettings() {
+		setSidebarMode($sidebarMode === 'settings' ? 'blocks' : 'settings');
 	}
 
 	/**
@@ -115,6 +122,20 @@
 			aria-label="Layout"
 		>
 			<Icon name="panel-top" size={18} />
+		</button>
+	</Tooltip>
+
+	<Tooltip content={$sidebarMode === 'settings' ? `Close ${settingsLabel}` : settingsLabel}>
+		<button
+			type="button"
+			class="iikiti-editor-btn"
+			class:active={$sidebarMode === 'settings'}
+			aria-pressed={$sidebarMode === 'settings'}
+			onclick={toggleSettings}
+			data-tour="toolbar.settings"
+			aria-label={settingsLabel}
+		>
+			<Icon name="settings" size={18} />
 		</button>
 	</Tooltip>
 

@@ -391,6 +391,51 @@ const groups = sb.getGroups('seo');
 console.log(groups);
 ```
 
+Plugins can also extend the contextual Page/Template Settings sidebar without
+adding tabs to a selected block's Content / Element / Style settings. Its
+default tabs are General and Advanced; settings sections can target Pages,
+Templates or both. Field controls registered with `registerFieldControl()` are
+shared by both sidebar modes. The settings build context's `update(key, value)`
+updates only that key and preserves other plugin/admin-defined values.
+
+```js
+const sidebar = window.iikiti.editor.sidebar;
+sidebar.registerSettingsSection({
+  id: 'seo', label: 'SEO', icon: 'search', order: 30,
+  targetTypes: ['page'],
+  build: ({ values }) => [{
+    kind: 'field', path: 'settings',
+    field: { key: 'meta_title', label: 'Meta title', type: 'text' },
+  }],
+});
+
+sidebar.patchSettingsSection('advanced', (nodes) => [
+  ...nodes,
+  { kind: 'field', path: 'settings', field: { key: 'robots', label: 'Robots', type: 'text' } },
+], { targetTypes: ['page'], priority: 10 });
+```
+
+Settings values use the target object's draft/publish lifecycle and are saved
+separately from the block tree. Admin UI for defining custom settings fields is
+not provided by this editor extension API.
+
+Plugins may contribute CSS autocomplete options to the built-in Custom CSS
+editor. A provider receives the CodeMirror completion context plus the settings
+target (`targetType`, `targetId`, `settings`), optional selected `block`,
+`fieldKey`, and current CSS `value`. The target type is `page`, `template`, or
+`block`. It returns an array of CodeMirror completion options, synchronously or
+as a Promise; the registration returns an unregister callback.
+
+```js
+const unregisterCssCompletions = sidebar.registerCssAutocompleteProvider(
+  ({ targetType, completionContext }) => [
+    { label: '--brand-color', type: 'variable', detail: `Shared ${targetType} color` },
+    { label: 'var(--brand-color)', type: 'text', apply: 'var(--brand-color)' },
+  ],
+  { priority: 20 },
+);
+```
+
 Field write paths map to the block node: `content → node.content`, `element →
 node.element`, `style → node.style.<active-breakpoint>` in the Style tab (other
 tabs use `base`). Core and plugin style fields can specify `group` and numeric

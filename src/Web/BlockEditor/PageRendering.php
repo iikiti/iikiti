@@ -6,6 +6,7 @@ namespace iikiti\CMS\Web\BlockEditor;
 
 use Doctrine\Common\Collections\ArrayCollection;
 use iikiti\CMS\Entity\DbObject;
+use iikiti\CMS\Entity\Object\Page;
 use iikiti\CMS\Entity\Object\Template;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Registry\SiteRegistry;
@@ -34,6 +35,7 @@ final class PageRendering
 		private readonly TemplateResolver $resolver,
 		private readonly TemplateRenderer $templateRenderer,
 		private readonly FrontendConfigProvider $configProvider,
+		private readonly EditorSettingsManager $settingsManager,
 		private readonly Security $security,
 		private readonly Environment $twig,
 	) {
@@ -61,6 +63,7 @@ final class PageRendering
 				// The current draft version — the editor echoes it back as
 				// `If-Match` on save; a missing version would 409 every save.
 				version: $template->getDraftVersion(),
+				settingsContext: $this->settingsContext($object, $template, $user),
 			)
 			: null;
 		$regionTrees = ($editorMode && $template->getBlocksDraft() ? $template->getBlocksDraft() : ($template->getBlocks() ?: []));
@@ -131,5 +134,24 @@ final class PageRendering
 		]);
 
 		return $template;
+	}
+
+	/** @return array{type:string,id:int,label:string,values:array<string,mixed>,version:int,hasDraft:bool} */
+	private function settingsContext(?DbObject $object, Template $template, ?User $user): array
+	{
+		$target = $object instanceof Page && $this->configProvider->canAccess($user, 'Page', 'write', $object)
+			? $object
+			: $template;
+		$targetType = $target instanceof Page ? 'page' : 'template';
+		$state = $this->settingsManager->state($target);
+
+		return [
+			'type' => $targetType,
+			'id' => (int) ($target->getId() ?? 0),
+			'label' => 'page' === $targetType ? 'Page Settings' : 'Template Settings',
+			'values' => $state['values'],
+			'version' => $state['version'],
+			'hasDraft' => $state['hasDraft'],
+		];
 	}
 }

@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace iikiti\CMS\Controller\Api\Editor;
 
 use iikiti\CMS\Controller\AppController;
+use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Security\PermissionChecker;
 use iikiti\CMS\Web\BlockEditor\BlockEditorComponent;
+use iikiti\CMS\Web\BlockEditor\EditorSettingsManager;
 use iikiti\CMS\Web\BlockEditor\Query\QueryFieldCatalog;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderContext;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderer;
@@ -124,6 +126,68 @@ class EditorStateController extends AppController
 		return $this->json($result);
 	}
 
+	#[Route('/api/editor/settings/save', name: 'api_editor_settings_save', methods: ['POST'])]
+	public function saveSettings(Request $request, PermissionChecker $permissionChecker, EditorSettingsManager $settingsManager): JsonResponse
+	{
+		$user = $this->getUser();
+		$payload = $this->payload($request);
+		[$targetType, $targetId, $badRequest] = $this->resolveSettingsTarget($payload);
+		if (null !== $badRequest) {
+			return $badRequest;
+		}
+		if (!$user instanceof User) {
+			return $this->json(['error' => 'Forbidden'], Response::HTTP_FORBIDDEN);
+		}
+		$target = $settingsManager->findTarget($targetType, $targetId);
+		if (null === $target) {
+			return $this->json(['error' => 'Settings target not found'], Response::HTTP_NOT_FOUND);
+		}
+		if (!$this->canSettingsTarget($user, $permissionChecker, $targetType, 'write', $target)) {
+			return $this->json(['error' => 'Forbidden'], Response::HTTP_FORBIDDEN);
+		}
+		$values = $payload['settings'] ?? null;
+		if (!is_array($values)) {
+			return $this->json(['error' => 'Settings must be an object'], Response::HTTP_BAD_REQUEST);
+		}
+		$version = $payload['version'] ?? $request->headers->get('If-Match');
+		if (null !== $version && (!is_scalar($version) || !ctype_digit((string) $version))) {
+			return $this->json(['error' => 'Invalid settings version'], Response::HTTP_BAD_REQUEST);
+		}
+
+		$result = $settingsManager->save($target, $values, null === $version ? null : (string) $version);
+
+		return $this->json($result, $result['conflict'] ? Response::HTTP_CONFLICT : Response::HTTP_OK);
+	}
+
+	#[Route('/api/editor/settings/publish', name: 'api_editor_settings_publish', methods: ['POST'])]
+	public function publishSettings(Request $request, PermissionChecker $permissionChecker, EditorSettingsManager $settingsManager): JsonResponse
+	{
+		$user = $this->getUser();
+		$payload = $this->payload($request);
+		[$targetType, $targetId, $badRequest] = $this->resolveSettingsTarget($payload);
+		if (null !== $badRequest) {
+			return $badRequest;
+		}
+		if (!$user instanceof User) {
+			return $this->json(['error' => 'Forbidden'], Response::HTTP_FORBIDDEN);
+		}
+		$target = $settingsManager->findTarget($targetType, $targetId);
+		if (null === $target) {
+			return $this->json(['error' => 'Settings target not found'], Response::HTTP_NOT_FOUND);
+		}
+		if (!$this->canSettingsTarget($user, $permissionChecker, $targetType, 'publish', $target)) {
+			return $this->json(['error' => 'Forbidden'], Response::HTTP_FORBIDDEN);
+		}
+		$version = $payload['version'] ?? $request->headers->get('If-Match');
+		if (null !== $version && (!is_scalar($version) || !ctype_digit((string) $version))) {
+			return $this->json(['error' => 'Invalid settings version'], Response::HTTP_BAD_REQUEST);
+		}
+
+		$result = $settingsManager->publish($target, null === $version ? null : (string) $version);
+
+		return $this->json($result, $result['conflict'] ? Response::HTTP_CONFLICT : Response::HTTP_OK);
+	}
+
 	#[Route('/api/editor/render-block', name: 'api_editor_render_block', methods: ['POST'])]
 	public function renderBlockFragment(Request $request, BlockRenderer $blockRenderer): Response
 	{
@@ -201,6 +265,16 @@ class EditorStateController extends AppController
 		return $pc->canAccess($user, 'Page', $action);
 	}
 
+	private function canSettingsTarget(User $user, PermissionChecker $pc, string $type, string $action, DbObject $target): bool
+	{
+		if ('template' === $type) {
+			return $pc->canAccess($user, 'Template', $action, $target) ||
+				$pc->canAccess($user, 'Page', $action, $target);
+		}
+
+		return $pc->canAccess($user, 'Page', $action, $target);
+	}
+
 	/**
 	 * @return array<string,mixed>
 	 */
@@ -209,5 +283,23 @@ class EditorStateController extends AppController
 		$decoded = json_decode((string) $request->getContent(), true);
 
 		return is_array($decoded) ? $decoded : [];
+	}
+
+	/**
+	 * @param array<string,mixed> $payload
+	 * @return array{string,int,JsonResponse|null}
+	 */
+	private function resolveSettingsTarget(array $payload): array
+	{
+		$type = $payload['targetType'] ?? null;
+		$id = $payload['targetId'] ?? null;
+		$validatedId = is_int($id) || is_string($id)
+			? filter_var((string) $id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])
+			: false;
+		if (!in_array($type, ['page', 'template'], true) || false === $validatedId) {
+			return ['', 0, $this->json(['error' => 'Invalid settings target'], Response::HTTP_BAD_REQUEST)];
+		}
+
+		return [$type, (int) $validatedId, null];
 	}
 }

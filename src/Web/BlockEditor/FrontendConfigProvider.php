@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace iikiti\CMS\Web\BlockEditor;
 
 use iikiti\CMS\Entity\Object\User;
+use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Plugin\PluginRegistry;
 use iikiti\CMS\Security\ApiTokenManager;
 use iikiti\CMS\Security\PermissionChecker;
@@ -38,7 +39,13 @@ final class FrontendConfigProvider
 	 *
 	 * @return array<string,mixed>|null
 	 */
-	public function build(int $contextId, string $contextType, ?User $user = null, int $version = 0): ?array
+	public function build(
+		int $contextId,
+		string $contextType,
+		?User $user = null,
+		int $version = 0,
+		array $settingsContext = [],
+	): ?array
 	{
 		$user ??= $this->security->getUser();
 
@@ -64,6 +71,12 @@ final class FrontendConfigProvider
 			'notifications' => $this->notifications($user),
 			'timezone' => $user->getTimeZone()?->getId(),
 			'plugins' => $this->pluginEditorUis(),
+			'settingsContextType' => $settingsContext['type'] ?? $contextType,
+			'settingsContextId' => $settingsContext['id'] ?? $contextId,
+			'settingsLabel' => $settingsContext['label'] ?? 'Template Settings',
+			'settingsValues' => $settingsContext['values'] ?? [],
+			'settingsVersion' => $settingsContext['version'] ?? 0,
+			'settingsHasDraft' => $settingsContext['hasDraft'] ?? false,
 		];
 	}
 
@@ -83,6 +96,11 @@ final class FrontendConfigProvider
 
 		return $this->permissionChecker->canAccess($user, 'Page', 'write') ||
 			$this->permissionChecker->canAccess($user, 'Template', 'write');
+	}
+
+	public function canAccess(?UserInterface $user, string $objectType, string $action, ?DbObject $object = null): bool
+	{
+		return $user instanceof User && $this->permissionChecker->canAccess($user, $objectType, $action, $object);
 	}
 
 	private function roomChannel(string $contextType, int $contextId): string

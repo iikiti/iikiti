@@ -61,6 +61,39 @@ final class FrontendConfigProviderTest extends TestCase
 		$this->assertSame([], $config['plugins']);
 	}
 
+	public function testBuildCarriesAnIndependentSettingsTarget(): void
+	{
+		$security = $this->createStub(Security::class);
+		$user = $this->createStub(User::class);
+		$security->method('getUser')->willReturn($user);
+		$checker = $this->createStub(PermissionChecker::class);
+		$checker->method('canAccess')->willReturn(true);
+		$token = $this->createStub(ApiToken::class);
+		$token->method('getToken')->willReturn('ephemeral-token');
+		$tokenManager = $this->createStub(ApiTokenManager::class);
+		$tokenManager->method('getOrCreateToken')->willReturn($token);
+		$provider = $this->provider($security, $checker, $tokenManager);
+
+		$config = $provider->build(7, 'template', $user, 5, [
+			'type' => 'page',
+			'id' => 42,
+			'label' => 'Page Settings',
+			'values' => ['seoTitle' => 'Home'],
+			'version' => 3,
+			'hasDraft' => true,
+		]);
+
+		$this->assertNotNull($config);
+		$this->assertSame('template', $config['contextType']);
+		$this->assertSame(7, $config['contextId']);
+		$this->assertSame('page', $config['settingsContextType']);
+		$this->assertSame(42, $config['settingsContextId']);
+		$this->assertSame('Page Settings', $config['settingsLabel']);
+		$this->assertSame(['seoTitle' => 'Home'], $config['settingsValues']);
+		$this->assertSame(3, $config['settingsVersion']);
+		$this->assertTrue($config['settingsHasDraft']);
+	}
+
 	private function provider(
 		Security $security,
 		?PermissionChecker $checker = null,

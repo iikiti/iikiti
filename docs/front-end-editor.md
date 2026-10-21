@@ -148,6 +148,21 @@ Rules (tagged `iikiti.cms.template_rule`): `object_type`, `object`, `site`.
   (schema-driven). The Element tab includes built-in `id`/`cssClass` fields
   and an **Attributes** repeater (name/value rows, add/remove) that renders
   onto the block wrapper.
+- **Page/Template settings**: the toolbar settings icon switches the same
+  sidebar from block settings to **Page Settings** for the current Page object,
+  or **Template Settings** in a template-only context. The settings target is
+  independent of the block-tree target. Settings tabs default to **General**
+  and **Advanced** and use the shared field controls. Their values are drafted
+  and published against the settings target with an independent version; a
+  target/version conflict is reported without silently clearing edits. Admin UI
+  for defining custom settings fields is not part of this feature. General
+  includes a Name property; Advanced has a **Style** accordion with a CSS-language
+  Custom CSS editor. It follows the page's light/dark theme, has a Format action,
+  two-space indentation and plugin autocomplete. The block **Style** tab also
+  includes an **Advanced** accordion with block-scoped Custom CSS. It supports
+  the active responsive breakpoint and nested selectors using `&`.
+  Selecting a block from the canvas or Layers menu switches back to that
+  block's settings.
 - **Dark/light theme**: the bar and every floating panel follow the shared
   `--ik-*` tokens, which flip with the `.dark` class applied pre-paint by
   the theme bootstrap in `layout.twig` (stored preference, else OS
@@ -219,6 +234,34 @@ Rules (tagged `iikiti.cms.template_rule`): `object_type`, `object`, `site`.
   - `patchSection(sectionId, (nodes, ctx) => nodes, {priority})` — insert,
     remove or reorder nodes in an existing tab.
   - `getSections()`, `buildSectionNodes(id, ctx)`, `setActiveSection(id)`.
+- A separate settings registry is exposed through the same API:
+  - `registerSettingsSection({id,label,icon?,order?,targetTypes?,build(ctx)})` —
+    add or replace a settings tab. `targetTypes` accepts `page`, `template`,
+    or both (the default).
+  - `patchSettingsSection(id, (nodes, ctx) => nodes, {priority?,targetTypes?})` —
+    insert, remove or reorder nodes in General, Advanced or a plugin tab.
+  - `getSettingsSections(targetType)`, `buildSettingsSectionNodes(targetType,id,ctx)`,
+    and `setActiveSettingsSection(id)` inspect or select settings tabs.
+- A settings tab's `build(ctx)` receives `targetType`, `targetId`, `settings`,
+  `values`, and `update(key, value)`. Its fields use the shared field-control
+  registry and `{kind:'field', field, path:'settings'}` nodes. Values are stored
+  by key on the target object; keys not currently rendered by a plugin remain
+  preserved. For example:
+
+```js
+const sidebar = window.iikiti.editor.sidebar;
+sidebar.registerSettingsSection({
+  id: 'seo', label: 'SEO', order: 30, targetTypes: ['page'],
+  build: ({ values }) => [{
+    kind: 'field', path: 'settings',
+    field: { key: 'meta_title', label: 'Meta title', type: 'text', group: 'general' },
+  }],
+});
+sidebar.patchSettingsSection('advanced', (nodes) => [
+  ...nodes,
+  { kind: 'field', path: 'settings', field: { key: 'robots', label: 'Robots', type: 'text' } },
+], { targetTypes: ['page'], priority: 10 });
+```
 - A field schema may specify `group` (registered group id) and numeric `order`.
   Fields sort by ascending order within that group; ties retain schema order.
   Unassigned or unknown-group fields are placed in General. Plugin-built group

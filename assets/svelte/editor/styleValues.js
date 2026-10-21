@@ -112,3 +112,22 @@ export function responsiveStyleText(node, breakpoints, fields = [], selector = n
 	}
 	return rules.join('\n');
 }
+
+/**
+ * Scope custom CSS snippets to the block wrapper, retaining responsive layers.
+ * The snippet may contain declarations and nested selectors using `&`.
+ */
+export function customCssStyleText(node, breakpoints, selector) {
+	if (!node?.id || !node.style || typeof node.style !== 'object') return '';
+	const rules = [];
+	const baseCss = typeof node.style.base?.customCss === 'string' ? node.style.base.customCss.trim() : '';
+	if (baseCss) rules.push(`${selector}{${baseCss}}`);
+
+	for (const [id, width] of Object.entries(breakpoints ?? {})) {
+		if (id === 'base' || !Number.isFinite(Number(width)) || Number(width) < 0) continue;
+		const css = typeof node.style[id]?.customCss === 'string' ? node.style[id].customCss.trim() : '';
+		if (css) rules.push(`@media (min-width:${Number(width)}px){${selector}{${css}}}`);
+	}
+
+	return rules.join('\n');
+}

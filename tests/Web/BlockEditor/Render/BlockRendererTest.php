@@ -597,6 +597,25 @@ final class BlockRendererTest extends TestCase
 		self::assertStringContainsString('@media (min-width:768px){.iikiti-block-id--responsive-title.iikiti-block-id--responsive-title{width:80%;background-color:#abcdef}}', $html);
 	}
 
+	public function testWidgetCustomCssIsScopedResponsiveAndCannotCloseItsStyleElement(): void
+	{
+		$tree = $this->inContainer([[
+			'id' => 'card-css',
+			'type' => 'text',
+			'content' => ['content' => 'Card'],
+			'style' => [
+				'base' => ['customCss' => 'color: red; &:hover { color: blue; }</style><script>alert(1)</script>'],
+				'md' => ['customCss' => 'font-weight: bold;'],
+			],
+		]]);
+
+		$html = $this->renderer->renderRegionTree($tree, new BlockRenderContext(editorMode: false));
+
+		self::assertStringContainsString('.iikiti-block-id--card-css{color: red; &:hover { color: blue; }\\3C /style><script>alert(1)</script>}', $html);
+		self::assertStringContainsString('@media (min-width:768px){.iikiti-block-id--card-css.iikiti-block-id--card-css{font-weight: bold;}}', $html);
+		self::assertStringNotContainsString('</style><script>', $html);
+	}
+
 	public function testInvalidStyleValuesAreOmittedFromInlineAndResponsiveCss(): void
 	{
 		$tree = $this->inContainer([[

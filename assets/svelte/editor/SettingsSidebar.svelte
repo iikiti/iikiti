@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { selected, blockTypes, tree, updateNode, searchNode } from './state';
+	import { selected, blockTypes, tree, updateNode, searchNode, editorSettings, updateEditorSetting } from './state';
 	import type { BlockNode } from './state';
 	import {
 		getSections,
@@ -11,6 +11,12 @@
 		sidebarVersion,
 		activeSectionId,
 		setActiveSection,
+		sidebarMode,
+		activeSettingsSectionId,
+		setActiveSettingsSection,
+		getSettingsSections,
+		buildSettingsSectionNodes,
+		settingsSectionVersion,
 	} from './extensions.js';
 	import FormField from '$components/FormField.svelte';
 	import TextControl from './controls/TextControl.svelte';
@@ -72,7 +78,7 @@
 	}
 
 	function hasBreakpointOverride(n: Record<string, unknown>): boolean {
-		if (n.path !== 'style' || tab !== 'style' || activeBreakpoint === 'base') return false;
+		if (isSettingsMode || n.path !== 'style' || tab !== 'style' || activeBreakpoint === 'base') return false;
 		const key = String((n.field as Record<string, unknown>).key ?? '');
 		const layer = (node?.style as Record<string, Record<string, unknown>> | undefined)?.[activeBreakpoint];
 		const legacyKey = legacyStyleKey(key);
@@ -101,17 +107,30 @@
 			update: (patch: Partial<BlockNode>) => updateNode(n.id, patch),
 		};
 	});
+	const settingsContext = $derived($editorSettings);
+	const settingsCtx = $derived({
+		targetType: settingsContext.targetType,
+		targetId: settingsContext.targetId,
+		settings: settingsContext.values,
+		values: settingsContext.values,
+		update: updateEditorSetting,
+	});
+	const isSettingsMode = $derived($sidebarMode === 'settings');
+	const activeContext = $derived(isSettingsMode ? settingsCtx : ctx);
 
 	const sections = $derived.by(() => {
 		void $sidebarVersion;
-		return getSections();
+		void $settingsSectionVersion;
+		return isSettingsMode ? getSettingsSections(settingsContext.targetType) : getSections();
 	});
 
-	const tab = $derived($activeSectionId);
+	const tab = $derived(isSettingsMode ? $activeSettingsSectionId : $activeSectionId);
 
 	const nodes = $derived.by(() => {
 		void $sidebarVersion;
+		void $settingsSectionVersion;
 		void $tree;
+		if (isSettingsMode) return buildSettingsSectionNodes(settingsContext.targetType, tab, settingsCtx);
 		if (!ctx) return [];
 		return buildSectionNodes(tab, ctx);
 	});
@@ -119,23 +138,28 @@
 	const groups = $derived(groupSectionNodes(tab, nodes));
 
 	$effect(() => {
-		if (!node || !tab) {
+		if ((!isSettingsMode && !node) || !tab) {
 			expandedGroups = {};
 			return;
 		}
+		const preferenceContext = isSettingsMode
+			? { type: settingsContext.targetType, id: String(settingsContext.targetId) }
+			: { type: String(config['contextType'] ?? 'unknown'), id: String(config['contextId'] ?? 'unknown') };
 		expandedGroups = readAccordionStates(
-			{ type: String(config['contextType'] ?? 'unknown'), id: String(config['contextId'] ?? 'unknown') },
-			node.id,
+			preferenceContext,
+			isSettingsMode ? 'settings' : node?.id ?? '',
 			tab,
 		);
 	});
 
 	function persistExpandedGroups(next: Record<string, boolean>) {
-		if (!node) return;
+		if (!isSettingsMode && !node) return;
 		expandedGroups = next;
 		writeAccordionStates(
-			{ type: String(config['contextType'] ?? 'unknown'), id: String(config['contextId'] ?? 'unknown') },
-			node.id,
+			isSettingsMode
+				? { type: settingsContext.targetType, id: String(settingsContext.targetId) }
+				: { type: String(config['contextType'] ?? 'unknown'), id: String(config['contextId'] ?? 'unknown') },
+			isSettingsMode ? 'settings' : node?.id ?? '',
 			tab,
 			next,
 		);
@@ -169,14 +193,24 @@
 	}
 
 	function fieldValue(n: Record<string, unknown>): unknown {
-		if (typeof n.get === 'function') return (n.get as (c: unknown) => unknown)(ctx);
+		if (typeof n.get === 'function') return (n.get as (c: unknown) => unknown)(isSettingsMode ? settingsCtx : ctx);
 		const key = (n.field as Record<string, unknown>).key as string;
+		if (isSettingsMode) return settingsContext.values[key];
 		if (n.path === 'element') return node?.element?.[key];
 		if (n.path === 'style') return responsiveValue(key);
 		return node?.content?.[key];
 	}
 
 	function fieldOnChange(n: Record<string, unknown>, value: unknown) {
+		if (isSettingsMode) {
+			if (typeof n.set === 'function') {
+				(n.set as (c: unknown, v: unknown) => void)(settingsCtx, value);
+				return;
+			}
+			const key = (n.field as Record<string, unknown>).key as string;
+			updateEditorSetting(key, value);
+			return;
+		}
 		if (!node) return;
 		if (typeof n.set === 'function') {
 			(n.set as (c: unknown, v: unknown) => void)(ctx, value);
@@ -225,7 +259,7 @@
 <div class="iikiti-settings iikiti-settings--{side}" data-tour="editor.settings">
 	<div class="iikiti-settings__header">
 		<span class="iikiti-settings__title">
-			{node ? (ctx?.schema?.label ?? node.type) : 'Settings'}
+			{isSettingsMode ? settingsContext.label : node ? (ctx?.schema?.label ?? node.type) : 'Settings'}
 		</span>
 		<button
 			type="button"
@@ -236,7 +270,7 @@
 		>⇄ {side}</button>
 	</div>
 
-	{#if !node}
+	{#if !isSettingsMode && !node}
 		<p class="iikiti-settings__empty">Select a block to edit its content, element and style.</p>
 	{:else}
 		<div class="iikiti-settings__tabs" role="tablist">
@@ -247,13 +281,13 @@
 					aria-selected={tab === s.id}
 					class:active={tab === s.id}
 					data-tour="sidebar.tab.{s.id}"
-					onclick={() => setActiveSection(s.id)}
+					onclick={() => isSettingsMode ? setActiveSettingsSection(s.id) : setActiveSection(s.id)}
 				>{s.label}</button>
 			{/each}
 		</div>
 
 		<div class="iikiti-settings__body" role="tabpanel" data-tour="sidebar.section.{tab}">
-			{#if tab === 'style'}
+			{#if !isSettingsMode && tab === 'style'}
 				<label class="iikiti-settings__breakpoint">
 					<span>Responsive breakpoint</span>
 					<select value={activeBreakpoint} onchange={(event) => (activeBreakpoint = (event.currentTarget as HTMLSelectElement).value)}>
@@ -270,6 +304,9 @@
 			{#each groups as child, i (child.id ?? i)}
 				{@render renderNode(child)}
 			{/each}
+			{#if isSettingsMode && groups.length === 0}
+				<p class="iikiti-settings__empty">No settings are available in this tab.</p>
+			{/if}
 		</div>
 	{/if}
 </div>
@@ -278,7 +315,7 @@
 	{#if n.kind === 'field'}
 		{@const Control = resolveFieldControl((n.field as Record<string, unknown>).type as string) ?? TextControl}
 		{@const fieldKey = (n.field as Record<string, unknown>).key as string}
-		{@const decorators = ctx ? resolveFieldDecorators(n, ctx) : []}
+		{@const decorators = activeContext ? resolveFieldDecorators(n, activeContext) : []}
 		<div class="iikiti-field" data-field-key={fieldKey}>
 			<FormField field={n.field as { key: string; label: string; type: string }}>
 				<Control
@@ -293,7 +330,7 @@
 			{#each decorators as dec (dec.id)}
 				{@const Decorator = dec.component}
 				<span class="iikiti-field__decorator">
-					<Decorator node={node} fieldNode={n} {fieldKey} />
+					<Decorator node={node} fieldNode={n} {fieldKey} ctx={activeContext} />
 				</span>
 			{/each}
 		</div>

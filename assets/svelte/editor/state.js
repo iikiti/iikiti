@@ -2,6 +2,7 @@ import { derived, get, writable } from 'svelte/store';
 import { notifications } from '../../js/iikiti/notifications.js';
 import { cloneForPaste, duplicateUserIds, pasteTarget } from './blockClipboard.js';
 import { canPlaceBlock } from './layerDrop.js';
+import { setSidebarMode } from './extensions.js';
 
 /**
  * @typedef {object} BlockNode
@@ -44,6 +45,10 @@ const DEFAULT_STATE = {
 	tree: {},
 	selected: null,
 	dirty: false,
+	settingsValues: {},
+	settingsVersion: 0,
+	settingsDirty: false,
+	settingsHasDraft: false,
 	version: 0,
 	history: [],
 	historyPos: -1,
@@ -63,7 +68,16 @@ export const apiToken = derived(state, ($) => $.config['apiToken']);
 export const iconSvgs = derived(state, ($) => /** @type {Record<string, string>} */ ($.config['iconSvgs'] ?? {}));
 /** Server-generated font glyph references keyed by icon reference (see EditorStateController). */
 export const iconGlyphs = derived(state, ($) => /** @type {Record<string, string>} */ ($.config['iconGlyphs'] ?? {}));
-export const dirty = derived(state, ($) => $.dirty);
+export const dirty = derived(state, ($) => $.dirty || $.settingsDirty);
+export const settingsDirty = derived(state, ($) => $.settingsDirty);
+export const editorSettings = derived(state, ($) => ({
+	targetType: String($.config['settingsContextType'] ?? 'template'),
+	targetId: Number($.config['settingsContextId'] ?? 0),
+	label: String($.config['settingsLabel'] ?? 'Template Settings'),
+	values: $.settingsValues,
+	version: $.settingsVersion,
+	hasDraft: $.settingsHasDraft,
+}));
 export const canUndo = derived(state, ($) => $.historyPos > 0);
 export const canRedo = derived(state, ($) => $.history.length > 0 && $.historyPos < $.history.length - 1);
 
@@ -152,6 +166,16 @@ export function closeLayoutDialog() {
 	layoutDialogOpen.set(false);
 }
 
+/** @param {string} key @param {unknown} value */
+export function updateEditorSetting(key, value) {
+	if (!key) return;
+	state.update((current) => ({
+		...current,
+		settingsValues: { ...current.settingsValues, [key]: value },
+		settingsDirty: true,
+	}));
+}
+
 const blockElements = new Map();
 export function registerBlock(id, el) {
 	if (el) blockElements.set(id, el);
@@ -188,6 +212,10 @@ export function init(config, blockTypesList) {
 		tree: parsed,
 		selected: null,
 		dirty: false,
+		settingsValues: { ...(config['settingsValues'] ?? {}) },
+		settingsVersion: Number(config['settingsVersion'] ?? 0) || 0,
+		settingsDirty: false,
+		settingsHasDraft: Boolean(config['settingsHasDraft']),
 		version: Number(config['version'] ?? 0) || 0,
 		history: [parsed],
 		historyPos: 0,
@@ -615,6 +643,7 @@ export function setTree(next) {
  */
 export function select(id) {
 	state.update((s) => ({ ...s, selected: id }));
+	if (id) setSidebarMode('blocks');
 }
 
 /**
@@ -738,31 +767,119 @@ function authHeader(token) {
 }
 
 export async function saveDraft() {
-	const s = get(state);
-	const res = await fetch(`${get(apiBase)}/editor/save`, {
-		method: 'POST',
-		credentials: 'same-origin',
-		headers: { 'Content-Type': 'application/json', 'If-Match': String(s.version), ...authHeader(get(apiToken)) },
-		body: JSON.stringify({ contextType: s.config['contextType'], contextId: s.config['contextId'], tree: s.tree }),
-	});
-	const data = await res.json().catch(() => ({ ok: false }));
-	if (!res.ok || data.conflict) {
-		notifications.notify({ message: data.conflict ? 'Conflict – reload and retry.' : 'Save failed', type: 'error' });
-	} else {
+	let current = get(state);
+	let blockSaved = false;
+	if (current.dirty) {
+		const res = await fetch(`${get(apiBase)}/editor/save`, {
+			method: 'POST',
+			credentials: 'same-origin',
+			headers: { 'Content-Type': 'application/json', 'If-Match': String(current.version), ...authHeader(get(apiToken)) },
+			body: JSON.stringify({ contextType: current.config['contextType'], contextId: current.config['contextId'], tree: current.tree }),
+		});
+		const data = await res.json().catch(() => ({ ok: false }));
+		if (!res.ok || !data.ok || data.conflict) {
+			notifications.notify({ message: data.conflict ? 'Block draft conflict – reload and retry.' : 'Block draft save failed', type: 'error' });
+			return data;
+		}
+		blockSaved = true;
 		state.update((st) => ({ ...st, dirty: false, version: Number(data.version || st.version) }));
 	}
-	return data;
+
+	current = get(state);
+	if (current.settingsDirty) {
+		const result = await saveSettingsDraft(current);
+		if (!result.ok) {
+			notifications.notify({
+				message: result.conflict
+					? 'Settings draft conflict – reload and retry.'
+					: blockSaved ? 'Settings save failed after the block draft was saved.' : 'Settings save failed',
+				type: 'error',
+			});
+			return result;
+		}
+	}
+	return { ok: true, version: get(state).version, conflict: false };
 }
 
 export async function publish() {
-	const s = get(state);
+	let current = get(state);
 	const res = await fetch(`${get(apiBase)}/editor/publish`, {
 		method: 'POST',
 		credentials: 'same-origin',
 		headers: { 'Content-Type': 'application/json', ...authHeader(get(apiToken)) },
-		body: JSON.stringify({ contextType: s.config['contextType'], contextId: s.config['contextId'] }),
+		body: JSON.stringify({ contextType: current.config['contextType'], contextId: current.config['contextId'] }),
 	});
-	const ok = res.ok;
-	if (!ok) notifications.notify({ message: 'Publish failed', type: 'error' });
-	return ok;
+	const publishResult = await res.json().catch(() => ({ ok: false }));
+	if (!res.ok || !publishResult.ok) {
+		notifications.notify({ message: 'Block publish failed', type: 'error' });
+		return false;
+	}
+
+	current = get(state);
+	if (current.settingsDirty) {
+		const saved = await saveSettingsDraft(current);
+		if (!saved.ok) {
+			notifications.notify({ message: saved.conflict ? 'Settings draft conflict – reload and retry.' : 'Settings could not be saved before publishing.', type: 'error' });
+			return false;
+		}
+		current = get(state);
+	}
+	if (current.settingsHasDraft) {
+		const result = await publishSettings(current);
+		if (!result.ok) {
+			notifications.notify({
+				message: result.conflict
+					? 'Settings publish conflict – reload and retry.'
+					: 'Block tree published, but settings publish failed.',
+				type: 'error',
+			});
+			return false;
+		}
+	}
+	return true;
+}
+
+async function saveSettingsDraft(current) {
+	const res = await fetch(`${get(apiBase)}/editor/settings/save`, {
+		method: 'POST',
+		credentials: 'same-origin',
+		headers: { 'Content-Type': 'application/json', ...authHeader(get(apiToken)) },
+		body: JSON.stringify({
+			targetType: current.config['settingsContextType'],
+			targetId: current.config['settingsContextId'],
+			settings: current.settingsValues,
+			version: current.settingsVersion,
+		}),
+	});
+	const data = await res.json().catch(() => ({ ok: false }));
+	if (!res.ok || data.conflict) return data;
+	state.update((st) => ({
+		...st,
+		settingsDirty: st.settingsValues !== current.settingsValues,
+		settingsVersion: Number(data.version ?? st.settingsVersion),
+		settingsHasDraft: true,
+	}));
+	return data;
+}
+
+async function publishSettings(current) {
+	const res = await fetch(`${get(apiBase)}/editor/settings/publish`, {
+		method: 'POST',
+		credentials: 'same-origin',
+		headers: { 'Content-Type': 'application/json', ...authHeader(get(apiToken)) },
+		body: JSON.stringify({
+			targetType: current.config['settingsContextType'],
+			targetId: current.config['settingsContextId'],
+			version: current.settingsVersion,
+		}),
+	});
+	const data = await res.json().catch(() => ({ ok: false }));
+	if (!res.ok || data.conflict) return data;
+	state.update((st) => ({
+		...st,
+		settingsDirty: st.settingsValues !== current.settingsValues,
+		settingsVersion: Number(data.version ?? st.settingsVersion),
+		settingsHasDraft: Boolean(data.hasDraft),
+	}));
+	return data;
 }
