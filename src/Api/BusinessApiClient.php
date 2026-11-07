@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace iikiti\CMS\Api;
 
 use iikiti\CMS\Async\FiberHttpClient;
+use iikiti\CMS\Profiler\AsyncResponseDataCollector;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Contracts\HttpClient\Exception\HttpExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -19,6 +20,7 @@ final readonly class BusinessApiClient
 		private string $baseUrl,
 		#[Autowire('%kernel.environment%')]
 		private string $environment,
+		private ?AsyncResponseDataCollector $profiler = null,
 	) {
 		$this->assertBaseUrl($baseUrl);
 	}
@@ -38,17 +40,28 @@ final readonly class BusinessApiClient
 		array $headers = [],
 		float $timeout = 5.0,
 	): array {
-		try {
-			$response = $this->client->request(
-				strtoupper($method),
-				$this->url($path),
-				$this->options($token, $body, $query, $headers, $timeout),
-			);
-		} catch (HttpExceptionInterface $exception) {
-			throw $this->translateHttpException($exception);
-		}
+		$url = $this->url($path);
+		$options = $this->options($token, $body, $query, $headers, $timeout);
+		$startedAt = hrtime(true);
+		$response = null;
+		$status = null;
+		$failed = false;
 
-		return $this->decode($response);
+		try {
+			$response = $this->client->request(strtoupper($method), $url, $options);
+			$status = $this->responseStatus($response);
+
+			return $this->decode($response);
+		} catch (HttpExceptionInterface $exception) {
+			$status = $this->responseStatus($exception->getResponse());
+			$failed = true;
+			throw $this->translateHttpException($exception);
+		} catch (\Throwable $exception) {
+			$failed = true;
+			throw $exception;
+		} finally {
+			$this->recordApiSubrequest($method, $url, $status, $startedAt, $failed, $query);
+		}
 	}
 
 	/**
@@ -67,17 +80,28 @@ final readonly class BusinessApiClient
 		array $headers = [],
 		float $timeout = 5.0,
 	): array {
-		try {
-			$response = $http->request(
-				strtoupper($method),
-				$this->url($path),
-				$this->options($token, $body, $query, $headers, $timeout),
-			);
-		} catch (HttpExceptionInterface $exception) {
-			throw $this->translateHttpException($exception);
-		}
+		$url = $this->url($path);
+		$options = $this->options($token, $body, $query, $headers, $timeout);
+		$startedAt = hrtime(true);
+		$response = null;
+		$status = null;
+		$failed = false;
 
-		return $this->decode($response);
+		try {
+			$response = $http->request(strtoupper($method), $url, $options);
+			$status = $this->responseStatus($response);
+
+			return $this->decode($response);
+		} catch (HttpExceptionInterface $exception) {
+			$status = $this->responseStatus($exception->getResponse());
+			$failed = true;
+			throw $this->translateHttpException($exception);
+		} catch (\Throwable $exception) {
+			$failed = true;
+			throw $exception;
+		} finally {
+			$this->recordApiSubrequest($method, $url, $status, $startedAt, $failed, $query);
+		}
 	}
 
 	public function getBaseUrl(): string
@@ -99,16 +123,25 @@ final readonly class BusinessApiClient
 		array $headers = [],
 		float $timeout = 30.0,
 	): array {
+		$url = $this->url($path);
+		$options = $this->options($token, null, $query, $headers, $timeout);
+		$startedAt = hrtime(true);
+		$response = null;
+		$status = null;
+		$failed = false;
+
 		try {
-			$response = $http->request(
-				strtoupper($method),
-				$this->url($path),
-				$this->options($token, null, $query, $headers, $timeout),
-			);
-			$status = $response->getStatusCode();
+			$response = $http->request(strtoupper($method), $url, $options);
+			$status = $this->responseStatus($response);
 		} catch (HttpExceptionInterface $exception) {
 			$response = $exception->getResponse();
-			$status = (int) $response->getInfo('http_code');
+			$status = $this->responseStatus($response);
+			$failed = true;
+		} catch (\Throwable $exception) {
+			$failed = true;
+			throw $exception;
+		} finally {
+			$this->recordApiSubrequest($method, $url, $status, $startedAt, $failed, $query);
 		}
 
 		return [
@@ -197,6 +230,31 @@ final readonly class BusinessApiClient
 	private function translateHttpException(HttpExceptionInterface $exception): BusinessApiException
 	{
 		return new BusinessApiException((int) $exception->getResponse()->getInfo('http_code'));
+	}
+
+	private function responseStatus(ResponseInterface $response): ?int
+	{
+		try {
+			return $response->getStatusCode();
+		} catch (\Throwable) {
+			return null;
+		}
+	}
+
+	/** @param array<array-key,mixed> $query */
+	private function recordApiSubrequest(string $method, string $url, ?int $status, int $startedAt, bool $failed, array $query): void
+	{
+		try {
+			$this->profiler?->recordApiSubrequest(
+				$method,
+				$url,
+				$status,
+				(hrtime(true) - $startedAt) / 1_000_000,
+				$failed,
+				$query,
+			);
+		} catch (\Throwable) {
+		}
 	}
 
 	private function assertBaseUrl(string $baseUrl): void

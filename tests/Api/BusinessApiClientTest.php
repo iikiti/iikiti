@@ -8,6 +8,7 @@ use iikiti\CMS\Api\BusinessApiClient;
 use iikiti\CMS\Api\BusinessApiException;
 use iikiti\CMS\Async\FiberHttpClient;
 use iikiti\CMS\Async\FiberTaskRunner;
+use iikiti\CMS\Profiler\AsyncResponseDataCollector;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
@@ -51,13 +52,35 @@ final class BusinessApiClientTest extends TestCase
 	public function testAsyncRequestUsesFiberHttpClient(): void
 	{
 		$client = new MockHttpClient(static fn (): MockResponse => new MockResponse('{"id":9}'));
-		$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
-		$runner = new FiberTaskRunner($client);
+		$profiler = new AsyncResponseDataCollector();
+		$api = new BusinessApiClient($client, 'https://api.example.test', 'test', $profiler);
+		$runner = new FiberTaskRunner($client, $profiler);
 		$result = $runner->run([
-			'object' => static fn (FiberHttpClient $http): array => $api->requestAsync($http, 'GET', '/api/objects/9', 'token'),
+			'object' => static fn (FiberHttpClient $http): array => $api->requestAsync($http, 'GET', '/api/objects/9', 'token', query: ['page' => 2, 'access_token' => 'not-for-profiler']),
 		]);
 
 		self::assertSame(['id' => 9], $result['object']);
+		self::assertCount(1, $profiler->getAsyncRequests());
+		self::assertCount(1, $profiler->getApiSubrequests());
+		self::assertSame('https://api.example.test/api/objects/9?page=2&access_token=%5Bredacted%5D', $profiler->getApiSubrequests()[0]['url']);
+		self::assertStringNotContainsString('not-for-profiler', serialize($profiler));
+	}
+
+	public function testSyncRequestRecordsQueryAndHttpStatusWithoutCredentialValues(): void
+	{
+		$client = new MockHttpClient(static fn (): MockResponse => new MockResponse('{"items":[]}', ['http_code' => 201]));
+		$profiler = new AsyncResponseDataCollector();
+		$api = new BusinessApiClient($client, 'https://api.example.test', 'test', $profiler);
+
+		$api->request('GET', '/api/objects', 'user-token', query: ['site' => 4, 'auth_token' => 'query-secret']);
+
+		$request = $profiler->getApiSubrequests()[0];
+		self::assertSame('GET', $request['method']);
+		self::assertSame('https://api.example.test/api/objects?site=4&auth_token=%5Bredacted%5D', $request['url']);
+		self::assertSame(201, $request['status']);
+		self::assertFalse($request['failed']);
+		self::assertStringNotContainsString('user-token', serialize($profiler));
+		self::assertStringNotContainsString('query-secret', serialize($profiler));
 	}
 
 	public function testRejectsAPathOutsideTheBusinessApi(): void
@@ -70,7 +93,8 @@ final class BusinessApiClientTest extends TestCase
 
 	public function testNonSuccessResponseDoesNotExposeItsBody(): void
 	{
-		$api = new BusinessApiClient(new MockHttpClient(static fn (): MockResponse => new MockResponse('secret', ['http_code' => 403])), 'https://api.example.test', 'test');
+		$profiler = new AsyncResponseDataCollector();
+		$api = new BusinessApiClient(new MockHttpClient(static fn (): MockResponse => new MockResponse('secret', ['http_code' => 403])), 'https://api.example.test', 'test', $profiler);
 
 		try {
 			$api->request('GET', '/api/admin/users', 'token');
@@ -79,6 +103,10 @@ final class BusinessApiClientTest extends TestCase
 			self::assertSame(403, $exception->statusCode);
 			self::assertStringNotContainsString('secret', $exception->getMessage());
 		}
+
+		self::assertSame(403, $profiler->getApiSubrequests()[0]['status']);
+		self::assertTrue($profiler->getApiSubrequests()[0]['failed']);
+		self::assertStringNotContainsString('secret', serialize($profiler));
 	}
 
 	public function testProductionRejectsInsecureBaseUrl(): void

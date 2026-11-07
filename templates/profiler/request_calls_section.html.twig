@@ -1,0 +1,37 @@
+<h3>Asynchronous</h3>
+{% if collector.asyncRequests is empty %}
+    <div class="empty"><p>No asynchronous HTTP requests were made during this request.</p></div>
+{% else %}
+    <table>
+        <thead><tr><th>Method</th><th>URL</th><th>Outcome</th><th>Duration</th></tr></thead>
+        <tbody>
+        {% for request in collector.asyncRequests %}
+            <tr>
+                <td>{{ request.method }}</td>
+                <td><code>{{ request.url }}</code></td>
+                <td>{% if request.status is not null %}HTTP {{ request.status }}{% if request.failed %} (failed){% endif %}{% else %}Failed{% endif %}</td>
+                <td>{{ '%.2f'|format(request.duration_ms) }} ms</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+
+<h3>Subrequest</h3>
+{% if collector.apiSubrequests is empty %}
+    <div class="empty"><p>No API subrequests were made during this request.</p></div>
+{% else %}
+    <table>
+        <thead><tr><th>Method</th><th>URL</th><th>Outcome</th><th>Duration</th></tr></thead>
+        <tbody>
+        {% for request in collector.apiSubrequests %}
+            <tr>
+                <td>{{ request.method }}</td>
+                <td><code>{{ request.url }}</code></td>
+                <td>{% if request.status is not null %}HTTP {{ request.status }}{% if request.failed %} (failed){% endif %}{% else %}Failed{% endif %}</td>
+                <td>{{ '%.2f'|format(request.duration_ms) }} ms</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% endif %}

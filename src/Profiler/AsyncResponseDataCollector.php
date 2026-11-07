@@ -11,9 +11,11 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\DataCollector\DataCollector;
 
-/** Profiler data for native Fiber task groups and composed controller responses. */
+/** Profiler data for Fiber HTTP requests, API calls and composed controller responses. */
 final class AsyncResponseDataCollector extends DataCollector
 {
+	private const SENSITIVE_QUERY_COMPONENTS = ['token', 'auth', 'authorization', 'authentication', 'password', 'passwd', 'secret', 'signature', 'sig', 'key', 'credential', 'credentials', 'csrf', 'session'];
+
 	public function getName(): string
 	{
 		return 'iikiti.async_response';
@@ -23,6 +25,22 @@ final class AsyncResponseDataCollector extends DataCollector
 	{
 		$data = $this->currentData();
 		$data['http_requests'] = ($data['http_requests'] ?? 0) + 1;
+		$this->data = $data;
+	}
+
+	/** @param array<array-key,mixed> $query */
+	public function recordAsyncRequest(string $method, string $url, ?int $status, float $durationMs, bool $failed, array $query = []): void
+	{
+		$data = $this->currentData();
+		$data['async_requests'][] = $this->requestRecord($method, $url, $status, $durationMs, $failed, $query);
+		$this->data = $data;
+	}
+
+	/** @param array<array-key,mixed> $query */
+	public function recordApiSubrequest(string $method, string $url, ?int $status, float $durationMs, bool $failed, array $query = []): void
+	{
+		$data = $this->currentData();
+		$data['api_subrequests'][] = $this->requestRecord($method, $url, $status, $durationMs, $failed, $query);
 		$this->data = $data;
 	}
 
@@ -110,6 +128,22 @@ final class AsyncResponseDataCollector extends DataCollector
 		return (int) ($this->currentData()['http_requests'] ?? 0);
 	}
 
+	/** @return list<array{method:string,url:string,status:?int,duration_ms:float,failed:bool}> */
+	public function getAsyncRequests(): array
+	{
+		$requests = $this->currentData()['async_requests'] ?? [];
+
+		return array_values(is_array($requests) ? $requests : []);
+	}
+
+	/** @return list<array{method:string,url:string,status:?int,duration_ms:float,failed:bool}> */
+	public function getApiSubrequests(): array
+	{
+		$requests = $this->currentData()['api_subrequests'] ?? [];
+
+		return array_values(is_array($requests) ? $requests : []);
+	}
+
 	/** @return list<array{format:string,fragments:int}> */
 	public function getCompositions(): array
 	{
@@ -137,5 +171,71 @@ final class AsyncResponseDataCollector extends DataCollector
 	private function currentData(): array
 	{
 		return is_array($this->data) ? $this->data : [];
+	}
+
+	/** @param array<array-key,mixed> $query
+	 *  @return array{method:string,url:string,status:?int,duration_ms:float,failed:bool}
+	 */
+	private function requestRecord(string $method, string $url, ?int $status, float $durationMs, bool $failed, array $query): array
+	{
+		return [
+			'method' => strtoupper($method),
+			'url' => $this->sanitizeUrl($url, $query),
+			'status' => $status,
+			'duration_ms' => round(max(0.0, $durationMs), 2),
+			'failed' => $failed,
+		];
+	}
+
+	/** @param array<array-key,mixed> $query */
+	private function sanitizeUrl(string $url, array $query): string
+	{
+		$parts = parse_url($url);
+		if (!is_array($parts)) {
+			return '[invalid URL]';
+		}
+
+		$sanitized = '';
+		if (isset($parts['scheme'])) {
+			$sanitized .= strtolower((string) $parts['scheme']).'://';
+		}
+		if (isset($parts['host'])) {
+			$sanitized .= (string) $parts['host'];
+		}
+		if (isset($parts['port'])) {
+			$sanitized .= ':'.$parts['port'];
+		}
+
+		$path = (string) ($parts['path'] ?? '');
+		$path = preg_replace('#(/api/public/(?:assets/|sites/[^/?]+/assets/))[^/?]+(?=/|$)#i', '$1[redacted]', $path) ?? $path;
+		$sanitized .= $path;
+
+		$queryString = (string) ($parts['query'] ?? '');
+		if ([] !== $query) {
+			$additionalQuery = http_build_query($query, '', '&', PHP_QUERY_RFC3986);
+			if ('' !== $additionalQuery) {
+				$queryString .= ('' === $queryString ? '' : '&').$additionalQuery;
+			}
+		}
+
+		if ('' !== $queryString) {
+			$sanitized .= '?'.$this->redactQuery($queryString);
+		}
+
+		return $sanitized;
+	}
+
+	private function redactQuery(string $query): string
+	{
+		return implode('&', array_map(static function (string $pair): string {
+			[$key, $value] = array_pad(explode('=', $pair, 2), 2, null);
+			$components = preg_split('/[^a-zA-Z0-9]+|(?<=[a-z0-9])(?=[A-Z])/', urldecode($key)) ?: [];
+			$sensitive = [] !== array_intersect(array_map('strtolower', $components), self::SENSITIVE_QUERY_COMPONENTS);
+			if (null === $value || !$sensitive) {
+				return $pair;
+			}
+
+			return $key.'=%5Bredacted%5D';
+		}, explode('&', $query)));
 	}
 }

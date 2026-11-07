@@ -75,12 +75,42 @@ final class FiberHttpClient
 			'max_duration' => $remaining,
 		];
 		$this->profiler?->recordHttpRequest();
-		$response = $this->client->request($method, $url, $options);
-		$completion = Fiber::suspend($response);
-		if ($completion instanceof \Throwable) {
-			throw $completion;
-		}
+		$startedAt = hrtime(true);
+		$response = null;
+		$status = null;
+		$failed = false;
 
-		return $response;
+		try {
+			$response = $this->client->request($method, $url, $options);
+			$completion = Fiber::suspend($response);
+			if ($completion instanceof \Throwable) {
+				throw $completion;
+			}
+
+			return $response;
+		} catch (\Throwable $exception) {
+			$failed = true;
+			throw $exception;
+		} finally {
+			if (null !== $response) {
+				try {
+					$httpCode = $response->getInfo('http_code');
+					$status = is_numeric($httpCode) && (int) $httpCode >= 100 ? (int) $httpCode : null;
+				} catch (\Throwable) {
+					$status = null;
+				}
+			}
+			try {
+				$this->profiler?->recordAsyncRequest(
+					$method,
+					$url,
+					$status,
+					(hrtime(true) - $startedAt) / 1_000_000,
+					$failed,
+					is_array($options['query'] ?? null) ? $options['query'] : [],
+				);
+			} catch (\Throwable) {
+			}
+		}
 	}
 }

@@ -34,6 +34,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-11-07: Added Fiber HTTP and outbound Business API call details under Request / Response -> Request, with credential-sensitive query values redacted.
 - 2026-11-07: Added a Web Application Firewall tab inside Symfony's Security profiler panel with bounded, value-free matched-rule diagnostics.
 - 2026-11-07: Added a bounded Fiber-capable business API client, user-session token bootstrap, site-bound guest page/asset access, API-backed shell management, and scoped API triggers for schedule, batch, and asset workers; no IP allowlist or generic query endpoint.
 - 2026-11-07: Added a JavaScript-style native Fiber Promise API with executor, chaining, combinators, resolver functions, and grouped execution through the existing scheduler.
