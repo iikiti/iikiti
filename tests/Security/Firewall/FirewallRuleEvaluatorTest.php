@@ -47,6 +47,55 @@ final class FirewallRuleEvaluatorTest extends TestCase
 		self::assertSame('site:1:test', $result->findings[0]->ruleId);
 	}
 
+	public function testFindingsExposeSafeMatchedConditionMetadataOnly(): void
+	{
+		$evaluator = $this->createEvaluator();
+		$secretValue = 'request-secret-value-trigger';
+		$secretLiteral = 'configured-secret-literal';
+		$rules = [[
+			'id' => 'site:1:safe-detail',
+			'name' => 'Safe detail',
+			'action' => 'report',
+			'priority' => 42,
+			'conditions' => ['all' => [
+				['condition' => 'request.match', 'options' => [
+					'target' => 'path', 'operator' => 'contains', 'value' => $secretLiteral,
+				]],
+				['any' => [
+					['condition' => 'request.match', 'options' => [
+						'target' => 'header', 'name' => 'X-ignored', 'operator' => 'contains', 'value' => 'not-present',
+					]],
+					['condition' => 'request.match', 'options' => [
+						'target' => 'header', 'name' => 'X-Trigger', 'operator' => 'contains', 'value' => 'trigger',
+					]],
+				]],
+			]],
+		]];
+		$context = new FirewallRequestContext(
+			[
+				'path' => [['name' => null, 'value' => '/'.$secretLiteral]],
+				'header' => [['name' => 'X-Trigger', 'value' => $secretValue]],
+			],
+			1,
+			'GET',
+			'/'.$secretLiteral,
+			'127.0.0.1',
+		);
+
+		$result = $evaluator->evaluate($rules, $context);
+
+		self::assertCount(1, $result->findings);
+		self::assertSame(42, $result->findings[0]->priority);
+		self::assertSame([
+			['condition' => 'request.match', 'target' => 'path', 'operator' => 'contains'],
+			['condition' => 'request.match', 'target' => 'header', 'name' => 'X-Trigger', 'operator' => 'contains'],
+		], $result->findings[0]->matchedConditions);
+		$serialized = json_encode($result->findings[0]->toArray(), JSON_THROW_ON_ERROR);
+		self::assertStringNotContainsString($secretValue, $serialized);
+		self::assertStringNotContainsString($secretLiteral, $serialized);
+		self::assertStringNotContainsString('X-ignored', $serialized);
+	}
+
 	public function testAnyGroupShortCircuitsAfterFirstMatch(): void
 	{
 		$condition = new class implements FirewallConditionInterface {

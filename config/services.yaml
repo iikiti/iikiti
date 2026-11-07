@@ -100,6 +100,11 @@ services:
 
     iikiti\CMS\Profiler\AsyncResponseDataCollector: ~
 
+    # Tabless collector; its safe request snapshot is rendered inside Security.
+    # Subscribe to firewall events only where the profiler is enabled.
+    iikiti\CMS\Profiler\FirewallDataCollector:
+        autoconfigure: false
+
     # Aliases
     iikiti\CMS\Workflow\WorkflowFactoryInterface:
         alias: iikiti\CMS\Workflow\WorkflowFactory
@@ -178,3 +183,17 @@ services:
     iikiti\CMS\Audit\AuditRequestListener:
         autowire: true
         autoconfigure: true
+
+when@dev:
+    services:
+        iikiti\CMS\Profiler\FirewallDataCollector:
+            tags:
+                - { name: data_collector, id: iikiti.firewall }
+                - { name: kernel.event_subscriber }
+
+when@test:
+    services:
+        iikiti\CMS\Profiler\FirewallDataCollector:
+            tags:
+                - { name: data_collector, id: iikiti.firewall }
+                - { name: kernel.event_subscriber }

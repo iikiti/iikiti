@@ -18,6 +18,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Changed
 
+- 2026-11-07: The dynamic firewall now inspects requests before Symfony Security and evaluates site-less API requests with core and active signed rules, while keeping site policies scoped to resolved sites.
 - 2026-11-07: Credential submission now uses the stateful `/api/auth/login` firewall and MFA challenge route under `/api/auth/mfa/challenge`, preserving CSRF, shared session context, and the code-enforced MFA proof gate.
 - 2026-11-07: Interactive multi-step form handlers now run under stateful `/api/forms/*` routes with site-bound session context.
 - 2026-11-07: Search configuration and index-maintenance commands now use user-authenticated API operations with optional site context instead of local database access.
@@ -33,6 +34,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-11-07: Added a Web Application Firewall tab inside Symfony's Security profiler panel with bounded, value-free matched-rule diagnostics.
 - 2026-11-07: Added a bounded Fiber-capable business API client, user-session token bootstrap, site-bound guest page/asset access, API-backed shell management, and scoped API triggers for schedule, batch, and asset workers; no IP allowlist or generic query endpoint.
 - 2026-11-07: Added a JavaScript-style native Fiber Promise API with executor, chaining, combinators, resolver functions, and grouped execution through the existing scheduler.
 - 2026-11-07: Added response-composition diagnostics under the Response tab in Symfony's Request / Response profiler panel.

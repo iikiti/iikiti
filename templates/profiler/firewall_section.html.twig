@@ -1,0 +1,87 @@
+<div class="sf-tabs">
+    <div class="tab active">
+        <h3 class="tab-title">Web Application Firewall</h3>
+        <div class="tab-content">
+            <h2>Web Application Firewall</h2>
+
+            {% if not collector.evaluated %}
+                <div class="empty">
+                    <p>No firewall evaluation was recorded for this request.</p>
+                </div>
+            {% else %}
+                {% set request = collector.requestSummary %}
+                {% set outcome = collector.outcome %}
+                <div class="metrics">
+                    <div class="metric">
+                        <span class="value {{ outcome == 'blocked' ? 'text-error' : (outcome == 'reported' ? 'text-warning' : 'text-success') }}">{{ outcome|replace({'_': ' '})|title }}</span>
+                        <span class="label">Outcome</span>
+                    </div>
+                    <div class="metric">
+                        <span class="value">{{ collector.action|default('none') }}</span>
+                        <span class="label">Aggregate action</span>
+                    </div>
+                    <div class="metric">
+                        <span class="value">{{ collector.responseStatus|default('unknown') }}</span>
+                        <span class="label">Response status</span>
+                    </div>
+                    <div class="metric">
+                        <span class="value">{{ collector.findings|length }}</span>
+                        <span class="label">Matched rules shown</span>
+                    </div>
+                </div>
+
+                <h4>Request context</h4>
+                <table>
+                    <tbody>
+                        <tr><th>Method</th><td><code>{{ request.method }}</code></td></tr>
+                        <tr><th>Path</th><td><code>{{ request.path }}</code></td></tr>
+                        <tr><th>Site</th><td>{{ request.site_id is null ? 'No site (global rules only)' : request.site_id }}</td></tr>
+                        <tr><th>Client IP</th><td><code>{{ request.client_ip }}</code></td></tr>
+                    </tbody>
+                </table>
+
+                <h4>Matched rules</h4>
+                {% if collector.findings is empty %}
+                    <div class="empty">
+                        <p>No rules matched this request.</p>
+                    </div>
+                {% else %}
+                    {% for finding in collector.findings %}
+                        <h5>{{ finding.name }}</h5>
+                        <table>
+                            <tbody>
+                                <tr><th>Rule ID</th><td><code>{{ finding.rule_id }}</code></td></tr>
+                                <tr><th>Action</th><td><span class="label {{ finding.action == 'deny' ? 'status-error' : 'status-warning' }}">{{ finding.action }}</span></td></tr>
+                                <tr><th>Priority</th><td>{{ finding.priority }}</td></tr>
+                            </tbody>
+                        </table>
+
+                        {% if finding.matched_conditions is not empty %}
+                            <p class="text-muted">Matched conditions (request values and configured match literals are not retained):</p>
+                            <ul>
+                                {% for condition in finding.matched_conditions %}
+                                    <li>
+                                        <code>{{ condition.condition }}</code>
+                                        {% if condition.target is defined %} on <code>{{ condition.target }}</code>{% endif %}
+                                        {% if condition.name is defined %} named <code>{{ condition.name }}</code>{% endif %}
+                                        {% if condition.operator is defined %} using <code>{{ condition.operator }}</code>{% endif %}
+                                        {% if condition.transformations is defined and condition.transformations is not empty %}
+                                            ({{ condition.transformations|join(', ') }})
+                                        {% endif %}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% endif %}
+                        {% if finding.conditions_truncated %}
+                            <p class="text-warning">Additional matched conditions were omitted to keep profiler data bounded.</p>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+
+                {% if collector.findingsTruncated %}
+                    <p class="text-warning">Additional matched rules were omitted to keep profiler data bounded.</p>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+</div>

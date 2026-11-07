@@ -1,0 +1,11 @@
+{% extends '@!Security/Collector/security.html.twig' %}
+
+{% block panel %}
+    {{ parent() }}
+
+    {% if profile is defined and profile.hascollector('iikiti.firewall') %}
+        {% include 'profiler/firewall_section.html.twig' with {
+            collector: profile.getcollector('iikiti.firewall'),
+        } only %}
+    {% endif %}
+{% endblock %}

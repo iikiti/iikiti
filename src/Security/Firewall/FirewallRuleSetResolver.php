@@ -22,17 +22,35 @@ final readonly class FirewallRuleSetResolver
 	{
 		$siteId = $site->getId();
 
-		return $this->cache->get($siteId, $includeSiteRules, function () use ($site, $siteId, $includeSiteRules): FirewallCompiledRuleSet {
-			$rules = array_merge($this->coreRules->getRules(), $this->packs->getActiveRules());
-			foreach ($includeSiteRules ? $this->sitePolicies->getRules($site) : [] as $rule) {
+		return $this->cache->get(
+			$siteId,
+			$includeSiteRules,
+			fn (): FirewallCompiledRuleSet => $this->compileRules($includeSiteRules ? $site : null, $siteId),
+		);
+	}
+
+	public function getGlobalRules(): FirewallCompiledRuleSet
+	{
+		return $this->cache->get(
+			null,
+			false,
+			fn (): FirewallCompiledRuleSet => $this->compileRules(null, null),
+		);
+	}
+
+	private function compileRules(?Site $site, int|string|null $siteId): FirewallCompiledRuleSet
+	{
+		$rules = array_merge($this->coreRules->getRules(), $this->packs->getActiveRules());
+		if (null !== $site) {
+			foreach ($this->sitePolicies->getRules($site) as $rule) {
 				if (!is_string($rule['id'] ?? null)) {
 					throw new \InvalidArgumentException('Stored site firewall policy is malformed.');
 				}
 				$rule['id'] = sprintf('site.%s:%s', (string) $siteId, $rule['id']);
 				$rules[] = $rule;
 			}
+		}
 
-			return new FirewallCompiledRuleSet($this->validator->validateRules($rules), $this->conditions);
-		});
+		return new FirewallCompiledRuleSet($this->validator->validateRules($rules), $this->conditions);
 	}
 }

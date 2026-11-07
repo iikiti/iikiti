@@ -33,27 +33,33 @@ final readonly class FirewallRequestSubscriber implements EventSubscriberInterfa
 
 	public static function getSubscribedEvents(): array
 	{
-		// SiteRegistry is initialized by the application's request initializer at priority 0.
-		return [KernelEvents::REQUEST => ['onKernelRequest', -1]];
+		// Run after routing/site initialization (32/30) but before Symfony Security (8).
+		return [KernelEvents::REQUEST => ['onKernelRequest', 9]];
 	}
 
 	public function onKernelRequest(RequestEvent $event): void
 	{
-		if (!$event->isMainRequest() || !SiteRegistry::hasCurrent()) {
+		if (!$event->isMainRequest()) {
 			return;
 		}
 
 		$request = $event->getRequest();
-		$site = SiteRegistry::getCurrent();
+		$site = SiteRegistry::hasCurrent() ? SiteRegistry::getCurrent() : null;
+		if (null === $site && !$this->isApiRequest($request->getPathInfo())) {
+			return;
+		}
+		$siteId = $site?->getId();
 		try {
 			$operation = $request->attributes->get('_api_operation_name');
 			$includeSiteRules = !is_string($operation) || !in_array($operation, self::SITE_POLICY_OPERATIONS, true);
-			$rules = $this->rules->getRulesForSite($site, $includeSiteRules);
-			$context = $this->contexts->create($request, $site->getId());
+			$rules = null === $site
+				? $this->rules->getGlobalRules()
+				: $this->rules->getRulesForSite($site, $includeSiteRules);
+			$context = $this->contexts->create($request, $siteId);
 			$result = $this->evaluator->evaluate($rules, $context);
 		} catch (FirewallInspectionException $exception) {
 			$this->logger->warning('Firewall could not inspect the complete request.', [
-				'site_id' => $site->getId(),
+				'site_id' => $siteId,
 				'method' => $request->getMethod(),
 				'path' => $request->getPathInfo(),
 				'reason' => $exception->getMessage(),
@@ -61,15 +67,15 @@ final readonly class FirewallRequestSubscriber implements EventSubscriberInterfa
 			$this->dispatchSecurityEvent(
 				[new FirewallFinding('core:inspection-limit', 'Request could not be fully inspected.', FirewallAction::Deny)],
 				FirewallAction::Deny,
-				$this->requestSummary($request, $site->getId()),
-				$site->getId(),
+				$this->requestSummary($request, $siteId),
+				$siteId,
 			);
 			$event->setResponse(new Response('Request could not be fully inspected.', Response::HTTP_REQUEST_ENTITY_TOO_LARGE));
 
 			return;
 		} catch (\Throwable $exception) {
 			$this->logger->error('Firewall request evaluation failed closed.', [
-				'site_id' => $site->getId(),
+				'site_id' => $siteId,
 				'method' => $request->getMethod(),
 				'path' => $request->getPathInfo(),
 				'exception' => $exception,
@@ -77,15 +83,15 @@ final readonly class FirewallRequestSubscriber implements EventSubscriberInterfa
 			$this->dispatchSecurityEvent(
 				[new FirewallFinding('core:evaluation-failed', 'Firewall evaluation failed.', FirewallAction::Deny)],
 				FirewallAction::Deny,
-				$this->requestSummary($request, $site->getId()),
-				$site->getId(),
+				$this->requestSummary($request, $siteId),
+				$siteId,
 			);
 			$event->setResponse(new Response('Request security inspection is unavailable.', Response::HTTP_SERVICE_UNAVAILABLE));
 
 			return;
 		}
 
-		$this->dispatchSecurityEvent($result->findings, $result->getAction(), $context->getSafeSummary(), $site->getId());
+		$this->dispatchSecurityEvent($result->findings, $result->getAction(), $context->getSafeSummary(), $siteId);
 
 		if (FirewallAction::Deny === $result->getAction()) {
 			$event->setResponse(new Response('Request blocked by security policy.', Response::HTTP_FORBIDDEN));
@@ -120,5 +126,10 @@ final readonly class FirewallRequestSubscriber implements EventSubscriberInterfa
 			'siteId' => $siteId,
 			'clientIp' => (string) $request->getClientIp(),
 		];
+	}
+
+	private function isApiRequest(string $path): bool
+	{
+		return '/api' === $path || str_starts_with($path, '/api/');
 	}
 }
