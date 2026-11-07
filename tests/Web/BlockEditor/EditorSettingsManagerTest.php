@@ -38,7 +38,7 @@ final class EditorSettingsManagerTest extends TestCase
 		$page = $this->object(Page::class);
 		$template = $this->object(Template::class);
 		$repository = $this->createStub(EntityRepository::class);
-		$repository->method('find')->willReturnCallback(fn (int $id): ?DbObject => 10 === $id ? $page : $template);
+		$repository->method('find')->willReturnCallback(fn (int $id) => 10 === $id ? $page : $template);
 		$entityManager = $this->createStub(EntityManagerInterface::class);
 		$entityManager->method('getRepository')->willReturn($repository);
 		$manager = new EditorSettingsManager($entityManager);
@@ -82,6 +82,11 @@ final class EditorSettingsManagerTest extends TestCase
 		$this->assertFalse($manager->state($template)['hasDraft']);
 	}
 
+	/**
+	 * @template TObject of DbObject
+	 * @param class-string<TObject> $class
+	 * @return TObject
+	 */
 	private function object(string $class): DbObject
 	{
 		$object = new $class();

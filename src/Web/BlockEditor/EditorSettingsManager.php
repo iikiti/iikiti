@@ -56,11 +56,7 @@ final class EditorSettingsManager
 
 		$target = $this->entityManager->getRepository($class)->find($targetId);
 
-		return match ($targetType) {
-			'page' => $target instanceof Page ? $target : null,
-			'template' => $target instanceof Template ? $target : null,
-			default => null,
-		};
+		return $target instanceof $class ? $target : null;
 	}
 
 	/**
