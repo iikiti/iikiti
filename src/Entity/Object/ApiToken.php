@@ -12,6 +12,7 @@ use iikiti\CMS\Repository\Object\ApiTokenRepository;
 class ApiToken extends DbObject
 {
 	public const SITE_SPECIFIC = false;
+	public const TOKEN_PREFIX = 'v2_';
 
 	public function __construct()
 	{
@@ -36,6 +37,11 @@ class ApiToken extends DbObject
 	public function setToken(string $token): void
 	{
 		$this->token = $token;
+	}
+
+	public function isCurrentVersion(): bool
+	{
+		return str_starts_with($this->getToken(), self::TOKEN_PREFIX);
 	}
 
 	public function getUser(): User

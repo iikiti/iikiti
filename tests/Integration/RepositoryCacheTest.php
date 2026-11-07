@@ -59,15 +59,14 @@ final class RepositoryCacheTest extends KernelTestCase
 
 		$this->cleanupLeftoverSites();
 
-		// SiteRegistry populates itself from the current request host on first
-		// use. Seed a registry site and push a matching request so obtaining
-		// the repository below succeeds without a request.
+		// Seed a registry site and initialize the request-scoped site context.
 		$registryDomain = self::REGISTRY_DOMAIN;
 		$this->registrySiteIds[] = $this->insertSite($registryDomain, true);
 
 		/** @var RequestStack $requestStack */
 		$requestStack = $container->get(RequestStack::class);
 		$requestStack->push(Request::create('http://'.$registryDomain));
+		$container->get(SiteRegistry::class)->initializeForRequest();
 
 		/** @var SiteRepository $repository */
 		$repository = $em->getRepository(Site::class);

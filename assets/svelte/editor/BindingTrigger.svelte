@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { apiBase, apiToken, updateNode, queryAncestor } from './state';
+	import { apiBase, apiToken, authHeader, updateNode, queryAncestor } from './state';
 	import type { BlockNode } from './state';
 	import Popover from '$components/Popover.svelte';
 	import Icon from '$components/Icon.svelte';
@@ -54,7 +54,7 @@
 			const token = $apiToken;
 			const res = await fetch(
 				`${$apiBase}/editor/query-fields?objectType=${encodeURIComponent(objectType)}`,
-				{ credentials: 'same-origin', headers: token ? { 'X-AUTH-TOKEN': token } : {} },
+				{ credentials: 'include', headers: authHeader(token) },
 			);
 			const data = (await res.json().catch(() => ({ fields: [] }))) as { fields?: FieldSpec[] };
 			fields = data.fields ?? [];

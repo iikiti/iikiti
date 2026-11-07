@@ -10,9 +10,13 @@ use iikiti\CMS\Registry\SiteRegistry;
 use Override;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ControllerEvent;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
+use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
+use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Stopwatch\Stopwatch;
 
@@ -31,7 +35,9 @@ class Initializer implements EventSubscriberInterface
 		private Stopwatch $stopwatch,
 		private Security $security,
 		private SiteRegistry $siteRegistry,
-		private ApplicationRegistry $appRegistry
+		private ApplicationRegistry $appRegistry,
+		#[Autowire('%application_role%')]
+		private string $applicationRole,
 	) {
 	}
 
@@ -42,8 +48,8 @@ class Initializer implements EventSubscriberInterface
 	public static function getSubscribedEvents(): array
 	{
 		return [
-			'kernel.request' => 'onKernelRequest',
-			'kernel.controller' => 'onKernelController',
+			KernelEvents::REQUEST => ['onKernelRequest', 30],
+			KernelEvents::CONTROLLER => 'onKernelController',
 		];
 	}
 
@@ -59,22 +65,34 @@ class Initializer implements EventSubscriberInterface
 	 */
 	public function onKernelRequest(RequestEvent $event)
 	{
-		// Skip if already initialized or not the main route.
-		if (static::$hasInitialized || !$event->isMainRequest()) {
-			static::$hasInitialized = true;
-
+		if (!$event->isMainRequest()) {
 			return;
 		}
 
+		$this->siteRegistry->initializeForRequest();
+
 		$stopwatch = $this->stopwatch;
 
-		$this->appRegistry->getCurrent();
-		$this->siteRegistry::getCurrent();
+		$route = $event->getRequest()->attributes->get('_route');
+		$consumerProxyRoute = in_array($route, ['home', 'page', 'digital_asset_file', 'admin_home', 'admin_spa'], true);
+		$siteIndependentRoute = 'html_login' === $route
+			|| in_array($route, ['admin_home', 'admin_spa'], true)
+			|| ('consumer' === $this->applicationRole && $consumerProxyRoute);
+		if ('consumer' === $this->applicationRole) {
+			if (!$consumerProxyRoute) {
+				throw new ServiceUnavailableHttpException(null, 'This consumer runtime only supports API-backed page, asset, and admin shell routes.');
+			}
+		} elseif (!$siteIndependentRoute && !in_array($route, ['api_internal_scheduler_run_due', 'api_internal_batch_item_process', 'api_internal_digital_asset_process', 'api_internal_background_queue_run', 'html_logout'], true)) {
+			$this->appRegistry->getCurrent();
+			$this->siteRegistry::getCurrent();
+		}
 
-		// Add HTML Output Filter
-		OutputParser::appendFilter(function (ResponseEvent $event) use ($stopwatch) {
-			HtmlFilter::filterHtml($event, $stopwatch);
-		});
+		if (!static::$hasInitialized) {
+			OutputParser::appendFilter(function (ResponseEvent $event) use ($stopwatch) {
+				HtmlFilter::filterHtml($event, $stopwatch);
+			});
+			static::$hasInitialized = true;
+		}
 
 		// TODO: Extensions::setInitialSiteId($site->getId() ?? 0);
 	}
@@ -84,14 +102,18 @@ class Initializer implements EventSubscriberInterface
 	 */
 	public function onKernelController(ControllerEvent $event): void
 	{
-		$this->_verifyUserHasSiteAccess();
+		$this->_verifyUserHasSiteAccess($event->getRequest());
 	}
 
 	/**
 	 * Ensures the current user has access to the current site.
 	 */
-	protected function _verifyUserHasSiteAccess(): void
+	protected function _verifyUserHasSiteAccess(Request $request): void
 	{
+		if ('consumer' === $this->applicationRole || in_array($request->attributes->get('_route'), ['admin_home', 'admin_spa', 'html_login'], true)) {
+			return;
+		}
+
 		$user = $this->security->getUser();
 		if (!($user instanceof User)) {
 			return;

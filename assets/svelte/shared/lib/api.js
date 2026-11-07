@@ -9,15 +9,23 @@ export class ApiClient {
 	 * @param {string} token
 	 * @param {string} baseUrl
 	 * @param {boolean} debug
+	 * @param {string} siteHost
+	 * @param {string} siteScheme
 	 */
-	constructor(token, baseUrl = '/api', debug = false) {
+	constructor(token, baseUrl = '/api', debug = false, siteHost = '', siteScheme = 'https') {
 		this.token = token;
 		this.baseUrl = baseUrl;
 		this.debug = debug;
+		this.siteHost = siteHost;
+		this.siteScheme = siteScheme;
 	}
 
 	getHeaders(body = null) {
 		const headers = { 'X-AUTH-TOKEN': this.token };
+		if (this.siteHost) {
+			headers['X-SITE-HOST'] = this.siteHost;
+			headers['X-SITE-SCHEME'] = this.siteScheme;
+		}
 		if (typeof FormData === 'undefined' || !(body instanceof FormData)) {
 			headers['Content-Type'] = 'application/json';
 		}
@@ -74,6 +82,10 @@ export class ApiClient {
 			Accept: 'text/event-stream',
 			...options.headers,
 		};
+		if (this.siteHost) {
+			headers['X-SITE-HOST'] = this.siteHost;
+			headers['X-SITE-SCHEME'] = this.siteScheme;
+		}
 		if (options.lastEventId != null) {
 			headers['Last-Event-ID'] = String(options.lastEventId);
 		}

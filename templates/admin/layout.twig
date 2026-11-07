@@ -1,4 +1,10 @@
 {% extends 'base/layout.twig' %}
+{% set iikiti_can_edit = false %}
+{% set iikiti_editor_mode = false %}
+{% set iikiti_use_fragment_composer = false %}
+{% set iikiti_icon_font = false %}
+{% set iikiti_custom_css = '' %}
+{% set iikiti_config = null %}
 
 {% block head_styles %}
     {# The FOUC theme bootstrap lives in base/layout.twig and is inherited
@@ -15,8 +21,10 @@
     <div id="admin-app"
         data-api-token="{{ api_token }}"
         data-api-base="{{ api_base }}"
+        data-site-host="{{ site_host }}"
+        data-site-scheme="{{ site_scheme }}"
         data-time-zone="{{ time_zone }}"
-        data-current-user="{{ app.user.username ?? '' }}"
+        data-current-user="{{ current_user }}"
         data-debug="{{ debug }}">
         <div class="min-h-screen flex items-center justify-center bg-bg">
             <div class="text-center">

@@ -73,11 +73,18 @@ readonly class PluginProcessor implements ProcessorInterface
 		$package = $this->pluginDownloader->download($operation->slug, $version, $operation->storeUrl);
 		$manifest = $this->pluginManager->installPackage($package);
 
-		$this->activateScope($operation);
+		$activatedSites = null;
+		if ($operation->activate) {
+			$activatedSites = $this->activateScope($operation);
+		}
 
 		$operation->success = true;
 		$operation->message = sprintf('Installed %s %s.', $manifest->name, $manifest->version);
 		$operation->result = ['slug' => $manifest->slug, 'version' => $manifest->version];
+		if (null !== $activatedSites) {
+			$operation->message .= sprintf(' Enabled for %d site(s).', $activatedSites);
+			$operation->result['activatedSites'] = $activatedSites;
+		}
 	}
 
 	private function update(PluginOperation $operation): void
@@ -136,6 +143,7 @@ readonly class PluginProcessor implements ProcessorInterface
 
 		$operation->success = true;
 		$operation->message = sprintf('Enabled plugin "%s" for %d site(s).', $operation->slug, $count);
+		$operation->result = ['count' => $count];
 	}
 
 	private function disable(PluginOperation $operation): void
@@ -145,6 +153,7 @@ readonly class PluginProcessor implements ProcessorInterface
 
 		$operation->success = true;
 		$operation->message = sprintf('Disabled plugin "%s" for %d site(s).', $operation->slug, $count);
+		$operation->result = ['count' => $count];
 	}
 
 	private function verify(PluginOperation $operation): void
@@ -181,7 +190,7 @@ readonly class PluginProcessor implements ProcessorInterface
 	}
 
 	/**
-	 * @return array<string,bool>
+	 * @return array<string,bool|string>
 	 */
 	private function verifyChecks(string $slug): array
 	{
@@ -198,7 +207,15 @@ readonly class PluginProcessor implements ProcessorInterface
 			$this->validator->resolveSymlinkTarget($linkPath, $this->loader->getInstalledPath());
 		}
 
-		return ['manifest' => true, 'bundle' => true, 'active' => $active];
+		$installInfo = $plugin['installInfo'];
+
+		return [
+			'manifest' => true,
+			'bundle' => true,
+			'active' => $active,
+			'checksum' => null !== $installInfo ? ($installInfo->checksum ?? 'not recorded') : 'not recorded',
+			'signature' => null !== $installInfo ? ($installInfo->signature ?? 'not recorded') : 'not recorded',
+		];
 	}
 
 	private function requireInstalled(string $slug): void

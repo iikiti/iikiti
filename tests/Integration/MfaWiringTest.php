@@ -29,7 +29,14 @@ final class MfaWiringTest extends KernelTestCase
 		$routes = $router->getRouteCollection();
 		$mfaRoute = $routes->get('mfa_challenge');
 		$this->assertNotNull($mfaRoute);
-		$this->assertSame('/mfa/challenge', $mfaRoute->getPath());
+		$this->assertSame('/api/auth/mfa/challenge', $mfaRoute->getPath());
+		$this->assertSame('/api/forms/{workflow}', $routes->get('multi_step_form')->getPath());
+		$this->assertSame('/api/forms/db/{workflow}', $routes->get('multi_step_form_db')->getPath());
+		$loginRoute = $routes->get('api_auth_login');
+		$this->assertNotNull($loginRoute);
+		$this->assertSame('/api/auth/login', $loginRoute->getPath());
+		$this->assertSame(['POST'], $loginRoute->getMethods());
+		$this->assertSame('/api/auth/logout', $routes->get('html_logout')?->getPath());
 		$this->assertNotNull($routes->get('multi_step_form'));
 		$this->assertNotNull($routes->get('multi_step_form_db'));
 	}

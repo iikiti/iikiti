@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { mount, unmount } from 'svelte';
-	import { regions, init, layersOpen, activeRegion, select, addBlockDialog } from './state';
+	import { regions, init, layersOpen, activeRegion, select, addBlockDialog, authHeader } from './state';
 	import Region from './Region.svelte';
 	import LayerMenu from './LayerMenu.svelte';
 	import AddBlockDialog from './AddBlockDialog.svelte';
@@ -146,8 +146,8 @@
 
 		const token = config['apiToken'] as string | undefined;
 		const res = await fetch(`${config['apiBase'] ?? '/api'}/editor/context`, {
-			credentials: 'same-origin',
-			headers: token ? { 'X-AUTH-TOKEN': token } : {},
+			credentials: 'include',
+			headers: authHeader(token),
 		});
 		const data = (await res.json().catch(() => ({ blockTypes: [] }))) as {
 			blockTypes?: Array<Record<string, unknown>>;

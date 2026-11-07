@@ -12,6 +12,8 @@ use iikiti\CMS\Security\PermissionChecker;
 use iikiti\CMS\Web\BlockEditor\FrontendConfigProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 final class FrontendConfigProviderTest extends TestCase
 {
@@ -54,6 +56,7 @@ final class FrontendConfigProviderTest extends TestCase
 		$this->assertTrue($config['canEdit']);
 		$this->assertTrue($config['canPublish']);
 		$this->assertSame('ephemeral-token', $config['apiToken']);
+		$this->assertSame('/api', $config['apiBase']);
 		$this->assertSame('room/template:7', $config['room']);
 		$this->assertSame(['sm' => 640, 'md' => 768, 'lg' => 1024, 'xl' => 1280], $config['breakpoints']);
 		$this->assertSame(10, $config['notifications']['durationSeconds']);
@@ -92,6 +95,60 @@ final class FrontendConfigProviderTest extends TestCase
 		$this->assertSame(['seoTitle' => 'Home'], $config['settingsValues']);
 		$this->assertSame(3, $config['settingsVersion']);
 		$this->assertTrue($config['settingsHasDraft']);
+	}
+
+	public function testBuildUsesTheConfiguredRemoteApiOrigin(): void
+	{
+		$security = $this->createStub(Security::class);
+		$user = $this->createStub(User::class);
+		$security->method('getUser')->willReturn($user);
+		$checker = $this->createStub(PermissionChecker::class);
+		$checker->method('canAccess')->willReturn(true);
+		$token = $this->createStub(ApiToken::class);
+		$token->method('getToken')->willReturn('ephemeral-token');
+		$tokenManager = $this->createStub(ApiTokenManager::class);
+		$tokenManager->method('getOrCreateToken')->willReturn($token);
+
+		$provider = new FrontendConfigProvider(
+			$security,
+			$checker,
+			$tokenManager,
+			$this->createStub(PluginRegistry::class),
+			apiBaseUrl: 'https://api.example.test/',
+		);
+
+		$config = $provider->build(7, 'template', $user);
+		self::assertSame('https://api.example.test/api', $config['apiBase']);
+	}
+
+	public function testBuildCarriesTheOriginalSiteContextForRemoteApiCalls(): void
+	{
+		$security = $this->createStub(Security::class);
+		$user = $this->createStub(User::class);
+		$checker = $this->createStub(PermissionChecker::class);
+		$checker->method('canAccess')->willReturn(true);
+		$token = $this->createStub(ApiToken::class);
+		$token->method('getToken')->willReturn('ephemeral-token');
+		$tokenManager = $this->createStub(ApiTokenManager::class);
+		$tokenManager->method('getOrCreateToken')->willReturn($token);
+		$request = Request::create('https://api.example.test/api/public/render/pages/home');
+		$request->headers->set('X-SITE-HOST', 'www.example.test');
+		$request->headers->set('X-SITE-SCHEME', 'https');
+		$requests = new RequestStack();
+		$requests->push($request);
+
+		$provider = new FrontendConfigProvider(
+			$security,
+			$checker,
+			$tokenManager,
+			$this->createStub(PluginRegistry::class),
+			requestStack: $requests,
+		);
+
+		$config = $provider->build(7, 'template', $user);
+
+		self::assertSame('www.example.test', $config['apiSiteHost']);
+		self::assertSame('https', $config['apiSiteScheme']);
 	}
 
 	private function provider(

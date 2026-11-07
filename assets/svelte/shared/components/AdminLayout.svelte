@@ -160,7 +160,7 @@
 							class="absolute right-0 mt-2 w-44 rounded-lg border bg-surface text-text shadow-lg"
 							role="menu"
 						>
-							<a href="/logout" class="block px-3 py-2 text-sm hover:bg-surface-hover" role="menuitem">Logout</a>
+							<a href={`${api.baseUrl}/auth/logout`} class="block px-3 py-2 text-sm hover:bg-surface-hover" role="menuitem">Logout</a>
 						</div>
 					{/if}
 				</div>

@@ -41,6 +41,12 @@ use iikiti\CMS\Search\State\Provider\SearchActionProvider;
 			processor: SearchActionProcessor::class,
 			security: 'is_granted("ROLE_ADMIN")',
 		),
+		new Post(
+			uriTemplate: '/admin/search/config/init',
+			name: 'admin_search_config_init',
+			processor: SearchActionProcessor::class,
+			security: 'is_granted("ROLE_ADMIN")',
+		),
 		new GetCollection(
 			uriTemplate: '/admin/search/engines',
 			name: 'admin_search_engines',
@@ -65,6 +71,7 @@ class SearchActionResource
 {
 	/**
 	 * @param array<string,mixed>|null $result
+	 * @param list<int|string>|null $siteIds
 	 */
 	public function __construct(
 		public ?string $action = null,
@@ -72,6 +79,7 @@ class SearchActionResource
 		public ?string $message = null,
 		public ?array $result = null,
 		public ?string $indexSlug = null,
+		public ?array $siteIds = null,
 	) {
 	}
 }

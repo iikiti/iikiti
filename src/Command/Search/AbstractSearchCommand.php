@@ -2,10 +2,8 @@
 
 namespace iikiti\CMS\Command\Search;
 
-use Doctrine\ORM\EntityManagerInterface;
-use iikiti\CMS\Search\Entity\SearchIndex;
-use iikiti\CMS\Search\Repository\SearchIndexRepository;
-use iikiti\CMS\Search\Strategy\SearchEngineRegistry;
+use iikiti\CMS\Api\BusinessApiClient;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -17,9 +15,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 abstract class AbstractSearchCommand extends Command
 {
 	public function __construct(
-		protected readonly SearchIndexRepository $indexRepository,
-		protected readonly SearchEngineRegistry $engineRegistry,
-		protected readonly EntityManagerInterface $entityManager,
+		protected readonly BusinessApiClient $apiClient,
+		#[Autowire('%env(string:INTERNAL_API_TOKEN)%')]
+		private readonly string $internalApiToken,
 	) {
 		parent::__construct();
 	}
@@ -28,7 +26,8 @@ abstract class AbstractSearchCommand extends Command
 	{
 		$this->
 			addOption('site', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Limit the operation to one or more site ids.')->
-			addOption('all-sites', null, InputOption::VALUE_NONE, 'Apply the operation to every site (default).');
+			addOption('all-sites', null, InputOption::VALUE_NONE, 'Apply the operation to every site (default).')->
+			addOption('site-host', null, InputOption::VALUE_REQUIRED, 'Use this site host as API context.');
 	}
 
 	/**
@@ -50,13 +49,20 @@ abstract class AbstractSearchCommand extends Command
 	/**
 	 * @param list<int|string>|null $siteIds
 	 */
-	protected function resolveIndex(SymfonyStyle $io, string $slugOrId, ?array $siteIds = null): ?SearchIndex
+	/**
+	 * @param list<int|string>|null $siteIds
+	 * @return array<string,mixed>|null
+	 */
+	protected function resolveIndex(string $slugOrId, ?array $siteIds, InputInterface $input): ?array
 	{
+		$indexes = $this->getIndexes($input);
+
 		// Try by id first
 		if (ctype_digit($slugOrId)) {
-			$index = $this->indexRepository->find((int) $slugOrId);
-			if (null !== $index) {
-				return $index;
+			foreach ($indexes as $index) {
+				if ((string) ($index['id'] ?? '') === (string) (int) $slugOrId) {
+					return $index;
+				}
 			}
 		}
 
@@ -66,7 +72,67 @@ abstract class AbstractSearchCommand extends Command
 			$siteId = $siteIds[0];
 		}
 
-		return $this->indexRepository->findBySlug($slugOrId, $siteId);
+		$global = null;
+		foreach ($indexes as $index) {
+			if (($index['slug'] ?? null) !== $slugOrId) {
+				continue;
+			}
+
+			if (null !== $siteId && (string) ($index['siteId'] ?? '') === (string) $siteId) {
+				return $index;
+			}
+
+			if (null === ($index['siteId'] ?? null)) {
+				$global = $index;
+			}
+		}
+
+		return $global;
+	}
+
+	/** @return list<array<string,mixed>> */
+	protected function getIndexes(InputInterface $input): array
+	{
+		$response = $this->requestApi('GET', '/api/admin/search/indexes', $input);
+		$indexes = $response['hydra:member'] ?? $response['member'] ?? $response['items'] ?? $response;
+		if (!is_array($indexes) || !array_is_list($indexes)) {
+			throw new \UnexpectedValueException('Search index API response must contain a list.');
+		}
+
+		return $indexes;
+	}
+
+	/**
+	 * @param array<string,mixed>|null $body
+	 * @return array<string,mixed>
+	 */
+	protected function requestApi(string $method, string $path, InputInterface $input, ?array $body = null): array
+	{
+		if ('' === trim($this->internalApiToken)) {
+			throw new \LogicException('INTERNAL_API_TOKEN must contain a user-bound API credential to run search commands.');
+		}
+
+		$headers = [];
+		$siteHost = $input->getOption('site-host');
+		if (is_string($siteHost) && '' !== $siteHost) {
+			$headers['X-Site-Host'] = $siteHost;
+		}
+
+		return $this->apiClient->request($method, $path, $this->internalApiToken, $body, headers: $headers);
+	}
+
+	/**
+	 * @param array<string,mixed> $body
+	 * @return array<string,mixed>
+	 */
+	protected function requestSearchAction(string $path, InputInterface $input, array $body = []): array
+	{
+		$response = $this->requestApi('POST', $path, $input, $body);
+		if ('error' === ($response['status'] ?? null)) {
+			throw new \RuntimeException((string) ($response['message'] ?? 'Search API operation failed.'));
+		}
+
+		return $response;
 	}
 
 	/**
@@ -78,12 +144,18 @@ abstract class AbstractSearchCommand extends Command
 	}
 
 	/**
-	 * @return list<SearchIndex>
+	 * @return list<array<string,mixed>>
 	 */
-	protected function listIndexes(SymfonyStyle $io): array
+	protected function listIndexes(SymfonyStyle $io, InputInterface $input, ?string $type = null, ?string $engine = null): array
 	{
-		/** @var list<SearchIndex> $indexes */
-		$indexes = $this->indexRepository->findBy([], ['name' => 'ASC']);
+		$indexes = $this->getIndexes($input);
+		if (null !== $type) {
+			$indexes = array_values(array_filter($indexes, static fn (array $index): bool => ($index['type'] ?? null) === $type));
+		}
+		if (null !== $engine) {
+			$indexes = array_values(array_filter($indexes, static fn (array $index): bool => ($index['engine'] ?? null) === $engine));
+		}
+		usort($indexes, static fn (array $left, array $right): int => strcmp((string) ($left['name'] ?? ''), (string) ($right['name'] ?? '')));
 
 		if ([] === $indexes) {
 			$io->warning('No search index configurations found. Run "iikiti:search:config:init" to create defaults.');
@@ -94,13 +166,17 @@ abstract class AbstractSearchCommand extends Command
 		$rows = [];
 		foreach ($indexes as $index) {
 			$rows[] = [
-				$index->getId(),
-				$index->getSlug(),
-				$index->getName(),
-				$index->getType()->getLabel(),
-				$index->getEngine(),
-				$index->isEnabled() ? '<info>Yes</info>' : '<comment>No</comment>',
-				$index->isSystemLocked() ? '<info>Yes</info>' : '<comment>No</comment>',
+				$index['id'] ?? '',
+				$index['slug'] ?? '',
+				$index['name'] ?? '',
+				match ($index['type'] ?? 'custom') {
+					'frontend' => 'Front-end Search',
+					'admin' => 'Administration Search',
+					default => 'Custom Index',
+				},
+				$index['engine'] ?? '',
+				($index['isEnabled'] ?? true) ? '<info>Yes</info>' : '<comment>No</comment>',
+				($index['systemLocked'] ?? false) ? '<info>Yes</info>' : '<comment>No</comment>',
 			];
 		}
 
@@ -110,5 +186,12 @@ abstract class AbstractSearchCommand extends Command
 		);
 
 		return $indexes;
+	}
+
+	protected function formatActionError(string $prefix, \Throwable $exception): string
+	{
+		$message = $exception->getMessage();
+
+		return str_starts_with($message, $prefix) ? $message : $prefix.$message;
 	}
 }

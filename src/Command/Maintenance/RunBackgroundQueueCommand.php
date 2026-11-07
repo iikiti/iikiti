@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Command\Maintenance;
 
-use iikiti\CMS\Maintenance\BackgroundQueueRunner;
+use iikiti\CMS\Maintenance\BackgroundQueueApiClient;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -14,7 +14,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 #[AsCommand(name: 'iikiti:maintenance:run', description: 'Run one bounded tick of due schedules and background queues.')]
 final class RunBackgroundQueueCommand extends Command
 {
-	public function __construct(private readonly BackgroundQueueRunner $runner)
+	public function __construct(private readonly BackgroundQueueApiClient $runner)
 	{
 		parent::__construct();
 	}

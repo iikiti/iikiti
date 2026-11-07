@@ -41,7 +41,7 @@ class MultiStepFormController extends AppController
 	}
 
 	#[Route(
-		'/forms/{workflow}',
+		'/api/forms/{workflow}',
 		name: 'multi_step_form',
 		methods: ['GET', 'POST'],
 		requirements: ['workflow' => '[a-z0-9_]+']
@@ -73,7 +73,7 @@ class MultiStepFormController extends AppController
 	}
 
 	#[Route(
-		'/forms/db/{workflow}',
+		'/api/forms/db/{workflow}',
 		name: 'multi_step_form_db',
 		methods: ['GET', 'POST'],
 		requirements: ['workflow' => '[a-z][a-z0-9_.-]{1,127}']
@@ -187,7 +187,15 @@ class MultiStepFormController extends AppController
 			'form' => $form ?? $this->runner->createForm($workflow, $step),
 			'routeName' => $routeName,
 			'routeKey' => $routeKey,
+			'siteHost' => $this->siteHost(),
 		]);
+	}
+
+	private function siteHost(): string
+	{
+		$domain = SiteRegistry::getCurrent()->getProperties()->get(Site::DOMAIN_PROPERTY_KEY)?->getValue();
+
+		return is_string($domain) ? $domain : '';
 	}
 
 	/**
@@ -200,7 +208,7 @@ class MultiStepFormController extends AppController
 	{
 		$context = [];
 		foreach ($request->query->all() as $key => $value) {
-			if ('steps' !== $key && is_scalar($value)) {
+			if (!in_array($key, ['steps', '_site_host'], true) && is_scalar($value)) {
 				$context[$key] = $value;
 			}
 		}

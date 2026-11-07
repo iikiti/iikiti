@@ -34,11 +34,13 @@
 		apiBase?: string;
 		currentUser?: string;
 		debug?: boolean;
+		siteHost?: string;
+		siteScheme?: string;
 	}
 
-	let { apiToken, apiBase = '/api', currentUser = '', debug = false }: Props = $props();
+	let { apiToken, apiBase = '/api', currentUser = '', debug = false, siteHost = '', siteScheme = 'https' }: Props = $props();
 
-	const api = $derived(new ApiClient(apiToken, apiBase, debug));
+	const api = $derived(new ApiClient(apiToken, apiBase, debug, siteHost, siteScheme));
 
 	let currentPath = $state<string>(typeof window !== 'undefined' ? (window.location.hash.slice(1) || '/') : '/');
 	let menu: MenuItem[] = $state<MenuItem[]>([]);

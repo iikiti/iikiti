@@ -18,6 +18,11 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Changed
 
+- 2026-11-07: Credential submission now uses the stateful `/api/auth/login` firewall and MFA challenge route under `/api/auth/mfa/challenge`, preserving CSRF, shared session context, and the code-enforced MFA proof gate.
+- 2026-11-07: Interactive multi-step form handlers now run under stateful `/api/forms/*` routes with site-bound session context.
+- 2026-11-07: Search configuration and index-maintenance commands now use user-authenticated API operations with optional site context instead of local database access.
+- 2026-11-07: Headless queue ticks now use a dedicated API trigger; Messenger database handlers execute in the bounded API request context.
+- 2026-11-07: Plugin CLI commands now use the admin Business API with an explicit user API token and optional site-host context; per-site configuration and legacy config migration run through scoped admin API operations.
 - 2026-11-07: Front-end pages now build one DOM document and fill layout, region, shell, CSS, icon, and deferred-embed fragments before the output filter serializes it.
 - 2026-11-07: Page rendering now composes rendered HTML fragments into the document DOM, while existing layout string bodies remain supported.
 - 2026-11-07: Firewall request evaluation now uses cached compiled rulesets, target/name and exact-value indexes, and write-triggered cache invalidation to avoid per-request ruleset database/file reads and full-rule validation.
@@ -28,6 +33,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-11-07: Added a bounded Fiber-capable business API client, user-session token bootstrap, site-bound guest page/asset access, API-backed shell management, and scoped API triggers for schedule, batch, and asset workers; no IP allowlist or generic query endpoint.
 - 2026-11-07: Added a JavaScript-style native Fiber Promise API with executor, chaining, combinators, resolver functions, and grouped execution through the existing scheduler.
 - 2026-11-07: Added response-composition diagnostics under the Response tab in Symfony's Request / Response profiler panel.
 - 2026-11-07: Added opt-in controller response plans for ordered HTML DOM fragments, JSON object/list pieces, and buffered text responses.
@@ -97,6 +103,8 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Fixed
 
+- 2026-11-07: Prevented the database-owning API runtime from self-HTTP proxying homepage and asset requests, avoiding single-worker gateway failures while consumers remain remote.
+- 2026-11-07: Fixed PHPStan iterable types, narrowed response handling, unused site-registry constructor dependencies, and private static initialization access in the API boundary.
 - 2026-11-07: Fixed PHPStan findings in editor settings target checks and their tests.
 - 2026-10-21: Publishing saves dirty block trees first and synchronizes the editor draft version, preventing the next save from conflicting.
 - 2026-10-21: Settings publish removes the draft property instead of writing a prohibited null value.
@@ -167,6 +175,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Security
 
+- 2026-11-07: Session API tokens are issued only for fully authenticated sessions, pending MFA proxy tokens are denied, legacy unversioned API tokens are revoked, and auth responses no longer serialize submitted passwords.
 - 2026-10-15: MFA graph form places may no longer declare field names colliding with security-reserved context keys (`user_id`, `mfa_*`, `*_verified`, `*_used`, or any registered factor proof key) — a checked form field can no longer satisfy the proof gate without factor verification; enforced in the graph compiler at publish and runtime.
 - 2026-10-15: MFA graph topology cannot authenticate by itself: required proof keys are validated against the current user policy at every terminal path and again before token authentication; factor availability, version and policy changes invalidate in-flight challenges; backup codes are consumed only after an accepted transition.
 - 2026-10-15: DB workflow definitions accept only bounded JSON graph/form data and registered policy/action/subject/assignment/factor keys; no DB text is evaluated as PHP or arbitrary FormType/service classes. Workflow transitions are guarded by site scope and optimistic locking.

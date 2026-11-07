@@ -6,6 +6,7 @@ namespace iikiti\CMS\ApiResource;
 
 use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Post;
@@ -40,6 +41,12 @@ use iikiti\CMS\State\Provider\ShellStateProvider;
 		new Put(
 			uriTemplate: '/admin/shells/{id}',
 			name: 'admin_shell_update',
+			processor: ShellProcessor::class,
+			security: 'is_granted("ROLE_ADMIN")',
+		),
+		new Delete(
+			uriTemplate: '/admin/shells/{id}',
+			name: 'admin_shell_delete',
 			processor: ShellProcessor::class,
 			security: 'is_granted("ROLE_ADMIN")',
 		),

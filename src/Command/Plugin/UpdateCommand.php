@@ -2,7 +2,6 @@
 
 namespace iikiti\CMS\Command\Plugin;
 
-use iikiti\CMS\Plugin\Exception\PluginException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -23,6 +22,7 @@ class UpdateCommand extends AbstractPluginCommand
 			addOption('version', null, InputOption::VALUE_REQUIRED, 'Force a specific target version.')->
 			addOption('store', null, InputOption::VALUE_REQUIRED, 'Override the store URL (non-production only).')->
 			addOption('dry-run', null, InputOption::VALUE_NONE, 'Only report available updates.');
+		$this->configureSiteHostOption();
 	}
 
 	protected function execute(InputInterface $input, OutputInterface $output): int
@@ -33,75 +33,51 @@ class UpdateCommand extends AbstractPluginCommand
 		$storeUrl = $input->getOption('store');
 		$dryRun = (bool) $input->getOption('dry-run');
 
-		$installed = $this->pluginManager->getInstalled();
 		if (null === $slug && null !== $forcedVersion) {
 			$io->error('The --version option requires a single plugin slug to be specified.');
 
 			return self::FAILURE;
 		}
+		try {
+			$plugins = $this->collectionMembers($this->requestApi('GET', '/api/admin/plugins', siteHost: $this->siteHost($input)));
+		} catch (\Throwable $exception) {
+			$io->error($exception->getMessage());
+
+			return self::FAILURE;
+		}
 		if (null !== $slug) {
-			if (!isset($installed[$slug])) {
+			$plugins = array_values(array_filter($plugins, static fn (array $plugin): bool => ($plugin['slug'] ?? null) === $slug));
+			if ([] === $plugins) {
 				$io->error(sprintf('Plugin "%s" is not installed.', $slug));
 
 				return self::FAILURE;
 			}
-			$installed = [$slug => $installed[$slug]];
 		}
 
-		if ([] === $installed) {
+		if ([] === $plugins) {
 			$io->warning('No plugins are installed.');
 
 			return self::SUCCESS;
 		}
 
-		$updateChecks = [];
-		if (null === $forcedVersion) {
-			$versions = [];
-			foreach ($installed as $candidateSlug => $plugin) {
-				$versions[$candidateSlug] = $plugin['manifest']->version;
-			}
-			try {
-				$updateChecks = $this->pluginDownloader->checkForUpdates($versions, $storeUrl);
-			} catch (PluginException $exception) {
-				$io->error($exception->getMessage());
-
-				return self::FAILURE;
-			}
-		}
-
 		$updated = 0;
-		foreach ($installed as $candidateSlug => $plugin) {
-			$currentVersion = $plugin['manifest']->version;
+		foreach ($plugins as $plugin) {
+			$candidateSlug = (string) ($plugin['slug'] ?? '');
+			$currentVersion = (string) ($plugin['version'] ?? '');
 
 			try {
-				$targetVersion = $forcedVersion;
-				if (null === $targetVersion) {
-					$update = $updateChecks[$candidateSlug] ?? null;
-					if ($update instanceof PluginException) {
-						throw $update;
-					}
-					if (null === $update || !isset($update['version'])) {
-						$io->text(sprintf('%s is up to date (%s).', $candidateSlug, $currentVersion));
-						continue;
-					}
-					$targetVersion = (string) $update['version'];
+				$response = $this->requestApi('POST', '/api/admin/plugins/update', [
+					'slug' => $candidateSlug,
+					'version' => $forcedVersion,
+					'storeUrl' => $storeUrl,
+					'dryRun' => $dryRun,
+				], siteHost: $this->siteHost($input));
+				$message = $this->operationMessage($response);
+				$io->text($dryRun ? sprintf('%s: %s', $candidateSlug, $message) : $message);
+				if (!$dryRun && is_array($response['result'] ?? null) && isset($response['result']['version'])) {
+					++$updated;
 				}
-
-				if ($targetVersion === $currentVersion) {
-					$io->text(sprintf('%s is already at %s.', $candidateSlug, $currentVersion));
-					continue;
-				}
-
-				if ($dryRun) {
-					$io->text(sprintf('%s: %s -> %s (dry run).', $candidateSlug, $currentVersion, $targetVersion));
-					continue;
-				}
-
-				$io->text(sprintf('Updating %s: %s -> %s...', $candidateSlug, $currentVersion, $targetVersion));
-				$package = $this->pluginDownloader->download($candidateSlug, $targetVersion, $storeUrl);
-				$this->pluginManager->updatePackage($package);
-				++$updated;
-			} catch (PluginException $exception) {
+			} catch (\Throwable $exception) {
 				$io->error(sprintf('%s: %s', $candidateSlug, $exception->getMessage()));
 
 				return self::FAILURE;
@@ -110,7 +86,6 @@ class UpdateCommand extends AbstractPluginCommand
 
 		if (!$dryRun) {
 			$io->success(sprintf('Updated %d plugin(s).', $updated));
-			$this->warnIfRebuildFailed($io);
 		}
 
 		return self::SUCCESS;

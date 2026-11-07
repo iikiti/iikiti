@@ -17,20 +17,16 @@ final class ConfigListCommand extends AbstractSearchCommand
 {
 	protected function configure(): void
 	{
-		$this->
-			setHelp('Lists all search index configurations with their type, engine, and status.')->
-			addOption('type', null, InputOption::VALUE_REQUIRED, 'Filter by index type (frontend, admin, custom).')->
-			addOption('engine', null, InputOption::VALUE_REQUIRED, 'Filter by search engine.');
+		$this->setHelp('Lists all search index configurations with their type, engine, and status.');
+		$this->addOption('type', null, InputOption::VALUE_REQUIRED, 'Filter by index type (frontend, admin, custom).');
+		$this->addOption('engine', null, InputOption::VALUE_REQUIRED, 'Filter by search engine.');
+		$this->addOption('site-host', null, InputOption::VALUE_REQUIRED, 'Use this site host as API context.');
 	}
 
 	protected function execute(InputInterface $input, OutputInterface $output): int
 	{
 		$io = new SymfonyStyle($input, $output);
-
-		$indexes = $this->listIndexes($io);
-		if ([] === $indexes) {
-			return Command::SUCCESS;
-		}
+		$this->listIndexes($io, $input, $input->getOption('type'), $input->getOption('engine'));
 
 		return Command::SUCCESS;
 	}

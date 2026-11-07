@@ -21,6 +21,84 @@ yield. In particular, Doctrine/PDO queries, ordinary filesystem calls, Twig
 rendering, and CPU-bound work remain blocking. There is no native-Fiber-only way
 to make a synchronous PDO query nonblocking without an async database driver.
 
+## Business API Consumers
+
+`iikiti\CMS\Api\BusinessApiClient` is the server-side HTTP transport for
+resource and business-action API calls. It only accepts `/api/...` paths, disables
+redirects, uses bounded timeouts, and supports both ordinary requests and
+`FiberHttpClient` requests. Independent calls should be placed in one
+`FiberTaskRunner` group; wrapping a single sequential API call in a Fiber does not
+make the API's own database work nonblocking.
+
+Configure `INTERNAL_API_BASE_URL` as the API service's HTTP(S) origin (without a
+path). Production requires HTTPS. The API runtime owns `DATABASE_URL` and uses
+`APPLICATION_ROLE=api`. A database-free public renderer can use
+`APPLICATION_ROLE=consumer`; this consumer slice supports `/`, `/{slug}`,
+`/admin` SPA shells, and public asset delivery, and returns 503 for routes that
+have not crossed the API boundary yet. It proxies page rendering to
+`/api/public/render/*` and public asset delivery through
+`/api/public/sites/{siteHost}/assets/*`, with the original site host and scheme
+preserved. Rendered asset URLs point directly to the API's streaming asset route
+rather than buffering file bodies through the consumer. The asset API firewall
+shares the authenticated session context for private assets; cross-origin
+deployments must share the session store/cookie domain and allow credentials
+through CORS. The admin SPA obtains its user-bound token from the API session
+endpoint and sends subsequent API calls, including shell management, to the
+configured API origin with the original site context. Set the same `APP_SECRET`
+on both runtimes so short-lived guest credentials can be verified by the API.
+The database-owning `api` role renders its own homepage/assets locally to avoid
+self-HTTP through a single PHP worker pool; only database-free `consumer` pages
+proxy those operations over HTTP.
+Login/MFA flows and command-driven plugin/search maintenance remain on the
+database-owning API runtime; do not serve those routes from the consumer role.
+The login form posts to the stateful `/api/auth/login` form-login firewall with
+CSRF enabled; the MFA challenge runs at `/api/auth/mfa/challenge` in the same
+session context. The existing MFA proof workflow remains the only path to a
+fully authenticated session. The login DTO is write-only for passwords and no
+longer exposes default CRUD resource operations.
+Interactive multi-step workflows now use stateful `/api/forms/*` routes; rendered
+form actions target the API origin with a site-context parameter. Cross-site
+deployments must use a session cookie policy that permits authenticated form
+POSTs to the API origin (for example, `SameSite=None; Secure`) and share the
+session store.
+
+When no `X-AUTH-TOKEN` is supplied, the page proxy issues a five-minute,
+site-host-bound guest credential. The API accepts that credential only for
+read-only GET/HEAD public page-render operations. An explicitly supplied
+user-bound API token is forwarded and remains subject to API-side site and role
+checks. If the request has a Symfony session cookie, the proxy forwards only
+that cookie to `POST /api/auth/session-token`; the stateful API firewall resolves
+the authenticated user and returns that user's short-lived API token. The cookie
+is not forwarded to the page-render operation. API and consumer runtimes must
+share the session store and `APP_SECRET` for this exchange to work.
+
+For a browser on a different origin from the API, configure `CORS_ALLOW_ORIGIN`
+for the exact consumer origin, allow credentials, and use a session cookie
+policy/storage shared by the two runtimes.
+
+`/api/auth/session-token` requires a fully authenticated session and explicitly
+rejects the pending MFA proxy token, even though that token exposes the
+underlying `User`. User API credentials use the `v2_` prefix; legacy unversioned
+tokens are rejected and replaced on the next fully authenticated token request.
+After this rollout, clients holding an older token must authenticate again
+(including completing MFA) to obtain a replacement.
+
+Headless schedule polling, background queue ticks, batch-item processing, and
+digital-asset processing use separate `SCHEDULE_TRIGGER_TOKEN`,
+`BACKGROUND_QUEUE_TRIGGER_TOKEN`, `BATCH_PROCESS_TRIGGER_TOKEN`, and
+`ASSET_PROCESS_TRIGGER_TOKEN` credentials, each accepted only by its
+corresponding internal action route. The development `.env` defaults derive
+these from `APP_SECRET`; production deployments should configure independent
+random values and provide each only to the API runtime and matching
+scheduler/worker client. No IP allowlist is used.
+
+The public page-render operation owns page/template/shell resolution and the
+existing bounded block-query feature. Consumers request a page, not a SQL,
+DQL, or query-definition payload; no generic query endpoint is exposed. This
+moves those database reads to the API-owning request process but does not make
+Doctrine/PDO asynchronous inside that process. API handlers and page rendering
+continue to execute their database operations synchronously.
+
 `iikiti\CMS\Async\Promise` exposes the JavaScript-style constructor,
 `then(onFulfilled, onRejected)`, `catch()`, `finally()`, and static `all()`,
 `allSettled()`, `allKeyed()`, `allSettledKeyed()`, `any()`, `race()`,

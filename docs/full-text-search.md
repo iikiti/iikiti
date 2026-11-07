@@ -248,6 +248,12 @@ Plugins can declare search capabilities in their `plugin.json` manifest:
 
 ## CLI commands
 
+Search configuration and index-maintenance commands run through the
+administrative Business API. Configure `INTERNAL_API_TOKEN` with a user-bound
+admin token and `INTERNAL_API_BASE_URL` with the API origin. Supply
+`--site-host=HOST` for site-specific API context when needed. API tokens use the
+`v2_` prefix; older tokens must be reissued after login/MFA.
+
 | Command | Description |
 |---|---|
 | `iikiti:search:config:init` | Seed default frontend and admin configurations. |

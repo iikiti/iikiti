@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Event\Subscriber;
 
-use iikiti\CMS\Maintenance\BackgroundQueueRunner;
+use iikiti\CMS\Maintenance\BackgroundQueueApiClient;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
@@ -15,16 +15,18 @@ use Symfony\Component\HttpKernel\KernelEvents;
 final class LazyQueueRunnerSubscriber
 {
 	public function __construct(
-		private readonly BackgroundQueueRunner $runner,
+		private readonly BackgroundQueueApiClient $runner,
 		#[Autowire('%lazy_queue_enabled%')]
 		private readonly bool $enabled,
+		#[Autowire('%application_role%')]
+		private readonly string $applicationRole,
 		private readonly ?LoggerInterface $logger = null,
 	) {
 	}
 
 	public function __invoke(TerminateEvent $event): void
 	{
-		if (!$this->enabled || !$event->isMainRequest()) {
+		if (!$this->enabled || !$event->isMainRequest() || 'consumer' !== $this->applicationRole) {
 			return;
 		}
 

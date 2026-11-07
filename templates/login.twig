@@ -1,7 +1,13 @@
-{%  extends 'base/layout.twig' %}
+{% extends 'base/layout.twig' %}
+{% set iikiti_can_edit = false %}
+{% set iikiti_editor_mode = false %}
+{% set iikiti_use_fragment_composer = false %}
+{% set iikiti_icon_font = false %}
+{% set iikiti_custom_css = '' %}
+{% set iikiti_config = null %}
 
 {% block body %}
-    <form method="post" action="{{ path('html_login') }}">
+    <form method="post" action="{{ path('api_auth_login') }}">
         {% if error %}
             <div class="alert alert-danger">{{ error }}</div>
         {% endif %}
@@ -14,21 +20,17 @@
 			{% endfor %}
 		{% endfor %}
 
-        {% if app.user %}
-            <div class="mb-3">
-                You are logged in as {{ app.user.username }}, <a href="{{ logout_url() }}">Logout</a>
-            </div>
-		{% else %}
+		<h1 class="h3 mb-3 font-weight-normal">Please sign in</h1>
+		<label for="inputEmail">Email</label>
+		<input type="email" value="{{ last_username }}" name="_username" id="inputEmail" class="form-control" required autofocus>
+		<label for="inputPassword">Password</label>
+		<input type="password" name="_password" id="inputPassword" class="form-control" required>
 
-			<h1 class="h3 mb-3 font-weight-normal">Please sign in</h1>
-			<label for="inputEmail">Email</label>
-			<input type="email" value="{{ last_username }}" name="_username" id="inputEmail" class="form-control" required autofocus>
-			<label for="inputPassword">Password</label>
-			<input type="password" name="_password" id="inputPassword" class="form-control" required>
-
-			<input type="hidden" name="_csrf_token"
-				value="{{ csrf_token('authenticate') }}"
-			>
+            <input type="hidden" name="_csrf_token"
+                value="{{ csrf_token('authenticate') }}"
+            >
+            <input type="hidden" name="_site_host" value="{{ site_host }}">
+            <input type="hidden" name="_site_scheme" value="{{ site_scheme }}">
 
 			{#
 			Uncomment this section and add a remember_me option below your firewall to activate remember me functionality.
@@ -41,9 +43,8 @@
 			</div>
 			#}
 
-			<button class="btn btn-lg btn-primary" type="submit">
-				Sign in
-			</button>
-		{% endif %}
+		<button class="btn btn-lg btn-primary" type="submit">
+			Sign in
+		</button>
     </form>
 {% endblock %}

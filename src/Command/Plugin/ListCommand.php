@@ -2,7 +2,6 @@
 
 namespace iikiti\CMS\Command\Plugin;
 
-use iikiti\CMS\Plugin\PluginState;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -24,31 +23,32 @@ class ListCommand extends AbstractPluginCommand
 		$io = new SymfonyStyle($input, $output);
 		$siteFilter = $this->resolveSiteIds($input);
 
-		$installed = $this->pluginManager->getInstalled();
-		if ([] === $installed) {
+		try {
+			$plugins = $this->collectionMembers($this->requestApi('GET', '/api/admin/plugins', siteHost: $this->siteHost($input)));
+		} catch (\Throwable $exception) {
+			$io->error($exception->getMessage());
+
+			return self::FAILURE;
+		}
+		if ([] === $plugins) {
 			$io->warning('No plugins are installed.');
 
 			return self::SUCCESS;
 		}
 
-		$activeByPlugin = $this->pluginManager->getActiveSiteIdsByPlugin();
-
 		$rows = [];
-		foreach ($installed as $slug => $plugin) {
-			$manifest = $plugin['manifest'];
-			$installInfo = $plugin['installInfo'];
-
-			$activeSiteIds = $activeByPlugin[$slug] ?? [];
+		foreach ($plugins as $plugin) {
+			$activeSiteIds = is_array($plugin['activeSites'] ?? null) ? $plugin['activeSites'] : [];
 			if (null !== $siteFilter) {
 				$activeSiteIds = array_values(array_intersect($activeSiteIds, $siteFilter));
 			}
 
 			$rows[] = [
-				$slug,
-				$manifest->version,
-				$manifest->edition,
-				$installInfo?->source->value ?? 'manual',
-				$installInfo?->state->value ?? PluginState::PendingReview->value,
+				$plugin['slug'] ?? '',
+				$plugin['version'] ?? '',
+				$plugin['edition'] ?? '',
+				$plugin['source'] ?? 'manual',
+				$plugin['state'] ?? 'pending_review',
 				[] === $activeSiteIds ? '-' : implode(', ', $activeSiteIds),
 			];
 		}
@@ -58,7 +58,8 @@ class ListCommand extends AbstractPluginCommand
 			$rows,
 		);
 
-		$io->text(sprintf('%d plugin(s) installed, %d loaded into the current container.', count($rows), $this->pluginRegistry->count()));
+		$loaded = count(array_filter($plugins, static fn (array $plugin): bool => (bool) ($plugin['active'] ?? false)));
+		$io->text(sprintf('%d plugin(s) installed, %d loaded into the current container.', count($rows), $loaded));
 
 		return self::SUCCESS;
 	}

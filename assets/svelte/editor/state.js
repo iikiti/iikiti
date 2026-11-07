@@ -64,6 +64,8 @@ export const editorConfig = derived(state, ($) => $.config);
 export const canPublish = derived(state, ($) => $.config['canPublish']);
 export const apiBase = derived(state, ($) => ($.config['apiBase'] || '/api'));
 export const apiToken = derived(state, ($) => $.config['apiToken']);
+export const apiSiteHost = derived(state, ($) => String($.config['apiSiteHost'] ?? ''));
+export const apiSiteScheme = derived(state, ($) => String($.config['apiSiteScheme'] ?? 'https'));
 /** Server-generated icon SVG keyed by icon name (see EditorStateController). */
 export const iconSvgs = derived(state, ($) => /** @type {Record<string, string>} */ ($.config['iconSvgs'] ?? {}));
 /** Server-generated font glyph references keyed by icon reference (see EditorStateController). */
@@ -778,8 +780,14 @@ export function redo() {
  * @param {string | undefined} token
  * @returns {Record<string, string>}
  */
-function authHeader(token) {
-	return token ? { 'X-AUTH-TOKEN': token } : {};
+export function authHeader(token) {
+	const config = get(state).config;
+	const headers = token ? { 'X-AUTH-TOKEN': token } : {};
+	if (config['apiSiteHost']) {
+		headers['X-SITE-HOST'] = String(config['apiSiteHost']);
+		headers['X-SITE-SCHEME'] = String(config['apiSiteScheme'] ?? 'https');
+	}
+	return headers;
 }
 
 export async function saveDraft() {

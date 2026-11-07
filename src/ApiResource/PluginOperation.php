@@ -72,6 +72,8 @@ class PluginOperation
 
 		public bool $dryRun = false,
 
+		public bool $activate = true,
+
 		public bool $success = false,
 		public ?string $message = null,
 		public array $result = [],

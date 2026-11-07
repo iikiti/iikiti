@@ -11,6 +11,8 @@ use iikiti\CMS\Response\Composition\JsonObjectComposer;
 use iikiti\CMS\Security\ApiTokenManager;
 use iikiti\CMS\Security\PermissionChecker;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Security\Core\User\UserInterface;
 
 /**
@@ -30,6 +32,9 @@ final class FrontendConfigProvider
 		private readonly PluginRegistry $plugins,
 		/** @var array<string,mixed> */
 		private readonly array $notificationDefaults = ['autoDismiss' => true, 'durationSeconds' => 10, 'position' => 'bottom-right'],
+		#[Autowire('%env(string:INTERNAL_API_BASE_URL)%')]
+		private readonly string $apiBaseUrl = '',
+		private readonly ?RequestStack $requestStack = null,
 	) {
 	}
 
@@ -64,7 +69,9 @@ final class FrontendConfigProvider
 			'canEdit' => true,
 			'canPublish' => $this->permissionChecker->canAccess($user, 'Page', 'publish') ||
 				$this->permissionChecker->canAccess($user, 'Template', 'publish'),
-			'apiBase' => '/api',
+			'apiBase' => '' === trim($this->apiBaseUrl) ? '/api' : rtrim($this->apiBaseUrl, '/').'/api',
+			'apiSiteHost' => $this->apiSiteHost(),
+			'apiSiteScheme' => $this->apiSiteScheme(),
 			'apiToken' => $this->tokenManager->getOrCreateToken($user)->getToken(),
 		], order: 10);
 		$composer->add([
@@ -163,5 +170,20 @@ final class FrontendConfigProvider
 		}
 
 		return $uis;
+	}
+
+	private function apiSiteHost(): string
+	{
+		$request = $this->requestStack?->getCurrentRequest();
+
+		return strtolower((string) ($request?->headers->get('X-SITE-HOST') ?: $request?->getHost() ?: ''));
+	}
+
+	private function apiSiteScheme(): string
+	{
+		$request = $this->requestStack?->getCurrentRequest();
+		$scheme = $request?->headers->get('X-SITE-SCHEME') ?: $request?->getScheme() ?: 'https';
+
+		return in_array($scheme, ['http', 'https'], true) ? $scheme : 'https';
 	}
 }

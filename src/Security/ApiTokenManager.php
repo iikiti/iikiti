@@ -30,7 +30,7 @@ class ApiTokenManager
 			->getRepository(ApiToken::class)
 			->findOneBy(['user' => $user]);
 
-		if (null !== $existing && !$existing->isExpired()) {
+		if (null !== $existing && !$existing->isExpired() && $existing->isCurrentVersion()) {
 			return $existing;
 		}
 
@@ -40,7 +40,7 @@ class ApiTokenManager
 			$this->entityManager->remove($existing);
 			$this->entityManager->flush();
 			$this->recorder->record(
-				sprintf('Deleted expired API token for %s', $username),
+				sprintf('Deleted outdated API token for %s', $username),
 				'deleted_api_token',
 				'ApiToken',
 				$existing->getId(),
@@ -52,7 +52,7 @@ class ApiTokenManager
 
 		$token = new ApiToken();
 		$createdDate = new \DateTimeImmutable();
-		$token->setToken(bin2hex(random_bytes(32)));
+		$token->setToken(ApiToken::TOKEN_PREFIX.bin2hex(random_bytes(32)));
 		$token->setSiteId(0);
 		$token->setCreatedDate($createdDate);
 		$token->setUser($user);

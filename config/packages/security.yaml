@@ -14,25 +14,72 @@ security:
         dev:
             pattern: ^/(_(profiler|wdt)|css|images|js)/
             security: false
+        api_login:
+            pattern: ^/api/auth/login$
+            provider: user
+            context: main
+            stateless: false
+            form_login:
+                login_path: html_login
+                check_path: api_auth_login
+                failure_path: html_login
+                enable_csrf: true
+                csrf_token_id: authenticate
+                default_target_path: mfa_challenge
+            entry_point: form_login
+        mfa_session:
+            pattern: ^/api/auth/mfa/
+            provider: user
+            context: main
+            stateless: false
+        interactive_forms:
+            pattern: ^/api/forms/
+            provider: user
+            context: main
+            stateless: false
+            form_login:
+                login_path: html_login
+                check_path: api_auth_login
+                failure_path: html_login
+                enable_csrf: true
+                csrf_token_id: authenticate
+                default_target_path: mfa_challenge
+            entry_point: form_login
+        public_site_assets:
+            pattern: ^/api/public/sites/[^/]+/assets/
+            provider: user
+            context: main
+            stateless: false
+        session_api_token:
+            pattern: ^/api/auth/session-token$
+            provider: user
+            context: main
+            stateless: false
+        api_logout:
+            pattern: ^/api/auth/logout$
+            provider: user
+            context: main
+            stateless: false
+            logout:
+                path: html_logout
+                target: /
         api:
             pattern: ^/api
             stateless: true
             custom_authenticators:
                 - iikiti\CMS\Security\ApiTokenAuthenticator
         main:
+            provider: user
             lazy: true
             form_login:
-                check_path: html_login
-                failure_path: html_login
                 login_path: html_login
+                check_path: api_auth_login
+                failure_path: html_login
                 enable_csrf: true
+                csrf_token_id: authenticate
                 default_target_path: mfa_challenge
-            # configure the form authentication as the entry point for unauthenticated users
             entry_point: form_login
             access_denied_handler: iikiti\CMS\Security\AccessHandler
-            logout:
-                path: html_logout
-                target: /
 
             # activate different ways to authenticate
             # https://symfony.com/doc/current/security.html#firewalls-authentication
@@ -70,8 +117,12 @@ security:
     # Easy way to control access for large sections of your site
     # Note: Only the *first* access control that matches will be used
     access_control:
+        - { path: ^/api/auth/login$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/auth/mfa/, roles: PUBLIC_ACCESS }
+        - { path: ^/api/auth/session-token$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/forms/, roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api, roles: PUBLIC_ACCESS }
-        - { path: ^/admin, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/admin, roles: PUBLIC_ACCESS }
         - { path: ^/logout, roles: ROLE_USER }
         - { path: ^/login, roles: PUBLIC_ACCESS }
         - { path: ^/mfa, roles: PUBLIC_ACCESS }

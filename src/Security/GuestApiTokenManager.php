@@ -1,0 +1,92 @@
+<?php
+
+declare(strict_types=1);
+
+namespace iikiti\CMS\Security;
+
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+
+/** Issues short-lived, site-bound credentials for public read API operations. */
+final readonly class GuestApiTokenManager
+{
+	private const TTL_SECONDS = 300;
+
+	public function __construct(
+		#[Autowire('%kernel.secret%')]
+		private string $secret,
+	) {
+	}
+
+	public function issue(string $siteHost): string
+	{
+		$siteHost = self::normalizeHost($siteHost);
+		$payload = json_encode([
+			'host' => $siteHost,
+			'exp' => time() + self::TTL_SECONDS,
+			'nonce' => bin2hex(random_bytes(16)),
+		], JSON_THROW_ON_ERROR);
+		$encodedPayload = self::base64UrlEncode($payload);
+		$signature = self::base64UrlEncode(hash_hmac('sha256', $encodedPayload, $this->secret, true));
+
+		return 'guest1.'.$encodedPayload.'.'.$signature;
+	}
+
+	public function decode(string $token): ?GuestApiUser
+	{
+		$parts = explode('.', $token);
+		if (3 !== count($parts) || 'guest1' !== $parts[0]) {
+			return null;
+		}
+
+		$expected = self::base64UrlEncode(hash_hmac('sha256', $parts[1], $this->secret, true));
+		if (!hash_equals($expected, $parts[2])) {
+			return null;
+		}
+
+		$payload = json_decode(self::base64UrlDecode($parts[1]), true);
+		if (!is_array($payload)
+			|| !is_string($payload['host'] ?? null)
+			|| !is_int($payload['exp'] ?? null)
+			|| $payload['exp'] < time()
+			|| !is_string($payload['nonce'] ?? null)
+			|| 1 !== preg_match('/^[a-f0-9]{32}$/D', $payload['nonce'])) {
+			return null;
+		}
+
+		try {
+			$siteHost = self::normalizeHost($payload['host']);
+		} catch (\InvalidArgumentException) {
+			return null;
+		}
+
+		return new GuestApiUser($siteHost, 'guest:'.hash('sha256', $token));
+	}
+
+	private static function normalizeHost(string $host): string
+	{
+		$host = strtolower(trim($host));
+		if ('' === $host || strlen($host) > 253 || str_contains($host, ':') || str_contains($host, '/') || str_contains($host, "\r") || str_contains($host, "\n")) {
+			throw new \InvalidArgumentException('Invalid guest API site host.');
+		}
+		if (false === filter_var($host, FILTER_VALIDATE_IP) && 1 !== preg_match('/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/D', $host)) {
+			throw new \InvalidArgumentException('Invalid guest API site host.');
+		}
+
+		return $host;
+	}
+
+	private static function base64UrlEncode(string $value): string
+	{
+		return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
+	}
+
+	private static function base64UrlDecode(string $value): string
+	{
+		$decoded = base64_decode(strtr($value, '-_', '+/'), true);
+		if (false === $decoded) {
+			return '';
+		}
+
+		return $decoded;
+	}
+}

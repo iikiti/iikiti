@@ -250,6 +250,13 @@ All search admin endpoints require `ROLE_ADMIN`.
 
 All commands are prefixed with `iikiti:search:`.
 
+Search configuration and index-maintenance commands call the authenticated
+Business API rather than querying the database locally. Set `INTERNAL_API_TOKEN`
+to a user-bound admin token and `INTERNAL_API_BASE_URL` to the API origin. Use
+`--site-host=HOST` when the API origin does not identify the intended site.
+Tokens use the `v2_` prefix; pre-upgrade tokens must be replaced after normal
+login/MFA.
+
 ```bash
 # Seed default configurations
 php bin/console iikiti:search:config:init

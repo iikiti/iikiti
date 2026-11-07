@@ -55,7 +55,7 @@ final class ApiTokenDbObjectIntegrationTest extends KernelTestCase
 		$this->entityManager->persist($user);
 		$this->entityManager->flush();
 
-		$tokenValue = bin2hex(random_bytes(32));
+		$tokenValue = ApiToken::TOKEN_PREFIX.bin2hex(random_bytes(32));
 		$token = new ApiToken();
 		$token->setToken($tokenValue);
 		$token->setSiteId(0);

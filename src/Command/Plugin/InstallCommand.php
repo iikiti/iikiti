@@ -2,7 +2,6 @@
 
 namespace iikiti\CMS\Command\Plugin;
 
-use iikiti\CMS\Plugin\Exception\PluginException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -36,34 +35,16 @@ class InstallCommand extends AbstractPluginCommand
 		$siteIds = $this->resolveSiteIds($input);
 
 		try {
-			if (null === $version) {
-				$io->text(sprintf('Resolving latest version of "%s" from the store...', $slug));
-				$update = $this->pluginDownloader->checkForUpdate($slug, '0.0.0', $storeUrl);
-				if (null === $update || !isset($update['version'])) {
-					$io->error(sprintf('Could not resolve a version for "%s".', $slug));
-
-					return self::FAILURE;
-				}
-				$version = (string) $update['version'];
-			}
-
-			$io->text(sprintf('Downloading "%s" %s...', $slug, $version));
-			$package = $this->pluginDownloader->download($slug, $version, $storeUrl);
-
-			$manifest = $this->pluginManager->installPackage($package);
-			$io->success(sprintf('Installed %s %s.', $manifest->name, $manifest->version));
-
-			if ($activate) {
-				if (null === $siteIds) {
-					$count = $this->pluginManager->activateForAllSites($slug);
-					$io->text(sprintf('Enabled for %d site(s).', $count));
-				} else {
-					$count = $this->pluginManager->activateForSites($slug, $siteIds);
-					$io->text(sprintf('Enabled for %d site(s).', $count));
-				}
-			}
-			$this->warnIfRebuildFailed($io);
-		} catch (PluginException $exception) {
+			$io->text(sprintf('Installing "%s"...', $slug));
+			$response = $this->requestApi('POST', '/api/admin/plugins/install', [
+				'slug' => $slug,
+				'version' => $version,
+				'sites' => $siteIds ?? [],
+				'storeUrl' => $storeUrl,
+				'activate' => $activate,
+			], siteHost: $this->siteHost($input));
+			$io->success($this->operationMessage($response));
+		} catch (\Throwable $exception) {
 			$io->error($exception->getMessage());
 
 			return self::FAILURE;

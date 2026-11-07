@@ -2,7 +2,6 @@
 
 namespace iikiti\CMS\Command\Plugin;
 
-use iikiti\CMS\Plugin\Exception\PluginException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -28,15 +27,9 @@ class DisableCommand extends AbstractPluginCommand
 		$siteIds = $this->resolveSiteIds($input);
 
 		try {
-			if (null === $siteIds) {
-				$count = $this->pluginManager->disableForAllSites($slug);
-				$io->success(sprintf('Disabled "%s" for %d site(s).', $slug, $count));
-			} else {
-				$count = $this->pluginManager->disableForSites($slug, $siteIds);
-				$io->success(sprintf('Disabled "%s" for %d site(s).', $slug, $count));
-			}
-			$this->warnIfRebuildFailed($io);
-		} catch (PluginException $exception) {
+			$response = $this->requestApi('POST', '/api/admin/plugins/disable', ['slug' => $slug, 'sites' => $siteIds ?? []], siteHost: $this->siteHost($input));
+			$io->success($this->operationMessage($response));
+		} catch (\Throwable $exception) {
 			$io->error($exception->getMessage());
 
 			return self::FAILURE;

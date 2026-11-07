@@ -2,10 +2,6 @@
 
 namespace iikiti\CMS\Command\Search;
 
-use Doctrine\ORM\EntityManagerInterface;
-use iikiti\CMS\Search\Repository\SearchIndexRepository;
-use iikiti\CMS\Search\Service\IndexManager;
-use iikiti\CMS\Search\Strategy\SearchEngineRegistry;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -20,15 +16,6 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 #[AsCommand('iikiti:search:index:drop', description: 'Drop a search index table')]
 final class IndexDropCommand extends AbstractSearchCommand
 {
-	public function __construct(
-		SearchIndexRepository $indexRepository,
-		EntityManagerInterface $entityManager,
-		SearchEngineRegistry $engineRegistry,
-		private readonly IndexManager $indexManager,
-	) {
-		parent::__construct($indexRepository, $engineRegistry, $entityManager);
-	}
-
 	protected function configure(): void
 	{
 		$this->
@@ -36,6 +23,7 @@ final class IndexDropCommand extends AbstractSearchCommand
 			addOption('force', null, InputOption::VALUE_NONE, 'Skip confirmation prompt.')->
 			addOption('site', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Limit to specific sites.')->
 			addOption('all-sites', null, InputOption::VALUE_NONE, 'Apply to all sites (default).')->
+			addOption('site-host', null, InputOption::VALUE_REQUIRED, 'Use this site host as API context.')->
 			setHelp('Drops the search index table for the given configuration.');
 	}
 
@@ -45,14 +33,14 @@ final class IndexDropCommand extends AbstractSearchCommand
 		$slug = $input->getArgument('slug');
 		$siteIds = $this->resolveSiteIds($input);
 
-		$index = $this->resolveIndex($io, (string) $slug, $siteIds);
+		$index = $this->resolveIndex((string) $slug, $siteIds, $input);
 		if (null === $index) {
 			$io->error(sprintf('Search index "%s" not found.', $slug));
 
 			return Command::INVALID;
 		}
 
-		if ($index->isSystemLocked()) {
+		if ($index['systemLocked'] ?? false) {
 			$io->error(sprintf('Search index "%s" is system-locked and cannot be dropped. Use the admin UI to manage fields instead.', $slug));
 
 			return Command::INVALID;
@@ -67,10 +55,10 @@ final class IndexDropCommand extends AbstractSearchCommand
 		}
 
 		try {
-			$this->indexManager->dropIndex($index->getId());
-			$io->success(sprintf('Dropped search index "%s".', $index->getName()));
+			$this->requestSearchAction(sprintf('/api/admin/search/indexes/%d/drop', $index['id']), $input);
+			$io->success(sprintf('Dropped search index "%s".', $index['name']));
 		} catch (\Throwable $e) {
-			$io->error(sprintf('Failed to drop index: %s', $e->getMessage()));
+			$io->error($this->formatActionError('Failed to drop index: ', $e));
 
 			return Command::FAILURE;
 		}

@@ -7,13 +7,11 @@
 	 * Layout dialog: lists the global shells (header, footer, sidebars, dialogs)
 	 * grouped by role and lets an editor add, edit, enable and delete them.
 	 *
-	 * Uses the browser session (cookie) against /admin/layouts/shells, with a CSRF
-	 * token from the list response on every write. Token-authenticated management
-	 * is kept separately at /api/admin/shells for external tools.
+	 * Uses the admin shell resource API with the current user's API token.
 	 */
 
-	const SHELLS_URL = '/admin/layouts/shells';
-	let csrfToken = $state('');
+	import { apiBase, apiToken, apiSiteHost, apiSiteScheme } from './state';
+	const SHELLS_URL = '/admin/shells';
 
 	type Shell = {
 		id: number | null;
@@ -48,18 +46,23 @@
 	);
 
 	function headers(): HeadersInit {
-		return { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, Accept: 'application/json' };
+		return {
+			'Content-Type': 'application/json',
+			'X-AUTH-TOKEN': $apiToken,
+			'X-SITE-HOST': $apiSiteHost,
+			'X-SITE-SCHEME': $apiSiteScheme,
+			Accept: 'application/json',
+		};
 	}
 
 	async function load() {
 		loading = true;
 		error = '';
 		try {
-			const res = await fetch(SHELLS_URL, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+			const res = await fetch(`${$apiBase}${SHELLS_URL}`, { credentials: 'include', headers: headers() });
 			if (!res.ok) throw new Error(`Load failed (${res.status})`);
-			const data = (await res.json()) as { csrfToken: string; shells: Shell[] };
-			csrfToken = data.csrfToken;
-			shells = data.shells;
+			const data = await res.json();
+			shells = (data['hydra:member'] ?? data.member ?? data.shells ?? []) as Shell[];
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Load failed';
 		} finally {
@@ -88,17 +91,17 @@
 		}
 		const payload = { ...editing, displayRules: rules };
 		const isNew = editing.id === null;
-		const url = isNew ? SHELLS_URL : `${SHELLS_URL}/${editing.id}`;
+		const url = `${$apiBase}${isNew ? SHELLS_URL : `${SHELLS_URL}/${editing.id}`}`;
 
 		const res = await fetch(url, {
 			method: isNew ? 'POST' : 'PUT',
-			credentials: 'same-origin',
+			credentials: 'include',
 			headers: headers(),
 			body: JSON.stringify(payload),
 		});
 		if (!res.ok) {
 			const body = await res.json().catch(() => ({}));
-			error = (body.error ?? `Save failed (${res.status})`) as string;
+			error = (body.error ?? body.detail ?? `Save failed (${res.status})`) as string;
 			return;
 		}
 		editing = null;
@@ -108,9 +111,9 @@
 
 	async function remove(shell: Shell) {
 		if (shell.id === null) return;
-		const res = await fetch(`${SHELLS_URL}/${shell.id}`, {
+		const res = await fetch(`${$apiBase}${SHELLS_URL}/${shell.id}`, {
 			method: 'DELETE',
-			credentials: 'same-origin',
+			credentials: 'include',
 			headers: headers(),
 		});
 		if (!res.ok) {

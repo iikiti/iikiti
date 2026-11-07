@@ -2,10 +2,6 @@
 
 namespace iikiti\CMS\Command\Search;
 
-use Doctrine\ORM\EntityManagerInterface;
-use iikiti\CMS\Search\Repository\SearchIndexRepository;
-use iikiti\CMS\Search\Service\IndexManager;
-use iikiti\CMS\Search\Strategy\SearchEngineRegistry;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -20,15 +16,6 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 #[AsCommand('iikiti:search:index:create', description: 'Create a search index table')]
 final class IndexCreateCommand extends AbstractSearchCommand
 {
-	public function __construct(
-		SearchIndexRepository $indexRepository,
-		EntityManagerInterface $entityManager,
-		SearchEngineRegistry $engineRegistry,
-		private readonly IndexManager $indexManager,
-	) {
-		parent::__construct($indexRepository, $engineRegistry, $entityManager);
-	}
-
 	protected function configure(): void
 	{
 		$this->
@@ -36,6 +23,7 @@ final class IndexCreateCommand extends AbstractSearchCommand
 			addOption('engine', null, InputOption::VALUE_REQUIRED, 'Override the search engine (default: postgresql).', 'postgresql')->
 			addOption('site', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Limit to specific sites.')->
 			addOption('all-sites', null, InputOption::VALUE_NONE, 'Apply to all sites (default).')->
+			addOption('site-host', null, InputOption::VALUE_REQUIRED, 'Use this site host as API context.')->
 			setHelp('Creates the search index table and indexes for the given configuration.');
 	}
 
@@ -45,24 +33,24 @@ final class IndexCreateCommand extends AbstractSearchCommand
 		$slug = $input->getArgument('slug');
 		$siteIds = $this->resolveSiteIds($input);
 
-		$index = $this->resolveIndex($io, (string) $slug, $siteIds);
+		$index = $this->resolveIndex((string) $slug, $siteIds, $input);
 		if (null === $index) {
 			$io->error(sprintf('Search index "%s" not found.', $slug));
 
 			return Command::INVALID;
 		}
 
-		if (!$index->isEnabled()) {
+		if (!($index['isEnabled'] ?? true)) {
 			$io->warning(sprintf('Search index "%s" is disabled. Enable it first.', $slug));
 
 			return Command::INVALID;
 		}
 
 		try {
-			$this->indexManager->createIndex($index->getId());
-			$io->success(sprintf('Created search index "%s" (%s) for %s.', $index->getName(), $index->getEngine(), $this->describeScope($siteIds)));
+			$this->requestSearchAction(sprintf('/api/admin/search/indexes/%d/create', $index['id']), $input);
+			$io->success(sprintf('Created search index "%s" (%s) for %s.', $index['name'], $index['engine'], $this->describeScope($siteIds)));
 		} catch (\Throwable $e) {
-			$io->error(sprintf('Failed to create index: %s', $e->getMessage()));
+			$io->error($this->formatActionError('Failed to create index: ', $e));
 
 			return Command::FAILURE;
 		}

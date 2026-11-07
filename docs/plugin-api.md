@@ -24,6 +24,17 @@ Site scope options (where applicable): `--site=ID` (repeatable) and
 `--all-sites` (default). Install/update accept `--version`, `--store` and, for
 updates, `--dry-run`.
 
+Plugin commands call the administrative Business API using an explicit user
+API credential. Set `INTERNAL_API_TOKEN` to an administrator's API token and
+configure `INTERNAL_API_BASE_URL` for the API origin. The token is sent as the
+user credential; plugin commands do not access plugin storage or site records
+directly. All commands accept optional `--site-host=HOST` context when the
+internal API origin does not resolve to the desired site; `--site=ID` remains
+the target site selector for scoped operations.
+
+API user tokens use the `v2_` prefix. Tokens issued before the boundary upgrade
+are rejected and must be replaced after completing the normal login/MFA flow.
+
 Examples:
 
 ```bash
@@ -55,6 +66,8 @@ Admin-only (`ROLE_ADMIN`). All routes are under `/api/admin/plugins`.
 | POST | `/api/admin/plugins/enable` | Enable a plugin |
 | POST | `/api/admin/plugins/disable` | Disable a plugin |
 | POST | `/api/admin/plugins/verify` | Verify a plugin |
+| POST | `/api/admin/plugins/configure` | Read/update per-site plugin configuration |
+| POST | `/api/admin/plugins/migrate-configuration` | Migrate legacy site configuration keys |
 
 Command body:
 
@@ -73,6 +86,13 @@ echoes `success`, `message` and a `result` payload. Failures return a non-200
 status (`404` when the plugin is not installed, `422` for state/security/store
 errors) with the message in the error body, so clients can detect failed
 operations.
+
+Install additionally accepts `activate` (default `true`) to install without
+enabling the plugin. Configuration requests accept `slug`, optional `siteId`,
+repeatable `set` values in `key=value` form, and `unset` keys. A read with no
+site id returns an empty configuration; writes require a site id. The migration
+operation merges `extensions` into `plugins` per site, with existing `plugins`
+values taking precedence, then removes the legacy key.
 
 ## Configuration
 

@@ -103,6 +103,9 @@ class Kernel extends BaseKernel implements CompilerPassInterface
 	protected function configureRoutes(RoutingConfigurator $routes): void
 	{
 		$this->__kernelConfigureRoutes($routes);
+		if (!$this->isConsumerRuntime()) {
+			$routes->import($this->getProjectDir().'/config/api_platform_routes.yaml');
+		}
 
 		foreach ($this->discoveredPlugins as $plugin) {
 			$configDir = $plugin['path'].'/config';
@@ -126,6 +129,25 @@ class Kernel extends BaseKernel implements CompilerPassInterface
 				$routes->import($controllerDir, 'attribute');
 			}
 		}
+	}
+
+	public function getCacheDir(): string
+	{
+		$cacheDir = parent::getCacheDir();
+
+		return $this->isConsumerRuntime() ? $cacheDir.'/consumer' : $cacheDir;
+	}
+
+	private function isConsumerRuntime(): bool
+	{
+		return 'consumer' === $this->applicationRole();
+	}
+
+	private function applicationRole(): string
+	{
+		$applicationRole = $_SERVER['APPLICATION_ROLE'] ?? $_ENV['APPLICATION_ROLE'] ?? getenv('APPLICATION_ROLE');
+
+		return is_string($applicationRole) && '' !== $applicationRole ? $applicationRole : 'api';
 	}
 
 	/**

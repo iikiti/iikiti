@@ -10,8 +10,14 @@ use iikiti\CMS\Doctrine\DatabaseTableNameResolver;
 use iikiti\CMS\Entity\Batch\BatchEvent;
 use iikiti\CMS\Entity\Batch\BatchItem;
 use iikiti\CMS\Entity\Batch\BatchJob;
+use iikiti\CMS\Entity\Object\Site;
+use iikiti\CMS\Entity\Object\User;
+use iikiti\CMS\Manager\UserRoleManager;
 use iikiti\CMS\Message\ProcessBatchItem;
+use iikiti\CMS\Registry\SiteRegistry;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
+use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final class BatchManager
@@ -24,7 +30,11 @@ final class BatchManager
 		private readonly MessageBusInterface $messageBus,
 		private readonly EventDispatcherInterface $eventDispatcher,
 		private readonly DatabaseTableNameResolver $tableNames,
+		SiteRegistry $siteRegistry,
+		private readonly TokenStorageInterface $tokenStorage,
+		private readonly BatchAccessPolicy $access,
 	) {
+		$siteRegistry->ensureInitialized();
 	}
 
 	/**
@@ -139,7 +149,40 @@ final class BatchManager
 		]);
 		$this->publish($jobId, 'item_started', $item->getSummary(), ['itemKey' => $item->getKey(), 'itemId' => (string) $itemId]);
 
+		$siteDepth = SiteRegistry::count();
+		$originalToken = $this->tokenStorage->getToken();
 		try {
+			$creatorId = $job->getCreatedByUserId();
+			$isScheduled = true === ($job->getConfiguration()['_scheduled'] ?? false);
+			if ($isScheduled && null === $creatorId) {
+				$this->finishItem($itemId, BatchItem::STATE_FAILED, 'Scheduled batch has no creator.');
+				return;
+			}
+			if (null !== $creatorId) {
+				$creator = $this->entityManager->find(User::class, $creatorId);
+				if (!$creator instanceof User) {
+					$this->finishItem($itemId, BatchItem::STATE_FAILED, 'Batch creator is no longer available.');
+					return;
+				}
+				if (null !== $job->getSiteId()) {
+					$site = $this->entityManager->find(Site::class, $job->getSiteId());
+					if (!$site instanceof Site || !$creator->registeredToSite($site->getId())) {
+						$this->finishItem($itemId, BatchItem::STATE_FAILED, 'Batch creator no longer has access to its site.');
+						return;
+					}
+					SiteRegistry::pushSite($site);
+					$creator->setCurrentSite($site);
+					$roles = $creator->getRoles();
+				} else {
+					$roles = array_values(UserRoleManager::convertEnumsToStrings($creator->getGlobalRoles()));
+				}
+				if ($isScheduled && !$this->access->canAccessJob($creator, $job)) {
+					$this->finishItem($itemId, BatchItem::STATE_FAILED, 'Batch creator no longer has permission to run this schedule.');
+					return;
+				}
+				$this->tokenStorage->setToken(new UsernamePasswordToken($creator, 'main', $roles));
+			}
+
 			$handler = $this->handlers->get($item->getType());
 			$dependencies = $connection->fetchFirstColumn(
 				$this->sql(' SELECT dependency.item_key FROM batch_item_dependencies edge INNER JOIN batch_items dependency ON dependency.id = edge.dependency_item_id WHERE edge.dependent_item_id = :id'),
@@ -163,6 +206,10 @@ final class BatchManager
 		} catch (\Throwable $exception) {
 			$this->retryOrFail($item, $exception);
 		} finally {
+			$this->tokenStorage->setToken($originalToken);
+			while (SiteRegistry::count() > $siteDepth) {
+				SiteRegistry::popSite();
+			}
 			$this->entityManager->clear();
 		}
 	}

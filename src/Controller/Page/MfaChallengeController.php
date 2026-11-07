@@ -56,7 +56,7 @@ class MfaChallengeController extends AppController
 		parent::__construct($security, $container);
 	}
 
-	#[Route('/mfa/challenge', name: self::ROUTE, methods: ['GET', 'POST'])]
+	#[Route('/api/auth/mfa/challenge', name: self::ROUTE, methods: ['GET', 'POST'])]
 	public function challenge(Request $request): Response
 	{
 		$token = $this->security->getToken();

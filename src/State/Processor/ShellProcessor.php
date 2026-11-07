@@ -41,8 +41,18 @@ readonly class ShellProcessor implements ProcessorInterface
 		return match ($operation->getName()) {
 			'admin_shell_create' => $this->save(new Shell(), $data, true),
 			'admin_shell_update' => $this->save($this->find($uriVariables['id'] ?? null), $data, false),
+			'admin_shell_delete' => $this->delete($uriVariables['id'] ?? null),
 			default => $data,
 		};
+	}
+
+	private function delete(int|string|null $id): null
+	{
+		$shell = $this->find($id);
+		$this->entityManager->remove($shell);
+		$this->entityManager->flush();
+
+		return null;
 	}
 
 	private function find(int|string|null $id): Shell
