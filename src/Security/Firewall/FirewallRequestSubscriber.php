@@ -46,10 +46,11 @@ final readonly class FirewallRequestSubscriber implements EventSubscriberInterfa
 		$request = $event->getRequest();
 		$site = SiteRegistry::getCurrent();
 		try {
-			$context = $this->contexts->create($request, $site->getId());
 			$operation = $request->attributes->get('_api_operation_name');
 			$includeSiteRules = !is_string($operation) || !in_array($operation, self::SITE_POLICY_OPERATIONS, true);
-			$result = $this->evaluator->evaluate($this->rules->getRulesForSite($site, $includeSiteRules), $context);
+			$rules = $this->rules->getRulesForSite($site, $includeSiteRules);
+			$context = $this->contexts->create($request, $site->getId());
+			$result = $this->evaluator->evaluate($rules, $context);
 		} catch (FirewallInspectionException $exception) {
 			$this->logger->warning('Firewall could not inspect the complete request.', [
 				'site_id' => $site->getId(),

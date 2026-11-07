@@ -130,7 +130,7 @@ Plugins may register bounded firewall condition services and signed rule-pack
 sources; the core refresh task schedules registered packs through this same
 batch/scheduler path. See [security-firewall.md](security-firewall.md) for the
 condition contract, `iikiti.security` event, pack signature, supported SecLang
-subset, and site policy API.
+subset, site policy API, and the optional conservative rule-index extension.
 
 Lazy execution is best-effort and only advances when web traffic arrives. It
 sends the response before processing, but still occupies a PHP process. Keep

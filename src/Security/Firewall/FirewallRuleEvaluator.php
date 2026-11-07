@@ -12,11 +12,14 @@ final readonly class FirewallRuleEvaluator
 	) {
 	}
 
-	/** @param list<array<string,mixed>> $rules */
-	public function evaluate(array $rules, FirewallRequestContext $context): FirewallEvaluationResult
+	/** @param list<array<string,mixed>>|FirewallCompiledRuleSet $rules */
+	public function evaluate(array|FirewallCompiledRuleSet $rules, FirewallRequestContext $context): FirewallEvaluationResult
 	{
+		if (is_array($rules)) {
+			$rules = new FirewallCompiledRuleSet($this->validator->validateRules($rules, $context), $this->conditions);
+		}
 		$findings = [];
-		foreach ($this->validator->validateRules($rules, $context) as $rule) {
+		foreach ($rules->getCandidateRules($context, $this->conditions) as $rule) {
 			$context->assertWithinBudget();
 			if (!$rule['enabled'] || !$this->matches($rule['conditions'], $context)) {
 				continue;

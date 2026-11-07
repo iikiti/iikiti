@@ -10,6 +10,7 @@ final readonly class FirewallRuleValidator
 	private const MAX_DEPTH = 8;
 	private const MAX_CHILDREN = 64;
 	private const MAX_NODES = 256;
+	private const MAX_TOTAL_NODES = 10000;
 
 	public function __construct(private FirewallConditionRegistry $conditions)
 	{
@@ -29,6 +30,7 @@ final readonly class FirewallRuleValidator
 
 		$validated = [];
 		$ids = [];
+		$totalNodeCount = 0;
 		foreach ($rules as $rule) {
 			$context?->assertWithinBudget();
 			if (!is_array($rule)) {
@@ -52,7 +54,7 @@ final readonly class FirewallRuleValidator
 			}
 			$ids[$id] = true;
 			$nodeCount = 0;
-			$this->validateNode($tree, 0, $nodeCount, $context);
+			$this->validateNode($tree, 0, $nodeCount, $totalNodeCount, $context);
 			$validated[] = [
 				'id' => $id,
 				'name' => trim($name),
@@ -71,11 +73,14 @@ final readonly class FirewallRuleValidator
 	}
 
 	/** @param array<string,mixed> $node */
-	private function validateNode(array $node, int $depth, int &$nodeCount, ?FirewallRequestContext $context): void
+	private function validateNode(array $node, int $depth, int &$nodeCount, int &$totalNodeCount, ?FirewallRequestContext $context): void
 	{
 		$context?->assertWithinBudget();
 		if (++$nodeCount > self::MAX_NODES) {
 			throw new \InvalidArgumentException('A firewall condition tree cannot exceed 256 nodes.');
+		}
+		if (++$totalNodeCount > self::MAX_TOTAL_NODES) {
+			throw new \InvalidArgumentException('Combined firewall rule trees cannot exceed 10000 nodes.');
 		}
 		if ($depth > self::MAX_DEPTH) {
 			throw new \InvalidArgumentException('Firewall condition trees cannot exceed eight nested groups.');
@@ -91,7 +96,7 @@ final readonly class FirewallRuleValidator
 				if (!is_array($child)) {
 					throw new \InvalidArgumentException('Firewall condition nodes must be objects.');
 				}
-				$this->validateNode($child, $depth + 1, $nodeCount, $context);
+				$this->validateNode($child, $depth + 1, $nodeCount, $totalNodeCount, $context);
 			}
 
 			return;

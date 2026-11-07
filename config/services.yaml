@@ -19,6 +19,7 @@ parameters:
     firewall_max_inspection_milliseconds_default: 5000
     firewall_max_inspection_milliseconds: '%env(int:default:firewall_max_inspection_milliseconds_default:FIREWALL_MAX_INSPECTION_MILLISECONDS)%'
     iikiti_security_firewall_pack_directory: '%kernel.project_dir%/var/firewall/rule-packs'
+    iikiti_firewall_ruleset_ttl: 300
 
 services:
     # default configuration for services in *this* file

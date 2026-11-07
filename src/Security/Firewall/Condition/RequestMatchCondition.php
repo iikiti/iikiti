@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Security\Firewall\Condition;
 
+use iikiti\CMS\Security\Firewall\FirewallConditionIndexInterface;
 use iikiti\CMS\Security\Firewall\FirewallConditionInterface;
 use iikiti\CMS\Security\Firewall\FirewallRequestContext;
 
-final class RequestMatchCondition implements FirewallConditionInterface
+final class RequestMatchCondition implements FirewallConditionInterface, FirewallConditionIndexInterface
 {
 	private const TARGETS = ['method', 'path', 'uri', 'ip', 'header', 'cookie', 'query', 'field', 'body', 'upload', 'upload_name', 'upload_type'];
 	private const OPERATORS = ['equals', 'contains', 'starts_with', 'ends_with', 'regex'];
@@ -50,16 +51,45 @@ final class RequestMatchCondition implements FirewallConditionInterface
 		}
 	}
 
+	public function getRequestIndexKeys(array $options): array
+	{
+		$target = $options['target'];
+		$name = $options['name'] ?? null;
+
+		return [FirewallRequestContext::indexKey($target, $name)];
+	}
+
+	public function couldMatchRequest(array $options, FirewallRequestContext $context): bool
+	{
+		$target = $options['target'];
+		$name = $options['name'] ?? null;
+		if (!$context->hasValues($target, $name)) {
+			return false;
+		}
+		if ('equals' === $options['operator'] && [] === ($options['transformations'] ?? [])) {
+			return $context->matchesExactValue(
+				$target,
+				$name,
+				$options['value'],
+				$options['caseSensitive'] ?? false,
+			);
+		}
+
+		return true;
+	}
+
 	/** @param array<string,mixed> $options */
 	public function matches(array $options, FirewallRequestContext $context): bool
 	{
-		$this->validateOptions($options);
 		$target = (string) $options['target'];
 		$operator = (string) $options['operator'];
 		$needle = (string) $options['value'];
 		$name = isset($options['name']) ? (string) $options['name'] : null;
 		$caseSensitive = (bool) ($options['caseSensitive'] ?? false);
 		$transformations = $options['transformations'] ?? [];
+		if ('equals' === $operator && [] === $transformations) {
+			return $context->matchesExactValue($target, $name, $needle, $caseSensitive);
+		}
 
 		$values = match ($target) {
 			'method' => [$context->method],

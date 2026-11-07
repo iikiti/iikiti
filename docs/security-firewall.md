@@ -76,7 +76,8 @@ nested to eight levels. Each rule is a top-level match; matching rules produce
 findings, and any `deny` finding makes the effective action `deny`. Leaves name
 a registered condition and supply data-only options. Rule trees are limited to
 256 nodes, groups to 64 children, regexes to 4096 bytes, and the complete policy
-to 1000 rules. Invalid or unknown conditions/options reject a policy update.
+to 1000 rules; the merged global and site ruleset is capped at 10,000 condition
+nodes. Invalid or unknown conditions/options reject a policy update.
 
 The built-in `request.match` condition supports targets `method`, `path`, `uri`,
 `ip`, `header`, `cookie`, `query`, `field`, `body`, `upload`, `upload_name`, and
@@ -85,6 +86,29 @@ and `regex`; matching is case-insensitive unless `caseSensitive` is true. Named
 targets accept `name`. Optional `transformations` run in order and are limited to
 `lowercase`, `urlDecode`, `urlDecodeUni`, `htmlEntityDecode`, `removeNulls`, and
 `normalizePath`.
+
+## Request-Path Performance
+
+The compiled ruleset is cached in the dedicated `cache.firewall` pool for five
+minutes as a safety TTL. Site policy writes invalidate that site's compiled
+entries; signed pack activation/rollback clears the compiled pool. Cache misses
+validate and compile rules once, so steady-state requests do not query the site
+property for firewall rules, read active pack files, sort rules, or revalidate
+condition options.
+The firewall pool inherits the `cache.app` backend; multi-node deployments
+should configure that backend as shared so policy/pack invalidations are visible
+to every node. With a local filesystem backend, the five-minute TTL bounds stale
+compiled rules on other nodes.
+
+Compiled rules are indexed by request target and named value (for example, a
+`header` rule for `x-client-type` is not considered when that header is absent).
+Exact equality rules are also checked against a lazy per-request value index,
+before a rule becomes an evaluation candidate. Other operators are filtered by
+available target/name first. AND/OR short-circuiting remains in effect. Custom
+conditions without an index are conservatively retained as candidates; a plugin
+may implement `FirewallConditionIndexInterface` to provide safe request-index
+keys and a conservative `couldMatchRequest` precheck. An index must never return
+false when its condition could still match.
 
 ## Request Limits And Responses
 

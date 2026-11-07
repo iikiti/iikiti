@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace iikiti\CMS\Tests\Security\Firewall;
 
 use iikiti\CMS\Security\Firewall\Condition\RequestMatchCondition;
+use iikiti\CMS\Security\Firewall\FirewallCompiledRuleSet;
 use iikiti\CMS\Security\Firewall\FirewallConditionRegistry;
 use iikiti\CMS\Security\Firewall\FirewallRulePackConverter;
 use iikiti\CMS\Security\Firewall\FirewallRulePackManager;
@@ -12,8 +13,11 @@ use iikiti\CMS\Security\Firewall\FirewallRulePackRejected;
 use iikiti\CMS\Security\Firewall\FirewallRulePackSourceInterface;
 use iikiti\CMS\Security\Firewall\FirewallRulePackSourceRegistry;
 use iikiti\CMS\Security\Firewall\FirewallRulePackStore;
+use iikiti\CMS\Security\Firewall\FirewallRuleSetCache;
 use iikiti\CMS\Security\Firewall\FirewallRuleValidator;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
@@ -102,7 +106,28 @@ final class FirewallRulePackManagerTest extends TestCase
 		}
 	}
 
-	/** @return array{FirewallRulePackManager,FirewallRulePackStore,string} */
+	public function testPackActivationInvalidatesCachedCompiledRulesets(): void
+	{
+		[$manager, , $directory, $cache] = $this->createManager();
+		try {
+			$compileCount = 0;
+			$compile = static function () use (&$compileCount): FirewallCompiledRuleSet {
+				++$compileCount;
+
+				return new FirewallCompiledRuleSet([], new FirewallConditionRegistry());
+			};
+			$cache->get(9, true, $compile);
+
+			$manager->refresh('test-core');
+
+			$cache->get(9, true, $compile);
+			self::assertSame(2, $compileCount);
+		} finally {
+			$this->removeDirectory($directory);
+		}
+	}
+
+	/** @return array{FirewallRulePackManager,FirewallRulePackStore,string,FirewallRuleSetCache} */
 	private function createManager(string $format = 'iikiti-json-v1'): array
 	{
 		$keyPair = sodium_crypto_sign_keypair();
@@ -135,7 +160,8 @@ final class FirewallRulePackManagerTest extends TestCase
 		$registry = new FirewallRulePackSourceRegistry([$source]);
 		$directory = sys_get_temp_dir().'/iikiti-firewall-test-'.bin2hex(random_bytes(6));
 		$validator = new FirewallRuleValidator(new FirewallConditionRegistry([new RequestMatchCondition()]));
-		$store = new FirewallRulePackStore($directory, $registry, $validator);
+		$ruleSetCache = new FirewallRuleSetCache(new ArrayAdapter(), new NullLogger());
+		$store = new FirewallRulePackStore($directory, $registry, $validator, $ruleSetCache);
 		$converter = new FirewallRulePackConverter($validator);
 		$payload = 'unsupported' === $format ? 'SecAction "id:1,phase:1,pass"' : json_encode([
 			'schemaVersion' => 1,
@@ -167,7 +193,7 @@ final class FirewallRulePackManagerTest extends TestCase
 			$registry,
 			$converter,
 			$store,
-		), $store, $directory];
+		), $store, $directory, $ruleSetCache];
 	}
 
 	private function removeDirectory(string $directory): void

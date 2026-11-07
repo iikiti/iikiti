@@ -9,6 +9,7 @@ use ApiPlatform\State\ProcessorInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\ApiResource\FirewallSitePolicyResource;
 use iikiti\CMS\Registry\SiteRegistry;
+use iikiti\CMS\Security\Firewall\FirewallRuleSetCache;
 use iikiti\CMS\Security\Firewall\FirewallRuleValidator;
 use iikiti\CMS\Security\Firewall\FirewallSitePolicyStore;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
@@ -22,6 +23,7 @@ final readonly class FirewallSitePolicyProcessor implements ProcessorInterface
 	public function __construct(
 		private EntityManagerInterface $entityManager,
 		private FirewallRuleValidator $validator,
+		private FirewallRuleSetCache $ruleSetCache,
 		private FirewallSitePolicyStore $policies,
 	) {
 	}
@@ -50,6 +52,7 @@ final readonly class FirewallSitePolicyProcessor implements ProcessorInterface
 		$this->policies->setRules($site, $rules);
 		$this->entityManager->persist($site);
 		$this->entityManager->flush();
+		$this->ruleSetCache->invalidateSite($site->getId());
 
 		return new FirewallSitePolicyResource($site->getId(), $rules);
 	}

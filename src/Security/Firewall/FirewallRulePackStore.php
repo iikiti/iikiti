@@ -13,6 +13,7 @@ final readonly class FirewallRulePackStore
 		private string $directory,
 		private FirewallRulePackSourceRegistry $sources,
 		private FirewallRuleValidator $validator,
+		private FirewallRuleSetCache $ruleSetCache,
 	) {
 	}
 
@@ -56,6 +57,7 @@ final readonly class FirewallRulePackStore
 			flock($lock, LOCK_UN);
 			fclose($lock);
 		}
+		$this->ruleSetCache->invalidateAll();
 	}
 
 	public function activateVersion(string $source, string $version): void
@@ -86,6 +88,7 @@ final readonly class FirewallRulePackStore
 			flock($lock, LOCK_UN);
 			fclose($lock);
 		}
+		$this->ruleSetCache->invalidateAll();
 	}
 
 	/** @return list<array<string,mixed>> */
