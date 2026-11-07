@@ -584,6 +584,7 @@ final class BlockRenderer
 				// The query result row currently being rendered (per-result
 				// template rendering); null outside a `query` child context.
 				'item' => $context->item,
+				'iikiti_prefetched_embeds' => $context->prefetchedEmbeds,
 			] + $extraVars);
 		} catch (\Throwable $e) {
 			return $this->placeholder($blockType->type, $e->getMessage());

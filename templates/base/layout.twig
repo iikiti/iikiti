@@ -25,13 +25,17 @@
             })();
             </script>
             {{ encore_entry_link_tags('tailwind') }}
-            {% if iikiti_icon_font|default(false) %}
-                <link rel="stylesheet" href="{{ asset('build/vendor/lucide-font/lucide.css') }}">
+            {% if iikiti_use_fragment_composer|default(false) %}
+                <template data-iikiti-fragment="icon-font"></template>
+            {% elseif iikiti_icon_font|default(false) %}
+                {% include 'base/_icon_font_link.twig' %}
             {% endif %}
             {% if iikiti_can_edit %}
                 {{ encore_entry_link_tags('editor') }}
             {% endif %}
-            {% if iikiti_custom_css|default('') is not empty %}
+            {% if iikiti_use_fragment_composer|default(false) %}
+                <template data-iikiti-fragment="custom-css"></template>
+            {% elseif iikiti_custom_css|default('') is not empty %}
                 {% if iikiti_editor_mode|default(false) %}
                     {{ iikiti_custom_css|raw }}
                 {% else %}
@@ -45,7 +49,7 @@
 </head>
 	<body class="text-black bg-white dark:text-white dark:bg-gray-900{% for scopeClass in iikiti_scope_classes|default([]) %} {{ scopeClass|escape('html_attr') }}{% endfor %}{% if iikiti_can_edit %} iikiti-can-edit{% endif %}{% if iikiti_editor_mode %} iikiti-editor-body{% endif %}">
 		{% block body_before %}{% endblock %}
-		{% block body %}{{ iikiti_page_body|default('')|raw }}{% endblock %}
+		{% block body %}{% if iikiti_use_fragment_composer|default(false) %}<template data-iikiti-fragment="page"></template>{% else %}{{ iikiti_page_body|default('')|raw }}{% endif %}{% endblock %}
 		{% if iikiti_config %}
 			<script id="iikiti-config" type="application/json">{{ iikiti_config|json_encode|raw }}</script>
 		{% endif %}

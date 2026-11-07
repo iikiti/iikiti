@@ -7,8 +7,10 @@ namespace iikiti\CMS\Tests\Web\Template;
 use iikiti\CMS\Tests\Support\IconResolverFactory;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
+use iikiti\CMS\Async\FiberTaskRunner;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Entity\Object\Template;
+use iikiti\CMS\Web\BlockEditor\Embed\EmbedResolver;
 use iikiti\CMS\Web\BlockEditor\CustomCssCompiler;
 use iikiti\CMS\Web\BlockEditor\BlockType\BlockTypeRegistry;
 use iikiti\CMS\Web\BlockEditor\BlockType\CoreBlockTypeProvider;
@@ -16,11 +18,17 @@ use iikiti\CMS\Web\BlockEditor\Query\QueryExecutor;
 use iikiti\CMS\Web\BlockEditor\Query\QueryFieldCatalog;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderContext;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderer;
+use iikiti\CMS\Web\BlockEditor\Twig\BlockTwigExtension;
+use iikiti\CMS\Web\Icon\IconFontAssets;
 use iikiti\CMS\Web\Template\TemplateRenderer;
+use iikiti\CMS\Response\Composition\HtmlFragmentComposer;
 use PHPUnit\Framework\TestCase;
 use Twig\Environment;
 use Twig\Loader\ArrayLoader;
 use Twig\Loader\FilesystemLoader;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Component\HttpClient\Response\MockResponse;
 
 final class TemplateRendererTest extends TestCase
 {
@@ -80,6 +88,68 @@ final class TemplateRendererTest extends TestCase
 		$html = $this->renderer()->render($template, new BlockRenderContext(editorMode: false), []);
 
 		$this->assertStringNotContainsString('Empty', $html);
+	}
+
+	public function testStaticSocialEmbedsArePrefetchedBeforeBlockRendering(): void
+	{
+		$url = 'https://twitter.com/example/status/1';
+		$requested = [];
+		$http = new MockHttpClient(static function (string $method, string $requestUrl) use (&$requested): MockResponse {
+			$requested[] = $requestUrl;
+
+			return new MockResponse(json_encode([
+				'html' => '<blockquote cite="https://twitter.com/example/status/1">prefetched</blockquote>',
+			], JSON_THROW_ON_ERROR));
+		});
+		$embedResolver = new EmbedResolver([], $http, new ArrayAdapter());
+		$layoutEnv = new Environment(new ArrayLoader([
+			'layout.twig' => '<main>{{ region_main|raw }}</main>',
+		]), ['strict_variables' => false]);
+		$blockTwig = new Environment(new FilesystemLoader(__DIR__.'/../../../templates'), [
+			'strict_variables' => false,
+		]);
+		$blockTwig->addExtension(new BlockTwigExtension(
+			$embedResolver,
+			new QueryExecutor([]),
+			IconResolverFactory::bundledOnly(),
+			new IconFontAssets(),
+		));
+		$blockRenderer = new BlockRenderer(
+			new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly())]),
+			$blockTwig,
+			new QueryExecutor([]),
+			new QueryFieldCatalog($this->createStub(EntityManagerInterface::class)),
+			new CustomCssCompiler(),
+		);
+		$renderer = new TemplateRenderer(
+			$blockRenderer,
+			$layoutEnv,
+			fiberTaskRunner: new FiberTaskRunner($http),
+			embedResolver: $embedResolver,
+		);
+		$template = $this->template([
+			['id' => 'main', 'role' => 'main', 'name' => 'Main', 'allowed_types' => []],
+		]);
+
+		$composer = new HtmlFragmentComposer('<!DOCTYPE html><html><body><template data-iikiti-fragment="page"></template></body></html>');
+		$renderer->renderIntoDocument($template, new BlockRenderContext(editorMode: false), [
+			'main' => [[
+				'id' => 'container-1',
+				'type' => 'container',
+				'content' => [],
+				'style' => ['base' => []],
+				'children' => [[
+					'id' => 'embed-1',
+					'type' => 'social_embed',
+					'content' => ['url' => $url],
+				]],
+			]],
+		], $composer, '[data-iikiti-fragment="page"]');
+		$html = $composer->render();
+
+		self::assertCount(1, $requested);
+		self::assertStringContainsString('<blockquote', $html);
+		self::assertStringContainsString('prefetched', $html);
 	}
 
 	public function testNoMainRegionShowsErrorInPublicMode(): void

@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Tests\Web\BlockEditor\Embed;
 
+use iikiti\CMS\Async\FiberTaskRunner;
 use iikiti\CMS\Web\BlockEditor\Embed\EmbedResolver;
 use iikiti\CMS\Web\BlockEditor\Embed\Provider\GenericVideoProvider;
 use iikiti\CMS\Web\BlockEditor\Embed\Provider\VimeoProvider;
 use iikiti\CMS\Web\BlockEditor\Embed\Provider\YouTubeProvider;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
 
 final class EmbedResolverTest extends TestCase
 {
@@ -82,5 +83,43 @@ final class EmbedResolverTest extends TestCase
 
 		$this->assertStringContainsString('<blockquote', $html);
 		$this->assertStringContainsString('twitter-tweet', $html);
+	}
+
+	public function testPrefetchesAllowlistedOembedsThroughFiberTasks(): void
+	{
+		$requested = [];
+		$http = new MockHttpClient(static function (string $method, string $url, array $options) use (&$requested): MockResponse {
+			$requested[] = [$url, $options['max_redirects'] ?? null];
+			$html = str_contains($url, 'publish.twitter.com')
+				? '<blockquote cite="https://twitter.com/example/status/1">tweet</blockquote>'
+				: '<blockquote cite="https://bsky.app/profile/example/post/2">post</blockquote>';
+
+			return new MockResponse(json_encode(['html' => $html], JSON_THROW_ON_ERROR));
+		});
+		$cache = new ArrayAdapter();
+		$resolver = new EmbedResolver([], $http, $cache);
+
+		$resolved = $resolver->prefetchOembeds([
+			'https://twitter.com/example/status/1',
+			'https://bsky.app/profile/example/post/2',
+		], new FiberTaskRunner($http));
+
+		self::assertCount(2, $requested);
+		self::assertSame([0, 0], array_column($requested, 1));
+		self::assertStringContainsString('tweet', $resolved['https://twitter.com/example/status/1']);
+		self::assertStringContainsString('post', $resolved['https://bsky.app/profile/example/post/2']);
+		self::assertSame($resolved['https://twitter.com/example/status/1'], $resolver->resolve('https://twitter.com/example/status/1'));
+	}
+
+	public function testDirectSocialEmbedFallbackAlsoUsesNativeFiberRunner(): void
+	{
+		$http = new MockHttpClient(static fn (): MockResponse => new MockResponse(json_encode([
+			'html' => '<blockquote cite="https://twitter.com/example/status/1">fiber</blockquote>',
+		], JSON_THROW_ON_ERROR)));
+		$resolver = new EmbedResolver([], $http, new ArrayAdapter(), new FiberTaskRunner($http));
+
+		$html = $resolver->resolve('https://twitter.com/example/status/1');
+
+		self::assertStringContainsString('fiber', $html);
 	}
 }

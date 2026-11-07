@@ -10,6 +10,8 @@ use iikiti\CMS\Entity\Object\Page;
 use iikiti\CMS\Entity\Object\Template;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Registry\SiteRegistry;
+use iikiti\CMS\Response\Composition\DomHtmlResponse;
+use iikiti\CMS\Response\Composition\HtmlFragmentComposer;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderContext;
 use iikiti\CMS\Web\BlockEditor\Render\CustomCssCollector;
 use iikiti\CMS\Web\Template\TemplateRenderer;
@@ -103,37 +105,52 @@ final class PageRendering
 			customCssCollector: $customCss,
 		);
 
+		$this->twig->addGlobal('iikiti_can_edit', $canEdit);
+		$this->twig->addGlobal('iikiti_editor_mode', $editorMode);
+		$this->twig->addGlobal('iikiti_config', $config);
+
+		$layout = $this->twig->render('base/layout.twig', [
+			'doc' => ['title' => $template->getTitle() ?? 'iikiti'],
+			'iikiti_page_body' => '',
+			'iikiti_use_fragment_composer' => true,
+			'iikiti_editor_mode' => $editorMode,
+			'iikiti_can_edit' => $canEdit,
+			'iikiti_config' => $config,
+			'iikiti_icon_font' => false,
+			'iikiti_scope_classes' => array_values(array_filter([
+				$this->scopeClass('template', $template->getId()),
+				$object instanceof Page ? $this->scopeClass('page', $object->getId()) : null,
+			])),
+			'iikiti_custom_css' => '',
+		]);
+		$composer = new HtmlFragmentComposer($layout);
 		$resolutionContext = new TemplateResolutionContext(
 			site: $site,
 			object: $object,
 			objectType: null === $object ? null : $object::class,
 			home: $home,
 		);
-		$pageHtml = $this->templateRenderer->render(
+		$this->templateRenderer->renderIntoDocument(
 			$template,
 			$renderContext,
 			$regionTrees,
+			$composer,
+			'[data-iikiti-fragment="page"]',
 			resolutionContext: $resolutionContext,
 		);
 
-		$this->twig->addGlobal('iikiti_can_edit', $canEdit);
-		$this->twig->addGlobal('iikiti_editor_mode', $editorMode);
-		$this->twig->addGlobal('iikiti_config', $config);
+		$iconFont = $this->iconFontAssets->shouldLink($canEdit)
+			? $this->twig->render('base/_icon_font_link.twig')
+			: '';
+		$composer->insertIntoPlaceholder('[data-iikiti-fragment="icon-font"]', $iconFont);
 
-		return new Response($this->twig->render('base/layout.twig', [
-			'doc' => ['title' => $template->getTitle() ?? 'iikiti'],
-			'iikiti_page_body' => $pageHtml,
-			'iikiti_editor_mode' => $editorMode,
-			'iikiti_can_edit' => $canEdit,
-			'iikiti_config' => $config,
-			// Editor/admin always load the font; public pages only when an icon used it and it is enabled.
-			'iikiti_icon_font' => $this->iconFontAssets->shouldLink($canEdit || $editorMode),
-			'iikiti_scope_classes' => array_values(array_filter([
-				$this->scopeClass('template', $template->getId()),
-				$object instanceof Page ? $this->scopeClass('page', $object->getId()) : null,
-			])),
-			'iikiti_custom_css' => $editorMode ? $customCss->stylesheets() : $customCss->stylesheet(),
-		]));
+		$customCssHtml = $editorMode ? $customCss->stylesheets() : $customCss->stylesheet();
+		if (!$editorMode && '' !== $customCssHtml) {
+			$customCssHtml = '<style id="iikiti-custom-css">'.$customCssHtml.'</style>';
+		}
+		$composer->insertIntoPlaceholder('[data-iikiti-fragment="custom-css"]', $customCssHtml);
+
+		return new DomHtmlResponse($composer->document());
 	}
 
 	/**

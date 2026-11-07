@@ -7,6 +7,7 @@ namespace iikiti\CMS\Web\BlockEditor;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Plugin\PluginRegistry;
+use iikiti\CMS\Response\Composition\JsonObjectComposer;
 use iikiti\CMS\Security\ApiTokenManager;
 use iikiti\CMS\Security\PermissionChecker;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -36,6 +37,7 @@ final class FrontendConfigProvider
 	 * @param 'template'|'object' $contextType
 	 * @param int                 $version     Current draft version the editor must echo back as
 	 *                                         `If-Match` on save (omit to keep the legacy 0 default)
+	 * @param array<string,mixed> $settingsContext
 	 *
 	 * @return array<string,mixed>|null
 	 */
@@ -57,27 +59,38 @@ final class FrontendConfigProvider
 			return null;
 		}
 
-		return [
+		$composer = new JsonObjectComposer();
+		$composer->add([
 			'canEdit' => true,
 			'canPublish' => $this->permissionChecker->canAccess($user, 'Page', 'publish') ||
 				$this->permissionChecker->canAccess($user, 'Template', 'publish'),
 			'apiBase' => '/api',
 			'apiToken' => $this->tokenManager->getOrCreateToken($user)->getToken(),
+		], order: 10);
+		$composer->add([
 			'contextType' => $contextType,
 			'contextId' => $contextId,
 			'version' => $version,
 			'room' => $this->roomChannel($contextType, $contextId),
+		], order: 20);
+		$composer->add([
 			'breakpoints' => ResponsiveBreakpoints::WIDTHS,
 			'notifications' => $this->notifications($user),
 			'timezone' => $user->getTimeZone()?->getId(),
+		], order: 30);
+		$composer->add([
 			'plugins' => $this->pluginEditorUis(),
+		], order: 40);
+		$composer->add([
 			'settingsContextType' => $settingsContext['type'] ?? $contextType,
 			'settingsContextId' => $settingsContext['id'] ?? $contextId,
 			'settingsLabel' => $settingsContext['label'] ?? 'Template Settings',
 			'settingsValues' => $settingsContext['values'] ?? [],
 			'settingsVersion' => $settingsContext['version'] ?? 0,
 			'settingsHasDraft' => $settingsContext['hasDraft'] ?? false,
-		];
+		], order: 50);
+
+		return $composer->compose();
 	}
 
 	/**

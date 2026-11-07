@@ -1,0 +1,45 @@
+<h3>Response composition</h3>
+<table>
+    <tbody>
+        <tr><th>Fiber task groups</th><td>{{ collector.fiberGroupCount }}</td></tr>
+        <tr><th>Fiber-managed HTTP requests</th><td>{{ collector.httpRequestCount }}</td></tr>
+        <tr><th>DOM document</th><td>{{ collector.domDocumentReused ? 'reused' : 'not applicable' }}</td></tr>
+        <tr><th>Response mode</th><td>{{ collector.response.mode }}</td></tr>
+        <tr><th>Content type</th><td><code>{{ collector.response.content_type }}</code></td></tr>
+        <tr><th>Status</th><td>{{ collector.response.status }}</td></tr>
+        <tr><th>Composed fragments</th><td>{{ collector.fragmentCount }}</td></tr>
+    </tbody>
+</table>
+
+<h4>Fiber task groups</h4>
+{% if collector.fiberGroups is empty %}
+    <div class="empty"><p>No Fiber task groups ran during this request.</p></div>
+{% else %}
+    <table>
+        <thead><tr><th>Tasks</th><th>Local work</th><th>HTTP wait</th><th>Failures</th></tr></thead>
+        <tbody>
+        {% for group in collector.fiberGroups %}
+            <tr>
+                <td>{{ group.tasks }}</td>
+                <td>{{ '%.2f'|format(group.work_ms) }} ms</td>
+                <td>{{ '%.2f'|format(group.wait_ms) }} ms</td>
+                <td>{{ group.failures }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+
+<h4>Response compositions</h4>
+{% if collector.compositions is empty %}
+    <div class="empty"><p>No controller fragment plan was composed.</p></div>
+{% else %}
+    <table>
+        <thead><tr><th>Format</th><th>Fragments</th></tr></thead>
+        <tbody>
+        {% for composition in collector.compositions %}
+            <tr><td>{{ composition.format }}</td><td>{{ composition.fragments }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% endif %}

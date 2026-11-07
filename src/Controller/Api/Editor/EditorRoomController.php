@@ -6,6 +6,7 @@ namespace iikiti\CMS\Controller\Api\Editor;
 
 use iikiti\CMS\Controller\AppController;
 use iikiti\CMS\Repository\Object\ApiTokenRepository;
+use iikiti\CMS\Response\Composition\JsonObjectComposer;
 use iikiti\CMS\Web\BlockEditor\Collaboration\PresenceStore;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -35,11 +36,13 @@ class EditorRoomController extends AppController
 		}
 
 		$room = sprintf('room/%s:%d', $contextType, $contextId);
-
-		return $this->json([
+		$composer = new JsonObjectComposer();
+		$composer->add([
 			'room' => $room,
 			'transport' => 'websocket',
-			'presence' => $presence->getPresence($room),
-		]);
+		], order: 10);
+		$composer->add(['presence' => $presence->getPresence($room)], order: 20);
+
+		return $this->json($composer->compose());
 	}
 }

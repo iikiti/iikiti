@@ -2,6 +2,8 @@
 
 namespace iikiti\CMS\Plugin;
 
+use iikiti\CMS\Async\FiberHttpClient;
+use iikiti\CMS\Async\FiberTaskRunner;
 use iikiti\CMS\Plugin\Exception\PluginException;
 use iikiti\CMS\Plugin\Exception\PluginNotFoundException;
 use iikiti\CMS\Plugin\Exception\SecurityViolationException;
@@ -39,6 +41,7 @@ class PluginDownloader
 		private readonly string $storePublicKey = '',
 		#[Autowire('%iikiti.plugin.store_timeout%')]
 		private readonly int $timeout = 30,
+		private readonly ?FiberTaskRunner $fiberTaskRunner = null,
 	) {
 	}
 
@@ -164,31 +167,108 @@ class PluginDownloader
 	 */
 	public function checkForUpdate(string $slug, string $currentVersion, ?string $storeUrl = null): ?array
 	{
+		if (null !== $this->fiberTaskRunner) {
+			$result = $this->checkForUpdates([$slug => $currentVersion], $storeUrl)[$slug] ?? null;
+			if ($result instanceof PluginException) {
+				throw $result;
+			}
+
+			return $result;
+		}
+
+		return $this->checkForUpdateSynchronously($slug, $currentVersion, $storeUrl);
+	}
+
+	/**
+	 * Checks independent plugin versions concurrently while keeping package
+	 * downloads and installation sequential.
+	 *
+	 * @param array<string,string> $currentVersions keyed by plugin slug
+	 * @return array<string,array<string,mixed>|PluginException|null>
+	 */
+	public function checkForUpdates(array $currentVersions, ?string $storeUrl = null): array
+	{
+		if ([] === $currentVersions) {
+			return [];
+		}
+
 		$this->resolveSource($storeUrl);
+		if (null === $this->fiberTaskRunner) {
+			$updates = [];
+			foreach ($currentVersions as $slug => $currentVersion) {
+				try {
+					$updates[$slug] = $this->checkForUpdateSynchronously($slug, $currentVersion, $storeUrl);
+				} catch (PluginException $exception) {
+					$updates[$slug] = $exception;
+				}
+			}
 
+			return $updates;
+		}
+
+		$updates = [];
+		foreach (array_chunk($currentVersions, 32, true) as $versionGroup) {
+			$operations = [];
+			foreach ($versionGroup as $slug => $currentVersion) {
+				$url = $this->getStoreUrl().self::API_PREFIX.'/'.rawurlencode($slug).'/updates?current='.rawurlencode($currentVersion);
+				$operations[$slug] = function (FiberHttpClient $http) use ($slug, $currentVersion, $url): array|PluginException|null {
+					try {
+						$response = $http->request('GET', $url, [
+							'timeout' => $this->timeout,
+							'headers' => ['Accept' => 'application/json'],
+						]);
+						if (404 === $response->getStatusCode()) {
+							return null;
+						}
+						if ($response->getStatusCode() >= 400) {
+							throw new PluginException(sprintf('Store returned HTTP %d while checking for updates to "%s".', $response->getStatusCode(), $slug));
+						}
+
+						return $this->parseUpdateResponse($response->toArray(false), $currentVersion);
+					} catch (PluginException $exception) {
+						return $exception;
+					} catch (\Throwable $exception) {
+						return new PluginException(sprintf('Could not reach the plugin store: %s', $exception->getMessage()), 0, $exception);
+					}
+				};
+			}
+
+			$updates += $this->fiberTaskRunner->run($operations, (float) $this->timeout);
+		}
+
+		return $updates;
+	}
+
+	/** @return array<string,mixed>|null */
+	private function checkForUpdateSynchronously(string $slug, string $currentVersion, ?string $storeUrl): ?array
+	{
+		$this->resolveSource($storeUrl);
 		$url = $this->getStoreUrl().self::API_PREFIX.'/'.rawurlencode($slug).'/updates?current='.rawurlencode($currentVersion);
-
 		try {
 			$response = $this->httpClient->request('GET', $url, [
 				'timeout' => $this->timeout,
 				'headers' => ['Accept' => 'application/json'],
 			]);
-
 			if (404 === $response->getStatusCode()) {
 				return null;
 			}
-
 			if ($response->getStatusCode() >= 400) {
 				throw new PluginException(sprintf('Store returned HTTP %d while checking for updates to "%s".', $response->getStatusCode(), $slug));
 			}
 
-			$data = $response->toArray(false);
+			return $this->parseUpdateResponse($response->toArray(false), $currentVersion);
 		} catch (PluginException $exception) {
 			throw $exception;
 		} catch (\Throwable $exception) {
 			throw new PluginException(sprintf('Could not reach the plugin store: %s', $exception->getMessage()), 0, $exception);
 		}
+	}
 
+	/** @param array<string,mixed> $data
+	 *  @return array<string,mixed>|null
+	 */
+	private function parseUpdateResponse(array $data, string $currentVersion): ?array
+	{
 		if (!isset($data['version']) || (string) $data['version'] === $currentVersion) {
 			return null;
 		}

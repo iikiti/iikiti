@@ -54,6 +54,21 @@ class UpdateCommand extends AbstractPluginCommand
 			return self::SUCCESS;
 		}
 
+		$updateChecks = [];
+		if (null === $forcedVersion) {
+			$versions = [];
+			foreach ($installed as $candidateSlug => $plugin) {
+				$versions[$candidateSlug] = $plugin['manifest']->version;
+			}
+			try {
+				$updateChecks = $this->pluginDownloader->checkForUpdates($versions, $storeUrl);
+			} catch (PluginException $exception) {
+				$io->error($exception->getMessage());
+
+				return self::FAILURE;
+			}
+		}
+
 		$updated = 0;
 		foreach ($installed as $candidateSlug => $plugin) {
 			$currentVersion = $plugin['manifest']->version;
@@ -61,7 +76,10 @@ class UpdateCommand extends AbstractPluginCommand
 			try {
 				$targetVersion = $forcedVersion;
 				if (null === $targetVersion) {
-					$update = $this->pluginDownloader->checkForUpdate($candidateSlug, $currentVersion, $storeUrl);
+					$update = $updateChecks[$candidateSlug] ?? null;
+					if ($update instanceof PluginException) {
+						throw $update;
+					}
 					if (null === $update || !isset($update['version'])) {
 						$io->text(sprintf('%s is up to date (%s).', $candidateSlug, $currentVersion));
 						continue;

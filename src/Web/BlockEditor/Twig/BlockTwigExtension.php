@@ -37,7 +37,7 @@ final class BlockTwigExtension extends AbstractExtension
 	public function getFunctions(): array
 	{
 		return [
-			new TwigFunction('iikiti_embed', [$this, 'embed'], ['is_safe' => ['html']]),
+			new TwigFunction('iikiti_embed', [$this, 'embed'], ['is_safe' => ['html'], 'needs_context' => true]),
 			new TwigFunction('iikiti_query', [$this, 'query']),
 			new TwigFunction(
 				'iikiti_region',
@@ -88,10 +88,16 @@ final class BlockTwigExtension extends AbstractExtension
 	}
 
 	/**
+	 * @param array<string,mixed> $context
 	 * @param array<string,mixed> $options
 	 */
-	public function embed(string $url, array $options = []): string
+	public function embed(array $context, string $url, array $options = []): string
 	{
+		$prefetched = $context['iikiti_prefetched_embeds'][$url] ?? null;
+		if ([] === $options && is_string($prefetched)) {
+			return $prefetched;
+		}
+
 		return $this->embedResolver->resolve($url, $options);
 	}
 

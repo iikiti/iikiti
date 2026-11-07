@@ -75,6 +75,28 @@ final class BlockTwigExtensionTest extends TestCase
 		self::assertStringNotContainsString('data-block-', $html);
 	}
 
+	public function testEmbedUsesPrefetchedRequestContext(): void
+	{
+		$twig = new Environment(new ArrayLoader(['embed' => '{{ iikiti_embed(url)|raw }}']), [
+			'autoescape' => false,
+		]);
+		$twig->addExtension(new BlockTwigExtension(
+			new EmbedResolver([], new MockHttpClient(), new ArrayAdapter()),
+			new QueryExecutor([]),
+			IconResolverFactory::bundledOnly(),
+			new IconFontAssets(),
+		));
+
+		$html = $twig->render('embed', [
+			'url' => 'https://twitter.com/example/status/1',
+			'iikiti_prefetched_embeds' => [
+				'https://twitter.com/example/status/1' => '<blockquote>Prefetched</blockquote>',
+			],
+		]);
+
+		self::assertSame('<blockquote>Prefetched</blockquote>', $html);
+	}
+
 	private IconFontAssets $iconFontAssets;
 
 	private function makeIconTwig(): Environment

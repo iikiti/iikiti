@@ -1,0 +1,18 @@
+{# Add response-composition diagnostics to the existing Request / Response panel. #}
+{% extends '@!WebProfiler/Collector/request.html.twig' %}
+
+{% block panel %}
+    {% set panel_html = parent() %}
+    {% if profile is defined and profile.hascollector('iikiti.async_response') %}
+        {% set response_composition %}
+            {% include 'profiler/async_response_section.html.twig' with {
+                collector: profile.getcollector('iikiti.async_response'),
+            } only %}
+        {% endset %}
+        {% set panel_html = panel_html|replace({
+            '<h3>Response Headers</h3>': response_composition ~ '<h3>Response Headers</h3>',
+        }) %}
+    {% endif %}
+
+    {{ panel_html|raw }}
+{% endblock %}

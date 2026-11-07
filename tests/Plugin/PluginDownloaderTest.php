@@ -2,6 +2,7 @@
 
 namespace iikiti\CMS\Tests\Plugin;
 
+use iikiti\CMS\Async\FiberTaskRunner;
 use iikiti\CMS\Plugin\Exception\PluginStateException;
 use iikiti\CMS\Plugin\Exception\SecurityViolationException;
 use iikiti\CMS\Plugin\PluginDownloader;
@@ -67,6 +68,7 @@ final class PluginDownloaderTest extends TestCase
 		bool $requireSignature = true,
 		?string $publicKey = null,
 		?string $fileContents = null,
+		bool $useFiberTaskRunner = false,
 	): PluginDownloader {
 		$fileContents ??= $this->fileContents;
 		$metadata = array_merge([
@@ -99,7 +101,21 @@ final class PluginDownloaderTest extends TestCase
 			requireSignature: $requireSignature,
 			storePublicKey: $publicKey ?? $this->publicKey,
 			timeout: 5,
+			fiberTaskRunner: $useFiberTaskRunner ? new FiberTaskRunner($client) : null,
 		);
+	}
+
+	public function testChecksMultiplePluginVersionsThroughTheFiberTaskRunner(): void
+	{
+		$downloader = $this->downloader(['version' => '2.0.0'], useFiberTaskRunner: true);
+
+		$updates = $downloader->checkForUpdates([
+			'acme-blog' => '1.0.0',
+			'acme-theme' => '1.5.0',
+		]);
+
+		self::assertSame('2.0.0', $updates['acme-blog']['version']);
+		self::assertSame('2.0.0', $updates['acme-theme']['version']);
 	}
 
 	public function testDownloadsAndVerifiesPackage(): void

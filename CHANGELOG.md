@@ -18,6 +18,8 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Changed
 
+- 2026-11-07: Front-end pages now build one DOM document and fill layout, region, shell, CSS, icon, and deferred-embed fragments before the output filter serializes it.
+- 2026-11-07: Page rendering now composes rendered HTML fragments into the document DOM, while existing layout string bodies remain supported.
 - 2026-11-07: Firewall request evaluation now uses cached compiled rulesets, target/name and exact-value indexes, and write-triggered cache invalidation to avoid per-request ruleset database/file reads and full-rule validation.
 - 2026-10-21: Widget styles, classes, and editor metadata now decorate a single rendered root element; redundant wrappers are omitted except for text-only, multi-root, or semantic-container output. Icon display styles now apply to the icon element.
 - 2026-10-21: Icon custom CSS in the editor targets the SVG root instead of the full-width preview wrapper.
@@ -26,6 +28,10 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-11-07: Added a JavaScript-style native Fiber Promise API with executor, chaining, combinators, resolver functions, and grouped execution through the existing scheduler.
+- 2026-11-07: Added response-composition diagnostics under the Response tab in Symfony's Request / Response profiler panel.
+- 2026-11-07: Added opt-in controller response plans for ordered HTML DOM fragments, JSON object/list pieces, and buffered text responses.
+- 2026-11-07: Native Fiber task groups multiplex independent social oEmbed and plugin update metadata requests through the existing Symfony HttpClient; added deterministic HTML fragment and JSON object/list composers without new runtime dependencies.
 - 2026-11-07: Dynamic request firewall with bounded nested AND/OR rules, site-scoped API policies, `iikiti.security` events, and scheduled signed rule-pack validation/conversion.
 - 2026-10-21: Page, Template and widget Custom CSS is syntax-validated, scoped to its target selector, minified, and emitted as a generated page stylesheet.
 - 2026-10-20: CSS editors follow the light/dark theme; widgets have responsive, block-scoped Custom CSS under Style > Advanced, with autocomplete providers receiving block context.

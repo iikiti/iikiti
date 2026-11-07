@@ -7,6 +7,7 @@ use Dom\HTMLDocument;
 use Dom\Node;
 use DOMNode;
 use iikiti\CMS\Utility\Variable as V;
+use iikiti\CMS\Response\Composition\DomHtmlResponse;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\Stopwatch\Stopwatch;
 
@@ -37,11 +38,13 @@ class HtmlFilter extends AbstractFilter
 			return;
 		}
 		$stopwatch->start('html_load');
-		$html = (string) $event->getResponse()->getContent();
-		$dom = HTMLDocument::createFromString(
-			$html,
-			LIBXML_COMPACT | LIBXML_NOERROR
-		);
+		$response = $event->getResponse();
+		$dom = $response instanceof DomHtmlResponse
+			? $response->document()
+			: HTMLDocument::createFromString(
+				(string) $response->getContent(),
+				LIBXML_COMPACT | LIBXML_NOERROR,
+			);
 		$stopwatch->stop('html_load');
 		$stopwatch->start('html_minify');
 		self::minifyHtml($dom);

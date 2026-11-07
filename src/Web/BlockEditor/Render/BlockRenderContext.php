@@ -37,12 +37,20 @@ final class BlockRenderContext
 		public readonly mixed $item = null,
 		public readonly int $queryDepth = 0,
 		public readonly ?CustomCssCollector $customCssCollector = null,
+		/** @var array<string,string> */
+		public readonly array $prefetchedEmbeds = [],
 	) {
 	}
 
 	public function withEditorMode(bool $editorMode): self
 	{
-		return new self($editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $this->item, $this->queryDepth, $this->customCssCollector);
+		return new self($editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $this->item, $this->queryDepth, $this->customCssCollector, $this->prefetchedEmbeds);
+	}
+
+	/** @param array<string,string> $embeds */
+	public function withPrefetchedEmbeds(array $embeds): self
+	{
+		return new self($this->editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $this->item, $this->queryDepth, $this->customCssCollector, $embeds);
 	}
 
 	/**
@@ -52,6 +60,6 @@ final class BlockRenderContext
 	 */
 	public function withItem(mixed $item): self
 	{
-		return new self($this->editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $item, $this->queryDepth + 1, $this->customCssCollector);
+		return new self($this->editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $item, $this->queryDepth + 1, $this->customCssCollector, $this->prefetchedEmbeds);
 	}
 }

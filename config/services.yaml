@@ -96,6 +96,8 @@ services:
     # profile.getCollector('iikiti.database_cache') (getName()). dev/test only.
     iikiti\CMS\Profiler\DatabaseCacheDataCollector: ~
 
+    iikiti\CMS\Profiler\AsyncResponseDataCollector: ~
+
     # Aliases
     iikiti\CMS\Workflow\WorkflowFactoryInterface:
         alias: iikiti\CMS\Workflow\WorkflowFactory
