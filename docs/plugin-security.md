@@ -47,6 +47,15 @@ when the override is set.
 A package that is signed but has no configured public key, or that is unsigned
 when signatures are required, is rejected and deleted from the cache.
 
+Firewall rule packs are a separate data supply-chain boundary. Core/plugin
+sources are fixed HTTPS providers with pinned Ed25519 keys; pack envelopes bind
+the source, version, format, checksum, and exact payload bytes. A pack is
+converted and validated atomically before activation. SecLang is not executed
+as code, unsupported constructs reject the complete pack, and arbitrary URLs or
+unsigned site-provided rulesets are not accepted. See
+[`security-firewall.md`](security-firewall.md) for the envelope and conversion
+contract.
+
 ## Runtime isolation
 
 Plugins run in the same PHP process as the CMS (required for Symfony bundle

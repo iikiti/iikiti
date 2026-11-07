@@ -126,6 +126,12 @@ by this fallback. Operators can exclude a plugin receiver by adding its name to
 the comma-separated `BACKGROUND_RUNNER_EXCLUDED_RECEIVERS` setting; excluded
 queues require a dedicated Messenger worker.
 
+Plugins may register bounded firewall condition services and signed rule-pack
+sources; the core refresh task schedules registered packs through this same
+batch/scheduler path. See [security-firewall.md](security-firewall.md) for the
+condition contract, `iikiti.security` event, pack signature, supported SecLang
+subset, and site policy API.
+
 Lazy execution is best-effort and only advances when web traffic arrives. It
 sends the response before processing, but still occupies a PHP process. Keep
 plugin handlers idempotent, bound their I/O and CPU work, and split large jobs

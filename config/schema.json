@@ -5039,7 +5039,7 @@
                     },
                     "recent_authentication_lifetime": {
                         "$ref": "#/$defs/types/integer",
-                        "minimum": 0,
+                        "minimum": 1,
                         "default": 7200,
                         "description": "Number of seconds an interactive authentication keeps granting IS_AUTHENTICATED_RECENTLY. Use it to make sensitive actions require the user to authenticate again.",
                         "examples": [
@@ -5048,7 +5048,7 @@
                     },
                     "very_recent_authentication_lifetime": {
                         "$ref": "#/$defs/types/integer",
-                        "minimum": 0,
+                        "minimum": 1,
                         "default": 300,
                         "description": "Number of seconds an interactive authentication keeps granting IS_AUTHENTICATED_VERY_RECENTLY, a stricter bar than IS_AUTHENTICATED_RECENTLY for the most sensitive actions.",
                         "examples": [
@@ -5958,12 +5958,17 @@
                                         },
                                         "provider_uri": {
                                             "$ref": "#/$defs/types/scalar",
-                                            "description": "The OIDC Issuer URL (e.g. \"https://accounts.example.com\"). Used for .well-known/openid-configuration discovery."
+                                            "description": "The OIDC Issuer URL (e.g. \"https://accounts.example.com\"). Used for .well-known/openid-configuration discovery unless \"discovery_uri\" is set."
+                                        },
+                                        "discovery_uri": {
+                                            "$ref": "#/$defs/types/scalar",
+                                            "default": null,
+                                            "description": "Absolute URL of the discovery document. The \"issuer\" it announces is still checked against \"provider_uri\"."
                                         },
                                         "http_client": {
                                             "$ref": "#/$defs/types/scalar",
                                             "default": null,
-                                            "description": "The id of the HttpClient service every call to the provider is made with: discovery, JWKS, token and UserInfo endpoints. Defaults to \"http_client\". A scoped client must scope every host the provider announces, not only the issuer."
+                                            "description": "The id of the HttpClient service every call to the provider is made with: discovery, JWKS, token and UserInfo endpoints. Defaults to \"http_client\". A scoped client must scope the discovery host and every host the provider announces."
                                         },
                                         "client_id": {
                                             "$ref": "#/$defs/types/scalar",
@@ -6390,7 +6395,7 @@
                                                 "enabled": false,
                                                 "leeway": 30
                                             },
-                                            "description": "Renew the access token with the refresh token grant of RFC 6749, Section 6, so that it stays usable to call an API on behalf of the logged-in user. The provider only issues a refresh token when it was asked for one, e.g. with the \"offline_access\" scope, and the renewal needs the \"expires_in\" it is optional for the provider to report. Whether this is enabled or not, the tokens are held as the \"oidc_refresh_token\", \"oidc_access_token\" and \"oidc_access_token_expires_at\" attributes of the security token, and the \"security.authenticator.oidc_login.token_refresher.<firewall>\" service renews them on demand. A provider rotating refresh tokens expects the previous one never to be replayed, which a session handler locking the session guarantees, and the default one does."
+                                            "description": "Renew the access token with the refresh token grant of RFC 6749, Section 6, so that it stays usable to call an API on behalf of the logged-in user. The provider only issues a refresh token when it was asked for one, e.g. with the \"offline_access\" scope, and the renewal needs the \"expires_in\" it is optional for the provider to report. Whether this is enabled or not, the tokens are held as the \"oauth2_refresh_token\", \"oauth2_access_token\" and \"oauth2_access_token_expires_at\" attributes of the security token, and the \"security.authenticator.oidc_login.token_refresher.<firewall>\" service renews them on demand. A provider rotating refresh tokens expects the previous one never to be replayed, which a session handler locking the session guarantees, and the default one does."
                                         },
                                         "enable_end_session": {
                                             "$ref": "#/$defs/types/boolean",
@@ -7295,7 +7300,7 @@
                                                 "resource": {
                                                     "$ref": "#/$defs/types/scalar",
                                                     "default": null,
-                                                    "description": "The resource identifier of this firewall: an HTTPS URL, without a fragment (e.g. \"https://api.example.com\" or \"https://example.com/api\"). Its path component is inserted after the well-known path, as RFC 9728, Section 3.1 prescribes, so that one host can serve the metadata of several protected resources. Defaults to the origin the document is served from, which is what a firewall covering a whole application wants."
+                                                    "description": "The resource identifier of this firewall: an HTTPS URL without a fragment (e.g. \"https://example.com/api\"), read when the container is compiled, or a path (e.g. \"/api\") resolved against the origin of the request. Its path is inserted after the well-known path, as RFC 9728, Section 3.1 prescribes. Defaults to the origin of the request, which is what a firewall covering a whole application wants."
                                                 },
                                                 "authorization_servers": {
                                                     "anyOf": [

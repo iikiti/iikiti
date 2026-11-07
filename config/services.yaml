@@ -12,6 +12,13 @@ parameters:
     background_runner_time_limit_seconds: '%env(float:default:background_runner_time_limit_default:BACKGROUND_RUNNER_TIME_LIMIT_SECONDS)%'
     background_runner_excluded_receivers_default: 'failed'
     background_runner_excluded_receivers: '%env(csv:default:background_runner_excluded_receivers_default:BACKGROUND_RUNNER_EXCLUDED_RECEIVERS)%'
+    firewall_max_inspection_bytes_default: 8388608
+    firewall_max_inspection_bytes: '%env(int:default:firewall_max_inspection_bytes_default:FIREWALL_MAX_INSPECTION_BYTES)%'
+    firewall_max_uploads_default: 20
+    firewall_max_uploads: '%env(int:default:firewall_max_uploads_default:FIREWALL_MAX_UPLOADS)%'
+    firewall_max_inspection_milliseconds_default: 5000
+    firewall_max_inspection_milliseconds: '%env(int:default:firewall_max_inspection_milliseconds_default:FIREWALL_MAX_INSPECTION_MILLISECONDS)%'
+    iikiti_security_firewall_pack_directory: '%kernel.project_dir%/var/firewall/rule-packs'
 
 services:
     # default configuration for services in *this* file
@@ -37,6 +44,12 @@ services:
     iikiti\CMS\Service\AssetStorage:
         arguments:
             $directory: '%env(default:digital_asset_storage_dir:DIGITAL_ASSET_STORAGE_DIRECTORY)%'
+
+    iikiti\CMS\Security\Firewall\FirewallRequestContextFactory:
+        arguments:
+            $maxInspectionBytes: '%firewall_max_inspection_bytes%'
+            $maxFiles: '%firewall_max_uploads%'
+            $maxInspectionMilliseconds: '%firewall_max_inspection_milliseconds%'
 
     # Services excluded from auto-registration live under src/Query/ and
     # src/ORM/. Their constructor arguments are resolved via PHP attributes
