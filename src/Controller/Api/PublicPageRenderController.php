@@ -75,7 +75,7 @@ final readonly class PublicPageRenderController
 		return $this->manifest($request, '/'.$slug, $page);
 	}
 
-	#[Route('/api/public/render/home/fragments/{kind}', name: 'api_public_render_home_fragment', requirements: ['kind' => 'region|shell'], methods: ['GET', 'HEAD'])]
+	#[Route('/api/public/render/home/fragments/{kind}', name: 'api_public_render_home_fragment', requirements: ['kind' => 'region|shell|widget'], methods: ['GET', 'HEAD'])]
 	public function homeFragment(Request $request, string $kind): JsonResponse
 	{
 		$this->assertPublicRenderAccess($request);
@@ -83,7 +83,7 @@ final readonly class PublicPageRenderController
 		return $this->fragment($request, '/', $kind, home: true);
 	}
 
-	#[Route('/api/public/render/pages/{slug}/fragments/{kind}', name: 'api_public_render_page_fragment', requirements: ['slug' => '[\w\d_-]+', 'kind' => 'region|shell'], methods: ['GET', 'HEAD'])]
+	#[Route('/api/public/render/pages/{slug}/fragments/{kind}', name: 'api_public_render_page_fragment', requirements: ['slug' => '[\w\d_-]+', 'kind' => 'region|shell|widget'], methods: ['GET', 'HEAD'])]
 	public function pageFragment(Request $request, string $slug, string $kind): JsonResponse
 	{
 		$this->assertPublicRenderAccess($request);
@@ -153,7 +153,14 @@ final readonly class PublicPageRenderController
 		}
 
 		$renderRequest = $this->renderRequest($request, $path, stripFragmentParameters: true);
-		$fragment = $this->pageRendering->renderFragment($renderRequest, $page, $home, $kind, $id);
+		$fragment = $this->pageRendering->renderFragment(
+			$renderRequest,
+			$page,
+			$home,
+			$kind,
+			$id,
+			is_string($revision) ? $revision : null,
+		);
 		if (null === $fragment) {
 			if ('region' === $kind && '@main' === $id && null === $revision) {
 				return new JsonResponse(['found' => false], Response::HTTP_OK, ['Cache-Control' => 'private, no-store']);
@@ -166,6 +173,9 @@ final readonly class PublicPageRenderController
 				Response::HTTP_CONFLICT,
 				['Cache-Control' => 'private, no-store'],
 			);
+		}
+		if (false === ($fragment['found'] ?? true)) {
+			throw new NotFoundHttpException('The requested page fragment does not exist.');
 		}
 
 		return new JsonResponse(

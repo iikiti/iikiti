@@ -18,6 +18,7 @@ use iikiti\CMS\Web\BlockEditor\Query\QuerySourceInterface;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderContext;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderer;
 use iikiti\CMS\Web\BlockEditor\Render\CustomCssCollector;
+use iikiti\CMS\Web\BlockEditor\Render\WidgetFragmentPlan;
 use PHPUnit\Framework\TestCase;
 use Twig\Environment;
 use Twig\Loader\FilesystemLoader;
@@ -147,6 +148,36 @@ final class BlockRendererTest extends TestCase
 		$this->assertStringContainsString('iikiti-container', $html);
 		$this->assertStringContainsString('iikiti-heading', $html);
 		$this->assertStringContainsString('<h2', $html);
+	}
+
+	public function testAsyncWidgetSlotsRenderParentsBeforeMarkedDescendants(): void
+	{
+		$tree = [[
+			'id' => 'root',
+			'type' => 'container',
+			'children' => [
+				['id' => 'inline', 'type' => 'text', 'content' => ['content' => 'Inline child']],
+				['id' => 'async', 'type' => 'text', 'content' => ['content' => 'Async child'], 'renderMode' => 'always'],
+			],
+		]];
+		$context = new BlockRenderContext(editorMode: false);
+		$rootPath = WidgetFragmentPlan::rootPath('region', 'main');
+		$plan = $this->renderer->planWidgetFragments([
+			['kind' => 'region', 'id' => 'main', 'role' => 'main', 'tree' => $tree],
+		], $context, str_repeat('d', 64), 10);
+
+		$region = $this->renderer->renderRegionTree($tree, $context, $plan, $rootPath);
+		$root = $plan->entry($plan->descriptors()[0]['id']);
+		self::assertNotNull($root);
+		$rootHtml = $this->renderer->renderWidgetFragment($root['node'], $context, $plan, $root['path']);
+		$child = $plan->entry($plan->descriptors()[1]['id']);
+		self::assertNotNull($child);
+		$childHtml = $this->renderer->renderWidgetFragment($child['node'], $context, $plan, $child['path']);
+
+		self::assertStringContainsString($plan->descriptors()[0]['slot'], $region);
+		self::assertStringContainsString('Inline child', $rootHtml);
+		self::assertStringContainsString($plan->descriptors()[1]['slot'], $rootHtml);
+		self::assertStringContainsString('Async child', $childHtml);
 	}
 
 	public function testSingleRootWidgetUsesItsContentElementAsTheBlockElement(): void

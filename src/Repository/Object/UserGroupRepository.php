@@ -31,4 +31,16 @@ class UserGroupRepository extends ObjectRepository
 
 		return $result;
 	}
+
+	/** @return list<UserGroup> */
+	public function findAvailableForSite(int $siteId): array
+	{
+		$groups = $this->findAll(['filterBySite' => false]);
+		$groups = array_values(array_filter($groups, static fn (UserGroup $group): bool =>
+			in_array((string) $group->getSiteId(), ['0', (string) $siteId], true)));
+		usort($groups, static fn (UserGroup $left, UserGroup $right): int =>
+			strnatcasecmp($left->getLabel() ?? $left->getName() ?? '', $right->getLabel() ?? $right->getName() ?? ''));
+
+		return $groups;
+	}
 }

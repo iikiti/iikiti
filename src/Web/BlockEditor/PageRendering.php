@@ -103,9 +103,9 @@ final class PageRendering
 	}
 
 	/**
-	 * @return array{html:string,styles:list<array{id:?string,css:string}>,revision:string,id:string}|null
+	 * @return array{html:string,styles:list<array{id:?string,css:string}>,revision:string,id:string,found?:bool}|null
 	 */
-	public function renderFragment(Request $request, ?DbObject $object, bool $home, string $kind, string $id): ?array
+	public function renderFragment(Request $request, ?DbObject $object, bool $home, string $kind, string $id, ?string $expectedRevision = null): ?array
 	{
 		$state = $this->prepareRenderState($request, $object, $home, includePageStyles: false);
 
@@ -116,6 +116,7 @@ final class PageRendering
 			$kind,
 			$id,
 			$state['resolution_context'],
+			$expectedRevision,
 		);
 	}
 

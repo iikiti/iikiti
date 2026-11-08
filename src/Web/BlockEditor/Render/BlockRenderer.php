@@ -53,6 +53,7 @@ final class BlockRenderer
 
 	/** @var array<string,true> query block ids currently being rendered (cycle guard) */
 	private array $activeQueryIds = [];
+	private readonly WidgetFragmentPlanner $fragmentPlanner;
 
 	public function __construct(
 		private readonly BlockTypeRegistry $registry,
@@ -60,7 +61,17 @@ final class BlockRenderer
 		private readonly QueryExecutor $queryExecutor,
 		private readonly QueryFieldCatalog $queryFields,
 		private readonly CustomCssCompiler $customCssCompiler,
+		?WidgetFragmentPlanner $fragmentPlanner = null,
 	) {
+		$this->fragmentPlanner = $fragmentPlanner ?? new WidgetFragmentPlanner($registry);
+	}
+
+	/**
+	 * @param list<array{kind:string,id:string,role:string,tree:list<array<string,mixed>>}> $roots
+	 */
+	public function planWidgetFragments(array $roots, BlockRenderContext $context, string $revision, int $budget): WidgetFragmentPlan
+	{
+		return $this->fragmentPlanner->plan($roots, $context, $revision, $budget);
 	}
 
 	/**
@@ -74,7 +85,13 @@ final class BlockRenderer
 	 *
 	 * @param list<array<string,mixed>> $tree
 	 */
-	public function renderRegionTree(?array $tree, BlockRenderContext $context): string
+	public function renderRegionTree(
+		?array $tree,
+		BlockRenderContext $context,
+		?WidgetFragmentPlan $fragmentPlan = null,
+		?string $rootPath = null,
+		?string $fragmentTargetPath = null,
+	): string
 	{
 		if (empty($tree)) {
 			return '';
@@ -82,14 +99,14 @@ final class BlockRenderer
 
 		$rules = ['responsive' => [], 'customCss' => []];
 		$nodes = [];
-		foreach ($tree as $node) {
+		foreach ($tree as $index => $node) {
 			$type = (string) ($node['type'] ?? '');
 			if ($context->editorMode || RootContainerRule::isAllowedAtRoot($type)) {
-				$nodes[] = $node;
+				$nodes[$index] = $node;
 			}
 		}
 
-		$html = $this->renderNodesWithRules($nodes, $context, $rules);
+		$html = $this->renderNodesWithRules($nodes, $context, $rules, $fragmentPlan, $rootPath ?? '', $fragmentTargetPath);
 
 		return $html.$this->responsiveStylesheet($rules['responsive']).$this->customCssStylesheet($rules['customCss'], $context);
 	}
@@ -100,7 +117,13 @@ final class BlockRenderer
 	 *
 	 * @param list<array<string,mixed>> $tree Ordered list of block nodes
 	 */
-	public function renderTree(?array $tree, BlockRenderContext $context): string
+	public function renderTree(
+		?array $tree,
+		BlockRenderContext $context,
+		?WidgetFragmentPlan $fragmentPlan = null,
+		?string $rootPath = null,
+		?string $fragmentTargetPath = null,
+	): string
 	{
 		if (empty($tree)) {
 			return '';
@@ -108,7 +131,7 @@ final class BlockRenderer
 
 		$rules = ['responsive' => [], 'customCss' => []];
 
-		$html = $this->renderNodesWithRules($tree, $context, $rules);
+		$html = $this->renderNodesWithRules($tree, $context, $rules, $fragmentPlan, $rootPath ?? '', $fragmentTargetPath);
 
 		return $html.$this->responsiveStylesheet($rules['responsive']).$this->customCssStylesheet($rules['customCss'], $context);
 	}
@@ -117,11 +140,19 @@ final class BlockRenderer
 	 * @param list<array<string,mixed>>                                                      $nodes
 	 * @param array{responsive:array<string,array<string,array{width:int,declarations:array<string,string>}>>,customCss:list<string>} $rules
 	 */
-	private function renderNodesWithRules(array $nodes, BlockRenderContext $context, array &$rules): string
+	private function renderNodesWithRules(
+		array $nodes,
+		BlockRenderContext $context,
+		array &$rules,
+		?WidgetFragmentPlan $fragmentPlan = null,
+		string $parentPath = '',
+		?string $fragmentTargetPath = null,
+	): string
 	{
 		$html = '';
-		foreach ($nodes as $node) {
-			$html .= $this->renderNodeWithRules($node, $context, $rules);
+		foreach ($nodes as $index => $node) {
+			$path = '' === $parentPath ? (string) $index : WidgetFragmentPlan::childPath($parentPath, (int) $index);
+			$html .= $this->renderNodeWithRules($node, $context, $rules, $fragmentPlan, $path, $fragmentTargetPath);
 		}
 
 		return $html;
@@ -139,12 +170,37 @@ final class BlockRenderer
 		return $html.$this->responsiveStylesheet($rules['responsive']).$this->customCssStylesheet($rules['customCss'], $context);
 	}
 
+	/** @param array<string,mixed> $node */
+	public function renderWidgetFragment(array $node, BlockRenderContext $context, WidgetFragmentPlan $fragmentPlan, string $path): string
+	{
+		if (null === $fragmentPlan->descriptorAtPath($path)) {
+			return '';
+		}
+
+		$rules = ['responsive' => [], 'customCss' => []];
+		$html = $this->renderNodeWithRules($node, $context, $rules, $fragmentPlan, $path, $path);
+
+		return $html.$this->responsiveStylesheet($rules['responsive']).$this->customCssStylesheet($rules['customCss'], $context);
+	}
+
 	/**
 	 * @param array<string,mixed>                                                            $node
 	 * @param array{responsive:array<string,array<string,array{width:int,declarations:array<string,string>}>>,customCss:list<string>} $rules
 	 */
-	private function renderNodeWithRules(array $node, BlockRenderContext $context, array &$rules): string
+	private function renderNodeWithRules(
+		array $node,
+		BlockRenderContext $context,
+		array &$rules,
+		?WidgetFragmentPlan $fragmentPlan = null,
+		string $path = '',
+		?string $fragmentTargetPath = null,
+	): string
 	{
+		$descriptor = null !== $fragmentPlan ? $fragmentPlan->descriptorAtPath($path) : null;
+		if (null !== $descriptor && $path !== $fragmentTargetPath) {
+			return '<template data-iikiti-widget-slot="'.htmlspecialchars($descriptor['slot'], ENT_QUOTES).'"></template>';
+		}
+
 		$type = (string) ($node['type'] ?? '');
 		$blockType = $this->registry->get($type);
 
@@ -176,7 +232,7 @@ final class BlockRenderer
 		// query's row loop) fall back to the legacy rendering to bound the work.
 		$extraVars = [];
 		if ('query' === $type && $blockType->acceptsChildren && is_array($children) && [] !== $children && 0 === $context->queryDepth) {
-			$extraVars = $this->queryRowVars($node, $content, $children, $context, $rules);
+			$extraVars = $this->queryRowVars($node, $content, $children, $context, $rules, $fragmentPlan, $path, $fragmentTargetPath);
 		}
 
 		// Per-item dynamic bindings: overlay resolved row values onto the block's
@@ -186,7 +242,7 @@ final class BlockRenderer
 		}
 
 		$childrenHtml = ($blockType->acceptsChildren && is_array($children) && [] === $extraVars) ?
-			$this->renderNodesWithRules($children, $context, $rules) :
+			$this->renderNodesWithRules($children, $context, $rules, $fragmentPlan, $path, $fragmentTargetPath) :
 			'';
 
 		$inner = $this->renderTemplate($blockType, $node, $content, $childrenHtml, $context, $extraVars);
@@ -210,7 +266,16 @@ final class BlockRenderer
 	 *
 	 * @return array<string,mixed> template variables (`items`, `children_items`, `children_template`)
 	 */
-	private function queryRowVars(array $node, array $content, array $children, BlockRenderContext $context, array &$rules): array
+	private function queryRowVars(
+		array $node,
+		array $content,
+		array $children,
+		BlockRenderContext $context,
+		array &$rules,
+		?WidgetFragmentPlan $fragmentPlan,
+		string $path,
+		?string $fragmentTargetPath,
+	): array
 	{
 		$blockId = (string) ($node['id'] ?? '');
 		if ('' !== $blockId && isset($this->activeQueryIds[$blockId])) {
@@ -229,7 +294,7 @@ final class BlockRenderer
 		}
 		try {
 			foreach ($items as $item) {
-				$childrenItems[] = $this->renderNodesWithRules($children, $context->withItem($item), $rules);
+				$childrenItems[] = $this->renderNodesWithRules($children, $context->withItem($item), $rules, $fragmentPlan, $path, $fragmentTargetPath);
 			}
 		} finally {
 			if ('' !== $blockId) {
@@ -239,7 +304,7 @@ final class BlockRenderer
 
 		$vars = ['items' => $items, 'children_items' => $childrenItems];
 		if ($context->editorMode) {
-			$vars['children_template'] = $this->renderNodesWithRules($children, $context, $rules);
+			$vars['children_template'] = $this->renderNodesWithRules($children, $context, $rules, $fragmentPlan, $path, $fragmentTargetPath);
 		}
 
 		return $vars;
@@ -585,6 +650,7 @@ final class BlockRenderer
 				// template rendering); null outside a `query` child context.
 				'item' => $context->item,
 				'iikiti_prefetched_embeds' => $context->prefetchedEmbeds,
+				'render_cache' => $context->renderCacheTags ?? new RenderCacheTagCollector(),
 			] + $extraVars);
 		} catch (\Throwable $e) {
 			return $this->placeholder($blockType->type, $e->getMessage());

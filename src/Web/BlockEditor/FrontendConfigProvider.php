@@ -7,6 +7,8 @@ namespace iikiti\CMS\Web\BlockEditor;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Plugin\PluginRegistry;
+use iikiti\CMS\Registry\SiteRegistry;
+use iikiti\CMS\Repository\Object\UserGroupRepository;
 use iikiti\CMS\Response\Composition\JsonObjectComposer;
 use iikiti\CMS\Security\ApiTokenManager;
 use iikiti\CMS\Security\PermissionChecker;
@@ -35,6 +37,7 @@ final class FrontendConfigProvider
 		#[Autowire('%env(string:INTERNAL_API_BASE_URL)%')]
 		private readonly string $apiBaseUrl = '',
 		private readonly ?RequestStack $requestStack = null,
+		private readonly ?UserGroupRepository $userGroups = null,
 	) {
 	}
 
@@ -84,6 +87,7 @@ final class FrontendConfigProvider
 			'breakpoints' => ResponsiveBreakpoints::WIDTHS,
 			'notifications' => $this->notifications($user),
 			'timezone' => $user->getTimeZone()?->getId(),
+			'cacheGroups' => $this->cacheGroups(),
 		], order: 30);
 		$composer->add([
 			'plugins' => $this->pluginEditorUis(),
@@ -185,5 +189,32 @@ final class FrontendConfigProvider
 		$scheme = $request?->headers->get('X-SITE-SCHEME') ?: $request?->getScheme() ?: 'https';
 
 		return in_array($scheme, ['http', 'https'], true) ? $scheme : 'https';
+	}
+
+	/** @return list<array{id:string,label:string}> */
+	private function cacheGroups(): array
+	{
+		if (null === $this->userGroups || !SiteRegistry::hasCurrent()) {
+			return [];
+		}
+
+		$siteId = SiteRegistry::getCurrent()->getId();
+		if (null === $siteId) {
+			return [];
+		}
+
+		$groups = [];
+		foreach ($this->userGroups->findAvailableForSite((int) $siteId) as $group) {
+			$id = $group->getId();
+			if (null === $id) {
+				continue;
+			}
+			$groups[] = [
+				'id' => (string) $id,
+				'label' => $group->getLabel() ?: $group->getName() ?: sprintf('Group %s', $id),
+			];
+		}
+
+		return $groups;
 	}
 }

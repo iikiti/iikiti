@@ -354,7 +354,7 @@ For every `window.iikiti` member and readiness signalling (`whenReady`), see
 
 ## Editor sidebar extension API
 
-Plugins can extend the block editor settings sidebar (Content / Element / Style)
+Plugins can extend the block editor settings sidebar (Content / Element / Style / Rendering)
 through the same API the core uses — exposed at runtime as
 `window.iikiti.editor.sidebar` (available once the editor loads).
 
@@ -396,6 +396,47 @@ sb.setActiveSection('element');
 const groups = sb.getGroups('seo');
 console.log(groups);
 ```
+
+### Async widget rendering and output cache
+
+The core **Rendering** section stores async and cache policies directly on each
+block node. Programmatic block-tree producers can use the same fields:
+
+```php
+$widget['renderMode'] = 'always'; // default | always | never
+$widget['cacheMode'] = 'user_group'; // none | global | user_group
+$widget['cacheGroupId'] = '27'; // required for user_group
+```
+
+`default` makes a direct region/shell child its own API fragment and leaves
+deeper descendants inline. `always` opts a descendant into an independent
+fragment; `never` keeps that node inline. Cache policy is active only for an
+independent fragment and defaults to `none`. `global` shares within the current
+site/render context. `user_group` shares only among current members of the
+selected site/global `UserGroup`; nonmembers render normally but bypass that
+entry. These are cache-sharing scopes, not visibility controls. Shared policies
+are an assertion that the widget output is identical across the selected
+audience; do not use them for per-user output. Query blocks and their repeated
+row children remain atomic.
+
+Rendered output uses a system-configurable `CACHE_RENDERED_FRAGMENT_TTL`
+(default 300 seconds). CMS object/property writes invalidate rendered fragments;
+remote or other undeclared dependencies rely on TTL. A Twig block template can
+declare a dependency tag so the fragment can be invalidated when plugin data
+changes:
+
+```twig
+{{ render_cache.add('catalog_posts') }}
+```
+
+Inject `iikiti\CMS\Web\BlockEditor\Render\RenderedFragmentCache` in the
+plugin service that changes that data and call
+`invalidateTags(['catalog_posts'])`. Tags must use letters, digits, `_`, `-`, or
+`.`. Cache failures fall back to rendering normally. The rendered-fragment cache
+is separate from Doctrine query-result and oEmbed caches, and public API/HTML
+responses remain `private, no-store`. See
+[fiber-request-composition.md](fiber-request-composition.md) for the full
+composition, invalidation, and security model.
 
 Plugins can also extend the contextual Page/Template Settings sidebar without
 adding tabs to a selected block's Content / Element / Style settings. Its

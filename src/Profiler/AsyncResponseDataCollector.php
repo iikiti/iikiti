@@ -66,6 +66,14 @@ final class AsyncResponseDataCollector extends DataCollector
 		$this->data = $data;
 	}
 
+	public function recordRenderedFragmentCache(bool $hit): void
+	{
+		$data = $this->currentData();
+		$key = $hit ? 'render_cache_hits' : 'render_cache_misses';
+		$data[$key] = ($data[$key] ?? 0) + 1;
+		$this->data = $data;
+	}
+
 	public function collect(Request $request, Response $response, ?\Throwable $exception = null): void
 	{
 		$data = $this->currentData();
@@ -155,6 +163,16 @@ final class AsyncResponseDataCollector extends DataCollector
 	public function getFragmentCount(): int
 	{
 		return array_sum(array_column($this->getCompositions(), 'fragments'));
+	}
+
+	public function getRenderedFragmentCacheHits(): int
+	{
+		return (int) ($this->currentData()['render_cache_hits'] ?? 0);
+	}
+
+	public function getRenderedFragmentCacheMisses(): int
+	{
+		return (int) ($this->currentData()['render_cache_misses'] ?? 0);
 	}
 
 	public function getTotalWorkTimeMs(): float

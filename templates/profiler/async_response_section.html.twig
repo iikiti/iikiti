@@ -4,6 +4,7 @@
         <tr><th>Fiber task groups</th><td>{{ collector.fiberGroupCount }}</td></tr>
         <tr><th>Fiber-managed HTTP requests</th><td>{{ collector.httpRequestCount }}</td></tr>
         <tr><th>DOM document</th><td>{{ collector.domDocumentReused ? 'reused' : 'not applicable' }}</td></tr>
+        <tr><th>Rendered-fragment cache</th><td>{{ collector.renderedFragmentCacheHits }} hits / {{ collector.renderedFragmentCacheMisses }} misses</td></tr>
         <tr><th>Response mode</th><td>{{ collector.response.mode }}</td></tr>
         <tr><th>Content type</th><td><code>{{ collector.response.content_type }}</code></td></tr>
         <tr><th>Status</th><td>{{ collector.response.status }}</td></tr>

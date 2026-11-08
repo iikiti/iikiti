@@ -55,12 +55,31 @@ The cache pool `cache.database` is defined in
 `config/packages/cache.yaml` and uses the `cache.app` adapter (filesystem by
 default, Redis when `CACHE_DSN` is configured).
 
+## Rendered Widget Output Cache
+
+Consumer-mode widget HTML has a separate `cache.rendered_fragments` pool. It
+does not use `DatabaseCacheManager` or the query-cache strategy setting: block
+instances independently choose `none` (default), `global` within the current
+site, or a `UserGroup` cache-sharing cohort. The full behavior, membership
+checks, editor bypass, and plugin dependency tags are documented in
+[fiber-request-composition.md](fiber-request-composition.md).
+
+`CACHE_RENDERED_FRAGMENT_TTL` configures its system-wide TTL (default 300
+seconds), independently from `CACHE_DATABASE_TTL`. CMS object/property writes
+invalidate rendered fragments; `ObjectsQuerySource` keys also include the
+`DbObject` and `ObjectProperty` generations, so a newly rendered fragment does
+not get refilled from stale object-query results. `cacheMode: none` disables
+rendered HTML caching only; existing query-result caching and other provider
+caches such as oEmbed remain unchanged. API and consumer responses stay
+`private, no-store`; the fragment cache is internal to the API runtime.
+
 ```dotenv
 # .env
 CACHE_STRATEGY=doctrine_result_cache
 CACHE_DATABASE_TTL=300
 CACHE_DATABASE_ENABLED=true
 CACHE_DATABASE_BATCH_PATTERN=batch_
+CACHE_RENDERED_FRAGMENT_TTL=300
 ```
 
 To use Redis as the backing store:

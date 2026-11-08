@@ -25,6 +25,8 @@ final class AsyncResponseDataCollectorTest extends TestCase
 		$collector->recordHttpRequest();
 		$collector->recordHttpRequest();
 		$collector->recordComposition('html-dom', 4);
+		$collector->recordRenderedFragmentCache(true);
+		$collector->recordRenderedFragmentCache(false);
 		$response = new DomHtmlResponse(HTMLDocument::createFromString('<!DOCTYPE html><html><body></body></html>'));
 
 		$collector->collect(Request::create('/'), $response);
@@ -33,6 +35,8 @@ final class AsyncResponseDataCollectorTest extends TestCase
 		self::assertSame(1, $collector->getFiberGroupCount());
 		self::assertSame(2, $collector->getHttpRequestCount());
 		self::assertSame(4, $collector->getFragmentCount());
+		self::assertSame(1, $collector->getRenderedFragmentCacheHits());
+		self::assertSame(1, $collector->getRenderedFragmentCacheMisses());
 		self::assertTrue($collector->isDomDocumentReused());
 		self::assertTrue($collector->isResponsePathUsed());
 		self::assertSame('DOM HTML document', $collector->getResponse()['mode']);

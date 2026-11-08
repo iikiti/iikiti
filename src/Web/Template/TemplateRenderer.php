@@ -11,8 +11,12 @@ use iikiti\CMS\Entity\Object\Template;
 use iikiti\CMS\Profiler\AsyncResponseDataCollector;
 use iikiti\CMS\Response\Composition\HtmlFragmentComposer;
 use iikiti\CMS\Web\BlockEditor\Embed\EmbedResolver;
+use iikiti\CMS\Web\BlockEditor\RenderFragmentLimits;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderContext;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderer;
+use iikiti\CMS\Web\BlockEditor\Render\RenderCacheTagCollector;
+use iikiti\CMS\Web\BlockEditor\Render\RenderedFragmentCache;
+use iikiti\CMS\Web\BlockEditor\Render\WidgetFragmentPlan;
 use Twig\Environment;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
@@ -36,6 +40,7 @@ final class TemplateRenderer
 		private readonly ?FiberTaskRunner $fiberTaskRunner = null,
 		private readonly ?EmbedResolver $embedResolver = null,
 		private readonly ?AsyncResponseDataCollector $profiler = null,
+		private readonly ?RenderedFragmentCache $renderedFragmentCache = null,
 	) {
 	}
 
@@ -243,10 +248,10 @@ final class TemplateRenderer
 	}
 
 	/**
-	 * Renders a server-authored layout skeleton and describes its fixed fragment slots.
+	 * Renders a server-authored layout skeleton and describes its fixed fragments.
 	 *
 	 * @param array<string,list<array<string,mixed>>> $regionTrees
-	 * @return array{html:string,revision:string,fragments:list<array{kind:string,id:string,role:string,slot:string}>}
+	 * @return array{html:string,revision:string,fragments:list<array{kind:string,id:string,role:string,slot:string,depth?:int}>}
 	 */
 	public function renderManifest(
 		Template $template,
@@ -324,15 +329,26 @@ final class TemplateRenderer
 
 			return str_contains($html, sprintf('%s="%s"', $attribute, $fragment['slot']));
 		}));
+		$visibleRoots = [];
+		foreach ($fragments as $fragment) {
+			$visibleRoots[$fragment['kind'].':'.$fragment['id']] = true;
+		}
+		$widgetPlan = $this->widgetPlan($template, $context, $regionTrees, $shells, $revision);
+		foreach ($widgetPlan->descriptors() as $descriptor) {
+			$entry = $widgetPlan->entry($descriptor['id']);
+			if (null !== $entry && isset($visibleRoots[$entry['root_kind'].':'.$entry['root_id']])) {
+				$fragments[] = $descriptor;
+			}
+		}
 
 		return ['html' => $html, 'revision' => $revision, 'fragments' => $fragments];
 	}
 
 	/**
-	 * Renders exactly one API-authorized region or shell from the current page state.
+	 * Renders exactly one API-authorized region, shell, or planned widget fragment.
 	 *
 	 * @param array<string,list<array<string,mixed>>> $regionTrees
-	 * @return array{html:string,styles:list<array{id:?string,css:string}>,revision:string,id:string}|null
+	 * @return array{html:string,styles:list<array{id:?string,css:string}>,revision:string,id:string,found?:bool}|null
 	 */
 	public function renderFragment(
 		Template $template,
@@ -341,12 +357,18 @@ final class TemplateRenderer
 		string $kind,
 		string $id,
 		?TemplateResolutionContext $resolutionContext = null,
+		?string $expectedRevision = null,
 	): ?array {
 		$shells = $this->resolveShells($resolutionContext);
 		$revision = $this->renderRevision($template, $context, $regionTrees, $shells);
+		if (null !== $expectedRevision && !hash_equals($revision, $expectedRevision)) {
+			return ['html' => '', 'styles' => [], 'revision' => $revision, 'id' => $id, 'found' => false];
+		}
+		$widgetPlan = $this->widgetPlan($template, $context, $regionTrees, $shells, $revision);
 		$tree = null;
 		$found = false;
 		$resolvedId = $id;
+		$widgetEntry = null;
 		if ('region' === $kind) {
 			foreach ($template->getRegions() as $region) {
 				$regionId = (string) ($region['id'] ?? '');
@@ -367,6 +389,12 @@ final class TemplateRenderer
 					}
 				}
 			}
+		} elseif ('widget' === $kind) {
+			$widgetEntry = $widgetPlan->entry($id);
+			if (null !== $widgetEntry) {
+				$tree = [$widgetEntry['node']];
+				$found = true;
+			}
 		} else {
 			return null;
 		}
@@ -375,18 +403,113 @@ final class TemplateRenderer
 			return null;
 		}
 
-		if (null !== $this->fiberTaskRunner && null !== $this->embedResolver) {
-			$fragmentTrees = 'region' === $kind ? [$resolvedId => $tree ?? []] : ['shell' => $tree ?? []];
-			$context = $context->withPrefetchedEmbeds($this->embedResolver->prefetchOembeds(
-				$this->embedUrls($fragmentTrees, $context, []),
-				$this->fiberTaskRunner,
-			));
+		if ('widget' === $kind && null !== $widgetEntry) {
+			$renderWidget = function (RenderCacheTagCollector $cacheTags) use ($widgetEntry, $context, $widgetPlan): array {
+				$fragmentContext = $context->withRenderCacheTags($cacheTags);
+				if (null !== $this->fiberTaskRunner && null !== $this->embedResolver) {
+					$fragmentContext = $fragmentContext->withPrefetchedEmbeds($this->embedResolver->prefetchOembeds(
+						$this->embedUrls(['widget' => [$widgetEntry['node']]], $fragmentContext, []),
+						$this->fiberTaskRunner,
+					));
+				}
+
+				return [
+					'html' => $this->blockRenderer->renderWidgetFragment($widgetEntry['node'], $fragmentContext, $widgetPlan, $widgetEntry['path']),
+					'styles' => $fragmentContext->customCssCollector?->fragments($fragmentContext->editorMode) ?? [],
+				];
+			};
+			$rendered = null !== $this->renderedFragmentCache
+				? $this->renderedFragmentCache->remember($widgetEntry['node'], $context, $revision, $id, $renderWidget)
+				: $renderWidget(new RenderCacheTagCollector());
+			$html = $rendered['html'];
+			$styles = $rendered['styles'];
+		} else {
+			if (null !== $this->fiberTaskRunner && null !== $this->embedResolver) {
+				$fragmentTrees = 'region' === $kind ? [$resolvedId => $tree ?? []] : ['shell' => $tree ?? []];
+				$context = $context->withPrefetchedEmbeds($this->embedResolver->prefetchOembeds(
+					$this->embedUrls($fragmentTrees, $context, []),
+					$this->fiberTaskRunner,
+				));
+			}
+			$rootPath = WidgetFragmentPlan::rootPath($kind, $resolvedId);
+			$html = $this->blockRenderer->renderRegionTree($tree, $context, $widgetPlan, $rootPath);
+			$styles = $context->customCssCollector?->fragments($context->editorMode) ?? [];
 		}
 
-		$html = $this->blockRenderer->renderRegionTree($tree, $context);
-		$styles = $context->customCssCollector?->fragments($context->editorMode) ?? [];
-
 		return ['html' => $html, 'styles' => $styles, 'revision' => $revision, 'id' => $resolvedId];
+	}
+
+	/**
+	 * Build the same deterministic widget plan for manifests and fragment requests.
+	 * The budget accounts for all configured region/shell requests, including roots
+	 * the selected layout may not use, so every API request makes the same choice.
+	 *
+	 * @param array<string,list<array<string,mixed>>> $regionTrees
+	 * @param array<string,list<array<string,mixed>>> $shells
+	 */
+	private function widgetPlan(
+		Template $template,
+		BlockRenderContext $context,
+		array $regionTrees,
+		array $shells,
+		string $revision,
+	): WidgetFragmentPlan {
+		$roots = $this->widgetRoots($template, $regionTrees, $shells);
+
+		return $this->blockRenderer->planWidgetFragments(
+			$roots,
+			$context,
+			$revision,
+			max(0, RenderFragmentLimits::MAX_PER_PAGE - count($roots)),
+		);
+	}
+
+	/**
+	 * @param array<string,list<array<string,mixed>>> $regionTrees
+	 * @param array<string,list<array<string,mixed>>> $shells
+	 * @return list<array{kind:string,id:string,role:string,tree:list<array<string,mixed>>}>
+	 */
+	private function widgetRoots(Template $template, array $regionTrees, array $shells): array
+	{
+		$roots = [];
+		$regions = $template->getRegions();
+		$regionPriority = ['main' => 0, 'header' => 2];
+		usort($regions, static fn (array $left, array $right): int =>
+			($regionPriority[$left['role'] ?? ''] ?? 1) <=> ($regionPriority[$right['role'] ?? ''] ?? 1));
+		foreach ($regions as $region) {
+			$id = (string) ($region['id'] ?? '');
+			if ('' === $id) {
+				continue;
+			}
+			$tree = $regionTrees[$id] ?? [];
+			$roots[] = [
+				'kind' => 'region',
+				'id' => $id,
+				'role' => (string) ($region['role'] ?? ''),
+				'tree' => $tree,
+			];
+		}
+
+		$roles = array_keys($shells);
+		$rolePriority = ['aside' => 0, 'sidebar' => 0, 'footer' => 1, 'dialog' => 2, 'header' => 3];
+		usort($roles, static fn (string $left, string $right): int => ($rolePriority[$left] ?? 1) <=> ($rolePriority[$right] ?? 1));
+		foreach ($roles as $role) {
+			foreach ($shells[$role] as $shell) {
+				$id = (string) ($shell['id'] ?? '');
+				if ('' === $id) {
+					continue;
+				}
+				$tree = $shell['blocks'] ?? [];
+				$roots[] = [
+					'kind' => 'shell',
+					'id' => $id,
+					'role' => $role,
+					'tree' => is_array($tree) ? array_values($tree) : [],
+				];
+			}
+		}
+
+		return $roots;
 	}
 
 	/**

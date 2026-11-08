@@ -6,7 +6,9 @@ namespace iikiti\CMS\Web\BlockEditor\Query;
 
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\DbObject;
+use iikiti\CMS\Entity\ObjectProperty;
 use Psr\Cache\CacheItemPoolInterface;
+use iikiti\CMS\Service\DatabaseCacheManager;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
@@ -19,6 +21,7 @@ final class ObjectsQuerySource implements QuerySourceInterface
 		private readonly EntityManagerInterface $em,
 		#[Autowire(service: 'cache.database')]
 		private readonly CacheItemPoolInterface $cache,
+		private readonly ?DatabaseCacheManager $cacheManager = null,
 	) {
 	}
 
@@ -37,6 +40,8 @@ final class ObjectsQuerySource implements QuerySourceInterface
 			$definition->getOrderBy(),
 			$definition->getLimit(),
 			$siteId,
+			$this->cacheManager?->getGeneration(DbObject::class) ?? 1,
+			$this->cacheManager?->getGeneration(ObjectProperty::class) ?? 1,
 		]));
 
 		$item = $this->cache->getItem($cacheKey);

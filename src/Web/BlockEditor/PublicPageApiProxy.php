@@ -14,6 +14,7 @@ use iikiti\CMS\Profiler\AsyncResponseDataCollector;
 use iikiti\CMS\Response\Composition\DomHtmlResponse;
 use iikiti\CMS\Response\Composition\HtmlFragmentComposer;
 use iikiti\CMS\Security\GuestApiTokenManager;
+use iikiti\CMS\Web\BlockEditor\RenderFragmentLimits;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -21,9 +22,6 @@ use Symfony\Component\HttpFoundation\Response;
 /** Proxies public page rendering to the database-owning business API runtime. */
 final readonly class PublicPageApiProxy
 {
-	private const FRAGMENT_BATCH_SIZE = 32;
-	private const MAX_FRAGMENTS = 128;
-
 	public function __construct(
 		private BusinessApiClient $api,
 		private ApiSessionTokenProvider $sessionTokens,
@@ -114,7 +112,7 @@ final readonly class PublicPageApiProxy
 				$manifest['fragments'],
 				static fn (array $fragment): bool => null === $mainDescriptor || $fragment['slot'] !== $mainDescriptor['slot'],
 			));
-			foreach (array_chunk($remainingFragments, self::FRAGMENT_BATCH_SIZE) as $batch) {
+			foreach (array_chunk($remainingFragments, RenderFragmentLimits::BATCH_SIZE) as $batch) {
 				$operations = [];
 				foreach ($batch as $fragment) {
 					$operations[$fragment['slot']] = function (FiberHttpClient $http) use ($path, $fragment, $manifest, $apiToken, $request, $headers): array {
@@ -198,7 +196,7 @@ final readonly class PublicPageApiProxy
 		return is_string($token) && '' !== $token ? $token : $guestToken;
 	}
 
-	/** @return array{html:string,styles:list<array{id:?string,css:string}>,editor_mode:bool,revision:string,fragments:list<array{kind:string,id:string,role:string,slot:string}>}|null */
+	/** @return array{html:string,styles:list<array{id:?string,css:string}>,editor_mode:bool,revision:string,fragments:list<array{kind:string,id:string,role:string,slot:string,depth:int}>}|null */
 	private function normalizeManifest(mixed $manifest): ?array
 	{
 		if (!is_array($manifest)
@@ -208,7 +206,7 @@ final readonly class PublicPageApiProxy
 			|| 1 !== preg_match('/^[a-f0-9]{64}$/D', $manifest['revision'])
 			|| !is_array($manifest['fragments'] ?? null)
 			|| !array_is_list($manifest['fragments'])
-			|| count($manifest['fragments']) > self::MAX_FRAGMENTS) {
+			|| count($manifest['fragments']) > RenderFragmentLimits::MAX_PER_PAGE) {
 			return null;
 		}
 		$styles = $this->normalizeStyles($manifest['styles'], $manifest['editor_mode']);
@@ -221,7 +219,7 @@ final readonly class PublicPageApiProxy
 		$identifiers = [];
 		foreach ($manifest['fragments'] as $fragment) {
 			if (!is_array($fragment)
-				|| !in_array($fragment['kind'] ?? null, ['region', 'shell'], true)
+				|| !in_array($fragment['kind'] ?? null, ['region', 'shell', 'widget'], true)
 				|| !is_string($fragment['id'] ?? null)
 				|| '' === $fragment['id']
 				|| strlen($fragment['id']) > 128
@@ -235,6 +233,13 @@ final readonly class PublicPageApiProxy
 			if ('shell' === $fragment['kind'] && 1 !== preg_match('/^[1-9][0-9]{0,18}$/D', $fragment['id'])) {
 				return null;
 			}
+			$depth = $fragment['depth'] ?? 0;
+			if (!is_int($depth)
+				|| ('widget' === $fragment['kind'] && ($depth < 1 || $depth >= RenderFragmentLimits::MAX_PER_PAGE))
+				|| ('widget' !== $fragment['kind'] && 0 !== $depth)
+				|| ('widget' === $fragment['kind'] && 1 !== preg_match('/^[a-f0-9]{64}$/D', $fragment['id']))) {
+				return null;
+			}
 
 			$identifier = $fragment['kind'].':'.$fragment['id'];
 			if (isset($slots[$fragment['slot']]) || isset($identifiers[$identifier])) {
@@ -242,8 +247,15 @@ final readonly class PublicPageApiProxy
 			}
 			$slots[$fragment['slot']] = true;
 			$identifiers[$identifier] = true;
-			$fragments[] = ['kind' => $fragment['kind'], 'id' => $fragment['id'], 'role' => $fragment['role'], 'slot' => $fragment['slot']];
+			$fragments[] = [
+				'kind' => $fragment['kind'],
+				'id' => $fragment['id'],
+				'role' => $fragment['role'],
+				'slot' => $fragment['slot'],
+				'depth' => $depth,
+			];
 		}
+		usort($fragments, static fn (array $left, array $right): int => $left['depth'] <=> $right['depth']);
 
 		return [
 			'html' => $manifest['html'],
@@ -278,7 +290,7 @@ final readonly class PublicPageApiProxy
 		return ['found' => true, 'id' => $fragment['id'], 'revision' => $fragment['revision'], 'html' => $fragment['html'], 'styles' => $styles];
 	}
 
-	/** @param array{html:string,styles:list<array{id:?string,css:string}>,editor_mode:bool,revision:string,fragments:list<array{kind:string,id:string,role:string,slot:string}>} $manifest
+	/** @param array{html:string,styles:list<array{id:?string,css:string}>,editor_mode:bool,revision:string,fragments:list<array{kind:string,id:string,role:string,slot:string,depth:int}>} $manifest
 	 *  @param array<string,mixed> $renderedFragments
 	 */
 	private function composeDocument(array $manifest, array $renderedFragments, string $siteHost): \Dom\HTMLDocument
@@ -301,7 +313,12 @@ final readonly class PublicPageApiProxy
 				throw new \UnexpectedValueException('The API returned invalid page fragment styles.');
 			}
 
-			$slotAttribute = 'region' === $fragment['kind'] ? 'data-iikiti-region-slot' : 'data-iikiti-shell-slot';
+			$slotAttribute = match ($fragment['kind']) {
+				'region' => 'data-iikiti-region-slot',
+				'shell' => 'data-iikiti-shell-slot',
+				'widget' => 'data-iikiti-widget-slot',
+				default => throw new \UnexpectedValueException('Unsupported page fragment kind.'),
+			};
 			$selector = sprintf('template[%s="%s"]', $slotAttribute, $fragment['slot']);
 			$composer->insertIntoPlaceholder($selector, $this->rewriteAssetUrls($result['html'], $siteHost));
 			foreach ($fragmentStyles as $style) {

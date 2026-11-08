@@ -63,6 +63,18 @@
 		return null;
 	}
 
+	function findBlockLocation(nodes: unknown, targetId: string, depth = 0, insideQuery = false): { depth: number; insideQuery: boolean } | null {
+		if (!Array.isArray(nodes)) return null;
+		for (const value of nodes) {
+			if (!value || typeof value !== 'object') continue;
+			const candidate = value as BlockNode;
+			if (candidate.id === targetId) return { depth, insideQuery };
+			const nested = findBlockLocation(candidate.children, targetId, depth + 1, insideQuery || candidate.type === 'query');
+			if (nested) return nested;
+		}
+		return null;
+	}
+
 	function responsiveValue(key: string): unknown {
 		const style = (node?.style ?? {}) as Record<string, Record<string, unknown>>;
 		const legacyKey = legacyStyleKey(key);
@@ -96,6 +108,19 @@
 		if (!id) return null;
 		return searchNode(id) as BlockNode | null;
 	});
+	const nodeLocation = $derived.by(() => {
+		if (!node) return null;
+		for (const nodes of Object.values($tree)) {
+			const location = findBlockLocation(nodes, node.id);
+			if (location) return location;
+		}
+		return null;
+	});
+	const isAsyncFragment = $derived.by(() => {
+		if (!nodeLocation || nodeLocation.insideQuery) return false;
+		const mode = node?.renderMode ?? 'default';
+		return mode === 'always' || (mode === 'default' && nodeLocation.depth === 0);
+	});
 
 	const ctx = $derived.by(() => {
 		const n = node;
@@ -104,6 +129,9 @@
 			node: n,
 			schema: ($blockTypes[n.type] ?? {}) as Record<string, unknown>,
 			blockTypes: $blockTypes,
+			config,
+			isAsyncFragment,
+			insideQuery: nodeLocation?.insideQuery ?? false,
 			update: (patch: Partial<BlockNode>) => updateNode(n.id, patch),
 		};
 	});

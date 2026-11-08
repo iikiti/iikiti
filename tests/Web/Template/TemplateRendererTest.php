@@ -194,13 +194,29 @@ final class TemplateRendererTest extends TestCase
 		$manifest = $renderer->renderManifest($template, $context, $trees);
 		$fragment = $renderer->renderFragment($template, $context, $trees, 'region', 'main');
 
-		self::assertCount(2, $manifest['fragments']);
-		self::assertSame(['main', 'header'], array_column($manifest['fragments'], 'id'));
+		self::assertCount(3, $manifest['fragments']);
+		self::assertSame(['main', 'header'], array_column(array_slice($manifest['fragments'], 0, 2), 'id'));
 		self::assertMatchesRegularExpression('/^[a-f0-9]{32}$/D', $manifest['fragments'][0]['slot']);
 		self::assertStringContainsString($manifest['fragments'][1]['slot'], $manifest['html']);
 		self::assertNotNull($fragment);
 		self::assertSame($manifest['revision'], $fragment['revision']);
-		self::assertStringContainsString('API fragment', $fragment['html']);
+		self::assertStringContainsString($manifest['fragments'][2]['slot'], $fragment['html']);
+		self::assertStringNotContainsString('API fragment', $fragment['html']);
+		$widget = $renderer->renderFragment($template, $context, $trees, 'widget', $manifest['fragments'][2]['id']);
+		self::assertNotNull($widget);
+		self::assertSame($manifest['revision'], $widget['revision']);
+		self::assertStringContainsString('API fragment', $widget['html']);
+		$staleWidget = $renderer->renderFragment(
+			$template,
+			$context,
+			$trees,
+			'widget',
+			$manifest['fragments'][2]['id'],
+			expectedRevision: str_repeat('f', 64),
+		);
+		self::assertNotNull($staleWidget);
+		self::assertFalse($staleWidget['found']);
+		self::assertSame($manifest['revision'], $staleWidget['revision']);
 		self::assertNull($renderer->renderFragment($template, $context, $trees, 'region', 'unknown'));
 
 		$template->setLayout('changed.twig');

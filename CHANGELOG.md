@@ -18,6 +18,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Changed
 
+- 2026-11-08: Consumer rendering now fans out direct widget fragments and explicitly async descendants, composing them parent-first within the existing batch and page limits; query blocks remain atomic.
 - 2026-11-08: Excluded nested public-render API calls from duplicate dev profiles while retaining their timing in the parent request's Fiber/API sections.
 - 2026-11-08: Consumer page bootstrap now fetches the API manifest and primary region concurrently, validating matching render revisions before composition.
 - 2026-11-08: Added opt-in API-backed public page rendering for API-role development profiles, with transport DNS resolution configurable independently from the API hostname.
@@ -39,6 +40,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-11-08: Added per-widget rendered-fragment cache scopes (`none`, site-global, or UserGroup cohort), CMS-write invalidation, a configurable TTL, and block-editor controls.
 - 2026-11-07: Added Fiber HTTP and outbound Business API call details under Request / Response -> Request, with credential-sensitive query values redacted.
 - 2026-11-07: Added a Web Application Firewall tab inside Symfony's Security profiler panel with bounded, value-free matched-rule diagnostics.
 - 2026-11-07: Added a bounded Fiber-capable business API client, user-session token bootstrap, site-bound guest page/asset access, API-backed shell management, and scoped API triggers for schedule, batch, and asset workers; no IP allowlist or generic query endpoint.

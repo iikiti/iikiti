@@ -19,6 +19,9 @@ framework:
             cache.database:
                 adapter: cache.app
                 tags: true
+            cache.rendered_fragments:
+                adapter: cache.app
+                tags: true
             cache.firewall:
                 adapter: cache.app
                 default_lifetime: 300

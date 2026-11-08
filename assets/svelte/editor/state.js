@@ -11,6 +11,9 @@ import { setSidebarMode } from './extensions.js';
  * @property {Record<string, unknown>} [content]
  * @property {Record<string, unknown>} [style]
  * @property {Record<string, unknown>} [element]
+ * @property {'default'|'always'|'never'} [renderMode]
+ * @property {'none'|'global'|'user_group'} [cacheMode]
+ * @property {string} [cacheGroupId]
  * @property {Record<string, string>} [bindings] Per-content-field dynamic
  *                                               bindings (e.g. to a `query`
  *                                               block's result fields)

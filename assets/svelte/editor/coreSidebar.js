@@ -100,6 +100,63 @@ function buildStyle(ctx) {
 	];
 }
 
+/** @param {any} ctx */
+function buildRendering(ctx) {
+	const selectNode = (key, label, options, get, set) => ({
+		kind: 'field',
+		path: 'rendering',
+		field: { key, label, type: 'select', options },
+		get,
+		set,
+	});
+	const nodes = [selectNode(
+		'renderMode',
+		'Async rendering',
+		[
+			{ value: 'default', label: 'Default' },
+			{ value: 'always', label: ctx.insideQuery ? 'Always async (unavailable in query rows)' : 'Always async', ...(ctx.insideQuery ? { disabled: true } : {}) },
+			{ value: 'never', label: 'Never async' },
+		],
+		(context) => context.node?.renderMode ?? 'default',
+		(context, value) => context.update({ renderMode: ['default', 'always', 'never'].includes(value) ? value : 'default' }),
+	)];
+
+	if (!ctx.isAsyncFragment) return nodes;
+
+	const cacheModes = [
+		{ value: 'none', label: 'None' },
+		{ value: 'global', label: 'All visitors (this site)' },
+		{ value: 'user_group', label: 'Selected user group' },
+	];
+	nodes.push(selectNode(
+		'cacheMode',
+		'Rendered output cache',
+		cacheModes,
+		(context) => context.node?.cacheMode ?? 'none',
+		(context, value) => {
+			const cacheMode = ['none', 'global', 'user_group'].includes(value) ? value : 'none';
+			context.update({ cacheMode, ...(cacheMode === 'user_group' ? {} : { cacheGroupId: null }) });
+		},
+	));
+
+	if ((ctx.node?.cacheMode ?? 'none') === 'user_group') {
+		const groups = Array.isArray(ctx.config?.cacheGroups) ? ctx.config.cacheGroups : [];
+		const options = [
+			{ value: '', label: groups.length ? 'Select a user group' : 'No user groups available' },
+			...groups.map((group) => ({ value: String(group.id), label: String(group.label) })),
+		];
+		nodes.push(selectNode(
+			'cacheGroupId',
+			'Cache-sharing group',
+			options,
+			(context) => context.node?.cacheGroupId ?? '',
+			(context, value) => context.update({ cacheGroupId: String(value ?? '') }),
+		));
+	}
+
+	return nodes;
+}
+
 export function registerCoreSidebar() {
 	if (registered) return;
 	registered = true;
@@ -139,6 +196,7 @@ export function registerCoreSidebar() {
 	registerSection({ id: 'content', label: 'Content', icon: 'type', order: 10, build: buildContent });
 	registerSection({ id: 'element', label: 'Element', icon: 'cursor', order: 20, build: buildElement });
 	registerSection({ id: 'style', label: 'Style', icon: 'palette', order: 30, build: buildStyle });
+	registerSection({ id: 'rendering', label: 'Rendering', icon: 'zap', order: 40, build: buildRendering });
 	registerSettingsSection({
 		id: 'general', label: 'General', order: 10,
 		build: () => [{ kind: 'field', path: 'settings', field: { key: 'name', label: 'Name', type: 'text', order: 10 } }],

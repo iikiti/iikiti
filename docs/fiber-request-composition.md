@@ -94,30 +94,46 @@ share the session store and `APP_SECRET` for this exchange to work.
 The consumer resolves any user-session token first, then starts the page's
 `/manifest` request and the API-selected main-region fragment request in the
 same Fiber task group. The API resolves the site, page, template, shells,
-authorization, and editor mode; both responses carry a render revision which
-the consumer compares before composing. The manifest returns a rendered
-document skeleton, CSS, and fixed region/shell fragment descriptors. Each
-descriptor contains a server-selected region or shell ID and a random DOM slot
-token; consumers do not send block trees, query definitions, selectors, or
-arbitrary render data.
+authorization, and editor mode; responses carry a render revision which the
+consumer compares before composing. The manifest returns a rendered document
+skeleton, CSS, region/shell descriptors, and independently rendered widget
+descriptors. Region/shell slots are server-issued random tokens. Widget IDs are
+site/revision-bound HMACs of structural tree paths (not block IDs), and their
+slot tokens are stable for that render revision. Consumers do not send block
+trees, query definitions, selectors, or arbitrary render data.
 
 The main region is fetched concurrently with the manifest; the consumer then
-requests any remaining listed regions and shells in bounded `FiberTaskRunner`
-groups of at most 32 requests (up to 128 descriptors per page), and fills the
-API-issued slots in the main DOM document. Every fragment request
-repeats API-side user/guest, MFA, site, and page checks and verifies the manifest
+requests all other listed regions, shells, and widgets in bounded
+`FiberTaskRunner` groups of at most 32 requests (up to 128 descriptors per
+page). Widget responses are composed by nesting depth so each parent slot exists
+before its child slot is filled. The consumer waits for all required responses,
+then fills the API-issued slots in the same main DOM document; this is concurrent
+rendering, not progressive browser display. Every fragment request repeats
+API-side user/guest, MFA, site, and page checks and verifies the manifest
 revision before rendering. If the page/template render state changes between the
 manifest and a fragment request, or any fragment request fails, the consumer
-returns an error rather than a partially composed document. The existing
-full-page API routes remain available for legacy callers.
+returns an error rather than a partially composed document. When the 128-fragment
+budget is exhausted, additional eligible widgets render inline instead of
+producing an unfillable slot. The existing full-page API routes remain available
+for legacy callers.
+
+Each direct block node in a region or shell tree with a render template is a
+separate fragment by default. Deeper descendants render inline by default and
+can opt in per saved widget instance with `renderMode: "always"`; `"never"`
+keeps a widget inline even at the region/shell boundary. Missing/invalid values
+use `"default"`. Query blocks remain atomic: the query and its per-result child
+templates render in one fragment so row bindings are not transported between
+requests. Direct API-role page rendering remains local and synchronous; only the
+consumer proxy fans out fragment requests to the API.
 
 The revision check covers the resolved template, region trees, shell definitions,
-page/site properties, and render mode. Query blocks still execute on the API for
-each fragment request; their database reads remain synchronous and may observe
-updates made while a multi-fragment page is being assembled. Fragment fan-out
-increases API request and database load, so templates should keep region/shell
-counts bounded. These independent HTTP operations, not Twig/DOM CPU work, are
-what Fibers overlap. In the development profiler, nested manifest/fragment
+page/site properties, and widget render/cache settings. Query blocks still
+execute on the API for each fragment request; their database reads remain
+synchronous and may observe updates made while a multi-fragment page is
+assembled. Fragment fan-out increases API request and database load, so keep widget counts bounded and opt
+only worthwhile descendants into separate requests. These independent HTTP
+operations, not Twig/DOM CPU work or a synchronous PDO query within one API
+request, are what Fibers overlap. In the development profiler, nested manifest/fragment
 requests are excluded as standalone profiles to avoid profiling the same render
 twice; the parent page's Asynchronous and Subrequest sections still record every
 API call and its duration.
@@ -195,9 +211,9 @@ shared host. For portable DB performance, prefer query batching, avoiding N+1
 access, and existing cache paths.
 
 The API renderer starts requests for static social oEmbed URLs found in each
-region, dynamic-block, or shell fragment before rendering that fragment. In
-consumer mode, independent region/shell API requests are additionally dispatched
-through Fiber groups and composed into the main DOM after all results succeed.
+region, dynamic-block, shell, or widget fragment before rendering that fragment.
+In consumer mode, independent region/shell/widget API requests are additionally
+dispatched through Fiber groups and composed into the main DOM after all results succeed.
 The plugin update command also checks independent plugin metadata requests as
 one task group; it still downloads, verifies, and installs packages sequentially. Only
 the existing oEmbed provider endpoints are requested by embed prefetch; redirects
@@ -211,9 +227,9 @@ single-URL fallback and cannot join the already-started batch.
 For direct API-role rendering, `PageRendering` creates the base
 `Dom\HTMLDocument` and `TemplateRenderer` inserts local region and shell
 fragments as before. In consumer mode, the API produces the skeleton and
-server-authored slot manifest; `PublicPageApiProxy` fetches each rendered region
-and shell through `FiberHttpClient`, inserts the returned trusted HTML and CSS
-into the same DOM document, then returns a `DomHtmlResponse`. The HTML output
+server-authored slot manifest; `PublicPageApiProxy` fetches each region, shell,
+and widget fragment through `FiberHttpClient`, inserts the returned trusted HTML
+and CSS into the same DOM document, then returns a `DomHtmlResponse`. The HTML output
 filter can minify that retained document without reparsing the completed page
 string. Legacy full-page API and template/string responses remain supported.
 Fragments are trusted rendered Twig HTML, not sanitized input; untrusted values
@@ -251,6 +267,39 @@ content type.
 top-level keys. `JsonArrayComposer` concatenates ordered list pieces. They are
 used for the editor-room API payload and front-end editor configuration, then
 the existing Symfony/Twig response paths serialize the final values.
+
+## Rendered Widget Cache
+
+Rendered-output caching is independent from the database query-result cache and
+is opt-in per independently rendered widget. The block editor's **Rendering**
+section exposes `None` (default), `All visitors (this site)`, and a selected
+`UserGroup`. `UserGroup` membership defines only a cache-sharing cohort: current
+members may share its entry; nonmembers bypass that entry and still render the
+widget normally. It is not an access-control rule. Site ID is always part of the
+cache key, so neither global nor group-scoped entries cross sites. Inline
+descendants have no separate rendered-output cache; set them to `Always async`
+to make them an independent piece. Query-row children are not independently
+cached in this increment.
+
+Entries live in the API runtime's `cache.rendered_fragments` pool. The final page
+and fragment HTTP responses remain `private, no-store`; browser/CDN caching is
+not enabled. The fragment key includes site, render revision/request context,
+structural widget identity, and the selected sharing scope. Editor/draft output
+and renders for users with edit capability bypass this shared cache. Selecting a
+shared scope asserts that the widget output does not vary by user beyond the
+selected cohort; leave user-dependent or uncertain widgets at `None`.
+
+`CACHE_RENDERED_FRAGMENT_TTL` configures one system-wide lifetime in seconds
+(default `300`). Known CMS object/property writes invalidate the rendered-widget
+pool immediately; template/page/shell edits also change the render-revision key.
+The object-query result cache includes object/property generations so a cache
+miss cannot refill the rendered cache from stale query results. Remote or
+otherwise untracked dependencies are bounded by the TTL. Plugin templates can
+register an explicit dependency tag with `{{ render_cache.add('catalog_posts') }}`
+and invalidate it through `RenderedFragmentCache::invalidateTags(['catalog_posts'])`;
+invalid or unavailable cache entries fall back to normal rendering. The profiler
+reports rendered-fragment cache hits and misses separately from Fiber HTTP
+requests.
 
 In the development Web Profiler, these diagnostics appear as a **Response
 composition** section inside **Request / Response → Response**, not as a separate

@@ -278,6 +278,48 @@ final class PublicPageApiProxyTest extends TestCase
 		self::assertSame(2, $requests);
 	}
 
+	public function testComposesNestedWidgetFragmentsInParentBeforeChildOrder(): void
+	{
+		$parentId = str_repeat('c', 64);
+		$childId = str_repeat('d', 64);
+		$descriptors = [
+			['kind' => 'region', 'id' => 'main', 'role' => 'main', 'slot' => str_repeat('a', 32)],
+			['kind' => 'widget', 'id' => $parentId, 'role' => 'widget', 'slot' => str_repeat('b', 32), 'depth' => 1],
+			['kind' => 'widget', 'id' => $childId, 'role' => 'widget', 'slot' => str_repeat('c', 32), 'depth' => 2],
+		];
+		$client = new MockHttpClient(static function (string $method, string $url) use ($descriptors, $parentId, $childId): MockResponse {
+			$path = parse_url($url, PHP_URL_PATH);
+			if (str_ends_with((string) $path, '/manifest')) {
+				return new MockResponse(self::manifest($descriptors));
+			}
+
+			$id = self::query($url)['_iikiti_fragment_id'] ?? null;
+			if ('@main' === $id) {
+				return new MockResponse(self::fragment('<template data-iikiti-widget-slot="'.str_repeat('b', 32).'"></template>'));
+			}
+			self::assertSame('/api/public/render/pages/about/fragments/widget', $path);
+			if ($parentId === $id) {
+				return new MockResponse(self::fragment('<section><template data-iikiti-widget-slot="'.str_repeat('c', 32).'"></template></section>', [], $parentId));
+			}
+
+			self::assertSame($childId, $id);
+			return new MockResponse(self::fragment('<p>Nested child</p>', [], $childId));
+		});
+		$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
+		$proxy = new PublicPageApiProxy(
+			$api,
+			new ApiSessionTokenProvider($api),
+			new FiberTaskRunner($client),
+			new GuestApiTokenManager('test-secret'),
+		);
+
+		$response = $proxy->page(Request::create('https://www.example.test/about'), 'about');
+
+		self::assertSame(200, $response->getStatusCode());
+		self::assertStringContainsString('<section><p>Nested child</p></section>', (string) $response->getContent());
+		self::assertStringNotContainsString('data-iikiti-widget-slot', (string) $response->getContent());
+	}
+
 	public function testEditorStylesFromFragmentsMergeByStyleIdAndRewriteAssetUrls(): void
 	{
 		$assetToken = str_repeat('d', 64);
@@ -316,7 +358,7 @@ final class PublicPageApiProxyTest extends TestCase
 		self::assertStringContainsString('.shell{background-image:url("https://api.example.test/api/public/sites/www.example.test/assets/'.$assetToken.'/original")}', $html);
 	}
 
-	/** @param list<array{kind:string,id:string,role:string,slot:string}> $fragments
+	/** @param list<array{kind:string,id:string,role:string,slot:string,depth?:int}> $fragments
 	 *  @param list<array{id:?string,css:string}> $styles
 	 */
 	private static function manifest(array $fragments = [], array $styles = [], bool $editorMode = false): string
@@ -327,7 +369,15 @@ final class PublicPageApiProxyTest extends TestCase
 
 		$slots = '';
 		foreach ($fragments as $fragment) {
-			$attribute = 'region' === $fragment['kind'] ? 'data-iikiti-region-slot' : 'data-iikiti-shell-slot';
+			if ('widget' === $fragment['kind']) {
+				continue;
+			}
+			$attribute = match ($fragment['kind']) {
+				'region' => 'data-iikiti-region-slot',
+				'shell' => 'data-iikiti-shell-slot',
+				'widget' => 'data-iikiti-widget-slot',
+				default => throw new \UnexpectedValueException('Unsupported test fragment kind.'),
+			};
 			$slots .= sprintf('<template %s="%s"></template>', $attribute, $fragment['slot']);
 		}
 

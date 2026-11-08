@@ -39,18 +39,24 @@ final class BlockRenderContext
 		public readonly ?CustomCssCollector $customCssCollector = null,
 		/** @var array<string,string> */
 		public readonly array $prefetchedEmbeds = [],
+		public readonly ?RenderCacheTagCollector $renderCacheTags = null,
 	) {
 	}
 
 	public function withEditorMode(bool $editorMode): self
 	{
-		return new self($editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $this->item, $this->queryDepth, $this->customCssCollector, $this->prefetchedEmbeds);
+		return new self($editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $this->item, $this->queryDepth, $this->customCssCollector, $this->prefetchedEmbeds, $this->renderCacheTags);
 	}
 
 	/** @param array<string,string> $embeds */
 	public function withPrefetchedEmbeds(array $embeds): self
 	{
-		return new self($this->editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $this->item, $this->queryDepth, $this->customCssCollector, $embeds);
+		return new self($this->editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $this->item, $this->queryDepth, $this->customCssCollector, $embeds, $this->renderCacheTags);
+	}
+
+	public function withRenderCacheTags(?RenderCacheTagCollector $tags): self
+	{
+		return new self($this->editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $this->item, $this->queryDepth, $this->customCssCollector, $this->prefetchedEmbeds, $tags);
 	}
 
 	/**
@@ -60,6 +66,6 @@ final class BlockRenderContext
 	 */
 	public function withItem(mixed $item): self
 	{
-		return new self($this->editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $item, $this->queryDepth + 1, $this->customCssCollector, $this->prefetchedEmbeds);
+		return new self($this->editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $item, $this->queryDepth + 1, $this->customCssCollector, $this->prefetchedEmbeds, $this->renderCacheTags);
 	}
 }

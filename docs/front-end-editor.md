@@ -13,6 +13,11 @@ is pure server-rendered HTML (no editor JS for visitors).
   the widget's single root element whenever its template has one. A block wrapper
   is kept only when content has multiple roots, is text-only, or needs a semantic
   container. Editor metadata is **not** emitted for public visitors.
+- In consumer mode, each direct block under a region/shell tree renders as an
+  independent API fragment by default. Deeper widgets are inline by default and
+  can be set to `Always async` or `Never async` in the block's **Rendering**
+  section. The consumer composes all fragments into one DOM document before
+  output filters run; it does not progressively expose partial HTML.
 - In the editor, selection controls use a separate preview frame; widget type
   classes, element IDs, and custom classes are placed on the rendered content root
   so nested CSS targets the widget rather than the full-width selection frame.
@@ -76,6 +81,8 @@ radio, legend, fieldset
   **once per result row** (per-result template). Each result row is exposed to
   child templates as `item`, and each child block can bind its content fields
   to row fields via dynamic bindings (see *Dynamic field bindings* below).
+  In consumer-mode widget rendering, a query block and its complete row loop are
+  atomic; descendants inside its row templates are not split into requests.
   When no children are configured the block falls back to its built-in result
   list; `query.twig` also runs the query itself for standalone renders.
 - Blocks whose `category` is `inline` (currently `inline_text`) are only
@@ -99,6 +106,34 @@ DbObject (type discriminator `iikiti\\CMS\Entity\Object\Template`)` with JSON pr
 - `settings` — template-level editor settings.
 
 Rules (tagged `iikiti.cms.template_rule`): `object_type`, `object`, `site`.
+
+## Async Rendering and Cache
+
+The **Rendering** block settings expose `Default`, `Always async`, and `Never
+async`. A missing value uses `Default`: direct region/shell children render as
+separate fragments; deeper descendants stay inline. `Always async` opts a deeper
+widget into its own fragment, while `Never async` suppresses the normal
+region/shell split for that widget. Settings are per saved widget instance and
+are preserved by editor save/copy operations. Programmatic block-tree producers
+can set the same `renderMode` value.
+
+An independently rendered widget can also use `None` (default), `All visitors
+(this site)`, or a selected `UserGroup` as its rendered-output cache scope. The
+group limits cache sharing only; nonmembers still render the same widget without
+using that cache entry. Cache scope controls are available only when the widget
+resolves to an independent fragment. Shared scopes assert that the rendered
+output is invariant for all visitors or all members of the chosen group. Editor,
+draft, and edit-capable renders bypass shared output caching. `None` disables
+only rendered HTML caching; existing query-result and oEmbed caches still apply.
+
+Rendered fragments use the API runtime's server-side cache, not browser/CDN
+response caching. `CACHE_RENDERED_FRAGMENT_TTL` sets a system-wide TTL (300
+seconds by default); known CMS object/property writes invalidate rendered
+fragments and object-query results. Remote or undeclared dependencies rely on the
+TTL. The 32-task batch and 128-fragment page limits remain in force; selected
+widgets over the cap render inline. See
+[Fiber Request Composition](fiber-request-composition.md) for API, cache
+invalidation, and plugin dependency-tag details.
 
 ## Saving / publishing
 - Snapshot autosave to `*_draft`; ETag concurrency (`409` on stale version ->
@@ -150,7 +185,7 @@ Rules (tagged `iikiti.cms.template_rule`): `object_type`, `object`, `site`.
 - **Settings sidebar**: docked via the bars standard (default left; flippable
   left/right/top/bottom with `⇄` button; width resizable) and styled to match
   the top bar (same translucent panel background + blur, `--ik-*` tokens and
-  button metrics). Tabs: **Content**, **Element**, **Style**
+   button metrics). Tabs: **Content**, **Element**, **Style**, **Rendering**
   (schema-driven). The Element tab includes built-in `id`/`cssClass` fields
   and an **Attributes** repeater (name/value rows, add/remove) that renders
   onto the block root element.

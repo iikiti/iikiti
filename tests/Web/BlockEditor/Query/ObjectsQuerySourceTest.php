@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace iikiti\CMS\Tests\Web\BlockEditor\Query;
 
 use Doctrine\ORM\EntityManagerInterface;
+use iikiti\CMS\Entity\DbObject;
+use iikiti\CMS\Service\DatabaseCacheManager;
 use iikiti\CMS\Web\BlockEditor\Query\ObjectsQuerySource;
 use iikiti\CMS\Web\BlockEditor\Query\QueryDefinition;
 use PHPUnit\Framework\TestCase;
@@ -59,5 +61,46 @@ final class ObjectsQuerySourceTest extends TestCase
 
 		self::assertContains('o INSTANCE OF :objectType', $capturedConditions);
 		self::assertNotContains('o.type = :objectType', $capturedConditions);
+	}
+
+	public function testObjectAndPropertyWriteGenerationsInvalidateObjectQueryCacheKeys(): void
+	{
+		$cacheKeys = [];
+		$query = $this->createStub(\Doctrine\ORM\Query::class);
+		$query->method('getResult')->willReturn([]);
+		$queryBuilder = $this->createStub(\Doctrine\ORM\QueryBuilder::class);
+		foreach (['select', 'from', 'leftJoin', 'setParameter', 'setMaxResults', 'addOrderBy', 'andWhere'] as $method) {
+			$queryBuilder->method($method)->willReturnSelf();
+		}
+		$queryBuilder->method('getQuery')->willReturn($query);
+		$entityManager = $this->createStub(EntityManagerInterface::class);
+		$entityManager->method('createQueryBuilder')->willReturn($queryBuilder);
+
+		$item = $this->createStub(CacheItemInterface::class);
+		$item->method('isHit')->willReturn(false);
+		$cache = $this->createStub(CacheItemPoolInterface::class);
+		$cache->method('getItem')->willReturnCallback(static function (string $key) use (&$cacheKeys, $item): CacheItemInterface {
+			$cacheKeys[] = $key;
+
+			return $item;
+		});
+
+		$objectGeneration = 1;
+		$propertyGeneration = 1;
+		$cacheManager = $this->createStub(DatabaseCacheManager::class);
+		$cacheManager->method('getGeneration')->willReturnCallback(static function (string $class) use (&$objectGeneration, &$propertyGeneration): int {
+			return DbObject::class === $class ? $objectGeneration : $propertyGeneration;
+		});
+		$source = new ObjectsQuerySource($entityManager, $cache, $cacheManager);
+		$definition = QueryDefinition::fromArray(['source' => 'objects', 'limit' => 5]);
+
+		$source->execute($definition, 3);
+		$objectGeneration++;
+		$source->execute($definition, 3);
+		$propertyGeneration++;
+		$source->execute($definition, 3);
+
+		self::assertCount(3, $cacheKeys);
+		self::assertCount(3, array_unique($cacheKeys));
 	}
 }

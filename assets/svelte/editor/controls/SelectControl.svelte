@@ -9,7 +9,7 @@
 
 	let { field, value, onChange }: Props = $props();
 
-	const options = $derived((field.options ?? []) as Array<{ value: string; label: string }>);
+	const options = $derived((field.options ?? []) as Array<{ value: string; label: string; disabled?: boolean }>);
 </script>
 
 <SelectInput

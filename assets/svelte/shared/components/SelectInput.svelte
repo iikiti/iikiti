@@ -2,6 +2,7 @@
 	interface Option {
 		value: string;
 		label: string;
+		disabled?: boolean;
 	}
 
 	interface Props {
@@ -41,7 +42,7 @@
 			<option value="" disabled selected>{placeholder}</option>
 		{/if}
 		{#each options as option}
-			<option value={option.value}>{option.label}</option>
+			<option value={option.value} disabled={option.disabled ?? false}>{option.label}</option>
 		{/each}
 	{/snippet}
 

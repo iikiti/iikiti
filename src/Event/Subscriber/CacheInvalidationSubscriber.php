@@ -6,7 +6,10 @@ use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\ORM\Event\PostFlushEventArgs;
 use Doctrine\ORM\Events;
+use iikiti\CMS\Entity\DbObject;
+use iikiti\CMS\Entity\ObjectProperty;
 use iikiti\CMS\Service\DatabaseCacheManager;
+use iikiti\CMS\Web\BlockEditor\Render\RenderedFragmentCache;
 
 /**
  * Invalidates database query cache entries when entities are written.
@@ -22,9 +25,11 @@ class CacheInvalidationSubscriber
 {
 	/** @var array<int,string> */
 	private array $affectedClasses = [];
+	private bool $renderedFragmentsAffected = false;
 
 	public function __construct(
 		private readonly DatabaseCacheManager $cacheManager,
+		private readonly ?RenderedFragmentCache $renderedFragmentCache = null,
 	) {
 	}
 
@@ -33,11 +38,22 @@ class CacheInvalidationSubscriber
 		$em = $args->getObjectManager();
 		$uow = $em->getUnitOfWork();
 
-		$classes = array_merge(
-			$this->extractClasses($uow->getScheduledEntityInsertions()),
-			$this->extractClasses($uow->getScheduledEntityUpdates()),
-			$this->extractClasses($uow->getScheduledEntityDeletions())
+		$entities = array_merge(
+			$uow->getScheduledEntityInsertions(),
+			$uow->getScheduledEntityUpdates(),
+			$uow->getScheduledEntityDeletions(),
 		);
+		$classes = $this->extractClasses($entities);
+		$this->renderedFragmentsAffected = false;
+		foreach ($entities as $entity) {
+			if ($entity instanceof DbObject) {
+				$classes[] = DbObject::class;
+				$this->renderedFragmentsAffected = true;
+			} elseif ($entity instanceof ObjectProperty) {
+				$classes[] = ObjectProperty::class;
+				$this->renderedFragmentsAffected = true;
+			}
+		}
 
 		$this->affectedClasses = array_values(array_unique(array_filter($classes)));
 	}
@@ -47,7 +63,11 @@ class CacheInvalidationSubscriber
 		foreach ($this->affectedClasses as $entityClass) {
 			$this->cacheManager->invalidate($entityClass);
 		}
+		if ($this->renderedFragmentsAffected) {
+			$this->renderedFragmentCache?->invalidateCmsDependencies();
+		}
 		$this->affectedClasses = [];
+		$this->renderedFragmentsAffected = false;
 	}
 
 	/**

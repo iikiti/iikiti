@@ -4,10 +4,17 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Tests\Web\BlockEditor;
 
+use Doctrine\Persistence\ManagerRegistry;
+use Doctrine\Common\Collections\ArrayCollection;
 use iikiti\CMS\Entity\Object\ApiToken;
+use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\User;
+use iikiti\CMS\Entity\Object\UserGroup;
 use iikiti\CMS\Plugin\PluginRegistry;
+use iikiti\CMS\Registry\SiteRegistry;
+use iikiti\CMS\Repository\Object\UserGroupRepository;
 use iikiti\CMS\Security\ApiTokenManager;
+use iikiti\CMS\Security\GuestApiTokenManager;
 use iikiti\CMS\Security\PermissionChecker;
 use iikiti\CMS\Web\BlockEditor\FrontendConfigProvider;
 use PHPUnit\Framework\TestCase;
@@ -62,6 +69,47 @@ final class FrontendConfigProviderTest extends TestCase
 		$this->assertSame(10, $config['notifications']['durationSeconds']);
 		$this->assertSame('bottom-right', $config['notifications']['position']);
 		$this->assertSame([], $config['plugins']);
+		$this->assertSame([], $config['cacheGroups']);
+	}
+
+	public function testBuildProvidesSiteScopedUserGroupOptions(): void
+	{
+		$security = $this->createStub(Security::class);
+		$user = $this->createStub(User::class);
+		$checker = $this->createStub(PermissionChecker::class);
+		$checker->method('canAccess')->willReturn(true);
+		$token = $this->createStub(ApiToken::class);
+		$token->method('getToken')->willReturn('ephemeral-token');
+		$tokenManager = $this->createStub(ApiTokenManager::class);
+		$tokenManager->method('getOrCreateToken')->willReturn($token);
+		$site = new Site();
+		(new \ReflectionClass(\iikiti\CMS\Entity\DbObject::class))->getProperty('id')->setValue($site, 11);
+		new SiteRegistry(new RequestStack(), $this->createStub(ManagerRegistry::class), new GuestApiTokenManager('test-secret'), 'api');
+		SiteRegistry::pushSite($site);
+
+		$group = new UserGroup();
+		$groupReflection = new \ReflectionClass(\iikiti\CMS\Entity\DbObject::class);
+		$groupReflection->getProperty('id')->setValue($group, 27);
+		$groupReflection->getProperty('properties')->setValue($group, new ArrayCollection());
+		$group->setLabel('Members');
+		$groups = $this->createMock(UserGroupRepository::class);
+		$groups->expects(self::once())->method('findAvailableForSite')->with(11)->willReturn([$group]);
+		$provider = new FrontendConfigProvider(
+			$security,
+			$checker,
+			$tokenManager,
+			$this->createStub(PluginRegistry::class),
+			userGroups: $groups,
+		);
+
+		try {
+			$config = $provider->build(7, 'template', $user);
+		} finally {
+			SiteRegistry::popSite();
+		}
+
+		self::assertNotNull($config);
+		self::assertSame([['id' => '27', 'label' => 'Members']], $config['cacheGroups']);
 	}
 
 	public function testBuildCarriesAnIndependentSettingsTarget(): void
