@@ -35,8 +35,8 @@ path). Production requires HTTPS. The API runtime owns `DATABASE_URL` and uses
 `APPLICATION_ROLE=api`. A database-free public renderer can use
 `APPLICATION_ROLE=consumer`; this consumer slice supports `/`, `/{slug}`,
 `/admin` SPA shells, and public asset delivery, and returns 503 for routes that
-have not crossed the API boundary yet. It proxies page rendering to
-`/api/public/render/*` and public asset delivery through
+have not crossed the API boundary yet. It obtains page-render manifests and
+server-rendered fragments from `/api/public/render/*` and public asset delivery through
 `/api/public/sites/{siteHost}/assets/*`, with the original site host and scheme
 preserved. Rendered asset URLs point directly to the API's streaming asset route
 rather than buffering file bodies through the consumer. The asset API firewall
@@ -46,9 +46,26 @@ through CORS. The admin SPA obtains its user-bound token from the API session
 endpoint and sends subsequent API calls, including shell management, to the
 configured API origin with the original site context. Set the same `APP_SECRET`
 on both runtimes so short-lived guest credentials can be verified by the API.
+In isolated PHP runtimes, `INTERNAL_API_RESOLVE` can provide a JSON hostname-to-IP
+map for the transport socket while preserving the configured API hostname for the
+HTTP `Host` header and vhost routing.
 The database-owning `api` role renders its own homepage/assets locally to avoid
 self-HTTP through a single PHP worker pool; only database-free `consumer` pages
 proxy those operations over HTTP.
+
+For browser verification of consumer Fiber/API traffic, serve the browser-facing
+host from a separate `APPLICATION_ROLE=consumer` runtime and point its
+`INTERNAL_API_BASE_URL` at the API runtime. Do not use the API process itself as
+both consumer and API behind a single PHP worker pool; its synchronous nested
+HTTP calls can exhaust that pool.
+
+For a single-runtime development profile, `PUBLIC_PAGE_RENDER_VIA_API=1` opts
+the API-role homepage and page routes into the manifest/fragment proxy while
+leaving API endpoints in the database-owning role. This is still an HTTP
+self-request: PHP-FPM must be able to reach `INTERNAL_API_BASE_URL`, and the
+worker pool must have capacity for the nested API requests. If FPM cannot reach
+the origin, the proxy returns 502 rather than rendering database-backed content
+locally.
 Login/MFA flows and command-driven plugin/search maintenance remain on the
 database-owning API runtime; do not serve those routes from the consumer role.
 The login form posts to the stateful `/api/auth/login` form-login firewall with
@@ -72,6 +89,39 @@ the authenticated user and returns that user's short-lived API token. The cookie
 is not forwarded to the page-render operation. API and consumer runtimes must
 share the session store and `APP_SECRET` for this exchange to work.
 
+### Public Page Fragment API
+
+The consumer resolves any user-session token first, then starts the page's
+`/manifest` request and the API-selected main-region fragment request in the
+same Fiber task group. The API resolves the site, page, template, shells,
+authorization, and editor mode; both responses carry a render revision which
+the consumer compares before composing. The manifest returns a rendered
+document skeleton, CSS, and fixed region/shell fragment descriptors. Each
+descriptor contains a server-selected region or shell ID and a random DOM slot
+token; consumers do not send block trees, query definitions, selectors, or
+arbitrary render data.
+
+The main region is fetched concurrently with the manifest; the consumer then
+requests any remaining listed regions and shells in bounded `FiberTaskRunner`
+groups of at most 32 requests (up to 128 descriptors per page), and fills the
+API-issued slots in the main DOM document. Every fragment request
+repeats API-side user/guest, MFA, site, and page checks and verifies the manifest
+revision before rendering. If the page/template render state changes between the
+manifest and a fragment request, or any fragment request fails, the consumer
+returns an error rather than a partially composed document. The existing
+full-page API routes remain available for legacy callers.
+
+The revision check covers the resolved template, region trees, shell definitions,
+page/site properties, and render mode. Query blocks still execute on the API for
+each fragment request; their database reads remain synchronous and may observe
+updates made while a multi-fragment page is being assembled. Fragment fan-out
+increases API request and database load, so templates should keep region/shell
+counts bounded. These independent HTTP operations, not Twig/DOM CPU work, are
+what Fibers overlap. In the development profiler, nested manifest/fragment
+requests are excluded as standalone profiles to avoid profiling the same render
+twice; the parent page's Asynchronous and Subrequest sections still record every
+API call and its duration.
+
 For a browser on a different origin from the API, configure `CORS_ALLOW_ORIGIN`
 for the exact consumer origin, allow credentials, and use a session cookie
 policy/storage shared by the two runtimes.
@@ -92,12 +142,11 @@ these from `APP_SECRET`; production deployments should configure independent
 random values and provide each only to the API runtime and matching
 scheduler/worker client. No IP allowlist is used.
 
-The public page-render operation owns page/template/shell resolution and the
-existing bounded block-query feature. Consumers request a page, not a SQL,
-DQL, or query-definition payload; no generic query endpoint is exposed. This
-moves those database reads to the API-owning request process but does not make
-Doctrine/PDO asynchronous inside that process. API handlers and page rendering
-continue to execute their database operations synchronously.
+The public page-render operations own page/template/shell resolution and the
+existing bounded block-query feature. Consumers request API-issued fragments,
+not SQL, DQL, block trees, or query-definition payloads; no generic query
+endpoint is exposed. These reads execute in the API-owning request process, but
+Doctrine/PDO remains synchronous inside each API request.
 
 `iikiti\CMS\Async\Promise` exposes the JavaScript-style constructor,
 `then(onFulfilled, onRejected)`, `catch()`, `finally()`, and static `all()`,
@@ -145,12 +194,12 @@ That integration is not implemented here, and ext-pgsql is not available on ever
 shared host. For portable DB performance, prefer query batching, avoiding N+1
 access, and existing cache paths.
 
-The page renderer starts requests for static social oEmbed URLs found in region,
-dynamic-block, and shell trees before rendering their fragments. Region and shell
-fragments are inserted into the main DOM while the HTTP responses are pending;
-the embed template placeholders are filled after the responses arrive. The plugin
-update command also checks independent plugin metadata requests as one task
-group; it still downloads, verifies, and installs packages sequentially. Only
+The API renderer starts requests for static social oEmbed URLs found in each
+region, dynamic-block, or shell fragment before rendering that fragment. In
+consumer mode, independent region/shell API requests are additionally dispatched
+through Fiber groups and composed into the main DOM after all results succeed.
+The plugin update command also checks independent plugin metadata requests as
+one task group; it still downloads, verifies, and installs packages sequentially. Only
 the existing oEmbed provider endpoints are requested by embed prefetch; redirects
 are disabled, HTTP timeouts and body size are bounded, returned markup must
 reference the requested provider host, and failed requests use the existing
@@ -159,16 +208,16 @@ single-URL fallback and cannot join the already-started batch.
 
 ## Response Composition
 
-`PageRendering` creates the base `Dom\HTMLDocument` first. `TemplateRenderer`
-inserts the template layout skeleton, then region and shell fragments are parsed
-individually and inserted into their DOM slots. Social oEmbed requests start
-before local region rendering, so the main region and non-header shells can be
-rendered while those HTTP responses are pending. Deferred embed markers are
-replaced with their DOM nodes before the response is sent. `DomHtmlResponse`
-retains that document so the HTML output filter can minify it without reparsing
-the completed page string. Legacy template/string responses still use the
-existing filter path. Fragments are trusted rendered Twig HTML, not sanitized
-input; untrusted values must remain escaped by Twig.
+For direct API-role rendering, `PageRendering` creates the base
+`Dom\HTMLDocument` and `TemplateRenderer` inserts local region and shell
+fragments as before. In consumer mode, the API produces the skeleton and
+server-authored slot manifest; `PublicPageApiProxy` fetches each rendered region
+and shell through `FiberHttpClient`, inserts the returned trusted HTML and CSS
+into the same DOM document, then returns a `DomHtmlResponse`. The HTML output
+filter can minify that retained document without reparsing the completed page
+string. Legacy full-page API and template/string responses remain supported.
+Fragments are trusted rendered Twig HTML, not sanitized input; untrusted values
+must remain escaped by Twig.
 
 Ordinary Symfony controllers can opt into `ControllerResponseComposer` by
 returning its response. Each operation returns a typed `ResponseFragment`; the

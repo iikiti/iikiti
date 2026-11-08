@@ -1,6 +1,10 @@
 parameters:
     application_role_default: api
     application_role: '%env(default:application_role_default:APPLICATION_ROLE)%'
+    public_page_render_via_api_default: false
+    public_page_render_via_api: '%env(bool:default:public_page_render_via_api_default:PUBLIC_PAGE_RENDER_VIA_API)%'
+    internal_api_resolve_default: '{}'
+    internal_api_resolve: '%env(json:default:internal_api_resolve_default:INTERNAL_API_RESOLVE)%'
     digital_asset_storage_dir: '%kernel.project_dir%/var/digital-assets'
     scheduler_adapter_default: symfony
     scheduler_adapter_key: '%env(default:scheduler_adapter_default:SCHEDULER_ADAPTER)%'

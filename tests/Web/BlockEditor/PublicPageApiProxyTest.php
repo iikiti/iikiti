@@ -7,6 +7,8 @@ namespace iikiti\CMS\Tests\Web\BlockEditor;
 use iikiti\CMS\Api\BusinessApiClient;
 use iikiti\CMS\Api\ApiSessionTokenProvider;
 use iikiti\CMS\Async\FiberTaskRunner;
+use iikiti\CMS\Profiler\AsyncResponseDataCollector;
+use iikiti\CMS\Response\Composition\DomHtmlResponse;
 use iikiti\CMS\Security\GuestApiTokenManager;
 use iikiti\CMS\Web\BlockEditor\PublicPageApiProxy;
 use PHPUnit\Framework\TestCase;
@@ -21,14 +23,22 @@ final class PublicPageApiProxyTest extends TestCase
 	{
 		$client = new MockHttpClient(static function (string $method, string $url, array $options): MockResponse {
 			self::assertSame('GET', $method);
-			self::assertSame('https://api.example.test/api/public/render/pages/about?lang=en', $url);
 			self::assertSame('www.example.test', self::header($options['headers'], 'X-SITE-HOST'));
 			self::assertSame('https', self::header($options['headers'], 'X-SITE-SCHEME'));
 			$guestToken = self::header($options['headers'], 'X-AUTH-TOKEN');
 			self::assertNotNull($guestToken);
 			self::assertNotNull((new GuestApiTokenManager('test-secret'))->decode($guestToken));
+			if ('/api/public/render/pages/about/manifest' === parse_url($url, PHP_URL_PATH)) {
+				self::assertSame('en', self::query($url)['lang'] ?? null);
 
-			return new MockResponse('{"html":"<main>remote page</main>"}');
+				return new MockResponse(self::manifest());
+			}
+
+			self::assertSame('/api/public/render/pages/about/fragments/region', parse_url($url, PHP_URL_PATH));
+			self::assertSame('@main', self::query($url)['_iikiti_fragment_id'] ?? null);
+			self::assertArrayNotHasKey('_iikiti_render_revision', self::query($url));
+
+			return new MockResponse(self::fragment('<p>remote page</p>'));
 		});
 		$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
 		$proxy = new PublicPageApiProxy(
@@ -41,7 +51,8 @@ final class PublicPageApiProxyTest extends TestCase
 		$response = $proxy->page(Request::create('https://www.example.test/about?lang=en'), 'about');
 
 		self::assertSame(200, $response->getStatusCode());
-		self::assertSame('<main>remote page</main>', $response->getContent());
+		self::assertInstanceOf(DomHtmlResponse::class, $response);
+		self::assertStringContainsString('<p>remote page</p>', (string) $response->getContent());
 	}
 
 	public function testMapsAnUnavailablePageFromTheBusinessApi(): void
@@ -76,8 +87,16 @@ final class PublicPageApiProxyTest extends TestCase
 
 			self::assertSame('GET', $method);
 			self::assertTrue(self::header($options['headers'], 'X-AUTH-TOKEN') === 'session-user-token');
+			if (2 === $requests) {
+				self::assertSame('/api/public/render/pages/about/manifest', parse_url($url, PHP_URL_PATH));
 
-			return new MockResponse('{"html":"<main>private preview</main>"}');
+				return new MockResponse(self::manifest());
+			}
+
+			self::assertSame('/api/public/render/pages/about/fragments/region', parse_url($url, PHP_URL_PATH));
+			self::assertSame('@main', self::query($url)['_iikiti_fragment_id'] ?? null);
+
+			return new MockResponse(self::fragment('<p>private preview</p>'));
 		});
 		$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
 		$proxy = new PublicPageApiProxy(
@@ -95,8 +114,8 @@ final class PublicPageApiProxyTest extends TestCase
 		$response = $proxy->page($request, 'about');
 
 		self::assertSame(200, $response->getStatusCode());
-		self::assertSame('<main>private preview</main>', $response->getContent());
-		self::assertSame(2, $requests);
+		self::assertStringContainsString('<p>private preview</p>', (string) $response->getContent());
+		self::assertSame(3, $requests);
 	}
 
 	public function testAnonymousSessionFallsBackToItsSiteBoundGuestCredential(): void
@@ -114,8 +133,16 @@ final class PublicPageApiProxyTest extends TestCase
 			$token = self::header($options['headers'], 'X-AUTH-TOKEN');
 			self::assertNotNull($token);
 			self::assertNotNull((new GuestApiTokenManager('test-secret'))->decode($token));
+			if (2 === $requests) {
+				self::assertSame('/api/public/render/pages/about/manifest', parse_url($url, PHP_URL_PATH));
 
-			return new MockResponse('{"html":"<main>public</main>"}');
+				return new MockResponse(self::manifest());
+			}
+
+			self::assertSame('/api/public/render/pages/about/fragments/region', parse_url($url, PHP_URL_PATH));
+			self::assertSame('@main', self::query($url)['_iikiti_fragment_id'] ?? null);
+
+			return new MockResponse(self::fragment('<p>public</p>'));
 		});
 		$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
 		$proxy = new PublicPageApiProxy(
@@ -133,16 +160,20 @@ final class PublicPageApiProxyTest extends TestCase
 		$response = $proxy->page($request, 'about');
 
 		self::assertSame(200, $response->getStatusCode());
-		self::assertSame('<main>public</main>', $response->getContent());
-		self::assertSame(2, $requests);
+		self::assertStringContainsString('<p>public</p>', (string) $response->getContent());
+		self::assertSame(3, $requests);
 	}
 
 	public function testRewritesAssetUrlsToTheStreamingSiteScopedApiRoute(): void
 	{
 		$token = str_repeat('c', 64);
-		$client = new MockHttpClient(static fn (): MockResponse => new MockResponse(json_encode([
-			'html' => '<img src="/assets/'.$token.'/thumbnail" srcset="/assets/'.$token.'/small 1x, /assets/'.$token.'/large 2x">',
-		], JSON_THROW_ON_ERROR)));
+		$client = new MockHttpClient(static function (string $method, string $url) use ($token): MockResponse {
+			if (str_ends_with((string) parse_url($url, PHP_URL_PATH), '/manifest')) {
+				return new MockResponse(self::manifest());
+			}
+
+			return new MockResponse(self::fragment('<img src="/assets/'.$token.'/thumbnail" srcset="/assets/'.$token.'/small 1x, /assets/'.$token.'/large 2x">'));
+		});
 		$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
 		$proxy = new PublicPageApiProxy(
 			$api,
@@ -160,9 +191,13 @@ final class PublicPageApiProxyTest extends TestCase
 
 	public function testRewritesInteractiveFormActionsToTheRemoteApiOrigin(): void
 	{
-		$client = new MockHttpClient(static fn (): MockResponse => new MockResponse(json_encode([
-			'html' => '<form action="/api/forms/db/signup?_site_host=www.example.test"><button>Continue</button></form>',
-		], JSON_THROW_ON_ERROR)));
+		$client = new MockHttpClient(static function (string $method, string $url): MockResponse {
+			if (str_ends_with((string) parse_url($url, PHP_URL_PATH), '/manifest')) {
+				return new MockResponse(self::manifest());
+			}
+
+			return new MockResponse(self::fragment('<form action="/api/forms/db/signup?_site_host=www.example.test"><button>Continue</button></form>'));
+		});
 		$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
 		$proxy = new PublicPageApiProxy(
 			$api,
@@ -174,6 +209,149 @@ final class PublicPageApiProxyTest extends TestCase
 		$response = $proxy->home(Request::create('https://www.example.test/'));
 
 		self::assertStringContainsString('https://api.example.test/api/forms/db/signup?_site_host=www.example.test', (string) $response->getContent());
+	}
+
+	public function testFetchesAuthorizedFragmentsInFiberGroupsAndComposesOneDomResponse(): void
+	{
+		$descriptors = [
+			['kind' => 'region', 'id' => 'main', 'role' => 'main', 'slot' => str_repeat('a', 32)],
+			['kind' => 'shell', 'id' => '17', 'role' => 'header', 'slot' => str_repeat('b', 32)],
+		];
+		$client = new MockHttpClient(static function (string $method, string $url) use ($descriptors): MockResponse {
+			$path = parse_url($url, PHP_URL_PATH);
+			if (str_ends_with((string) $path, '/manifest')) {
+				return new MockResponse(self::manifest($descriptors));
+			}
+
+			$id = self::query($url)['_iikiti_fragment_id'] ?? null;
+			return new MockResponse(self::fragment('@main' === $id ? '<p>Main region</p>' : '<header>Site header</header>', [], '@main' === $id ? 'main' : (string) $id));
+		});
+		$profiler = new AsyncResponseDataCollector();
+		$api = new BusinessApiClient($client, 'https://api.example.test', 'test', $profiler);
+		$proxy = new PublicPageApiProxy(
+			$api,
+			new ApiSessionTokenProvider($api),
+			new FiberTaskRunner($client, $profiler),
+			new GuestApiTokenManager('test-secret'),
+			$profiler,
+		);
+
+		$response = $proxy->home(Request::create('https://www.example.test/'));
+		$profiler->collect(Request::create('https://www.example.test/'), $response);
+
+		self::assertInstanceOf(DomHtmlResponse::class, $response);
+		$html = (string) $response->getContent();
+		self::assertStringContainsString('<p>Main region</p>', $html);
+		self::assertStringContainsString('<header>Site header</header>', $html);
+		self::assertCount(3, $profiler->getAsyncRequests());
+		self::assertCount(3, $profiler->getApiSubrequests());
+		self::assertCount(2, $profiler->getFiberGroups());
+		self::assertSame(2, $profiler->getFiberGroups()[0]['tasks']);
+		self::assertSame(1, $profiler->getFiberGroups()[1]['tasks']);
+		self::assertSame(['format' => 'html-dom', 'fragments' => 2], $profiler->getCompositions()[0]);
+		self::assertTrue($profiler->isDomDocumentReused());
+	}
+
+	public function testFragmentRevisionConflictPreventsPartialPageResponse(): void
+	{
+		$requests = 0;
+		$client = new MockHttpClient(static function (string $method, string $url) use (&$requests): MockResponse {
+			++$requests;
+			if (str_ends_with((string) parse_url($url, PHP_URL_PATH), '/manifest')) {
+				return new MockResponse(self::manifest());
+			}
+
+			return new MockResponse('{"message":"page changed"}', ['http_code' => 409]);
+		});
+		$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
+		$proxy = new PublicPageApiProxy(
+			$api,
+			new ApiSessionTokenProvider($api),
+			new FiberTaskRunner($client),
+			new GuestApiTokenManager('test-secret'),
+		);
+
+		$response = $proxy->home(Request::create('https://www.example.test/'));
+
+		self::assertSame(409, $response->getStatusCode());
+		self::assertNotInstanceOf(DomHtmlResponse::class, $response);
+		self::assertSame(2, $requests);
+	}
+
+	public function testEditorStylesFromFragmentsMergeByStyleIdAndRewriteAssetUrls(): void
+	{
+		$assetToken = str_repeat('d', 64);
+		$descriptors = [
+			['kind' => 'region', 'id' => 'main', 'role' => 'main', 'slot' => str_repeat('a', 32)],
+			['kind' => 'shell', 'id' => '17', 'role' => 'header', 'slot' => str_repeat('b', 32)],
+		];
+		$client = new MockHttpClient(static function (string $method, string $url) use ($descriptors, $assetToken): MockResponse {
+			if (str_ends_with((string) parse_url($url, PHP_URL_PATH), '/manifest')) {
+				return new MockResponse(self::manifest($descriptors, [
+					['id' => 'shared-style', 'css' => '.page{color:red}'],
+				], true));
+			}
+
+			$id = self::query($url)['_iikiti_fragment_id'] ?? null;
+			$css = '@main' === $id ? '.main{color:blue}' : '.shell{background-image:url("/assets/'.$assetToken.'/original")}';
+
+			return new MockResponse(self::fragment('@main' === $id ? '<p>Main</p>' : '<header>Header</header>', [
+				['id' => 'shared-style', 'css' => $css],
+			], '@main' === $id ? 'main' : (string) $id));
+		});
+		$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
+		$proxy = new PublicPageApiProxy(
+			$api,
+			new ApiSessionTokenProvider($api),
+			new FiberTaskRunner($client),
+			new GuestApiTokenManager('test-secret'),
+		);
+
+		$response = $proxy->home(Request::create('https://www.example.test/'));
+		$html = (string) $response->getContent();
+
+		self::assertSame(1, substr_count($html, 'id="shared-style"'));
+		self::assertStringContainsString('.page{color:red}', $html);
+		self::assertStringContainsString('.main{color:blue}', $html);
+		self::assertStringContainsString('.shell{background-image:url("https://api.example.test/api/public/sites/www.example.test/assets/'.$assetToken.'/original")}', $html);
+	}
+
+	/** @param list<array{kind:string,id:string,role:string,slot:string}> $fragments
+	 *  @param list<array{id:?string,css:string}> $styles
+	 */
+	private static function manifest(array $fragments = [], array $styles = [], bool $editorMode = false): string
+	{
+		if ([] === $fragments) {
+			$fragments = [['kind' => 'region', 'id' => 'main', 'role' => 'main', 'slot' => str_repeat('a', 32)]];
+		}
+
+		$slots = '';
+		foreach ($fragments as $fragment) {
+			$attribute = 'region' === $fragment['kind'] ? 'data-iikiti-region-slot' : 'data-iikiti-shell-slot';
+			$slots .= sprintf('<template %s="%s"></template>', $attribute, $fragment['slot']);
+		}
+
+		return json_encode([
+			'html' => '<!DOCTYPE html><html><head><template data-iikiti-fragment="custom-css"></template></head><body><main>'.$slots.'</main></body></html>',
+			'styles' => $styles,
+			'editor_mode' => $editorMode,
+			'revision' => str_repeat('a', 64),
+			'fragments' => $fragments,
+		], JSON_THROW_ON_ERROR);
+	}
+
+	/** @param list<array{id:?string,css:string}> $styles */
+	private static function fragment(string $html, array $styles = [], string $id = 'main'): string
+	{
+		return json_encode(['found' => true, 'id' => $id, 'revision' => str_repeat('a', 64), 'html' => $html, 'styles' => $styles], JSON_THROW_ON_ERROR);
+	}
+
+	/** @return array<string,mixed> */
+	private static function query(string $url): array
+	{
+		parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+
+		return $query;
 	}
 
 	/** @param array<array-key,mixed> $headers */
@@ -190,4 +368,5 @@ final class PublicPageApiProxyTest extends TestCase
 
 		return null;
 	}
+
 }

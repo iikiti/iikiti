@@ -14,10 +14,15 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ## [Unreleased]
 
-> Last updated: 2026-11-07
+> Last updated: 2026-11-08
 
 ### Changed
 
+- 2026-11-08: Excluded nested public-render API calls from duplicate dev profiles while retaining their timing in the parent request's Fiber/API sections.
+- 2026-11-08: Consumer page bootstrap now fetches the API manifest and primary region concurrently, validating matching render revisions before composition.
+- 2026-11-08: Added opt-in API-backed public page rendering for API-role development profiles, with transport DNS resolution configurable independently from the API hostname.
+- 2026-11-08: Added optional `INTERNAL_API_RESOLVE` routing for consumer API transports in isolated PHP network namespaces while preserving the configured API hostname.
+- 2026-11-07: Consumer page rendering now fetches API-issued region and shell fragments concurrently and composes them into one DOM document.
 - 2026-11-07: The dynamic firewall now inspects requests before Symfony Security and evaluates site-less API requests with core and active signed rules, while keeping site policies scoped to resolved sites.
 - 2026-11-07: Credential submission now uses the stateful `/api/auth/login` firewall and MFA challenge route under `/api/auth/mfa/challenge`, preserving CSRF, shared session context, and the code-enforced MFA proof gate.
 - 2026-11-07: Interactive multi-step form handlers now run under stateful `/api/forms/*` routes with site-bound session context.

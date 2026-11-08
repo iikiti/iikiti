@@ -6,6 +6,7 @@ namespace iikiti\CMS\Web\Template;
 
 use Dom\DocumentFragment;
 use iikiti\CMS\Async\FiberTaskRunner;
+use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Entity\Object\Template;
 use iikiti\CMS\Profiler\AsyncResponseDataCollector;
 use iikiti\CMS\Response\Composition\HtmlFragmentComposer;
@@ -242,6 +243,153 @@ final class TemplateRenderer
 	}
 
 	/**
+	 * Renders a server-authored layout skeleton and describes its fixed fragment slots.
+	 *
+	 * @param array<string,list<array<string,mixed>>> $regionTrees
+	 * @return array{html:string,revision:string,fragments:list<array{kind:string,id:string,role:string,slot:string}>}
+	 */
+	public function renderManifest(
+		Template $template,
+		BlockRenderContext $context,
+		array $regionTrees,
+		?TemplateResolutionContext $resolutionContext = null,
+	): array {
+		$regions = $template->getRegions();
+		$shells = $this->resolveShells($resolutionContext);
+		$revision = $this->renderRevision($template, $context, $regionTrees, $shells);
+		if ([] !== $regions && !$this->hasMainRegion($regions)) {
+			return ['html' => $this->renderNoMainRegion($context), 'revision' => $revision, 'fragments' => []];
+		}
+
+		$fragments = [];
+		$regionSlots = [];
+		$orderedRegions = $regions;
+		$regionPriority = ['main' => 0, 'header' => 2];
+		usort($orderedRegions, static fn (array $left, array $right): int =>
+			($regionPriority[$left['role'] ?? ''] ?? 1) <=> ($regionPriority[$right['role'] ?? ''] ?? 1));
+		foreach ($orderedRegions as $region) {
+			$regionId = (string) ($region['id'] ?? '');
+			if ('' === $regionId) {
+				continue;
+			}
+
+			$slot = bin2hex(random_bytes(16));
+			$regionSlots[$regionId] = $slot;
+			$fragments[] = ['kind' => 'region', 'id' => $regionId, 'role' => (string) ($region['role'] ?? ''), 'slot' => $slot];
+		}
+
+		$shellSlots = [];
+		$roles = array_keys($shells);
+		$rolePriority = ['aside' => 0, 'sidebar' => 0, 'footer' => 1, 'dialog' => 2, 'header' => 3];
+		usort($roles, static fn (string $left, string $right): int => ($rolePriority[$left] ?? 1) <=> ($rolePriority[$right] ?? 1));
+		foreach ($roles as $role) {
+			$roleShells = $shells[$role];
+			foreach ($roleShells as $shell) {
+				$shellId = (string) ($shell['id'] ?? '');
+				if ('' === $shellId) {
+					continue;
+				}
+
+				$slot = bin2hex(random_bytes(16));
+				$shellSlots[$role][] = ['slot' => $slot, 'shell' => $shell];
+				$fragments[] = ['kind' => 'shell', 'id' => $shellId, 'role' => $role, 'slot' => $slot];
+			}
+		}
+
+		$vars = [
+			'iikiti_editor_mode' => $context->editorMode,
+			'iikiti_can_edit' => $context->canEdit,
+			'iikiti_regions' => $regions,
+			'iikiti_settings' => $template->getSettings(),
+			'iikiti_site' => $context->site,
+			'iikiti_shells' => [],
+		];
+		foreach ($regionSlots as $regionId => $slot) {
+			$vars[$this->regionVar($regionId)] = sprintf('<template data-iikiti-region-slot="%s"></template>', $slot);
+		}
+		foreach ($shellSlots as $role => $roleShells) {
+			foreach ($roleShells as $entry) {
+				$vars['iikiti_shells'][$role][] = sprintf('<template data-iikiti-shell-slot="%s"></template>', $entry['slot']);
+			}
+		}
+
+		try {
+			$html = $this->twig->render($template->getLayout(), $vars);
+		} catch (LoaderError|RuntimeError|SyntaxError $exception) {
+			$html = $this->renderError($exception->getMessage());
+			$fragments = [];
+		}
+		$fragments = array_values(array_filter($fragments, static function (array $fragment) use ($html): bool {
+			$attribute = 'region' === $fragment['kind'] ? 'data-iikiti-region-slot' : 'data-iikiti-shell-slot';
+
+			return str_contains($html, sprintf('%s="%s"', $attribute, $fragment['slot']));
+		}));
+
+		return ['html' => $html, 'revision' => $revision, 'fragments' => $fragments];
+	}
+
+	/**
+	 * Renders exactly one API-authorized region or shell from the current page state.
+	 *
+	 * @param array<string,list<array<string,mixed>>> $regionTrees
+	 * @return array{html:string,styles:list<array{id:?string,css:string}>,revision:string,id:string}|null
+	 */
+	public function renderFragment(
+		Template $template,
+		BlockRenderContext $context,
+		array $regionTrees,
+		string $kind,
+		string $id,
+		?TemplateResolutionContext $resolutionContext = null,
+	): ?array {
+		$shells = $this->resolveShells($resolutionContext);
+		$revision = $this->renderRevision($template, $context, $regionTrees, $shells);
+		$tree = null;
+		$found = false;
+		$resolvedId = $id;
+		if ('region' === $kind) {
+			foreach ($template->getRegions() as $region) {
+				$regionId = (string) ($region['id'] ?? '');
+				if (('@main' === $id && 'main' === ($region['role'] ?? null)) || $id === $regionId) {
+					$resolvedId = $regionId;
+					$tree = $regionTrees[$resolvedId] ?? null;
+					$found = true;
+					break;
+				}
+			}
+		} elseif ('shell' === $kind) {
+			foreach ($shells as $roleShells) {
+				foreach ($roleShells as $shell) {
+					if ($id === (string) ($shell['id'] ?? '')) {
+						$tree = is_array($shell['blocks'] ?? null) ? $shell['blocks'] : null;
+						$found = true;
+						break 2;
+					}
+				}
+			}
+		} else {
+			return null;
+		}
+
+		if (!$found) {
+			return null;
+		}
+
+		if (null !== $this->fiberTaskRunner && null !== $this->embedResolver) {
+			$fragmentTrees = 'region' === $kind ? [$resolvedId => $tree ?? []] : ['shell' => $tree ?? []];
+			$context = $context->withPrefetchedEmbeds($this->embedResolver->prefetchOembeds(
+				$this->embedUrls($fragmentTrees, $context, []),
+				$this->fiberTaskRunner,
+			));
+		}
+
+		$html = $this->blockRenderer->renderRegionTree($tree, $context);
+		$styles = $context->customCssCollector?->fragments($context->editorMode) ?? [];
+
+		return ['html' => $html, 'styles' => $styles, 'revision' => $revision, 'id' => $resolvedId];
+	}
+
+	/**
 	 * Groups rendered shell HTML by role (`header`, `footer`, `aside`, `dialog`).
 	 * Roles with no matching shell are absent, so the layout can emit no wrapper.
 	 *
@@ -320,6 +468,51 @@ final class TemplateRenderer
 				$this->collectEmbedUrls($value, $urls);
 			}
 		}
+	}
+
+	/**
+	 * @param array<string,list<array<string,mixed>>> $regionTrees
+	 * @param array<string,list<array<string,mixed>>> $shells
+	 */
+	private function renderRevision(Template $template, BlockRenderContext $context, array $regionTrees, array $shells): string
+	{
+		$snapshot = [
+			'template' => [
+				'id' => $template->getId(),
+				'layout' => $template->getLayout(),
+				'regions' => $template->getRegions(),
+				'settings' => $template->getSettings(),
+			],
+			'region_trees' => $regionTrees,
+			'shells' => $shells,
+			'dynamic_blocks' => $context->dynamicBlocks,
+			'site' => $this->objectSnapshot($context->site),
+			'object' => $this->objectSnapshot($context->object),
+			'request_uri' => $context->request?->getRequestUri(),
+			'editor_mode' => $context->editorMode,
+			'can_edit' => $context->canEdit,
+		];
+		return hash('sha256', serialize($snapshot));
+	}
+
+	/** @return array{id:int|string|null,site_id:int|string,properties:array<string,mixed>}|null */
+	private function objectSnapshot(?DbObject $object): ?array
+	{
+		if (null === $object) {
+			return null;
+		}
+
+		$properties = [];
+		foreach ($object->getProperties() as $property) {
+			$properties[$property->getName()] = $property->getValue();
+		}
+		ksort($properties);
+
+		return [
+			'id' => $object->getId(),
+			'site_id' => $object->getSiteId(),
+			'properties' => $properties,
+		];
 	}
 
 	/**

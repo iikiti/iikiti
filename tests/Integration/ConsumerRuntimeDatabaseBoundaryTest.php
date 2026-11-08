@@ -42,11 +42,29 @@ final class ConsumerRuntimeDatabaseBoundaryTest extends WebTestCase
 		$this->setEnvironment('DATABASE_URL', '');
 		$http = new MockHttpClient(static function (string $method, string $url, array $options): MockResponse {
 			self::assertSame('GET', $method);
-			self::assertStringEndsWith('/api/public/render/pages/about', $url);
 			self::assertTrue(self::hasHeader($options['headers'], 'X-SITE-HOST', 'www.example.test'));
 			self::assertStringStartsWith('guest1.', (string) self::header($options['headers'], 'X-AUTH-TOKEN'));
+			if (str_ends_with((string) parse_url($url, PHP_URL_PATH), '/manifest')) {
+				return new MockResponse(json_encode([
+					'html' => '<!DOCTYPE html><html><head><template data-iikiti-fragment="custom-css"></template></head><body><main><template data-iikiti-region-slot="'.str_repeat('a', 32).'"></template></main></body></html>',
+					'styles' => [],
+					'editor_mode' => false,
+					'revision' => str_repeat('a', 64),
+					'fragments' => [['kind' => 'region', 'id' => 'main', 'role' => 'main', 'slot' => str_repeat('a', 32)]],
+				], JSON_THROW_ON_ERROR));
+			}
 
-			return new MockResponse('{"html":"<main>served by API</main>"}');
+			self::assertStringEndsWith('/api/public/render/pages/about/fragments/region', (string) parse_url($url, PHP_URL_PATH));
+			parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+			self::assertSame('@main', $query['_iikiti_fragment_id'] ?? null);
+
+			return new MockResponse(json_encode([
+				'found' => true,
+				'id' => 'main',
+				'revision' => str_repeat('a', 64),
+				'html' => '<p>served by API</p>',
+				'styles' => [],
+			], JSON_THROW_ON_ERROR));
 		});
 		$client = static::createClient();
 		$client->catchExceptions(false);
@@ -58,7 +76,7 @@ final class ConsumerRuntimeDatabaseBoundaryTest extends WebTestCase
 
 		self::assertResponseIsSuccessful();
 		self::assertSelectorTextContains('main', 'served by API');
-		self::assertSame(1, $http->getRequestsCount());
+		self::assertSame(2, $http->getRequestsCount());
 	}
 
 	private function setEnvironment(string $name, string $value): void

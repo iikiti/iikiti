@@ -29,6 +29,8 @@ class SiteRegistry
 		private readonly GuestApiTokenManager $guestTokens,
 		#[Autowire('%application_role%')]
 		private readonly string $applicationRole,
+		#[Autowire('%public_page_render_via_api%')]
+		private readonly bool $publicPageRenderViaApi = false,
 	) {
 		self::initialize();
 	}
@@ -52,7 +54,7 @@ class SiteRegistry
 		static::$siteStack = new \SplStack();
 		static::$initialized = true;
 		static::$populated = false;
-		static::populate($this->requestStack, $this->registry, $this->guestTokens, $this->applicationRole);
+		static::populate($this->requestStack, $this->registry, $this->guestTokens, $this->applicationRole, $this->publicPageRenderViaApi);
 	}
 
 	public static function isInitialized(): bool
@@ -65,11 +67,13 @@ class SiteRegistry
 		ManagerRegistry $registry,
 		GuestApiTokenManager $guestTokens,
 		string $applicationRole,
+		bool $publicPageRenderViaApi,
 	): void {
 		$route = $requestStack->getCurrentRequest()?->attributes->get('_route');
 		$consumerProxyRoute = in_array($route, ['home', 'page', 'digital_asset_file'], true);
 		$siteIndependentRoute = 'html_login' === $route || in_array($route, ['admin_home', 'admin_spa'], true)
-			|| ('consumer' === $applicationRole && $consumerProxyRoute);
+			|| ('consumer' === $applicationRole && $consumerProxyRoute)
+			|| ($publicPageRenderViaApi && in_array($route, ['home', 'page'], true));
 		if (static::$populated || !static::$initialized || 'consumer' === $applicationRole || $siteIndependentRoute) {
 			static::$populated = true;
 

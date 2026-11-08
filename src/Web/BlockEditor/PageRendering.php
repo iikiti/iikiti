@@ -47,15 +47,101 @@ final class PageRendering
 
 	public function render(Request $request, ?DbObject $object = null, bool $home = false): Response
 	{
+		$state = $this->prepareRenderState($request, $object, $home);
+		$template = $state['template'];
+		$renderContext = $state['render_context'];
+		$customCss = $state['custom_css'];
+		$layout = $this->baseLayout($state);
+		$composer = new HtmlFragmentComposer($layout);
+		$this->templateRenderer->renderIntoDocument(
+			$template,
+			$renderContext,
+			$state['region_trees'],
+			$composer,
+			'[data-iikiti-fragment="page"]',
+			resolutionContext: $state['resolution_context'],
+		);
+
+		$iconFont = $this->iconFontAssets->shouldLink($state['can_edit'])
+			? $this->twig->render('base/_icon_font_link.twig')
+			: '';
+		$composer->insertIntoPlaceholder('[data-iikiti-fragment="icon-font"]', $iconFont);
+
+		$composer->insertIntoPlaceholder('[data-iikiti-fragment="custom-css"]', $this->customCssHtml($customCss, $state['editor_mode']));
+
+		return new DomHtmlResponse($composer->document());
+	}
+
+	/**
+	 * Returns a server-rendered layout skeleton and fixed API fragment descriptors.
+	 *
+	 * @return array{html:string,styles:list<array{id:?string,css:string}>,editor_mode:bool,revision:string,fragments:list<array{kind:string,id:string,role:string,slot:string}>}
+	 */
+	public function renderManifest(Request $request, ?DbObject $object = null, bool $home = false): array
+	{
+		$state = $this->prepareRenderState($request, $object, $home);
+		$manifest = $this->templateRenderer->renderManifest(
+			$state['template'],
+			$state['render_context'],
+			$state['region_trees'],
+			$state['resolution_context'],
+		);
+		$composer = new HtmlFragmentComposer($this->baseLayout($state));
+		$composer->insertIntoPlaceholder('[data-iikiti-fragment="page"]', $manifest['html']);
+		$iconFont = $this->iconFontAssets->shouldLink($state['can_edit'])
+			? $this->twig->render('base/_icon_font_link.twig')
+			: '';
+		$composer->insertIntoPlaceholder('[data-iikiti-fragment="icon-font"]', $iconFont);
+
+		return [
+			'html' => $composer->render(),
+			'styles' => $state['custom_css']->fragments($state['editor_mode']),
+			'editor_mode' => $state['editor_mode'],
+			'revision' => $manifest['revision'],
+			'fragments' => $manifest['fragments'],
+		];
+	}
+
+	/**
+	 * @return array{html:string,styles:list<array{id:?string,css:string}>,revision:string,id:string}|null
+	 */
+	public function renderFragment(Request $request, ?DbObject $object, bool $home, string $kind, string $id): ?array
+	{
+		$state = $this->prepareRenderState($request, $object, $home, includePageStyles: false);
+
+		return $this->templateRenderer->renderFragment(
+			$state['template'],
+			$state['render_context'],
+			$state['region_trees'],
+			$kind,
+			$id,
+			$state['resolution_context'],
+		);
+	}
+
+	/**
+	 * @return array{
+	 *   template:Template,
+	 *   resolution_context:TemplateResolutionContext,
+	 *   render_context:BlockRenderContext,
+	 *   region_trees:array<string,list<array<string,mixed>>>,
+	 *   custom_css:CustomCssCollector,
+	 *   editor_mode:bool,
+	 *   can_edit:bool,
+	 *   config:mixed,
+	 *   scope_classes:list<string>
+	 * }
+	 */
+	private function prepareRenderState(Request $request, ?DbObject $object, bool $home, bool $includePageStyles = true): array
+	{
 		$site = SiteRegistry::hasCurrent() ? SiteRegistry::getCurrent() : null;
-		$context = new TemplateResolutionContext(
+		$resolutionContext = new TemplateResolutionContext(
 			site: $site,
 			object: $object,
 			objectType: null === $object ? null : $object::class,
 			home: $home,
 		);
-
-		$template = $this->resolver->resolve($context) ?? $this->defaultTemplate();
+		$template = $this->resolver->resolve($resolutionContext) ?? $this->defaultTemplate();
 		$user = $this->security->getUser();
 		$canEdit = $user instanceof User && $this->configProvider->canEdit($user);
 		$editorMode = $canEdit && $request->query->has('edit');
@@ -72,27 +158,28 @@ final class PageRendering
 			)
 			: null;
 		$regionTrees = ($editorMode && $template->getBlocksDraft() ? $template->getBlocksDraft() : ($template->getBlocks() ?: []));
-		$dynamicBlocks = $this->dynamicBlocksFor($object, $editorMode);
 		$customCss = new CustomCssCollector();
-		$templateSettings = $editorMode && 'template' === ($settingsContext['type'] ?? null)
-			? $settingsContext['values']
-			: $this->settingsManager->publishedSettings($template);
-		$this->appendCustomCss(
-			$customCss,
-			$templateSettings,
-			$this->scopeClass('template', $template->getId()),
-			$editorMode ? $this->customCssStyleId('template', $template->getId()) : null,
-		);
-		if ($object instanceof Page) {
-			$pageSettings = $editorMode && 'page' === ($settingsContext['type'] ?? null)
+		if ($includePageStyles) {
+			$templateSettings = $editorMode && 'template' === ($settingsContext['type'] ?? null)
 				? $settingsContext['values']
-				: $this->settingsManager->publishedSettings($object);
+				: $this->settingsManager->publishedSettings($template);
 			$this->appendCustomCss(
 				$customCss,
-				$pageSettings,
-				$this->scopeClass('page', $object->getId()),
-				$editorMode ? $this->customCssStyleId('page', $object->getId()) : null,
+				$templateSettings,
+				$this->scopeClass('template', $template->getId()),
+				$editorMode ? $this->customCssStyleId('template', $template->getId()) : null,
 			);
+			if ($object instanceof Page) {
+				$pageSettings = $editorMode && 'page' === ($settingsContext['type'] ?? null)
+					? $settingsContext['values']
+					: $this->settingsManager->publishedSettings($object);
+				$this->appendCustomCss(
+					$customCss,
+					$pageSettings,
+					$this->scopeClass('page', $object->getId()),
+					$editorMode ? $this->customCssStyleId('page', $object->getId()) : null,
+				);
+			}
 		}
 
 		$renderContext = new BlockRenderContext(
@@ -101,7 +188,7 @@ final class PageRendering
 			site: $site,
 			object: $object,
 			request: $request,
-			dynamicBlocks: $dynamicBlocks,
+			dynamicBlocks: $this->dynamicBlocksFor($object, $editorMode),
 			customCssCollector: $customCss,
 		);
 
@@ -109,48 +196,46 @@ final class PageRendering
 		$this->twig->addGlobal('iikiti_editor_mode', $editorMode);
 		$this->twig->addGlobal('iikiti_config', $config);
 
-		$layout = $this->twig->render('base/layout.twig', [
-			'doc' => ['title' => $template->getTitle() ?? 'iikiti'],
-			'iikiti_page_body' => '',
-			'iikiti_use_fragment_composer' => true,
-			'iikiti_editor_mode' => $editorMode,
-			'iikiti_can_edit' => $canEdit,
-			'iikiti_config' => $config,
-			'iikiti_icon_font' => false,
-			'iikiti_scope_classes' => array_values(array_filter([
+		return [
+			'template' => $template,
+			'resolution_context' => $resolutionContext,
+			'render_context' => $renderContext,
+			'region_trees' => $regionTrees,
+			'custom_css' => $customCss,
+			'editor_mode' => $editorMode,
+			'can_edit' => $canEdit,
+			'config' => $config,
+			'scope_classes' => array_values(array_filter([
 				$this->scopeClass('template', $template->getId()),
 				$object instanceof Page ? $this->scopeClass('page', $object->getId()) : null,
 			])),
+		];
+	}
+
+	/** @param array<string,mixed> $state */
+	private function baseLayout(array $state): string
+	{
+		return $this->twig->render('base/layout.twig', [
+			'doc' => ['title' => $state['template']->getTitle() ?? 'iikiti'],
+			'iikiti_page_body' => '',
+			'iikiti_use_fragment_composer' => true,
+			'iikiti_editor_mode' => $state['editor_mode'],
+			'iikiti_can_edit' => $state['can_edit'],
+			'iikiti_config' => $state['config'],
+			'iikiti_icon_font' => false,
+			'iikiti_scope_classes' => $state['scope_classes'],
 			'iikiti_custom_css' => '',
 		]);
-		$composer = new HtmlFragmentComposer($layout);
-		$resolutionContext = new TemplateResolutionContext(
-			site: $site,
-			object: $object,
-			objectType: null === $object ? null : $object::class,
-			home: $home,
-		);
-		$this->templateRenderer->renderIntoDocument(
-			$template,
-			$renderContext,
-			$regionTrees,
-			$composer,
-			'[data-iikiti-fragment="page"]',
-			resolutionContext: $resolutionContext,
-		);
+	}
 
-		$iconFont = $this->iconFontAssets->shouldLink($canEdit)
-			? $this->twig->render('base/_icon_font_link.twig')
-			: '';
-		$composer->insertIntoPlaceholder('[data-iikiti-fragment="icon-font"]', $iconFont);
-
+	private function customCssHtml(CustomCssCollector $customCss, bool $editorMode): string
+	{
 		$customCssHtml = $editorMode ? $customCss->stylesheets() : $customCss->stylesheet();
 		if (!$editorMode && '' !== $customCssHtml) {
 			$customCssHtml = '<style id="iikiti-custom-css">'.$customCssHtml.'</style>';
 		}
-		$composer->insertIntoPlaceholder('[data-iikiti-fragment="custom-css"]', $customCssHtml);
 
-		return new DomHtmlResponse($composer->document());
+		return $customCssHtml;
 	}
 
 	/**

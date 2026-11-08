@@ -14,6 +14,7 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
 /** HTTP transport for the application's resource and business-action API. */
 final readonly class BusinessApiClient
 {
+	/** @param array<string,string> $resolve */
 	public function __construct(
 		private HttpClientInterface $client,
 		#[Autowire('%env(string:INTERNAL_API_BASE_URL)%')]
@@ -21,8 +22,11 @@ final readonly class BusinessApiClient
 		#[Autowire('%kernel.environment%')]
 		private string $environment,
 		private ?AsyncResponseDataCollector $profiler = null,
+		#[Autowire('%internal_api_resolve%')]
+		private array $resolve = [],
 	) {
 		$this->assertBaseUrl($baseUrl);
+		$this->assertResolveMap($resolve);
 	}
 
 	/**
@@ -201,6 +205,9 @@ final readonly class BusinessApiClient
 			'timeout' => $timeout,
 			'max_duration' => $timeout,
 		];
+		if ([] !== $this->resolve) {
+			$options['resolve'] = $this->resolve;
+		}
 		if ([] !== $query) {
 			$options['query'] = $query;
 		}
@@ -272,6 +279,16 @@ final readonly class BusinessApiClient
 		}
 		if ('http' === strtolower((string) $parts['scheme']) && 'prod' === $this->environment) {
 			throw new \InvalidArgumentException('INTERNAL_API_BASE_URL must use HTTPS in production.');
+		}
+	}
+
+	/** @param array<string,string> $resolve */
+	private function assertResolveMap(array $resolve): void
+	{
+		foreach ($resolve as $host => $ip) {
+			if ('' === $host || false === filter_var($ip, FILTER_VALIDATE_IP)) {
+				throw new \InvalidArgumentException('INTERNAL_API_RESOLVE must map hostnames to IP addresses.');
+			}
 		}
 	}
 }

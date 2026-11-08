@@ -49,6 +49,24 @@ final class BusinessApiClientTest extends TestCase
 		self::assertSame(['public' => true], $api->request('GET', '/api/sites'));
 	}
 
+	public function testResolveMapChangesTransportAddressWithoutChangingApiHost(): void
+	{
+		$client = new MockHttpClient(static function (string $method, string $url, array $options): MockResponse {
+			self::assertSame('http://iikiti.localhost/api/public/render/home/manifest', $url);
+			self::assertSame(['iikiti.localhost' => '172.17.0.1'], $options['resolve']);
+
+			return new MockResponse('{"ok":true}');
+		});
+		$api = new BusinessApiClient(
+			$client,
+			'http://iikiti.localhost',
+			'test',
+			resolve: ['iikiti.localhost' => '172.17.0.1'],
+		);
+
+		self::assertSame(['ok' => true], $api->request('GET', '/api/public/render/home/manifest'));
+	}
+
 	public function testAsyncRequestUsesFiberHttpClient(): void
 	{
 		$client = new MockHttpClient(static fn (): MockResponse => new MockResponse('{"id":9}'));

@@ -41,6 +41,29 @@ final class CustomCssCollector
 		return $html;
 	}
 
+	/** @return list<array{id:?string,css:string}> */
+	public function fragments(bool $editorMode): array
+	{
+		$fragments = [];
+		if ($editorMode) {
+			foreach ($this->ownedChunks as $styleId => $chunks) {
+				$css = $this->escapeStyleEndTag(implode('', array_keys($chunks)));
+				if ('' !== $css) {
+					$fragments[] = ['id' => $styleId, 'css' => $css];
+				}
+			}
+		} else {
+			foreach (array_keys($this->chunks) as $css) {
+				$css = $this->escapeStyleEndTag($css);
+				if ('' !== $css) {
+					$fragments[] = ['id' => null, 'css' => $css];
+				}
+			}
+		}
+
+		return $fragments;
+	}
+
 	private function escapeStyleEndTag(string $css): string
 	{
 		return str_ireplace('</style', '\\3C /style', $css);

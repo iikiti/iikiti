@@ -32,4 +32,21 @@ final class CustomCssCollectorTest extends TestCase
 			$collector->stylesheets(),
 		);
 	}
+
+	public function testExportsPageAndFragmentStylesAsDeduplicatedChunks(): void
+	{
+		$collector = new CustomCssCollector();
+		$collector->append('.page{color:red}', 'page-style');
+		$collector->append('.block{color:blue}', 'block-style');
+		$collector->append('.block{color:blue}', 'block-style');
+
+		self::assertSame([
+			['id' => 'page-style', 'css' => '.page{color:red}'],
+			['id' => 'block-style', 'css' => '.block{color:blue}'],
+		], $collector->fragments(editorMode: true));
+		self::assertSame([
+			['id' => null, 'css' => '.page{color:red}'],
+			['id' => null, 'css' => '.block{color:blue}'],
+		], $collector->fragments(editorMode: false));
+	}
 }

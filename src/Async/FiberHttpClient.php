@@ -6,6 +6,7 @@ namespace iikiti\CMS\Async;
 
 use iikiti\CMS\Profiler\AsyncResponseDataCollector;
 use Closure;
+use Exception;
 use Fiber;
 use LogicException;
 use Symfony\Contracts\HttpClient\HttpClientInterface;

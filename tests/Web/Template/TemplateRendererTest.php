@@ -32,13 +32,13 @@ use Symfony\Component\HttpClient\Response\MockResponse;
 
 final class TemplateRendererTest extends TestCase
 {
-	private function renderer(): TemplateRenderer
+	private function renderer(string $layout = '<header>{{ region_header|raw }}</header><main id="main">{{ region_main|raw }}</main>'): TemplateRenderer
 	{
 		$layoutEnv = new Environment(new ArrayLoader([
-			'layout.twig' => '<header>{{ region_header|raw }}</header><main id="main">{{ region_main|raw }}</main>',
+			'layout.twig' => $layout,
 		]), ['strict_variables' => false]);
 
-		$blockTwig = new Environment(new FilesystemLoader(__DIR__.'/../../../templates/blocks'), [
+		$blockTwig = new Environment(new FilesystemLoader(__DIR__.'/../../../templates'), [
 			'strict_variables' => false,
 		]);
 		$blockRenderer = new BlockRenderer(
@@ -173,5 +173,51 @@ final class TemplateRendererTest extends TestCase
 
 		$this->assertStringContainsString('no_main_region', $html);
 		$this->assertStringContainsString('main content area must be provided', $html);
+	}
+
+	public function testManifestContainsFixedSlotsAndRegionFragmentsShareItsRevision(): void
+	{
+		$renderer = $this->renderer();
+		$template = $this->template([
+			['id' => 'header', 'role' => 'header', 'name' => 'Header', 'allowed_types' => []],
+			['id' => 'main', 'role' => 'main', 'name' => 'Main', 'allowed_types' => []],
+		]);
+		$context = new BlockRenderContext(editorMode: false);
+		$trees = ['main' => [[
+			'id' => 'container-1',
+			'type' => 'container',
+			'content' => [],
+			'style' => ['base' => []],
+			'children' => [['type' => 'text', 'content' => ['content' => '<p>API fragment</p>'], 'style' => ['base' => []]]],
+		]]];
+
+		$manifest = $renderer->renderManifest($template, $context, $trees);
+		$fragment = $renderer->renderFragment($template, $context, $trees, 'region', 'main');
+
+		self::assertCount(2, $manifest['fragments']);
+		self::assertSame(['main', 'header'], array_column($manifest['fragments'], 'id'));
+		self::assertMatchesRegularExpression('/^[a-f0-9]{32}$/D', $manifest['fragments'][0]['slot']);
+		self::assertStringContainsString($manifest['fragments'][1]['slot'], $manifest['html']);
+		self::assertNotNull($fragment);
+		self::assertSame($manifest['revision'], $fragment['revision']);
+		self::assertStringContainsString('API fragment', $fragment['html']);
+		self::assertNull($renderer->renderFragment($template, $context, $trees, 'region', 'unknown'));
+
+		$template->setLayout('changed.twig');
+		$changed = $renderer->renderFragment($template, $context, $trees, 'region', 'main');
+		self::assertNotNull($changed);
+		self::assertNotSame($manifest['revision'], $changed['revision']);
+	}
+
+	public function testManifestOmitsConfiguredRegionsThatTheLayoutDoesNotRender(): void
+	{
+		$renderer = $this->renderer('<main>{{ region_main|raw }}</main>');
+		$template = $this->template([
+			['id' => 'main', 'role' => 'main', 'name' => 'Main', 'allowed_types' => []],
+			['id' => 'aside-left', 'role' => 'sidebar', 'name' => 'Left sidebar', 'allowed_types' => []],
+		]);
+		$manifest = $renderer->renderManifest($template, new BlockRenderContext(editorMode: false), []);
+
+		self::assertSame(['main'], array_column($manifest['fragments'], 'id'));
 	}
 }

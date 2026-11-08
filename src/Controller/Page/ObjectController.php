@@ -43,6 +43,8 @@ class ObjectController extends AppController
 		private readonly MfaAuthenticationGate $mfaGate,
 		#[Autowire('%application_role%')]
 		private readonly string $applicationRole,
+		#[Autowire('%public_page_render_via_api%')]
+		private readonly bool $publicPageRenderViaApi = false,
 	) {
 		parent::__construct($security, $container);
 	}
@@ -57,6 +59,9 @@ class ObjectController extends AppController
 		$user = $this->security->getUser();
 		if ($user instanceof User && !$this->mfaGate->allowsFullyAuthenticatedUser()) {
 			return new RedirectResponse('/api/auth/mfa/challenge');
+		}
+		if ($this->publicPageRenderViaApi) {
+			return $this->apiProxy->page($request, $slug);
 		}
 		$page = $this->pageRepository->findOneByProperty('slug', $slug);
 		if (!$page instanceof Page) {

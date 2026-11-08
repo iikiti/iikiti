@@ -38,6 +38,8 @@ class Initializer implements EventSubscriberInterface
 		private ApplicationRegistry $appRegistry,
 		#[Autowire('%application_role%')]
 		private string $applicationRole,
+		#[Autowire('%public_page_render_via_api%')]
+		private bool $publicPageRenderViaApi = false,
 	) {
 	}
 
@@ -75,9 +77,11 @@ class Initializer implements EventSubscriberInterface
 
 		$route = $event->getRequest()->attributes->get('_route');
 		$consumerProxyRoute = in_array($route, ['home', 'page', 'digital_asset_file', 'admin_home', 'admin_spa'], true);
+		$apiBackedPageRoute = $this->publicPageRenderViaApi && in_array($route, ['home', 'page'], true);
 		$siteIndependentRoute = 'html_login' === $route
 			|| in_array($route, ['admin_home', 'admin_spa'], true)
-			|| ('consumer' === $this->applicationRole && $consumerProxyRoute);
+			|| ('consumer' === $this->applicationRole && $consumerProxyRoute)
+			|| $apiBackedPageRoute;
 		if ('consumer' === $this->applicationRole) {
 			if (!$consumerProxyRoute) {
 				throw new ServiceUnavailableHttpException(null, 'This consumer runtime only supports API-backed page, asset, and admin shell routes.');

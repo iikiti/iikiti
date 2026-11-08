@@ -21,14 +21,11 @@ final readonly class ApiSessionTokenProvider
 			return $token;
 		}
 
-		if (!$request->hasSession()) {
+		$sessionCookie = $this->sessionCookie($request);
+		if (null === $sessionCookie) {
 			return null;
 		}
-		$cookieName = $request->getSession()->getName();
-		$cookieValue = $request->cookies->get($cookieName);
-		if (!is_string($cookieValue) || '' === $cookieValue) {
-			return null;
-		}
+		[$cookieName, $cookieValue] = $sessionCookie;
 
 		try {
 			$data = $this->api->requestAsync(
@@ -51,5 +48,26 @@ final readonly class ApiSessionTokenProvider
 		$sessionToken = $data['token'] ?? null;
 
 		return is_string($sessionToken) && '' !== $sessionToken ? $sessionToken : null;
+	}
+
+	public function hasSessionCookie(Request $request): bool
+	{
+		return null !== $this->sessionCookie($request);
+	}
+
+	/** @return array{string,string}|null */
+	private function sessionCookie(Request $request): ?array
+	{
+		if (!$request->hasSession()) {
+			return null;
+		}
+
+		$cookieName = $request->getSession()->getName();
+		$cookieValue = $request->cookies->get($cookieName);
+		if (!is_string($cookieValue) || '' === $cookieValue) {
+			return null;
+		}
+
+		return [$cookieName, $cookieValue];
 	}
 }
