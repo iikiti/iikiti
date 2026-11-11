@@ -32,4 +32,10 @@ final class SecretsKeyringTest extends TestCase
 		$this->expectException(\UnexpectedValueException::class);
 		$keyring->unwrap('missing', base64_encode(str_repeat('x', 64)), 'scope');
 	}
+
+	public function testKeyringRequiresAnActiveIdWhenKeysAreConfigured(): void
+	{
+		$this->expectException(\InvalidArgumentException::class);
+		new SecretsKeyring(['configured' => base64_encode(str_repeat('k', 32))], '');
+	}
 }

@@ -35,7 +35,7 @@ class ApiTokenAuthenticator extends AbstractAuthenticator
 		if (null === $apiToken) {
 			throw new CustomUserMessageAuthenticationException('No API token provided');
 		}
-		if (str_starts_with($apiToken, 'guest1.')) {
+		if (str_starts_with($apiToken, 'guest1.') || str_starts_with($apiToken, 'guest2.')) {
 			$guest = $this->guestTokens->decode($apiToken);
 			if (null === $guest
 				|| !in_array($request->getMethod(), ['GET', 'HEAD'], true)

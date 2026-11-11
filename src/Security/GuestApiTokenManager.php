@@ -4,17 +4,25 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Security;
 
+use iikiti\CMS\Crypto\GuestApiTokenKeyring;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /** Issues short-lived, site-bound credentials for public read API operations. */
 final readonly class GuestApiTokenManager
 {
 	private const TTL_SECONDS = 300;
+	private GuestApiTokenKeyring $keyring;
 
 	public function __construct(
 		#[Autowire('%kernel.secret%')]
-		private string $secret,
+		private string $legacySecret,
+		?GuestApiTokenKeyring $keyring = null,
+		private bool $allowLegacyTokens = false,
 	) {
+		$this->keyring = $keyring ?? new GuestApiTokenKeyring(
+			['test' => base64_encode(hash('sha256', $legacySecret, true))],
+			'test',
+		);
 	}
 
 	public function issue(string $siteHost): string
@@ -25,31 +33,53 @@ final readonly class GuestApiTokenManager
 			'exp' => time() + self::TTL_SECONDS,
 			'nonce' => bin2hex(random_bytes(16)),
 		], JSON_THROW_ON_ERROR);
+		$keyId = $this->keyring->getActiveKeyId();
+		$encodedKeyId = self::base64UrlEncode($keyId);
 		$encodedPayload = self::base64UrlEncode($payload);
-		$signature = self::base64UrlEncode(hash_hmac('sha256', $encodedPayload, $this->secret, true));
+		$signature = self::base64UrlEncode(hash_hmac('sha256', $this->signingMessage($keyId, $encodedPayload), $this->keyring->getKey($keyId), true));
 
-		return 'guest1.'.$encodedPayload.'.'.$signature;
+		return 'guest2.'.$encodedKeyId.'.'.$encodedPayload.'.'.$signature;
 	}
 
 	public function decode(string $token): ?GuestApiUser
 	{
 		$parts = explode('.', $token);
-		if (3 !== count($parts) || 'guest1' !== $parts[0]) {
+		if (4 === count($parts) && 'guest2' === $parts[0]) {
+			[, $encodedKeyId, $encodedPayload, $signature] = $parts;
+			$keyId = self::base64UrlDecode($encodedKeyId);
+			if ('' === $keyId) {
+				return null;
+			}
+			try {
+				$expected = self::base64UrlEncode(hash_hmac(
+					'sha256',
+					$this->signingMessage($keyId, $encodedPayload),
+					$this->keyring->getKey($keyId),
+					true,
+				));
+			} catch (\UnexpectedValueException) {
+				return null;
+			}
+		} elseif (3 === count($parts) && 'guest1' === $parts[0]) {
+			if (!$this->allowLegacyTokens) {
+				return null;
+			}
+			[, $encodedPayload, $signature] = $parts;
+			$expected = self::base64UrlEncode(hash_hmac('sha256', $encodedPayload, $this->legacySecret, true));
+		} else {
+			return null;
+		}
+		if (!hash_equals($expected, $signature)) {
 			return null;
 		}
 
-		$expected = self::base64UrlEncode(hash_hmac('sha256', $parts[1], $this->secret, true));
-		if (!hash_equals($expected, $parts[2])) {
-			return null;
-		}
-
-		$payload = json_decode(self::base64UrlDecode($parts[1]), true);
-		if (!is_array($payload)
-			|| !is_string($payload['host'] ?? null)
-			|| !is_int($payload['exp'] ?? null)
-			|| $payload['exp'] < time()
-			|| !is_string($payload['nonce'] ?? null)
-			|| 1 !== preg_match('/^[a-f0-9]{32}$/D', $payload['nonce'])) {
+		$payload = json_decode(self::base64UrlDecode($encodedPayload), true);
+		if (!is_array($payload) ||
+			!is_string($payload['host'] ?? null) ||
+			!is_int($payload['exp'] ?? null) ||
+			$payload['exp'] < time() ||
+			!is_string($payload['nonce'] ?? null) ||
+			1 !== preg_match('/^[a-f0-9]{32}$/D', $payload['nonce'])) {
 			return null;
 		}
 
@@ -88,5 +118,10 @@ final readonly class GuestApiTokenManager
 		}
 
 		return $decoded;
+	}
+
+	private function signingMessage(string $keyId, string $encodedPayload): string
+	{
+		return "iikiti-guest-api-token-v2\0".$keyId."\0".$encodedPayload;
 	}
 }

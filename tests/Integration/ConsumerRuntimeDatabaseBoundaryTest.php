@@ -43,7 +43,7 @@ final class ConsumerRuntimeDatabaseBoundaryTest extends WebTestCase
 		$http = new MockHttpClient(static function (string $method, string $url, array $options): MockResponse {
 			self::assertSame('GET', $method);
 			self::assertTrue(self::hasHeader($options['headers'], 'X-SITE-HOST', 'www.example.test'));
-			self::assertStringStartsWith('guest1.', (string) self::header($options['headers'], 'X-AUTH-TOKEN'));
+			self::assertStringStartsWith('guest2.', (string) self::header($options['headers'], 'X-AUTH-TOKEN'));
 			if (str_ends_with((string) parse_url($url, PHP_URL_PATH), '/manifest')) {
 				return new MockResponse(json_encode([
 					'html' => '<!DOCTYPE html><html><head><template data-iikiti-fragment="custom-css"></template></head><body><main><template data-iikiti-region-slot="'.str_repeat('a', 32).'"></template></main></body></html>',

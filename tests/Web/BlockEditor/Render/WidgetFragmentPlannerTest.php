@@ -43,7 +43,7 @@ final class WidgetFragmentPlannerTest extends TestCase
 			['kind' => 'region', 'id' => 'main', 'role' => 'main', 'tree' => $tree],
 		], new BlockRenderContext(editorMode: false), str_repeat('a', 64), 10);
 
-	self::assertSame(['root', 'async-child', 'nested-async'], $this->blockIds($plan));
+		self::assertSame(['root', 'async-child', 'nested-async'], $this->blockIds($plan));
 	}
 
 	public function testUsesStructuralIdentityForDuplicateBlockIds(): void
@@ -86,6 +86,29 @@ final class WidgetFragmentPlannerTest extends TestCase
 		], new BlockRenderContext(editorMode: false), str_repeat('c', 64), 2);
 
 		self::assertSame(['root', 'limited'], $this->blockIds($plan));
+	}
+
+	public function testWidgetIdsAreStablePerDedicatedKeyAndChangeWhenItRotates(): void
+	{
+		$roots = [[
+			'kind' => 'region',
+			'id' => 'main',
+			'role' => 'main',
+			'tree' => [[
+				'id' => 'root',
+				'type' => 'container',
+				'children' => [['id' => 'widget', 'type' => 'text', 'renderMode' => 'always']],
+			]],
+		]];
+		$context = new BlockRenderContext(editorMode: false);
+		$revision = str_repeat('r', 64);
+		$registry = new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly())]);
+		$first = (new WidgetFragmentPlanner($registry, str_repeat('a', 32)))->plan($roots, $context, $revision, 10);
+		$again = (new WidgetFragmentPlanner($registry, str_repeat('a', 32)))->plan($roots, $context, $revision, 10);
+		$rotated = (new WidgetFragmentPlanner($registry, str_repeat('b', 32)))->plan($roots, $context, $revision, 10);
+
+		self::assertSame(array_column($first->descriptors(), 'id'), array_column($again->descriptors(), 'id'));
+		self::assertNotSame(array_column($first->descriptors(), 'id'), array_column($rotated->descriptors(), 'id'));
 	}
 
 	/** @return list<string> */

@@ -48,4 +48,14 @@ final class SiteMasterKeyManagerTest extends TestCase
 		self::assertSame(0, (new SiteMasterKeyManager($entityManager, $keyring))->rewrapAll());
 		self::assertSame($wrapped, $siteKey->getWrappedMasterKey());
 	}
+
+	public function testRotationNeedsNoKeyringWhenNoSiteMasterKeysExist(): void
+	{
+		$repository = $this->createStub(EntityRepository::class);
+		$repository->method('findAll')->willReturn([]);
+		$entityManager = $this->createStub(EntityManagerInterface::class);
+		$entityManager->method('getRepository')->willReturn($repository);
+
+		self::assertSame(0, (new SiteMasterKeyManager($entityManager, new SecretsKeyring([], '')))->rewrapAll());
+	}
 }

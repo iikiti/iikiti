@@ -305,6 +305,9 @@ application instances use the new active key, then remove the old key from the
 deployed keyring. Rotation requires old keys to remain configured until every
 stored master key using them has been re-wrapped.
 
+For purpose-specific application key provisioning and coordinated rotation of
+site secrets and transfer credentials, see [Application Keys](application-keys.md).
+
 ## Development workflow
 
 1. Place the plugin under `cms/extensions/installed/{slug}/` with a valid

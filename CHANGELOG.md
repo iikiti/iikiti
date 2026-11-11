@@ -14,10 +14,11 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ## [Unreleased]
 
-> Last updated: 2026-11-08
+> Last updated: 2026-11-11
 
 ### Changed
 
+- 2026-11-11: Expanded application-key documentation with key purposes, rotation triggers, invalidation effects, and operational risks.
 - 2026-11-08: Consumer rendering now fans out direct widget fragments and explicitly async descendants, composing them parent-first within the existing batch and page limits; query blocks remain atomic.
 - 2026-11-08: Excluded nested public-render API calls from duplicate dev profiles while retaining their timing in the parent request's Fiber/API sections.
 - 2026-11-08: Consumer page bootstrap now fetches the API manifest and primary region concurrently, validating matching render revisions before composition.
@@ -40,6 +41,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-11-11: Added dedicated transfer-credential, guest-token, and widget-fragment keys with transactional application-key rotation for persisted ciphertext.
 - 2026-11-11: Added an encrypted, site-scoped Secrets API for core and plugin code, with wrapped master-key rotation and secret-property leak protections.
 - 2026-11-08: Added per-widget rendered-fragment cache scopes (`none`, site-global, or UserGroup cohort), CMS-write invalidation, a configurable TTL, and block-editor controls.
 - 2026-11-07: Added Fiber HTTP and outbound Business API call details under Request / Response -> Request, with credential-sensitive query values redacted.

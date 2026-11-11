@@ -12,9 +12,12 @@ final class WidgetFragmentPlanner
 {
 	public function __construct(
 		private readonly BlockTypeRegistry $registry,
-		#[Autowire('%kernel.secret%')]
-		private readonly string $secret = 'widget-fragment-test-secret',
+		#[Autowire('%widget_fragment_hmac_key%')]
+		private readonly string $secret = '01234567890123456789012345678901',
 	) {
+		if (32 !== strlen($secret)) {
+			throw new \InvalidArgumentException('The widget fragment HMAC key must contain exactly 32 bytes.');
+		}
 	}
 
 	/**
@@ -47,11 +50,11 @@ final class WidgetFragmentPlanner
 	}
 
 	/**
-	 * @param list<array<string,mixed>> $nodes
-	 * @param array{kind:string,id:string,role:string,tree:list<array<string,mixed>>} $root
-	 * @param list<array{kind:string,id:string,role:string,slot:string,depth:int}> $descriptors
+	 * @param list<array<string,mixed>>                                                                                                                                                     $nodes
+	 * @param array{kind:string,id:string,role:string,tree:list<array<string,mixed>>}                                                                                                       $root
+	 * @param list<array{kind:string,id:string,role:string,slot:string,depth:int}>                                                                                                          $descriptors
 	 * @param array<string,array{node:array<string,mixed>,path:string,root_kind:string,root_id:string,depth:int,descriptor:array{kind:string,id:string,role:string,slot:string,depth:int}}> $entriesById
-	 * @param array<string,array{kind:string,id:string,role:string,slot:string,depth:int}> $descriptorsByPath
+	 * @param array<string,array{kind:string,id:string,role:string,slot:string,depth:int}>                                                                                                  $descriptorsByPath
 	 */
 	private function visitNodes(
 		array $nodes,

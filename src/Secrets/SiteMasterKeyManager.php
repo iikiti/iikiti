@@ -60,9 +60,13 @@ final readonly class SiteMasterKeyManager
 	/** Re-wrap all site master keys with the active key without changing payloads. */
 	public function rewrapAll(): int
 	{
-		$activeKeyId = $this->keyring->getActiveKeyId();
 		$changed = 0;
-		foreach ($this->entityManager->getRepository(SecretSiteKey::class)->findAll() as $siteKey) {
+		$siteKeys = $this->entityManager->getRepository(SecretSiteKey::class)->findAll();
+		if ([] === $siteKeys) {
+			return 0;
+		}
+		$activeKeyId = $this->keyring->getActiveKeyId();
+		foreach ($siteKeys as $siteKey) {
 			$keyBytes = $this->unwrap($siteKey);
 			if ($activeKeyId === $siteKey->getWrappingKeyId()) {
 				sodium_memzero($keyBytes);

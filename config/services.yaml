@@ -30,6 +30,20 @@ parameters:
     secrets_active_key_id_default: ''
     secrets_keyring: '%env(json:default:secrets_keyring_default:SECRETS_KEYRING)%'
     secrets_active_key_id: '%env(default:secrets_active_key_id_default:SECRETS_ACTIVE_KEY_ID)%'
+    transfer_credentials_keyring_default: '{}'
+    transfer_credentials_active_key_id_default: ''
+    transfer_credentials_allow_legacy_default: false
+    transfer_credentials_keyring: '%env(json:default:transfer_credentials_keyring_default:TRANSFER_CREDENTIALS_KEYRING)%'
+    transfer_credentials_active_key_id: '%env(default:transfer_credentials_active_key_id_default:TRANSFER_CREDENTIALS_ACTIVE_KEY_ID)%'
+    transfer_credentials_allow_legacy: '%env(bool:default:transfer_credentials_allow_legacy_default:TRANSFER_CREDENTIALS_ALLOW_LEGACY)%'
+    guest_api_token_keyring_default: '{}'
+    guest_api_token_active_key_id_default: ''
+    guest_api_token_allow_legacy_default: false
+    guest_api_token_keyring: '%env(json:default:guest_api_token_keyring_default:GUEST_API_TOKEN_KEYRING)%'
+    guest_api_token_active_key_id: '%env(default:guest_api_token_active_key_id_default:GUEST_API_TOKEN_ACTIVE_KEY_ID)%'
+    guest_api_token_allow_legacy: '%env(bool:default:guest_api_token_allow_legacy_default:GUEST_API_TOKEN_ALLOW_LEGACY)%'
+    widget_fragment_hmac_key_default: ''
+    widget_fragment_hmac_key: '%env(base64:default:widget_fragment_hmac_key_default:WIDGET_FRAGMENT_HMAC_KEY)%'
 
 services:
     # default configuration for services in *this* file
@@ -44,6 +58,7 @@ services:
         exclude:
             - '../src/DependencyInjection/'
             - '../src/Filters/'
+            - '../src/Crypto/ApplicationKeyring.php'
             - '../src/Entity/'
             - '../src/Kernel.php'
             - '../src/Tests/'
@@ -169,6 +184,28 @@ services:
     iikiti\CMS\Transfer\SiteTransferCredentialVault:
         arguments:
             $applicationSecret: '%kernel.secret%'
+            $keyring: '@iikiti\CMS\Crypto\TransferCredentialKeyring'
+            $allowLegacyCiphertext: '%transfer_credentials_allow_legacy%'
+
+    iikiti\CMS\Crypto\TransferCredentialKeyring:
+        arguments:
+            $encodedKeys: '%transfer_credentials_keyring%'
+            $activeKeyId: '%transfer_credentials_active_key_id%'
+
+    iikiti\CMS\Crypto\GuestApiTokenKeyring:
+        arguments:
+            $encodedKeys: '%guest_api_token_keyring%'
+            $activeKeyId: '%guest_api_token_active_key_id%'
+
+    iikiti\CMS\Security\GuestApiTokenManager:
+        arguments:
+            $legacySecret: '%kernel.secret%'
+            $keyring: '@iikiti\CMS\Crypto\GuestApiTokenKeyring'
+            $allowLegacyTokens: '%guest_api_token_allow_legacy%'
+
+    iikiti\CMS\Web\BlockEditor\Render\WidgetFragmentPlanner:
+        arguments:
+            $secret: '%widget_fragment_hmac_key%'
 
     iikiti\CMS\Secrets\SecretsKeyring:
         arguments:
