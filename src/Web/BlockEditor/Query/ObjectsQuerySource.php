@@ -72,14 +72,14 @@ final class ObjectsQuerySource implements QuerySourceInterface
 		$propertyJoins = [];
 		$joined = [];
 		foreach ($definition->getFilters() as $filter) {
-			if (isset(QueryDefinition::COLUMN_MAP[$filter['field']]) && str_starts_with(
+			if (isset(QueryDefinition::COLUMN_MAP[$filter['field']]) && str_ends_with(
 				QueryDefinition::COLUMN_MAP[$filter['field']],
-				'prop'
+				'Prop.value'
 			)) {
 				$alias = $this->aliasFor($filter['field']);
 				if (!isset($joined[$alias])) {
 					$joined[$alias] = true;
-					$qb->leftJoin('o.properties', $alias, null, $alias.'.name = :name'.$alias)->
+					$qb->leftJoin('o.properties', $alias, null, $alias.'.name = :name'.$alias.' AND '.$alias.'.secret = false')->
 						setParameter('name'.$alias, $filter['field']);
 					$propertyJoins[$alias] = $filter['field'];
 				}

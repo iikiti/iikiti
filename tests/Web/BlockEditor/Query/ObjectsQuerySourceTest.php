@@ -63,6 +63,41 @@ final class ObjectsQuerySourceTest extends TestCase
 		self::assertNotContains('o.type = :objectType', $capturedConditions);
 	}
 
+	public function testPropertyJoinsExcludeSecretProperties(): void
+	{
+		$joins = [];
+		$query = $this->createStub(\Doctrine\ORM\Query::class);
+		$query->method('getResult')->willReturn([]);
+		$queryBuilder = $this->createStub(\Doctrine\ORM\QueryBuilder::class);
+		$queryBuilder->method('select')->willReturnSelf();
+		$queryBuilder->method('from')->willReturnSelf();
+		$queryBuilder->method('setParameter')->willReturnSelf();
+		$queryBuilder->method('setMaxResults')->willReturnSelf();
+		$queryBuilder->method('addOrderBy')->willReturnSelf();
+		$queryBuilder->method('andWhere')->willReturnSelf();
+		$queryBuilder->method('leftJoin')->willReturnCallback(static function (string $join, string $alias, mixed $conditionType, string $condition) use (&$joins, $queryBuilder): \Doctrine\ORM\QueryBuilder {
+			$joins[] = $condition;
+
+			return $queryBuilder;
+		});
+		$queryBuilder->method('getQuery')->willReturn($query);
+		$entityManager = $this->createStub(EntityManagerInterface::class);
+		$entityManager->method('createQueryBuilder')->willReturn($queryBuilder);
+		$cacheItem = $this->createStub(CacheItemInterface::class);
+		$cacheItem->method('isHit')->willReturn(false);
+		$cache = $this->createStub(CacheItemPoolInterface::class);
+		$cache->method('getItem')->willReturn($cacheItem);
+		$definition = QueryDefinition::fromArray([
+			'source' => 'objects',
+			'filters' => [['field' => 'title', 'op' => 'eq', 'value' => 'Visible']],
+		]);
+
+		(new ObjectsQuerySource($entityManager, $cache))->execute($definition, null);
+
+		self::assertCount(1, $joins);
+		self::assertStringContainsString('titleProp.secret = false', $joins[0]);
+	}
+
 	public function testObjectAndPropertyWriteGenerationsInvalidateObjectQueryCacheKeys(): void
 	{
 		$cacheKeys = [];

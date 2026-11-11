@@ -40,6 +40,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-11-11: Added an encrypted, site-scoped Secrets API for core and plugin code, with wrapped master-key rotation and secret-property leak protections.
 - 2026-11-08: Added per-widget rendered-fragment cache scopes (`none`, site-global, or UserGroup cohort), CMS-write invalidation, a configurable TTL, and block-editor controls.
 - 2026-11-07: Added Fiber HTTP and outbound Business API call details under Request / Response -> Request, with credential-sensitive query values redacted.
 - 2026-11-07: Added a Web Application Firewall tab inside Symfony's Security profiler panel with bounded, value-free matched-rule diagnostics.

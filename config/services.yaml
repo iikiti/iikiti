@@ -26,6 +26,10 @@ parameters:
     firewall_max_inspection_milliseconds: '%env(int:default:firewall_max_inspection_milliseconds_default:FIREWALL_MAX_INSPECTION_MILLISECONDS)%'
     iikiti_security_firewall_pack_directory: '%kernel.project_dir%/var/firewall/rule-packs'
     iikiti_firewall_ruleset_ttl: 300
+    secrets_keyring_default: '{}'
+    secrets_active_key_id_default: ''
+    secrets_keyring: '%env(json:default:secrets_keyring_default:SECRETS_KEYRING)%'
+    secrets_active_key_id: '%env(default:secrets_active_key_id_default:SECRETS_ACTIVE_KEY_ID)%'
 
 services:
     # default configuration for services in *this* file
@@ -94,6 +98,11 @@ services:
         tags:
             - { name: api_platform.doctrine.orm.query_extension.collection, priority: -100 }
 
+    iikiti\CMS\Serializer\DbObjectSecretNormalizer:
+        autoconfigure: false
+        tags:
+            - { name: serializer.normalizer, priority: 100 }
+
     # Database query-cache diagnostics. Registered via the iikiti\CMS\: resource
     # above and auto-wired; it is auto-tagged `data_collector` because it
     # implements DataCollectorInterface. It carries NO `template` tag, so
@@ -161,6 +170,11 @@ services:
         arguments:
             $applicationSecret: '%kernel.secret%'
 
+    iikiti\CMS\Secrets\SecretsKeyring:
+        arguments:
+            $encodedKeys: '%secrets_keyring%'
+            $activeKeyId: '%secrets_active_key_id%'
+
     # EmbedResolver + ObjectsQuerySource cache via the database-backed pool.
     iikiti\CMS\Web\BlockEditor\Embed\EmbedResolver:
         arguments:
@@ -176,6 +190,8 @@ services:
 
     # Security services that may be accessed directly by plugins
     iikiti\CMS\Security\PermissionChecker:
+        public: true
+    iikiti\CMS\Secrets\SecretsApi:
         public: true
     iikiti\CMS\Audit\AuditLogger:
         public: true

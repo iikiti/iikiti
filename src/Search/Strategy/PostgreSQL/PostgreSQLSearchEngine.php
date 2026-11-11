@@ -392,7 +392,7 @@ final class PostgreSQLSearchEngine implements SearchEngineInterface
 
 			$joins[$alias] = [
 				'table' => sprintf('%s.object_properties', $prefix),
-				'condition' => sprintf('%s.object_id = o.id AND %s.name = :'.$paramKey, $alias, $alias),
+				'condition' => sprintf('%s.object_id = o.id AND %s.name = :'.$paramKey.' AND %s.secret = FALSE', $alias, $alias, $alias),
 				'params' => [$paramKey => $propName],
 			];
 		}

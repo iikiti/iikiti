@@ -627,6 +627,9 @@ final class TemplateRenderer
 
 		$properties = [];
 		foreach ($object->getProperties() as $property) {
+			if ($property->isSecret()) {
+				continue;
+			}
 			$properties[$property->getName()] = $property->getValue();
 		}
 		ksort($properties);

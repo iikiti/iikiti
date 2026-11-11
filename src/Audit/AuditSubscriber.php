@@ -102,7 +102,10 @@ class AuditSubscriber
 				$beforeState,
 				$afterState,
 				'user',
-				['source' => 'doctrine_listener', 'changes' => $this->flattenChangeSet($changeSet)],
+				[
+					'source' => 'doctrine_listener',
+					'changes' => $entity instanceof ObjectProperty && $entity->isSecret() ? [] : $this->flattenChangeSet($changeSet),
+				],
 				false,
 				sprintf('Updated %s%s', $type, $this->idSuffix($entity)),
 			);
@@ -189,6 +192,7 @@ class AuditSubscriber
 		if ($entity instanceof ObjectProperty) {
 			return [
 				'name' => $entity->getName(),
+				'secret' => $entity->isSecret(),
 				'value' => $entity->getValue(),
 			];
 		}
@@ -203,6 +207,9 @@ class AuditSubscriber
 		];
 
 		foreach ($entity->getProperties() as $property) {
+			if ($property->isSecret()) {
+				continue;
+			}
 			$state[$property->getName()] = $property->getValue();
 		}
 

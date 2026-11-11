@@ -45,8 +45,8 @@ final class SiteTransferCatalog
 		foreach ($this->typeMap as $discriminator => $class) {
 			$isAsset = is_subclass_of($class, AbstractDigitalAsset::class);
 			$sql = $isAsset
-				? ' SELECT DISTINCT property.name FROM object_properties property INNER JOIN objects object ON object.id = property.object_id WHERE object.type = :type AND (object.site_id = :site OR (object.type = :siteType AND object.id = :site) OR EXISTS (SELECT 1 FROM digital_asset_site_grants grant_site WHERE grant_site.asset_id = object.id AND grant_site.site_id = :site)) ORDER BY property.name'
-				: ' SELECT DISTINCT property.name FROM object_properties property INNER JOIN objects object ON object.id = property.object_id WHERE object.type = :type AND (object.site_id = :site OR (object.type = :siteType AND object.id = :site)) ORDER BY property.name';
+				? ' SELECT DISTINCT property.name FROM object_properties property INNER JOIN objects object ON object.id = property.object_id WHERE property.secret = FALSE AND object.type = :type AND (object.site_id = :site OR (object.type = :siteType AND object.id = :site) OR EXISTS (SELECT 1 FROM digital_asset_site_grants grant_site WHERE grant_site.asset_id = object.id AND grant_site.site_id = :site)) ORDER BY property.name'
+				: ' SELECT DISTINCT property.name FROM object_properties property INNER JOIN objects object ON object.id = property.object_id WHERE property.secret = FALSE AND object.type = :type AND (object.site_id = :site OR (object.type = :siteType AND object.id = :site)) ORDER BY property.name';
 			$properties = $this->entityManager->getConnection()->fetchFirstColumn($this->sql($sql), ['type' => $discriminator, 'site' => $siteId, 'siteType' => 'site']);
 			$properties = array_values(array_filter($properties, static fn (string $property): bool => !self::isSensitiveName($property)));
 			$shortName = (new \ReflectionClass($class))->getShortName();
@@ -169,7 +169,7 @@ final class SiteTransferCatalog
 			return [];
 		}
 		$rows = $this->entityManager->getConnection()->executeQuery(
-			$this->sql(' SELECT object_id, name, value FROM object_properties WHERE object_id IN (?) ORDER BY object_id, name'),
+			$this->sql(' SELECT object_id, name, value FROM object_properties WHERE secret = FALSE AND object_id IN (?) ORDER BY object_id, name'),
 			[$objectIds],
 			[ArrayParameterType::INTEGER],
 		)->fetchAllAssociative();

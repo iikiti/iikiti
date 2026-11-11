@@ -228,6 +228,83 @@ $site->getConfiguration()->getPluginConfiguration('my-blog');
 
 Admins can manage values with `iikiti:plugin:configure`.
 
+## Secrets API
+
+Core services and plugins can inject `iikiti\CMS\Secrets\SecretsApi` to store
+JSON-compatible sensitive values as encrypted object properties. Secret values
+are not returned by ordinary property getters or object serialization and are
+excluded from template property snapshots, audit values, search property joins,
+and site transfer. Use a plugin-prefixed property name to avoid collisions.
+
+```php
+use Doctrine\ORM\EntityManagerInterface;
+use iikiti\CMS\Entity\DbObject;
+use iikiti\CMS\Secrets\SecretsApi;
+
+final class RemoteSync
+{
+    public function __construct(
+        private readonly SecretsApi $secrets,
+        private readonly EntityManagerInterface $entityManager,
+    ) {}
+
+    public function saveCredentials(DbObject $object, array $credentials): void
+    {
+        $this->secrets->set($object, 'acme.remote.credentials', $credentials);
+        $this->entityManager->flush();
+    }
+
+    public function credentials(DbObject $object): mixed
+    {
+        return $this->secrets->has($object, 'acme.remote.credentials')
+            ? $this->secrets->get($object, 'acme.remote.credentials')
+            : null;
+    }
+}
+```
+
+`set()` and `delete()` change the Doctrine unit of work but do not flush; the
+caller controls persistence and transaction boundaries. `get()` returns `null`
+for a missing value, so use `has()` to distinguish a missing key from a stored
+JSON `null`. Values must be JSON-encodable. Secret owners must already be
+persisted and managed by the current EntityManager. A `Site` object uses its own
+ID for its key scope, ordinary objects use their `site_id`, and `site_id = 0`
+uses the global key. Plugins are trusted in-process code, not sandboxed
+principals: a plugin that receives an object and key can read that secret. This
+service adds no HTTP endpoint. Since encryption scope follows the owner's site,
+read and reset secrets through `SecretsApi` before changing an object's site ID;
+directly moving an object makes its old secret payloads unreadable.
+
+### Wrapping-key configuration and rotation
+
+Configure a separate runtime keyring; never commit these values. Generate a
+random 32-byte wrapping key with `php -r 'echo base64_encode(random_bytes(32)), PHP_EOL;'`
+and provide the key ID and JSON keyring through the deployment secret manager:
+
+```dotenv
+SECRETS_ACTIVE_KEY_ID=2026-01
+SECRETS_KEYRING='{"2026-01":"BASE64_ENCODED_32_BYTE_KEY"}'
+```
+
+Each site and the global scope have a random master key wrapped by the active
+keyring key. Secret payloads are authenticated-encrypted with the scope master
+key. Keep an encrypted, access-controlled backup of every wrapping key: losing
+all keys required by stored rows makes those secrets unrecoverable.
+
+To rotate, deploy the new key alongside the old key and set the new ID active:
+
+```dotenv
+SECRETS_ACTIVE_KEY_ID=2026-02
+SECRETS_KEYRING='{"2026-01":"OLD_BASE64_KEY","2026-02":"NEW_BASE64_KEY"}'
+```
+
+Then run `php bin/console iikiti:secrets:rotate-keys` once against the database.
+The command transactionally re-wraps the small set of per-scope master keys and
+leaves secret property ciphertext unchanged. After it succeeds, verify all
+application instances use the new active key, then remove the old key from the
+deployed keyring. Rotation requires old keys to remain configured until every
+stored master key using them has been re-wrapped.
+
 ## Development workflow
 
 1. Place the plugin under `cms/extensions/installed/{slug}/` with a valid

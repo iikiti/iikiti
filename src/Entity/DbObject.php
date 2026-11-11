@@ -3,6 +3,7 @@
 namespace iikiti\CMS\Entity;
 
 use ApiPlatform\Metadata\ApiResource;
+use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -122,12 +123,27 @@ class DbObject
 	#[\Override]
 	public function getProperties(): Collection
 	{
+		if (!isset($this->properties)) {
+			$this->properties = new ArrayCollection();
+		}
+
 		return $this->properties;
 	}
 
 	#[\Override]
 	public function setProperties(Collection $properties): void
 	{
+		foreach ($this->getProperties() as $name => $property) {
+			if ($property->isSecret() && $properties->get($name) !== $property) {
+				throw new \LogicException('Secret properties can only be changed through SecretsApi.');
+			}
+		}
+		foreach ($properties as $property) {
+			if ($property->isSecret() && $this->getProperties()->get($property->getName()) !== $property) {
+				throw new \LogicException('Secret properties can only be changed through SecretsApi.');
+			}
+		}
+
 		$this->properties = $properties;
 	}
 
@@ -135,8 +151,13 @@ class DbObject
 	public function setProperty(string $name, mixed $value): void
 	{
 		$isProperty = $value instanceof ObjectProperty;
+		$existingProperty = $this->getProperties()->get($name);
+		if (($existingProperty instanceof ObjectProperty && $existingProperty->isSecret()) || ($isProperty && $value->isSecret())) {
+			throw new \LogicException('Secret properties can only be changed through SecretsApi.');
+		}
+
 		$property = $isProperty ? $value :
-			($this->getProperties()->get($name) ?? new ObjectProperty());
+			($existingProperty ?? new ObjectProperty());
 		$property->setName($name);
 		$property->setObject($this);
 		if (false == $isProperty) {

@@ -38,6 +38,9 @@ class ObjectProperty
 	#[ORM\Column(type: Types::JSON)]
 	private int|float|string|array|null $value;
 
+	#[ORM\Column(type: Types::BOOLEAN, options: ['default' => false])]
+	private bool $secret = false;
+
 	#[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
 	private \DateTimeImmutable $created;
 
@@ -65,12 +68,33 @@ class ObjectProperty
 
 	public function getValue(): mixed
 	{
-		return $this->value;
+		return $this->secret ? null : $this->value;
 	}
 
 	public function setValue(mixed $value): void
 	{
+		if ($this->secret) {
+			throw new \LogicException('Secret properties can only be changed through SecretsApi.');
+		}
+
 		$this->value = $value;
+	}
+
+	public function isSecret(): bool
+	{
+		return $this->secret;
+	}
+
+	public function readEncryptedSecretPayload(): mixed
+	{
+		return $this->secret ? $this->value : null;
+	}
+
+	/** @param array{version:int,nonce:string,ciphertext:string} $payload */
+	public function writeEncryptedSecretPayload(array $payload): void
+	{
+		$this->value = $payload;
+		$this->secret = true;
 	}
 
 	public function getCreator(): ?User
