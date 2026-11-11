@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace iikiti\CMS\Web\BlockEditor\Twig;
 
 use iikiti\CMS\Registry\SiteRegistry;
+use iikiti\CMS\Entity\DbObject;
+use iikiti\CMS\Service\LocalizedPropertyResolver;
 use iikiti\CMS\Web\BlockEditor\Embed\EmbedResolver;
 use iikiti\CMS\Web\BlockEditor\Query\QueryDefinition;
 use iikiti\CMS\Web\BlockEditor\Query\QueryExecutor;
@@ -31,6 +33,7 @@ final class BlockTwigExtension extends AbstractExtension
 		private readonly QueryExecutor $queryExecutor,
 		private readonly IconResolver $iconResolver,
 		private readonly IconFontAssets $iconFontAssets,
+		private readonly ?LocalizedPropertyResolver $localizedProperties = null,
 	) {
 	}
 
@@ -45,7 +48,28 @@ final class BlockTwigExtension extends AbstractExtension
 				['is_safe' => ['html'], 'needs_environment' => true]
 			),
 			new TwigFunction('iikiti_icon', [$this, 'icon'], ['is_safe' => ['html']]),
+			new TwigFunction('iikiti_localized_property', [$this, 'localizedProperty']),
 		];
+	}
+
+	public function localizedProperty(DbObject $object, string $propertyName): mixed
+	{
+		$property = $object->getProperties()->get($propertyName);
+		if (null === $property || $property->isSecret()) {
+			return null;
+		}
+
+		$localized = $property->getLocalizedValue();
+		if (null === $localized || null === $this->localizedProperties) {
+			return $property->getValue();
+		}
+
+		$resolved = $this->localizedProperties->resolve($object, $property);
+		if (null !== $resolved?->locale && is_string($resolved->value)) {
+			return [['text' => $resolved->value, 'locale' => $resolved->locale->getTag()]];
+		}
+
+		return $resolved?->value;
 	}
 
 	/**

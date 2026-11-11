@@ -7,7 +7,18 @@ namespace iikiti\CMS\Tests\Web\BlockEditor\Render;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\DbObject;
+use iikiti\CMS\Entity\Object\Page;
+use iikiti\CMS\Entity\Object\User;
+use iikiti\CMS\Plugin\ObjectPropertyDefinition;
+use iikiti\CMS\Plugin\ObjectPropertyDefinitionProviderInterface;
+use iikiti\CMS\Plugin\ObjectPropertyDefinitionRegistry;
+use iikiti\CMS\Registry\ApplicationRegistry;
+use iikiti\CMS\Registry\SiteRegistry;
+use iikiti\CMS\Service\LocaleResolver;
+use iikiti\CMS\Service\LocalizedPropertyResolver;
 use iikiti\CMS\Tests\Support\IconResolverFactory;
+use iikiti\CMS\Value\LocaleTag;
+use iikiti\CMS\Value\LocalizedValue;
 use iikiti\CMS\Web\BlockEditor\CustomCssCompiler;
 use iikiti\CMS\Web\BlockEditor\BlockType\BlockTypeRegistry;
 use iikiti\CMS\Web\BlockEditor\BlockType\CoreBlockTypeProvider;
@@ -19,7 +30,9 @@ use iikiti\CMS\Web\BlockEditor\Render\BlockRenderContext;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderer;
 use iikiti\CMS\Web\BlockEditor\Render\CustomCssCollector;
 use iikiti\CMS\Web\BlockEditor\Render\WidgetFragmentPlan;
+use iikiti\CMS\Web\BlockEditor\Twig\LocalizedTextExtension;
 use PHPUnit\Framework\TestCase;
+use Symfony\Bundle\SecurityBundle\Security;
 use Twig\Environment;
 use Twig\Loader\FilesystemLoader;
 
@@ -32,7 +45,7 @@ final class BlockRendererTest extends TestCase
 		$this->renderer = $this->makeRenderer();
 	}
 
-	private function makeRenderer(?QuerySourceInterface $source = null): BlockRenderer
+	private function makeRenderer(?QuerySourceInterface $source = null, ?QueryFieldCatalog $queryFields = null): BlockRenderer
 	{
 		$twig = new Environment(new FilesystemLoader(__DIR__.'/../../../../templates'), [
 			'strict_variables' => false,
@@ -44,12 +57,13 @@ final class BlockRendererTest extends TestCase
 			throw new \RuntimeException('iikiti_query must not be called when the renderer supplies items');
 		}, ['is_safe' => ['html']]));
 		$twig->addFunction(new \Twig\TwigFunction('iikiti_icon', static fn (): string => '<svg viewBox="0 0 24 24"><path d="M0 0"></path></svg>', ['is_safe' => ['html']]));
+		$twig->addExtension(new LocalizedTextExtension());
 
 		return new BlockRenderer(
 			new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly())]),
 			$twig,
 			new QueryExecutor(null !== $source ? [$source] : []),
-			new QueryFieldCatalog($this->createStub(EntityManagerInterface::class)),
+			$queryFields ?? new QueryFieldCatalog($this->createStub(EntityManagerInterface::class)),
 			new CustomCssCompiler(),
 		);
 	}
@@ -93,6 +107,13 @@ final class BlockRendererTest extends TestCase
 		$object->setProperty('title', $title);
 
 		return $object;
+	}
+
+	private function resetSiteContext(): void
+	{
+		(new \ReflectionProperty(SiteRegistry::class, 'siteStack'))->setValue(null, new \SplStack());
+		(new \ReflectionProperty(SiteRegistry::class, 'initialized'))->setValue(null, true);
+		(new \ReflectionProperty(SiteRegistry::class, 'populated'))->setValue(null, true);
 	}
 
 	public function testPublicRegionRenderSkipsRootLevelNonContainers(): void
@@ -474,6 +495,66 @@ final class BlockRendererTest extends TestCase
 		// The static fallback never leaks when the binding resolves.
 		self::assertStringNotContainsString('Fallback', $html);
 		self::assertStringNotContainsString('<b>', $html);
+	}
+
+	public function testMixedLanguageQueryBindingPreservesLocalesAndEscapesSegments(): void
+	{
+		$this->resetSiteContext();
+		$page = new Page();
+		$page->setProperty('title', LocalizedValue::fromSegments([
+			['text' => 'Bonjour, ', 'locale' => 'fr-CA'],
+			['text' => '<img src=x onerror=alert(1)>', 'locale' => 'en-CA'],
+		]));
+		$page->setProperty('summary', LocalizedValue::fromTranslations([
+			'en-GB' => 'Colour',
+			'fr-CA' => 'Couleur',
+		]));
+		$user = new User();
+		$user->setPreferredLocale('es');
+		$security = $this->createStub(Security::class);
+		$security->method('getUser')->willReturn($user);
+		$provider = $this->createStub(ObjectPropertyDefinitionProviderInterface::class);
+		$provider->method('getObjectPropertyDefinitions')->willReturn([
+			new ObjectPropertyDefinition(
+				'page',
+				'title',
+				['fr-CA', 'en-CA'],
+				LocaleTag::fromString('en-CA'),
+				allowMixedLanguage: true,
+			),
+			new ObjectPropertyDefinition('page', 'summary', ['en-GB', 'fr-CA'], LocaleTag::fromString('en-GB')),
+		]);
+		$localized = new LocalizedPropertyResolver(
+			new LocaleResolver(),
+			new ObjectPropertyDefinitionRegistry([$provider]),
+			$this->createStub(ApplicationRegistry::class),
+			$security,
+		);
+		$fields = new QueryFieldCatalog($this->createStub(EntityManagerInterface::class), [], $localized);
+		$renderer = $this->makeRenderer($this->makeSource([$page]), $fields);
+		$tree = [[
+			'type' => 'query',
+			'content' => ['source' => 'objects', 'objectType' => '', 'limit' => 10],
+			'style' => ['base' => []],
+			'children' => [[
+				'type' => 'heading',
+				'content' => ['level' => '3', 'text' => 'Fallback'],
+				'style' => ['base' => []],
+				'bindings' => ['text' => 'title'],
+			], [
+				'type' => 'heading',
+				'content' => ['level' => '4', 'text' => 'Fallback'],
+				'style' => ['base' => []],
+				'bindings' => ['text' => 'properties.summary'],
+			]],
+		]];
+
+		$html = $renderer->renderRegionTree($this->inContainer($tree), new BlockRenderContext(editorMode: false));
+
+		self::assertStringContainsString('<span lang="fr-CA">Bonjour, </span>', $html);
+		self::assertStringContainsString('<span lang="en-CA">&lt;img src=x onerror=alert(1)&gt;</span>', $html);
+		self::assertStringContainsString('<span lang="en-GB">Colour</span>', $html);
+		self::assertStringNotContainsString('<img', $html);
 	}
 
 	public function testQueryBindingFallsBackToStaticContentWhenUnresolved(): void

@@ -118,6 +118,11 @@ services:
         tags:
             - { name: serializer.normalizer, priority: 100 }
 
+    iikiti\CMS\Serializer\DbObjectLocaleNormalizer:
+        autoconfigure: false
+        tags:
+            - { name: serializer.normalizer, priority: 90 }
+
     # Database query-cache diagnostics. Registered via the iikiti\CMS\: resource
     # above and auto-wired; it is auto-tagged `data_collector` because it
     # implements DataCollectorInterface. It carries NO `template` tag, so
@@ -154,6 +159,8 @@ services:
             tags: ['iikiti.admin.extension']
         iikiti\CMS\Web\BlockEditor\BlockType\BlockTypeInterface:
             tags: ['iikiti.cms.block_type']
+        iikiti\CMS\Plugin\ObjectPropertyDefinitionProviderInterface:
+            tags: ['iikiti.cms.object_property_definition']
         iikiti\CMS\Web\BlockEditor\Embed\EmbedProviderInterface:
             tags: ['iikiti.cms.embed_provider']
         iikiti\CMS\Web\BlockEditor\Query\QuerySourceInterface:

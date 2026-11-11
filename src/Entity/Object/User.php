@@ -10,6 +10,7 @@ use iikiti\CMS\Manager\UserRoleManager;
 use iikiti\CMS\Repository\Object\UserRepository;
 use iikiti\CMS\Trait\MfaPreferencesTrait;
 use iikiti\CMS\Trait\PreferentialTrait;
+use iikiti\CMS\Value\LocaleTag;
 use iikiti\CMS\Value\TimeZone;
 use Override;
 use Symfony\Component\Security\Core\Exception\UserNotFoundException;
@@ -20,7 +21,7 @@ use Symfony\Component\Security\Core\User\UserInterface;
  * User entity.
  */
 #[ORM\Entity(repositoryClass: UserRepository::class)]
-#[ORM\Table(name: 'objects')]
+#[ORM\Table(name: 'object_lookup')]
 #[ApiResource]
 class User extends DbObject implements
 	PasswordAuthenticatedUserInterface,
@@ -30,6 +31,7 @@ class User extends DbObject implements
 	use PreferentialTrait;
 
 	public const bool SITE_SPECIFIC = false;
+	public const string PREFERRED_LOCALE_KEY = 'locale';
 
 	private ?Site $currentSite = null;
 
@@ -62,6 +64,21 @@ class User extends DbObject implements
 		$stored = $this->getPreferences()->get(self::TIMEZONE_KEY);
 
 		return is_string($stored) ? TimeZone::fromNullableString($stored) : null;
+	}
+
+	public function getPreferredLocale(): ?LocaleTag
+	{
+		$locale = $this->getPreferences()->get(self::PREFERRED_LOCALE_KEY);
+
+		return is_string($locale) ? LocaleTag::tryFromString($locale) : null;
+	}
+
+	public function setPreferredLocale(LocaleTag|string|null $locale): void
+	{
+		$tag = is_string($locale) ? LocaleTag::fromString($locale) : $locale;
+		$preferences = $this->getPreferences();
+		$preferences->set(self::PREFERRED_LOCALE_KEY, $tag?->getTag());
+		$this->setPreferences($preferences);
 	}
 
 	/**

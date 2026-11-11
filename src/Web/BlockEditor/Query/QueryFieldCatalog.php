@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace iikiti\CMS\Web\BlockEditor\Query;
 
 use iikiti\CMS\Entity\DbObject;
+use iikiti\CMS\Entity\ObjectProperty;
+use iikiti\CMS\Service\LocalizedPropertyResolver;
+use iikiti\CMS\Value\ResolvedPropertyValue;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
@@ -55,6 +58,7 @@ final class QueryFieldCatalog
 		private readonly EntityManagerInterface $em,
 		#[AutowireIterator('iikiti.cms.query_field')]
 		private readonly iterable $functions = [],
+		private readonly ?LocalizedPropertyResolver $localizedProperties = null,
 	) {
 	}
 
@@ -139,6 +143,9 @@ final class QueryFieldCatalog
 		if (!$item instanceof DbObject) {
 			return null;
 		}
+		if (null !== $localized = $this->resolveLocalized($item, $spec)) {
+			return $this->stringify($localized->value);
+		}
 
 		$spec = trim($spec);
 		if ('' === $spec || 1 !== preg_match('/^[a-z0-9_.:-]+$/i', $spec)) {
@@ -154,6 +161,34 @@ final class QueryFieldCatalog
 		$this->resolveCache[$cacheKey] = $value;
 
 		return $value;
+	}
+
+	public function resolveLocalized(mixed $item, string $spec): ?ResolvedPropertyValue
+	{
+		if (!$item instanceof DbObject || null === $this->localizedProperties) {
+			return null;
+		}
+
+		$propertyName = null;
+		foreach (['property.', 'properties.'] as $prefix) {
+			if (str_starts_with($spec, $prefix)) {
+				$propertyName = substr($spec, strlen($prefix));
+				break;
+			}
+		}
+		if (null === $propertyName && in_array($spec, self::PROPERTY_FIELDS, true)) {
+			$propertyName = $spec;
+		}
+		if (null === $propertyName || '' === $propertyName) {
+			return null;
+		}
+
+		$property = $item->getProperties()->get($propertyName);
+		if (!$property instanceof ObjectProperty || $property->isSecret() || null === $property->getLocalizedValue()) {
+			return null;
+		}
+
+		return $this->localizedProperties->resolve($item, $property);
 	}
 
 	private function resolveUncached(DbObject $item, string $spec): ?string

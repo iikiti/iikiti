@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import type { ApiClient } from '$lib/api';
 	import Badge from '$components/Badge.svelte';
+	import { userLocale, userTimeZone } from '../../../js/iikiti/time/temporal.js';
 
 	interface SiteOption { id: string; name: string; }
 	interface OptionField { type: string; label: string; required?: boolean; default?: unknown; }
@@ -35,7 +36,7 @@
 	let selectedSiteId = $state('');
 	let name = $state('');
 	let cronExpression = $state('0 * * * *');
-	let timezone = $state(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
+	let timezone = $state(userTimeZone());
 	let options = $state<Record<string, unknown>>({});
 	let allowOverlap = $state(false);
 	let editingId = $state<string | null>(null);
@@ -208,7 +209,7 @@
 							<div class="min-w-0">
 								<div class="flex flex-wrap items-center gap-2"><h3 class="font-medium text-text">{schedule.name}</h3><Badge status={schedule.enabled ? 'success' : 'warning'}>{schedule.enabled ? 'enabled' : 'disabled'}</Badge></div>
 								<p class="mt-1 text-xs text-text-muted">{schedule.providerKey} · <code>{schedule.cronExpression}</code> · {schedule.timezone}</p>
-								<p class="mt-1 text-xs text-text-muted">Next: {new Date(schedule.nextRunAt).toLocaleString()} · Last: {schedule.lastRunAt ? new Date(schedule.lastRunAt).toLocaleString() : 'Never'}</p>
+								<p class="mt-1 text-xs text-text-muted">Next: {new Date(schedule.nextRunAt).toLocaleString(userLocale(), { timeZone: userTimeZone() })} · Last: {schedule.lastRunAt ? new Date(schedule.lastRunAt).toLocaleString(userLocale(), { timeZone: userTimeZone() }) : 'Never'}</p>
 							</div>
 							<div class="flex gap-3 text-sm"><button class="text-accent hover:underline" onclick={() => edit(schedule)}>Edit</button><button class="text-text-muted hover:underline" onclick={() => void toggle(schedule)}>{schedule.enabled ? 'Disable' : 'Enable'}</button></div>
 						</li>

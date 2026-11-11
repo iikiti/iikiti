@@ -16,7 +16,7 @@ use iikiti\CMS\Repository\Object\TemplateRepository;
  * `iikiti\CMS\Entity\Object\Template`).
  */
 #[ORM\Entity(repositoryClass: TemplateRepository::class)]
-#[ORM\Table(name: 'objects')]
+#[ORM\Table(name: 'object_lookup')]
 #[ApiResource]
 class Template extends DbObject
 {

@@ -15,6 +15,8 @@
         <ini name="memory_limit" value="512M" />
         <ini name="error_reporting" value="-1" />
         <server name="APP_ENV" value="test" force="true" />
+        <env name="DB_SCHEMA" value="iikiti_iikiti" force="true" />
+        <server name="DB_SCHEMA" value="iikiti_iikiti" force="true" />
         <server name="TRANSFER_CREDENTIALS_KEYRING" value="{&quot;test&quot;:&quot;dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHQ=&quot;}" force="true" />
         <server name="TRANSFER_CREDENTIALS_ACTIVE_KEY_ID" value="test" force="true" />
         <server name="GUEST_API_TOKEN_KEYRING" value="{&quot;test&quot;:&quot;Z2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2c=&quot;}" force="true" />

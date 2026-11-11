@@ -36,6 +36,34 @@ export function ensureTemporal() {
 
 /** @type {string|null} the user's saved zone, set once at bootstrap */
 let savedTimeZone = null;
+/** @type {string|null} the user's saved BCP 47 locale, set once at bootstrap */
+let savedLocale = null;
+
+/**
+ * Sets the resolved presentation locale from the server. Invalid values are
+ * ignored so the browser's locale remains a safe fallback.
+ *
+ * @param {string|null|undefined} locale
+ */
+export function setSavedLocale(locale) {
+	if (!locale) {
+		savedLocale = null;
+		return;
+	}
+	try {
+		new Intl.DateTimeFormat(locale);
+		savedLocale = locale;
+	} catch {
+		savedLocale = null;
+	}
+}
+
+/** @returns {string|undefined} */
+export function userLocale() {
+	if (savedLocale) return savedLocale;
+	if (typeof navigator === 'undefined') return undefined;
+	return navigator.languages?.[0] || navigator.language || undefined;
+}
 
 /**
  * Sets the user's saved IANA zone (from the server). Pass null/'' to clear it,
@@ -68,7 +96,7 @@ export function userTimeZone() {
 }
 
 /**
- * Formats an ISO instant for display in the user's time zone.
+ * Formats an ISO instant using the user's regional locale and time zone.
  *
  * `kind` selects what is shown: `date`, `time`, or `datetime` (date plus
  * optional time). `style` is an Intl-style length (`short`, `medium`, `long`)
@@ -76,9 +104,10 @@ export function userTimeZone() {
  *
  * @param {string} isoInstant  e.g. "2026-10-08T10:02:00Z"
  * @param {{ kind?: 'date'|'time'|'datetime', style?: 'short'|'medium'|'long', timeZone?: string }} [options]
+ * @param {string|null} [contentLocale] fallback locale when there is no user preference
  * @returns {string}
  */
-export function formatDateTime(isoInstant, { kind = 'datetime', style = 'medium', timeZone } = {}) {
+export function formatDateTime(isoInstant, { kind = 'datetime', style = 'medium', timeZone } = {}, contentLocale = null) {
 	const zone = timeZone ?? userTimeZone();
 	const instant = Temporal.Instant.from(isoInstant);
 	const zoned = instant.toZonedDateTimeISO(zone);
@@ -91,7 +120,12 @@ export function formatDateTime(isoInstant, { kind = 'datetime', style = 'medium'
 		: kind === 'time' ? { timeStyle }
 		: { dateStyle, timeStyle };
 
-	return new Intl.DateTimeFormat(undefined, { ...options, timeZone: zone }).format(
+	return new Intl.DateTimeFormat(userLocale() ?? contentLocale ?? undefined, { ...options, timeZone: zone }).format(
 		new Date(zoned.epochMilliseconds),
 	);
+}
+
+/** @param {number} value @param {Intl.NumberFormatOptions} [options] @param {string|null} [contentLocale] */
+export function formatNumber(value, options = {}, contentLocale = null) {
+	return new Intl.NumberFormat(userLocale() ?? contentLocale ?? undefined, options).format(value);
 }

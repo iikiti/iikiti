@@ -1,5 +1,5 @@
 <label class="iikiti-form-control">
-	{% if content.label|default('') %}<span>{{ content.label|e }}</span>{% endif %}
+	{% if content.label|default('') %}<span>{{ content.label|iikiti_localized_text }}</span>{% endif %}
 	<select{% if content.name|default('') %} name="{{ content.name|e }}"{% endif %}{% if content.required|default(false) is same as(true) %} required{% endif %}>
 		{% for option in content.options|default([]) %}
 			{% if option is iterable %}

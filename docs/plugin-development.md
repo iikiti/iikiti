@@ -228,6 +228,58 @@ $site->getConfiguration()->getPluginConfiguration('my-blog');
 
 Admins can manage values with `iikiti:plugin:configure`.
 
+## Localized object properties
+
+Plugins can declare the content locales and query capabilities of object
+properties by providing `ObjectPropertyDefinition` values from an
+`ObjectPropertyDefinitionProviderInterface` service. The interface is tagged
+automatically:
+
+```php
+use iikiti\CMS\Plugin\ObjectPropertyDefinition;
+use iikiti\CMS\Plugin\ObjectPropertyDefinitionProviderInterface;
+use iikiti\CMS\Value\LocaleTag;
+
+final class ArticleProperties implements ObjectPropertyDefinitionProviderInterface
+{
+    public function getObjectPropertyDefinitions(): iterable
+    {
+        return [
+            new ObjectPropertyDefinition(
+                'article',
+                'title',
+                ['en-CA', 'en-GB', 'fr-CA'],
+                LocaleTag::fromString('en-CA'),
+                searchable: true,
+                sortable: true,
+            ),
+            new ObjectPropertyDefinition(
+                'article',
+                'body',
+                ['en-CA', 'fr-CA'],
+                allowMixedLanguage: true,
+                searchable: true,
+            ),
+        ];
+    }
+}
+```
+
+Use `LocalizedValue::fromTranslations()` for separate values by locale and
+`LocalizedValue::fromSegments()` for one ordered value with inline language
+changes. Segment locale tags are emitted as escaped `<span lang="…">` elements
+in block rendering. `defaultLocale` applies after the user's available
+translation preference, and the object's setting can be overridden per
+instance with `setLocaleSettings()`. Declaring a property searchable or sortable
+creates maintained, locale-aware database projections; undeclared properties
+remain storable/renderable but are not queryable through indexed property
+filters.
+
+After installing/updating a plugin that adds locales or changes indexed field
+definitions, run `php bin/console iikiti:locale-index:rebuild`. See
+[`localization.md`](localization.md) for value formats, fallback order, locale
+configuration, regional date/number formatting, and query operator behavior.
+
 ## Secrets API
 
 Core services and plugins can inject `iikiti\CMS\Secrets\SecretsApi` to store

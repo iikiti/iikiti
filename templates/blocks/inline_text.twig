@@ -4,4 +4,4 @@
 {% set text = content.text|default('') %}
 {% set allowedTags = constant('iikiti\\CMS\\Web\\BlockEditor\\BlockType\\CoreBlockTypeProvider::INLINE_TAGS') %}
 {% set tag = content.tag|default('plain') in allowedTags ? content.tag : '' %}
-{% if tag %}<{{ tag }}>{{ text|e }}</{{ tag }}>{% else %}{{ text|e }}{% endif %}
+{% if tag %}<{{ tag }}>{{ text|iikiti_localized_text }}</{{ tag }}>{% else %}{{ text|iikiti_localized_text }}{% endif %}

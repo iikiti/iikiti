@@ -40,6 +40,7 @@ class AdminController extends AppController
 			'site_host' => strtolower($request->getHost()),
 			'site_scheme' => $request->getScheme(),
 			'time_zone' => '',
+			'locale' => str_replace('_', '-', $request->getLocale()),
 			'current_user' => '',
 			'debug' => $this->getParameter('kernel.debug') ? 'true' : 'false',
 		]);

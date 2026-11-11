@@ -18,6 +18,8 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Changed
 
+- 2026-11-11: Physical object storage now partitions by site and calendar quarter while retaining global IDs and foreign keys through an identity registry and ORM lookup view.
+- 2026-11-11: Declared localized property filters and sorts now use maintained locale-specific projections and ICU indexes instead of JSON value scans.
 - 2026-11-11: Expanded application-key documentation with key purposes, rotation triggers, invalidation effects, and operational risks.
 - 2026-11-08: Consumer rendering now fans out direct widget fragments and explicitly async descendants, composing them parent-first within the existing batch and page limits; query blocks remain atomic.
 - 2026-11-08: Excluded nested public-render API calls from duplicate dev profiles while retaining their timing in the parent request's Fiber/API sections.
@@ -39,8 +41,14 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 - 2026-10-21: Editor widget roots mirror public type classes, custom classes, and IDs so ancestor nested selectors style descendant widgets instead of editor selection frames.
 - 2026-10-21: Editor custom CSS uses owner-specific stylesheets, allowing widget, template, and page rules to update or clear without a reload.
 
+### Fixed
+
+- 2026-11-11: Set `DB_SCHEMA` explicitly for PHPUnit so integration services use the configured application schema.
+- 2026-11-11: Site locale and localized-index resolution now handles sites without an Application association instead of dereferencing a missing property.
+
 ### Added
 
+- 2026-11-11: Added application/site/object/user BCP 47 locales, separate translations and mixed-language property segments, plugin language/index declarations, and regional date/number formatting.
 - 2026-11-11: Added dedicated transfer-credential, guest-token, and widget-fragment keys with transactional application-key rotation for persisted ciphertext.
 - 2026-11-11: Added an encrypted, site-scoped Secrets API for core and plugin code, with wrapped master-key rotation and secret-property leak protections.
 - 2026-11-08: Added per-widget rendered-fragment cache scopes (`none`, site-global, or UserGroup cohort), CMS-write invalidation, a configurable TTL, and block-editor controls.

@@ -12,7 +12,7 @@ final class DatabaseTableNameResolver
 	private const TABLES = [
 		'batch_jobs', 'batch_items', 'batch_item_dependencies', 'batch_item_dependency_refs', 'batch_events',
 		'batch_schedules', 'batch_schedule_runs', 'maintenance_runner_state', 'site_transfer_identity', 'site_transfer_object_map',
-		'site_transfer_credentials', 'objects', 'object_properties', 'digital_asset_site_grants',
+		'site_transfer_credentials', 'object_identity', 'object_lookup', 'objects', 'object_properties', 'object_property_locale_index', 'object_locale_index_collation', 'digital_asset_site_grants',
 	];
 
 	private ?string $assetGrantSchema = null;

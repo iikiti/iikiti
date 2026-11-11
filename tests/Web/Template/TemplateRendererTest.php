@@ -19,6 +19,7 @@ use iikiti\CMS\Web\BlockEditor\Query\QueryFieldCatalog;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderContext;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderer;
 use iikiti\CMS\Web\BlockEditor\Twig\BlockTwigExtension;
+use iikiti\CMS\Web\BlockEditor\Twig\LocalizedTextExtension;
 use iikiti\CMS\Web\Icon\IconFontAssets;
 use iikiti\CMS\Web\Template\TemplateRenderer;
 use iikiti\CMS\Response\Composition\HtmlFragmentComposer;
@@ -41,6 +42,7 @@ final class TemplateRendererTest extends TestCase
 		$blockTwig = new Environment(new FilesystemLoader(__DIR__.'/../../../templates'), [
 			'strict_variables' => false,
 		]);
+		$blockTwig->addExtension(new LocalizedTextExtension());
 		$blockRenderer = new BlockRenderer(
 			new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly())]),
 			$blockTwig,
@@ -108,6 +110,7 @@ final class TemplateRendererTest extends TestCase
 		$blockTwig = new Environment(new FilesystemLoader(__DIR__.'/../../../templates'), [
 			'strict_variables' => false,
 		]);
+		$blockTwig->addExtension(new LocalizedTextExtension());
 		$blockTwig->addExtension(new BlockTwigExtension(
 			$embedResolver,
 			new QueryExecutor([]),

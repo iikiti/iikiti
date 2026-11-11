@@ -20,7 +20,7 @@ class SiteRepository extends ObjectRepository
 		ManagerRegistry $registry,
 		private SiteRegistry $siteRegistry,
 		DatabaseCacheManager $cacheManager,
-		string $entityClass = Site::class
+		string $entityClass = Site::class,
 	) {
 		parent::__construct($registry, $siteRegistry, $cacheManager, $entityClass);
 	}
@@ -35,9 +35,13 @@ class SiteRepository extends ObjectRepository
 
 	public function getApplicationBySite(Site $site): ?Application
 	{
-		return $this->getEntityManager()->getRepository(Application::class)->find(
-			$site->getProperties()->get($this->getDiscriminatorKey(Application::class))->getValue()
-		);
+		$applicationProperty = $site->getProperties()->get($this->getDiscriminatorKey(Application::class));
+		$applicationId = $applicationProperty?->getValue();
+		if (null === $applicationId || is_array($applicationId)) {
+			return null;
+		}
+
+		return $this->getApplicationRepository()->find($applicationId);
 	}
 
 	public function getCurrent(): ?Site

@@ -12,7 +12,7 @@ use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Repository\DigitalAssetRepository;
 
 #[ORM\Entity(repositoryClass: DigitalAssetRepository::class)]
-#[ORM\Table(name: 'objects')]
+#[ORM\Table(name: 'object_lookup')]
 abstract class AbstractDigitalAsset extends DbObject
 {
 	public const SITE_SPECIFIC = false;
@@ -38,7 +38,7 @@ abstract class AbstractDigitalAsset extends DbObject
 	#[ORM\Column(name: 'asset_checksum', type: Types::STRING, length: 64, nullable: true)]
 	private ?string $checksum = null;
 
-	#[ORM\Column(name: 'asset_public_token', type: Types::STRING, length: 64, nullable: true, unique: true)]
+	#[ORM\Column(name: 'asset_public_token', type: Types::STRING, length: 64, nullable: true)]
 	private ?string $publicToken = null;
 
 	#[ORM\Column(name: 'asset_visibility', type: Types::STRING, length: 16, nullable: true, options: ['default' => 'private'])]

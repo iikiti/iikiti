@@ -7,6 +7,7 @@ namespace iikiti\CMS\Web\BlockEditor;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Plugin\PluginRegistry;
+use iikiti\CMS\Event\Subscriber\RequestLocaleSubscriber;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\Object\UserGroupRepository;
 use iikiti\CMS\Response\Composition\JsonObjectComposer;
@@ -87,6 +88,7 @@ final class FrontendConfigProvider
 			'breakpoints' => ResponsiveBreakpoints::WIDTHS,
 			'notifications' => $this->notifications($user),
 			'timezone' => $user->getTimeZone()?->getId(),
+			'locale' => $this->presentationLocale($user),
 			'cacheGroups' => $this->cacheGroups(),
 		], order: 30);
 		$composer->add([
@@ -189,6 +191,18 @@ final class FrontendConfigProvider
 		$scheme = $request?->headers->get('X-SITE-SCHEME') ?: $request?->getScheme() ?: 'https';
 
 		return in_array($scheme, ['http', 'https'], true) ? $scheme : 'https';
+	}
+
+	private function presentationLocale(User $user): string
+	{
+		$request = $this->requestStack?->getCurrentRequest();
+		$context = $request?->attributes->get(RequestLocaleSubscriber::REQUEST_CONTEXT_ATTRIBUTE);
+		$locale = is_array($context) ? ($context['presentation'] ?? null) : null;
+		if (is_string($locale) && '' !== $locale) {
+			return $locale;
+		}
+
+		return $user->getPreferredLocale()?->getTag() ?? str_replace('_', '-', $request?->getLocale() ?? 'en');
 	}
 
 	/** @return list<array{id:string,label:string}> */

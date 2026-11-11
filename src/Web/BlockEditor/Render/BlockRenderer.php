@@ -660,9 +660,8 @@ final class BlockRenderer
 	/**
 	 * Overlay resolved dynamic bindings onto the block's static content. Keys
 	 * must already exist in the content map (they come from the block type's
-	 * schema). Resolved values are reduced to plain text here (markup stripped)
-	 * so a bound field can never inject tags — even into `|raw` templates —
-	 * while `|e` templates escape what remains exactly once at output.
+	 * schema). Bound values cannot inject markup. Mixed-language spans are
+	 * generated from validated locale tags and escaped text only.
 	 *
 	 * @param array<string,mixed> $node
 	 * @param array<string,mixed> $content
@@ -691,6 +690,21 @@ final class BlockRenderer
 			if ('' === $key || !isset($bindable[$key]) || !is_string($spec)) {
 				continue;
 			}
+			$localized = $this->queryFields->resolveLocalized($item, $spec);
+			if (null !== $localized) {
+				if (is_array($localized->value)) {
+					$content[$key] = $localized->value;
+				} elseif (is_string($localized->value) && null !== $localized->locale) {
+					$content[$key] = [[
+						'text' => $localized->value,
+						'locale' => $localized->locale->getTag(),
+					]];
+				} else {
+					$content[$key] = $localized->value;
+				}
+				continue;
+			}
+
 			$value = $this->queryFields->resolve($item, $spec);
 			if (null !== $value) {
 				$content[$key] = strip_tags($value);

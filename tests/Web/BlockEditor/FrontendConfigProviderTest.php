@@ -63,6 +63,7 @@ final class FrontendConfigProviderTest extends TestCase
 		$this->assertTrue($config['canEdit']);
 		$this->assertTrue($config['canPublish']);
 		$this->assertSame('ephemeral-token', $config['apiToken']);
+		$this->assertSame('en', $config['locale']);
 		$this->assertSame('/api', $config['apiBase']);
 		$this->assertSame('room/template:7', $config['room']);
 		$this->assertSame(['sm' => 640, 'md' => 768, 'lg' => 1024, 'xl' => 1280], $config['breakpoints']);

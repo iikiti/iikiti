@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ApiClient } from '$lib/api';
 	import Badge from './Badge.svelte';
+	import { userLocale, userTimeZone } from '../../../js/iikiti/time/temporal.js';
 
 	interface BatchJob {
 		id: string;
@@ -229,7 +230,7 @@
 					{#each [...events].reverse() as event (event.id)}
 						<li class="px-4 py-3">
 							<p class="text-sm text-text">{event.summary}</p>
-							<p class="mt-1 text-xs text-text-muted">{event.type} · {new Date(event.createdAt).toLocaleString()}</p>
+							<p class="mt-1 text-xs text-text-muted">{event.type} · {new Date(event.createdAt).toLocaleString(userLocale(), { timeZone: userTimeZone() })}</p>
 						</li>
 					{/each}
 				</ul>

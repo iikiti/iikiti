@@ -8,7 +8,7 @@ use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\AbstractDigitalAsset;
 
 #[ORM\Entity]
-#[ORM\Table(name: 'objects')]
+#[ORM\Table(name: 'object_lookup')]
 class ExternalDigitalAsset extends AbstractDigitalAsset
 {
 	public function isUploaded(): bool

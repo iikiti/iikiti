@@ -22,6 +22,7 @@ final class ObjectsQuerySource implements QuerySourceInterface
 		#[Autowire(service: 'cache.database')]
 		private readonly CacheItemPoolInterface $cache,
 		private readonly ?DatabaseCacheManager $cacheManager = null,
+		private readonly ?LocalizedPropertyIndexQuery $localizedQueries = null,
 	) {
 	}
 
@@ -40,6 +41,7 @@ final class ObjectsQuerySource implements QuerySourceInterface
 			$definition->getOrderBy(),
 			$definition->getLimit(),
 			$siteId,
+			$this->localizedQueries?->cacheKey() ?? '',
 			$this->cacheManager?->getGeneration(DbObject::class) ?? 1,
 			$this->cacheManager?->getGeneration(ObjectProperty::class) ?? 1,
 		]));
@@ -64,6 +66,11 @@ final class ObjectsQuerySource implements QuerySourceInterface
 	 */
 	private function runQuery(QueryDefinition $definition, ?int $siteId): array
 	{
+		$localized = $this->localizedQueries?->execute($definition, $siteId);
+		if (null !== $localized) {
+			return $localized;
+		}
+
 		$qb = $this->em->createQueryBuilder()->
 			select('o')->
 			from(DbObject::class, 'o');

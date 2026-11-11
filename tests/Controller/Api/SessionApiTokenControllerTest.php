@@ -22,6 +22,7 @@ final class SessionApiTokenControllerTest extends TestCase
 		$token->method('getToken')->willReturn('user-scoped-token');
 		$user->method('getUsername')->willReturn('editor');
 		$user->method('getTimeZone')->willReturn(null);
+		$user->method('getPreferredLocale')->willReturn(null);
 		$tokenManager = $this->createMock(ApiTokenManager::class);
 		$tokenManager->expects(self::once())->method('getOrCreateToken')->with($user)->willReturn($token);
 		$security = $this->createStub(Security::class);
@@ -34,6 +35,7 @@ final class SessionApiTokenControllerTest extends TestCase
 			'token' => 'user-scoped-token',
 			'username' => 'editor',
 			'timeZone' => '',
+			'locale' => '',
 		], json_decode((string) $response->getContent(), true));
 		self::assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
 		self::assertStringContainsString('private', (string) $response->headers->get('Cache-Control'));

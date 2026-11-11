@@ -6,6 +6,9 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Repository\ObjectPropertyRepository;
+use iikiti\CMS\Service\LocaleResolver;
+use iikiti\CMS\Value\LocaleTag;
+use iikiti\CMS\Value\LocalizedValue;
 
 /**
  * Database property entity
@@ -76,8 +79,43 @@ class ObjectProperty
 		if ($this->secret) {
 			throw new \LogicException('Secret properties can only be changed through SecretsApi.');
 		}
+		if ($value instanceof LocalizedValue) {
+			$value = $value->jsonSerialize();
+		} elseif (LocalizedValue::isLocalizedArray($value)) {
+			$value = LocalizedValue::fromArray($value)->jsonSerialize();
+		}
 
 		$this->value = $value;
+	}
+
+	public function getLocalizedValue(): ?LocalizedValue
+	{
+		$value = $this->getValue();
+
+		return LocalizedValue::isLocalizedArray($value) ? LocalizedValue::fromArray($value) : null;
+	}
+
+	public function setLocalizedValue(LocalizedValue $value): void
+	{
+		$this->setValue($value);
+	}
+
+	/**
+	 * @return mixed A legacy property value, selected translation, or mixed-language segments.
+	 */
+	public function getValueForLocale(
+		LocaleResolver $resolver,
+		?LocaleTag $userPreference = null,
+		?LocaleTag $objectLocale = null,
+		?LocaleTag $siteLocale = null,
+		?LocaleTag $applicationLocale = null,
+	): mixed {
+		$localized = $this->getLocalizedValue();
+		if (null === $localized) {
+			return $this->getValue();
+		}
+
+		return $localized->resolve($resolver, $userPreference, $objectLocale, $siteLocale, $applicationLocale);
 	}
 
 	public function isSecret(): bool

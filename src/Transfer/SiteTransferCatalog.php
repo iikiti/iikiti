@@ -82,7 +82,7 @@ final class SiteTransferCatalog
 		$connection = $this->entityManager->getConnection();
 		$siteDiscriminator = array_search(Site::class, $classesByDiscriminator, true);
 		if (false !== $siteDiscriminator) {
-			$siteRecord = $connection->fetchAssociative($this->sql('SELECT * FROM objects WHERE id = :id AND type = :type'), ['id' => $siteId, 'type' => $siteDiscriminator]);
+			$siteRecord = $connection->fetchAssociative($this->sql('SELECT * FROM object_lookup WHERE id = :id AND type = :type'), ['id' => $siteId, 'type' => $siteDiscriminator]);
 			if (is_array($siteRecord)) {
 				$propertiesByObject = $this->loadProperties([(int) $siteRecord['id']]);
 				yield $this->serializeRecord($siteRecord, Site::class, $siteId, $propertySelection, $propertiesByObject);

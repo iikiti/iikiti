@@ -11,7 +11,7 @@ use iikiti\CMS\Repository\Object\LexemeRepository;
  * Lexeme entity.
  */
 #[ORM\Entity(repositoryClass: LexemeRepository::class)]
-#[ORM\Table(name: 'objects')]
+#[ORM\Table(name: 'object_lookup')]
 #[ApiResource]
 class Lexeme extends DbObject
 {

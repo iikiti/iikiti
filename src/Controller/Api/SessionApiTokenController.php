@@ -36,6 +36,7 @@ final readonly class SessionApiTokenController
 				'token' => $token->getToken(),
 				'username' => $user->getUsername() ?? '',
 				'timeZone' => $user->getTimeZone()?->getId() ?? '',
+				'locale' => $user->getPreferredLocale()?->getTag() ?? '',
 			],
 			Response::HTTP_OK,
 			['Cache-Control' => 'private, no-store'],

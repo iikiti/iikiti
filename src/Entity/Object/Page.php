@@ -11,7 +11,7 @@ use iikiti\CMS\Repository\Object\PageRepository;
  * Page entity.
  */
 #[ORM\Entity(repositoryClass: PageRepository::class)]
-#[ORM\Table(name: 'objects')]
+#[ORM\Table(name: 'object_lookup')]
 #[ApiResource]
 class Page extends DbObject
 {

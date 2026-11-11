@@ -17,7 +17,7 @@ use iikiti\CMS\Entity\DbObject;
  * Site-scoped groups can be created by setting the `site_id` property.
  */
 #[ORM\Entity(repositoryClass: \iikiti\CMS\Repository\Object\UserGroupRepository::class)]
-#[ORM\Table(name: 'objects')]
+#[ORM\Table(name: 'object_lookup')]
 #[ApiResource]
 class UserGroup extends DbObject
 {

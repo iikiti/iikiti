@@ -214,7 +214,7 @@ final class PostgreSQLSearchEngine implements SearchEngineInterface
 
 		$schema = $this->schema ?: 'iikiti_iikiti';
 		$assetVisibilityFilter = sprintf(
-			" AND (lower(indexed.object_type) NOT IN ('uploadeddigitalasset', 'externaldigitalasset') OR EXISTS (SELECT 1 FROM %s.objects asset_object INNER JOIN %s.digital_asset_site_grants site_grant ON site_grant.asset_id = asset_object.id WHERE asset_object.id = indexed.object_id AND site_grant.site_id = :asset_site_id AND (:include_private_assets = TRUE OR asset_object.asset_visibility = 'public'))) ",
+			" AND (lower(indexed.object_type) NOT IN ('uploadeddigitalasset', 'externaldigitalasset') OR EXISTS (SELECT 1 FROM %s.object_lookup asset_object INNER JOIN %s.digital_asset_site_grants site_grant ON site_grant.asset_id = asset_object.id WHERE asset_object.id = indexed.object_id AND site_grant.site_id = :asset_site_id AND (:include_private_assets = TRUE OR asset_object.asset_visibility = 'public'))) ",
 			$schema,
 			$schema,
 		);

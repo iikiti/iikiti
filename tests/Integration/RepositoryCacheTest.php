@@ -212,13 +212,13 @@ final class RepositoryCacheTest extends KernelTestCase
 		// ObjectProperty.creator is a OneToOne to User; every property needs
 		// its own creator user row.
 		$userRow = $this->em->getConnection()->executeQuery(
-			'INSERT INTO iikiti_iikiti.objects (created_date, creator_id, site_id, type) '.
+			'INSERT INTO iikiti_iikiti.object_lookup (created_date, creator_id, site_id, type) '.
 			"VALUES (NOW(), 0, 0, 'user') RETURNING id"
 		)->fetchAssociative();
 		$userId = (int) ($userRow['id'] ?? 0);
 
 		$siteRow = $this->em->getConnection()->executeQuery(
-			'INSERT INTO iikiti_iikiti.objects (created_date, creator_id, site_id, type) '.
+			'INSERT INTO iikiti_iikiti.object_lookup (created_date, creator_id, site_id, type) '.
 			"VALUES (NOW(), 0, 0, 'site') RETURNING id"
 		)->fetchAssociative();
 		$siteId = (int) ($siteRow['id'] ?? 0);
@@ -262,13 +262,13 @@ final class RepositoryCacheTest extends KernelTestCase
 		}
 		foreach ($siteIds as $id) {
 			$this->em->getConnection()->executeStatement(
-				'DELETE FROM iikiti_iikiti.objects WHERE id = :id',
+				'DELETE FROM iikiti_iikiti.object_lookup WHERE id = :id',
 				['id' => $id]
 			);
 			$creatorId = $this->siteCreators[$id] ?? null;
 			if (null !== $creatorId) {
 				$this->em->getConnection()->executeStatement(
-					'DELETE FROM iikiti_iikiti.objects WHERE id = :id',
+					'DELETE FROM iikiti_iikiti.object_lookup WHERE id = :id',
 					['id' => $creatorId]
 				);
 			}
@@ -286,7 +286,7 @@ final class RepositoryCacheTest extends KernelTestCase
 			'(SELECT id FROM iikiti_iikiti.objects WHERE type IN (\'site\', \'user\'))'
 		);
 		$this->em->getConnection()->executeStatement(
-			"DELETE FROM iikiti_iikiti.objects WHERE type IN ('site', 'user')"
+			"DELETE FROM iikiti_iikiti.object_lookup WHERE type IN ('site', 'user')"
 		);
 	}
 }

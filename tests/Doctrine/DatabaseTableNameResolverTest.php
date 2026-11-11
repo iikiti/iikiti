@@ -17,7 +17,10 @@ final class DatabaseTableNameResolverTest extends TestCase
 		$resolver = new DatabaseTableNameResolver($connection, 'cms_data');
 
 		self::assertSame('"cms_data"."batch_jobs"', $resolver->resolve('batch_jobs'));
+		self::assertSame('"cms_data"."object_lookup"', $resolver->resolve('object_lookup'));
+		self::assertSame('"cms_data"."object_property_locale_index"', $resolver->resolve('object_property_locale_index'));
 		self::assertSame('SELECT * FROM "cms_data"."batch_jobs" j WHERE j.id = :id', $resolver->qualifySql('SELECT * FROM batch_jobs j WHERE j.id = :id'));
+		self::assertSame('SELECT * FROM "cms_data"."object_lookup" WHERE id = :id', $resolver->qualifySql('SELECT * FROM object_lookup WHERE id = :id'));
 		self::assertSame('SELECT 1', $resolver->qualifySql('SELECT 1'));
 	}
 

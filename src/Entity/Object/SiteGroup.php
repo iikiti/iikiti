@@ -18,7 +18,7 @@ use iikiti\CMS\Entity\DbObject;
  * across multiple applications.
  */
 #[ORM\Entity(repositoryClass: \iikiti\CMS\Repository\Object\SiteGroupRepository::class)]
-#[ORM\Table(name: 'objects')]
+#[ORM\Table(name: 'object_lookup')]
 #[ApiResource]
 class SiteGroup extends DbObject
 {

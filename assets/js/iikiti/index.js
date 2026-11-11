@@ -1,5 +1,5 @@
 import { loader, loadWithStrategy, loadIf, onInteraction } from './loader.js';
-import { setSavedTimeZone } from './time/temporal.js';
+import { setSavedLocale, setSavedTimeZone } from './time/temporal.js';
 import { domReady, onLoad } from './domready.js';
 import { notifications, settings as notificationSettings } from './notifications.js';
 import { pluginRegistry, startPlugins } from './plugins.js';
@@ -14,6 +14,7 @@ const config = configEl ? JSON.parse((configEl.textContent || '{}') || '{}') : {
 
 // Apply the signed-in user's saved time zone before any date is formatted.
 setSavedTimeZone(config['timezone'] ?? null);
+setSavedLocale(config['locale'] ?? document.documentElement.lang ?? null);
 
 const notif = config['notifications'] || null;
 if (notif) {

@@ -9,10 +9,11 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Repository\ObjectRepository;
+use iikiti\CMS\Trait\LocaleConfigurableTrait;
 use iikiti\CMS\Trait\PropertiedTrait;
 
 /**
- * Database object entity
+ * Database object entity, mapped through object_lookup to the partitioned objects table.
  * High-level class that all other objects (like applications, pages, sites,
  * users, etc) should extend from.
  * Provides convenience methods.
@@ -20,18 +21,14 @@ use iikiti\CMS\Trait\PropertiedTrait;
  * @psalm-suppress MissingConstructor
  */
 #[ORM\Entity(repositoryClass: ObjectRepository::class)]
-#[ORM\Table(name: 'objects')]
-#[ORM\Index(name: 'IDX_ADC517D4E10C7F9A', columns: ['api_token_user_id'])]
-#[ORM\Index(name: 'IDX_ADC517D448D16F3B', columns: ['icon_set_id'])]
-#[ORM\UniqueConstraint(name: 'uniq_api_token_token', columns: ['token'])]
-#[ORM\UniqueConstraint(name: 'uniq_object_icon_set_slug', columns: ['slug'])]
-#[ORM\UniqueConstraint(name: 'uniq_object_icon_set_name', columns: ['icon_set_id', 'icon_name'])]
+#[ORM\Table(name: 'object_lookup')]
 #[ORM\InheritanceType('SINGLE_TABLE')]
 #[ORM\DiscriminatorColumn(name: 'type', type: 'string')]
 #[ApiResource]
 class DbObject
 {
 	use PropertiedTrait;
+	use LocaleConfigurableTrait;
 
 	/** @var bool SITE_SPECIFIC */
 	public const SITE_SPECIFIC = true;

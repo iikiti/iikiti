@@ -1,3 +1,7 @@
 <div class="iikiti-text">
-    {{ content.content|default('')|raw }}
+    {% if content.content is iterable %}
+        {{ content.content|iikiti_localized_text }}
+    {% else %}
+        {{ content.content|default('')|raw }}
+    {% endif %}
 </div>

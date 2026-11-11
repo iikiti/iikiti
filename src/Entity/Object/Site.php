@@ -6,20 +6,22 @@ use ApiPlatform\Metadata\ApiResource;
 use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Repository\Object\SiteRepository;
-use iikiti\CMS\Trait\ConfigurableTrait;
 use iikiti\CMS\Trait\MfaConfigurableTrait;
+use iikiti\CMS\Trait\ConfigurableTrait;
+use iikiti\CMS\Trait\LocaleConfigurableTrait;
 
 /**
  * Site entity
  * Handles actual websites by domain/URL.
  */
 #[ORM\Entity(repositoryClass: SiteRepository::class)]
-#[ORM\Table(name: 'objects')]
+#[ORM\Table(name: 'object_lookup')]
 #[ApiResource]
 class Site extends DbObject
 {
 	use MfaConfigurableTrait;
 	use ConfigurableTrait;
+	use LocaleConfigurableTrait;
 
 	public const SITE_SPECIFIC = false;
 	public const DOMAIN_PROPERTY_KEY = 'domain';

@@ -17,7 +17,7 @@ use iikiti\CMS\Repository\Object\ShellRepository;
  * Stored as an `objects` row (type discriminator `Shell`).
  */
 #[ORM\Entity(repositoryClass: ShellRepository::class)]
-#[ORM\Table(name: 'objects')]
+#[ORM\Table(name: 'object_lookup')]
 #[ApiResource]
 class Shell extends DbObject
 {

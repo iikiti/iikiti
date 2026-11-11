@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="logged-in">
+<html lang="{{ app.request.locale|replace({'_': '-'})|escape('html_attr') }}" class="logged-in">
 <head>
     {% block head %}
         {% block head_meta %}
