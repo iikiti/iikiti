@@ -14,6 +14,7 @@ use iikiti\CMS\Response\Composition\DomHtmlResponse;
 use iikiti\CMS\Response\Composition\HtmlFragmentComposer;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderContext;
 use iikiti\CMS\Web\BlockEditor\Render\CustomCssCollector;
+use iikiti\CMS\Web\Fragment\PageFragmentResult;
 use iikiti\CMS\Web\Template\TemplateRenderer;
 use iikiti\CMS\Web\Template\TemplateResolutionContext;
 use iikiti\CMS\Web\Template\TemplateResolver;
@@ -103,9 +104,9 @@ final class PageRendering
 	}
 
 	/**
-	 * @return array{html:string,styles:list<array{id:?string,css:string}>,revision:string,id:string,found?:bool}|null
+	 * @return PageFragmentResult|null
 	 */
-	public function renderFragment(Request $request, ?DbObject $object, bool $home, string $kind, string $id, ?string $expectedRevision = null): ?array
+	public function renderFragment(Request $request, ?DbObject $object, bool $home, string $kind, string $id, ?string $expectedRevision = null): ?PageFragmentResult
 	{
 		$state = $this->prepareRenderState($request, $object, $home, includePageStyles: false);
 

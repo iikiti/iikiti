@@ -529,6 +529,130 @@ const groups = sb.getGroups('seo');
 console.log(groups);
 ```
 
+## Fragment API
+
+Plugins (including themes) can register a named server-rendered fragment and use
+the same provider from Twig, the browser API, or a Svelte component. Provider IDs
+must be namespaced by the plugin slug, for example `my-blog.promo-card`. A
+provider is public and read-only; it is available only on sites where its plugin
+is enabled.
+
+Implement `FragmentProviderInterface` and register the service in the plugin
+bundle's normal autoconfigured services. The interface auto-tags the provider.
+Validate every caller-controlled parameter and keep private/user-specific data
+out of public providers:
+
+```php
+use iikiti\CMS\Web\Fragment\FragmentContext;
+use iikiti\CMS\Web\Fragment\FragmentProviderInterface;
+use iikiti\CMS\Web\Fragment\FragmentResult;
+use Twig\Environment;
+
+final class PromoCardFragment implements FragmentProviderInterface
+{
+    public function __construct(private Environment $twig) {}
+
+    public function getName(): string
+    {
+        return 'my-blog.promo-card';
+    }
+
+    public function render(FragmentContext $context): FragmentResult
+    {
+        $productId = $context->params['productId'] ?? null;
+        if (!is_int($productId) || $productId < 1) {
+            throw new InvalidArgumentException('A positive productId is required.');
+        }
+
+        $html = $this->twig->render('@MyBlog/fragments/promo-card.html.twig', [
+            'productId' => $productId,
+            'site' => $context->site,
+            'locale' => $context->locale,
+        ]);
+
+        return new FragmentResult($html, [[
+            'id' => 'my-blog.promo-card',
+            'css' => '.my-blog-promo-card { display: grid; }',
+        ]]);
+    }
+}
+```
+
+`FragmentContext` supplies the current site, locale, and JSON-object `params`;
+providers should use Twig autoescaping for untrusted values. Inputs are bounded
+to 16 KiB and are visible to the browser/request logs, so never put credentials
+or private user data in them. `FragmentResult` accepts trusted HTML up to 1 MiB
+and up to 32 CSS fragments with a combined 256 KiB limit. Server-composed plugin
+fragments have an 8 MiB combined HTML/CSS budget per page and at most 32 requests
+in flight.
+The optional CSS `id` should be stable and namespaced; browser loading
+deduplicates styles by provider and style ID and also bounds in-flight requests
+to 32.
+
+Use the Twig function to render into the initial page by default:
+
+```twig
+{{ iikiti_fragment('my-blog.promo-card', {productId: 42}) }}
+```
+
+For a dependency-ready set of page fragments, placements can have unique keys
+and explicit dependencies. Independent server placements are requested in
+parallel by the consumer runtime; dependent placements wait until their listed
+sibling placements complete. Dependencies are ordering constraints only; pass
+data using validated `params`, never predecessor HTML.
+
+```twig
+{{ iikiti_fragment('my-blog.promo-card', {productId: 42}, {key: 'promo'}) }}
+{{ iikiti_fragment('my-blog.recommendations', {productId: 42}, {
+  key: 'recommendations', dependsOn: ['promo']
+}) }}
+```
+
+Opt one placement into progressive browser loading with `delivery: 'browser'`;
+the Twig function emits an escaped descriptor placeholder and the page loads its
+HTML after the shell is returned. A server-delivery placement cannot depend on a
+browser-delivery placement. A layout may mix both modes.
+
+```twig
+{{ iikiti_fragment('my-blog.promo-card', {productId: 42}, {
+  delivery: 'browser', key: 'promo'
+}) }}
+```
+
+For imperative loading, call the same-origin API from `window.iikiti`. The
+implementation is a lazy-loaded JavaScript chunk: unused pages do not download
+it, and the first API call or explicit browser placeholder loads it once.
+
+```js
+const result = await window.iikiti.fragments.load('my-blog.promo-card', {
+  params: { productId: 42 },
+  target: document.querySelector('#promo'),
+});
+console.log(result.html);
+```
+
+`load(provider, { params, target, signal })` returns `{html, styles}` and only
+replaces the target after a successful response. `mount(root)` loads explicit
+Twig browser-delivery descriptors and respects their dependencies. No
+environment variable, API-origin setting, or browser credential is required to
+use the JavaScript API. For Svelte bundles, import the reusable component from
+`@iikiti/ui`:
+
+```svelte
+<script>
+  import { Fragment } from '@iikiti/ui';
+</script>
+
+<Fragment provider="my-blog.promo-card" params={{ productId: 42 }} />
+```
+
+The consumer/API role split is a server deployment detail, not a plugin setting.
+Browser-facing deployments use the database-free consumer pool to fan out
+server-delivery fragments to a separate API pool, then compose a complete HTML
+document. Direct API-role page rendering remains a local synchronous fallback.
+See [fiber-request-composition.md](fiber-request-composition.md) for worker-pool,
+authorization, dependency, and failure behavior.
+
 ### Async widget rendering and output cache
 
 The core **Rendering** section stores async and cache policies directly on each

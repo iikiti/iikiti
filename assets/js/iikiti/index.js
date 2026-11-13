@@ -8,6 +8,7 @@ import { applyStoredTheme, toggleTheme, resolveTheme, STORAGE_THEME_KEY } from '
 import { bars } from './chrome/bars.js';
 import { installTour } from './tour.js';
 import { markReady, whenReady } from './ready.js';
+import { createFragmentsFacade } from './fragmentFacade.js';
 
 const configEl = document.getElementById('iikiti-config');
 const config = configEl ? JSON.parse((configEl.textContent || '{}') || '{}') : {};
@@ -26,6 +27,7 @@ if (notif) {
 if (!window.iikiti) {
   window.iikiti = {
     config,
+    fragments: createFragmentsFacade(),
     loader: {
       loadScript: (name, opts) => loadWithStrategy(name, opts),
       loadIf: (probe, polyfill) => loadIf(probe, polyfill),
@@ -52,6 +54,8 @@ if (!window.iikiti) {
   };
 }
 
+window.iikiti.fragments ??= createFragmentsFacade();
+
 // Tour/spotlight framework (registers built-in actions + window.iikiti.tour).
 installTour();
 
@@ -76,6 +80,11 @@ if (isTouchDevice()) {
 
 domReady.then(() => {
 	document.documentElement.classList.add('js');
+	if (document.querySelector('[data-iikiti-fragment-descriptor]')) {
+		window.iikiti.fragments.mount(document).catch((error) => {
+			console.error('iikiti fragments failed to mount', error);
+		});
+	}
 	// Viewport bars standard: wire declarative bars (theme/plugin chrome)
 	// before any late registrants (editor toolbar, plugin site_ui bundles).
 	bars.start();

@@ -76,7 +76,7 @@ class Initializer implements EventSubscriberInterface
 		$stopwatch = $this->stopwatch;
 
 		$route = $event->getRequest()->attributes->get('_route');
-		$consumerProxyRoute = in_array($route, ['home', 'page', 'digital_asset_file', 'admin_home', 'admin_spa'], true);
+		$consumerProxyRoute = in_array($route, ['home', 'page', 'digital_asset_file', 'public_fragment', 'admin_home', 'admin_spa'], true);
 		$apiBackedPageRoute = $this->publicPageRenderViaApi && in_array($route, ['home', 'page'], true);
 		$siteIndependentRoute = 'html_login' === $route
 			|| in_array($route, ['admin_home', 'admin_spa'], true)

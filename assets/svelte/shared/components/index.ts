@@ -14,6 +14,7 @@ export { default as Icon } from './Icon.svelte';
 export { default as DataTable } from './DataTable.svelte';
 export { default as PageHeader } from './PageHeader.svelte';
 export { default as LoadingState } from './LoadingState.svelte';
+export { default as Fragment } from './Fragment.svelte';
 export { default as ErrorBoundary } from './ErrorBoundary.svelte';
 export { default as EmptyState } from './EmptyState.svelte';
 export { default as Button } from './Button.svelte';

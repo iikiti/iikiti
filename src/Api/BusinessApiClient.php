@@ -190,7 +190,7 @@ final readonly class BusinessApiClient
 			$headers['X-AUTH-TOKEN'] = $token;
 		}
 		foreach ($extraHeaders as $name => $value) {
-			if (!in_array(strtolower($name), ['x-site-host', 'x-site-scheme', 'x-schedule-trigger', 'x-batch-trigger', 'x-asset-process-trigger', 'x-background-queue-trigger', 'cookie'], true)
+			if (!in_array(strtolower($name), ['x-site-host', 'x-site-scheme', 'x-site-locale', 'x-schedule-trigger', 'x-batch-trigger', 'x-asset-process-trigger', 'x-background-queue-trigger', 'cookie'], true)
 				|| strlen($value) > 8192
 				|| str_contains($value, "\r")
 				|| str_contains($value, "\n")) {

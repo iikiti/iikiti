@@ -70,7 +70,7 @@ class SiteRegistry
 		bool $publicPageRenderViaApi,
 	): void {
 		$route = $requestStack->getCurrentRequest()?->attributes->get('_route');
-		$consumerProxyRoute = in_array($route, ['home', 'page', 'digital_asset_file'], true);
+		$consumerProxyRoute = in_array($route, ['home', 'page', 'digital_asset_file', 'public_fragment'], true);
 		$siteIndependentRoute = 'html_login' === $route || in_array($route, ['admin_home', 'admin_spa'], true)
 			|| ('consumer' === $applicationRole && $consumerProxyRoute)
 			|| ($publicPageRenderViaApi && in_array($route, ['home', 'page'], true));

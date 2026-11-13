@@ -18,10 +18,13 @@ use iikiti\CMS\Web\BlockEditor\RenderFragmentLimits;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\JsonResponse;
 
 /** Proxies public page rendering to the database-owning business API runtime. */
 final readonly class PublicPageApiProxy
 {
+	private const MAX_PROVIDER_BYTES_PER_PAGE = 8_388_608;
+
 	public function __construct(
 		private BusinessApiClient $api,
 		private ApiSessionTokenProvider $sessionTokens,
@@ -42,6 +45,46 @@ final readonly class PublicPageApiProxy
 		return $this->render($request, '/api/public/render/pages/'.rawurlencode($slug));
 	}
 
+	public function fragment(Request $request, string $provider): Response
+	{
+		$siteHost = strtolower($request->getHost());
+		$guestToken = $this->guestTokens->issue($siteHost);
+		$headers = [
+			'X-SITE-HOST' => $siteHost,
+			'X-SITE-SCHEME' => $request->getScheme(),
+			'X-SITE-LOCALE' => $request->getLocale(),
+		];
+		$params = $request->query->get('params', '{}');
+		if (!is_string($params) || strlen($params) > 16_384) {
+			return new JsonResponse(['message' => 'Fragment parameters are invalid or too large.'], Response::HTTP_BAD_REQUEST);
+		}
+
+		try {
+			$result = $this->api->request(
+				'GET',
+				'/api/public/render/providers/'.rawurlencode($provider),
+				$this->apiTokenFor($request, $siteHost, $guestToken),
+				query: ['params' => $params],
+				headers: $headers,
+			);
+			if (!is_string($result['html'] ?? null) || !is_array($result['styles'] ?? null)) {
+				return new JsonResponse(['message' => 'The fragment API returned an invalid response.'], Response::HTTP_BAD_GATEWAY);
+			}
+
+			return new JsonResponse(['html' => $result['html'], 'styles' => $result['styles']], Response::HTTP_OK, ['Cache-Control' => 'private, no-store']);
+		} catch (BusinessApiException $exception) {
+			$status = in_array($exception->statusCode, [Response::HTTP_BAD_REQUEST, Response::HTTP_FORBIDDEN, Response::HTTP_NOT_FOUND], true)
+				? $exception->statusCode
+				: (Response::HTTP_CONFLICT === $exception->statusCode ? Response::HTTP_CONFLICT : Response::HTTP_BAD_GATEWAY);
+
+			return new JsonResponse(['message' => 'The requested fragment could not be rendered.'], $status, ['Cache-Control' => 'private, no-store']);
+		} catch (\Throwable $exception) {
+			$this->logger?->error('Public fragment API request failed.', ['provider' => $provider, 'exception' => $exception]);
+
+			return new JsonResponse(['message' => 'The requested fragment could not be rendered.'], Response::HTTP_BAD_GATEWAY, ['Cache-Control' => 'private, no-store']);
+		}
+	}
+
 	private function render(Request $request, string $path): Response
 	{
 		$siteHost = strtolower($request->getHost());
@@ -49,6 +92,7 @@ final readonly class PublicPageApiProxy
 		$headers = [
 			'X-SITE-HOST' => $siteHost,
 			'X-SITE-SCHEME' => $request->getScheme(),
+			'X-SITE-LOCALE' => $request->getLocale(),
 		];
 
 		try {
@@ -112,10 +156,34 @@ final readonly class PublicPageApiProxy
 				$manifest['fragments'],
 				static fn (array $fragment): bool => null === $mainDescriptor || $fragment['slot'] !== $mainDescriptor['slot'],
 			));
-			foreach (array_chunk($remainingFragments, RenderFragmentLimits::BATCH_SIZE) as $batch) {
+			$completedProviderKeys = [];
+			$providerResponseBytes = 0;
+			while ([] !== $remainingFragments) {
+				$ready = array_values(array_filter($remainingFragments, static function (array $fragment) use ($completedProviderKeys): bool {
+					if ('provider' !== $fragment['kind']) {
+						return true;
+					}
+
+					return [] === array_diff($fragment['dependsOn'], array_keys($completedProviderKeys));
+				}));
+				if ([] === $ready) {
+					throw new \UnexpectedValueException('The fragment dependency plan cannot make progress.');
+				}
+				$batch = array_slice($ready, 0, RenderFragmentLimits::BATCH_SIZE);
 				$operations = [];
 				foreach ($batch as $fragment) {
 					$operations[$fragment['slot']] = function (FiberHttpClient $http) use ($path, $fragment, $manifest, $apiToken, $request, $headers): array {
+						if ('provider' === $fragment['kind']) {
+							return $this->api->requestAsync(
+								$http,
+								'GET',
+								'/api/public/render/providers/'.rawurlencode($fragment['id']),
+								$apiToken,
+								query: ['params' => json_encode((object) $fragment['params'], JSON_THROW_ON_ERROR, 16)],
+								headers: $headers,
+							);
+						}
+
 						$query = $request->query->all();
 						$query['_iikiti_fragment_id'] = $fragment['id'];
 						$query['_iikiti_render_revision'] = $manifest['revision'];
@@ -131,7 +199,35 @@ final readonly class PublicPageApiProxy
 					};
 				}
 
-				$renderedFragments += $this->tasks->run($operations, 5.0);
+				$results = $this->tasks->run($operations, 5.0);
+				$completedSlots = [];
+				foreach ($batch as $fragment) {
+					$raw = $results[$fragment['slot']] ?? null;
+					$normalized = 'provider' === $fragment['kind']
+						? $this->normalizeProviderResult($raw, $fragment['id'], $manifest['editor_mode'])
+						: $this->normalizeFragmentResult($raw, $manifest['editor_mode']);
+					if (null === $normalized) {
+						throw new \UnexpectedValueException('The API returned an invalid page fragment.');
+					}
+					if ('provider' === $fragment['kind']) {
+						$providerResponseBytes += strlen($normalized['html']);
+						foreach ($normalized['styles'] as $style) {
+							$providerResponseBytes += strlen($style['css']);
+						}
+						if ($providerResponseBytes > self::MAX_PROVIDER_BYTES_PER_PAGE) {
+							throw new \UnexpectedValueException('Plugin fragments exceed the page response size limit.');
+						}
+					}
+					$renderedFragments[$fragment['slot']] = $normalized;
+					$completedSlots[$fragment['slot']] = true;
+					if ('provider' === $fragment['kind']) {
+						$completedProviderKeys[$fragment['key']] = true;
+					}
+				}
+				$remainingFragments = array_values(array_filter(
+					$remainingFragments,
+					static fn (array $fragment): bool => !isset($completedSlots[$fragment['slot']]),
+				));
 			}
 
 			$document = $this->composeDocument($manifest, $renderedFragments, $siteHost);
@@ -196,7 +292,7 @@ final readonly class PublicPageApiProxy
 		return is_string($token) && '' !== $token ? $token : $guestToken;
 	}
 
-	/** @return array{html:string,styles:list<array{id:?string,css:string}>,editor_mode:bool,revision:string,fragments:list<array{kind:string,id:string,role:string,slot:string,depth:int}>}|null */
+	/** @return array{html:string,styles:list<array{id:?string,css:string}>,editor_mode:bool,revision:string,fragments:list<array<string,mixed>>}|null */
 	private function normalizeManifest(mixed $manifest): ?array
 	{
 		if (!is_array($manifest)
@@ -219,13 +315,14 @@ final readonly class PublicPageApiProxy
 		$identifiers = [];
 		foreach ($manifest['fragments'] as $fragment) {
 			if (!is_array($fragment)
-				|| !in_array($fragment['kind'] ?? null, ['region', 'shell', 'widget'], true)
+				|| !in_array($fragment['kind'] ?? null, ['region', 'shell', 'widget', 'provider'], true)
 				|| !is_string($fragment['id'] ?? null)
 				|| '' === $fragment['id']
 				|| strlen($fragment['id']) > 128
 				|| 1 === preg_match('/[\x00-\x1F\x7F]/', $fragment['id'])
 				|| !is_string($fragment['role'] ?? null)
 				|| '' === $fragment['role']
+				|| ('provider' === ($fragment['kind'] ?? null) && 'provider' !== $fragment['role'])
 				|| !is_string($fragment['slot'] ?? null)
 				|| 1 !== preg_match('/^[a-f0-9]{32}$/D', $fragment['slot'])) {
 				return null;
@@ -236,24 +333,88 @@ final readonly class PublicPageApiProxy
 			$depth = $fragment['depth'] ?? 0;
 			if (!is_int($depth)
 				|| ('widget' === $fragment['kind'] && ($depth < 1 || $depth >= RenderFragmentLimits::MAX_PER_PAGE))
-				|| ('widget' !== $fragment['kind'] && 0 !== $depth)
-				|| ('widget' === $fragment['kind'] && 1 !== preg_match('/^[a-f0-9]{64}$/D', $fragment['id']))) {
+				|| (!in_array($fragment['kind'], ['widget', 'provider'], true) && 0 !== $depth)
+				|| ('widget' === $fragment['kind'] && 1 !== preg_match('/^[a-f0-9]{64}$/D', $fragment['id']))
+				|| ('provider' === $fragment['kind'] && (0 !== $depth || 1 !== preg_match('/^[a-z0-9][a-z0-9-]{0,62}\.[a-z][a-z0-9_.-]{0,63}$/D', $fragment['id'])))) {
 				return null;
 			}
 
-			$identifier = $fragment['kind'].':'.$fragment['id'];
+			$identifier = 'provider' === $fragment['kind']
+				? $fragment['kind'].':'.(string) ($fragment['key'] ?? '')
+				: $fragment['kind'].':'.$fragment['id'];
 			if (isset($slots[$fragment['slot']]) || isset($identifiers[$identifier])) {
 				return null;
 			}
 			$slots[$fragment['slot']] = true;
 			$identifiers[$identifier] = true;
-			$fragments[] = [
+			$normalizedFragment = [
 				'kind' => $fragment['kind'],
 				'id' => $fragment['id'],
 				'role' => $fragment['role'],
 				'slot' => $fragment['slot'],
 				'depth' => $depth,
 			];
+			if ('provider' === $fragment['kind']) {
+				$key = $fragment['key'] ?? null;
+				$dependencies = $fragment['dependsOn'] ?? null;
+				$params = $fragment['params'] ?? null;
+				if (!is_string($key) || 1 !== preg_match('/^[A-Za-z0-9_-]{1,64}$/D', $key)
+					|| !is_array($dependencies) || !array_is_list($dependencies)
+					|| !is_array($params) || ([] !== $params && array_is_list($params))
+					|| 16_384 < strlen(json_encode($params, JSON_THROW_ON_ERROR, 16))) {
+					return null;
+				}
+				foreach ($dependencies as $dependency) {
+					if (!is_string($dependency) || 1 !== preg_match('/^[A-Za-z0-9_-]{1,64}$/D', $dependency)) {
+						return null;
+					}
+				}
+				$normalizedFragment['key'] = $key;
+				$normalizedFragment['dependsOn'] = array_values(array_unique($dependencies));
+				$normalizedFragment['params'] = $params;
+			}
+			$fragments[] = $normalizedFragment;
+		}
+		$providerKeys = [];
+		foreach ($fragments as $fragment) {
+			if ('provider' === $fragment['kind']) {
+				if (isset($providerKeys[$fragment['key']])) {
+					return null;
+				}
+				$providerKeys[$fragment['key']] = $fragment;
+			}
+		}
+		foreach ($providerKeys as $fragment) {
+			foreach ($fragment['dependsOn'] as $dependency) {
+				if (!isset($providerKeys[$dependency]) || $dependency === $fragment['key']) {
+					return null;
+				}
+			}
+		}
+		$visited = [];
+		$visiting = [];
+		$visit = function (string $key) use (&$visit, &$visited, &$visiting, $providerKeys): bool {
+			if (isset($visiting[$key])) {
+				return false;
+			}
+			if (isset($visited[$key])) {
+				return true;
+			}
+			$visiting[$key] = true;
+			foreach ($providerKeys[$key]['dependsOn'] as $dependency) {
+				if (!$visit($dependency)) {
+					return false;
+				}
+			}
+			unset($visiting[$key]);
+			$visited[$key] = true;
+
+			return true;
+		};
+		foreach (array_keys($providerKeys) as $key) {
+			if (!$visit($key)) {
+				return null;
+			}
 		}
 		usort($fragments, static fn (array $left, array $right): int => $left['depth'] <=> $right['depth']);
 
@@ -290,8 +451,23 @@ final readonly class PublicPageApiProxy
 		return ['found' => true, 'id' => $fragment['id'], 'revision' => $fragment['revision'], 'html' => $fragment['html'], 'styles' => $styles];
 	}
 
-	/** @param array{html:string,styles:list<array{id:?string,css:string}>,editor_mode:bool,revision:string,fragments:list<array{kind:string,id:string,role:string,slot:string,depth:int}>} $manifest
-	 *  @param array<string,mixed> $renderedFragments
+	/** @return array{found:true,id:string,revision:null,html:string,styles:list<array{id:?string,css:string}>}|null */
+	private function normalizeProviderResult(mixed $fragment, string $provider, bool $editorMode): ?array
+	{
+		if (!is_array($fragment) || !is_string($fragment['html'] ?? null)) {
+			return null;
+		}
+		$styles = $this->normalizeStyles($fragment['styles'] ?? null, $editorMode, allowPublicStyleIds: true);
+		if (null === $styles || strlen($fragment['html']) > \iikiti\CMS\Web\Fragment\FragmentResult::MAX_HTML_BYTES) {
+			return null;
+		}
+
+		return ['found' => true, 'id' => $provider, 'revision' => null, 'html' => $fragment['html'], 'styles' => $styles];
+	}
+
+	/**
+	 * @param array{html:string,styles:list<array{id:?string,css:string}>,editor_mode:bool,revision:string,fragments:list<array<string,mixed>>} $manifest
+	 * @param array<string,mixed> $renderedFragments
 	 */
 	private function composeDocument(array $manifest, array $renderedFragments, string $siteHost): \Dom\HTMLDocument
 	{
@@ -305,10 +481,10 @@ final readonly class PublicPageApiProxy
 				|| ($result['id'] ?? null) !== $fragment['id']) {
 				throw new \UnexpectedValueException('The API returned an invalid page fragment.');
 			}
-			if (($result['revision'] ?? null) !== $manifest['revision']) {
+			if ('provider' !== $fragment['kind'] && ($result['revision'] ?? null) !== $manifest['revision']) {
 				throw new BusinessApiException(Response::HTTP_CONFLICT);
 			}
-			$fragmentStyles = $this->normalizeStyles($result['styles'] ?? null, $manifest['editor_mode']);
+			$fragmentStyles = $this->normalizeStyles($result['styles'] ?? null, $manifest['editor_mode'], allowPublicStyleIds: 'provider' === $fragment['kind']);
 			if (null === $fragmentStyles) {
 				throw new \UnexpectedValueException('The API returned invalid page fragment styles.');
 			}
@@ -317,6 +493,7 @@ final readonly class PublicPageApiProxy
 				'region' => 'data-iikiti-region-slot',
 				'shell' => 'data-iikiti-shell-slot',
 				'widget' => 'data-iikiti-widget-slot',
+				'provider' => 'data-iikiti-provider-slot',
 				default => throw new \UnexpectedValueException('Unsupported page fragment kind.'),
 			};
 			$selector = sprintf('template[%s="%s"]', $slotAttribute, $fragment['slot']);
@@ -324,7 +501,7 @@ final readonly class PublicPageApiProxy
 			foreach ($fragmentStyles as $style) {
 				$styleFragments[] = $style;
 			}
-	}
+		}
 		$styles = $this->renderStyles($styleFragments, $manifest['editor_mode'], $siteHost);
 		$composer->insertIntoPlaceholder('[data-iikiti-fragment="custom-css"]', $styles);
 
@@ -332,7 +509,7 @@ final readonly class PublicPageApiProxy
 	}
 
 	/** @return list<array{id:?string,css:string}>|null */
-	private function normalizeStyles(mixed $styles, bool $editorMode): ?array
+	private function normalizeStyles(mixed $styles, bool $editorMode, bool $allowPublicStyleIds = false): ?array
 	{
 		if (!is_array($styles) || !array_is_list($styles) || count($styles) > 256) {
 			return null;
@@ -343,8 +520,11 @@ final readonly class PublicPageApiProxy
 			if (!is_array($style) || !array_key_exists('id', $style) || !is_string($style['css'] ?? null)) {
 				return null;
 			}
+			if (1 === preg_match('/<\/style/i', $style['css'])) {
+				return null;
+			}
 			$id = $style['id'];
-			if (($editorMode && !is_string($id)) || (!$editorMode && null !== $id)
+			if ((!$allowPublicStyleIds && $editorMode && !is_string($id)) || (!$editorMode && !$allowPublicStyleIds && null !== $id)
 				|| (is_string($id) && ('' === $id || strlen($id) > 128 || 1 === preg_match('/[\x00-\x1F\x7F]/', $id)))) {
 				return null;
 			}

@@ -143,6 +143,58 @@ const Temporal = await window.iikiti.loader.loadIf(
 );
 ```
 
+### `fragments` (stable)
+
+The fragment facade is available on public pages, but its implementation is
+loaded only when used. Pages without a fragment API call or an explicit
+browser-delivery descriptor do not download the fragment implementation chunk.
+The first caller and concurrent callers share the same import.
+
+- `fragments.load(provider, { params?, target?, signal? })`: requests a named
+  public provider from the same-origin `/_iikiti/fragments/{provider}` route and
+  resolves to `{ html, styles }`. `params` is a JSON object. `target` may be an
+  Element or selector; the target is replaced only after a successful response.
+  `signal` is an optional `AbortSignal`.
+- `fragments.mount(root?)`: loads explicit Twig browser-delivery placeholders in
+  `root` (default `document`), respecting their declared dependencies. DOM ready
+  automatically calls it only when such a descriptor is present; plugins that
+  add descriptors later can call `mount(root)` themselves.
+
+The API is same-origin and needs no plugin environment variable, public API URL,
+or browser credential. The implementation validates response shape, installs
+and deduplicates provider CSS, and rejects failed requests without replacing the
+target. Provider HTML is trusted server-rendered output; do not return unescaped
+user input. Providers are read-only and site-bound.
+
+```js
+const target = document.querySelector('#recommendations');
+const controller = new AbortController();
+
+const result = await window.iikiti.fragments.load('my-blog.recommendations', {
+  params: { productId: 42 },
+  target,
+  signal: controller.signal,
+});
+console.log(result.html);
+
+// After adding a fragment descriptor to the DOM dynamically:
+await window.iikiti.fragments.mount(newSection);
+```
+
+Svelte bundles can use the `Fragment` component from `@iikiti/ui`; mounting the
+component requests its provider and exposes loading/error states:
+
+```svelte
+<script>
+  import { Fragment } from '@iikiti/ui';
+</script>
+
+<Fragment provider="my-blog.recommendations" params={{ productId: 42 }} />
+```
+
+See [plugin-development.md](plugin-development.md#fragment-api) for provider
+registration, Twig delivery modes, dependency keys, and server-side rendering.
+
 ### `plugins` (stable)
 
 - `plugins.register({ name, entry?, css?, strategy?, cssStrategy?, deps? })`: queues a

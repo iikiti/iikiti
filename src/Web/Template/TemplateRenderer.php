@@ -17,6 +17,10 @@ use iikiti\CMS\Web\BlockEditor\Render\BlockRenderer;
 use iikiti\CMS\Web\BlockEditor\Render\RenderCacheTagCollector;
 use iikiti\CMS\Web\BlockEditor\Render\RenderedFragmentCache;
 use iikiti\CMS\Web\BlockEditor\Render\WidgetFragmentPlan;
+use iikiti\CMS\Web\Fragment\FragmentContext;
+use iikiti\CMS\Web\Fragment\FragmentPlanCollector;
+use iikiti\CMS\Web\Fragment\PageFragmentResult;
+use iikiti\CMS\Web\Fragment\FragmentResult;
 use Twig\Environment;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
@@ -70,6 +74,8 @@ final class TemplateRenderer
 			'iikiti_regions' => $regions,
 			'iikiti_settings' => $settings ?: $template->getSettings(),
 			'iikiti_site' => $context->site,
+			'_iikiti_fragment_context' => new FragmentContext($context->site, $context->request?->getLocale() ?? 'und'),
+			'_iikiti_fragment_styles' => $context->customCssCollector,
 		];
 
 		$shells = $this->resolveShells($resolutionContext);
@@ -162,6 +168,8 @@ final class TemplateRenderer
 				'iikiti_regions' => $regions,
 				'iikiti_settings' => $settings ?: $template->getSettings(),
 				'iikiti_site' => $context->site,
+				'_iikiti_fragment_context' => new FragmentContext($context->site, $context->request?->getLocale() ?? 'und'),
+				'_iikiti_fragment_styles' => $context->customCssCollector,
 				'iikiti_shells' => [],
 			];
 			foreach ($regions as $region) {
@@ -251,7 +259,7 @@ final class TemplateRenderer
 	 * Renders a server-authored layout skeleton and describes its fixed fragments.
 	 *
 	 * @param array<string,list<array<string,mixed>>> $regionTrees
-	 * @return array{html:string,revision:string,fragments:list<array{kind:string,id:string,role:string,slot:string,depth?:int}>}
+	 * @return array{html:string,revision:string,fragments:list<array<string,mixed>>}
 	 */
 	public function renderManifest(
 		Template $template,
@@ -308,7 +316,11 @@ final class TemplateRenderer
 			'iikiti_settings' => $template->getSettings(),
 			'iikiti_site' => $context->site,
 			'iikiti_shells' => [],
+			'_iikiti_fragment_context' => new FragmentContext($context->site, $context->request?->getLocale() ?? 'und'),
+			'_iikiti_fragment_styles' => $context->customCssCollector,
 		];
+		$fragmentPlan = new FragmentPlanCollector();
+		$vars['_iikiti_fragment_plan'] = $fragmentPlan;
 		foreach ($regionSlots as $regionId => $slot) {
 			$vars[$this->regionVar($regionId)] = sprintf('<template data-iikiti-region-slot="%s"></template>', $slot);
 		}
@@ -320,9 +332,11 @@ final class TemplateRenderer
 
 		try {
 			$html = $this->twig->render($template->getLayout(), $vars);
-		} catch (LoaderError|RuntimeError|SyntaxError $exception) {
+			$pluginFragments = $fragmentPlan->serverDescriptors();
+		} catch (LoaderError|RuntimeError|SyntaxError|\InvalidArgumentException $exception) {
 			$html = $this->renderError($exception->getMessage());
 			$fragments = [];
+			$pluginFragments = [];
 		}
 		$fragments = array_values(array_filter($fragments, static function (array $fragment) use ($html): bool {
 			$attribute = 'region' === $fragment['kind'] ? 'data-iikiti-region-slot' : 'data-iikiti-shell-slot';
@@ -340,6 +354,10 @@ final class TemplateRenderer
 				$fragments[] = $descriptor;
 			}
 		}
+		$fragments = array_merge($fragments, $pluginFragments);
+		if (count($fragments) > RenderFragmentLimits::MAX_PER_PAGE) {
+			return ['html' => $this->renderError('This page declares more fragments than can be rendered.'), 'revision' => $revision, 'fragments' => []];
+		}
 
 		return ['html' => $html, 'revision' => $revision, 'fragments' => $fragments];
 	}
@@ -348,7 +366,7 @@ final class TemplateRenderer
 	 * Renders exactly one API-authorized region, shell, or planned widget fragment.
 	 *
 	 * @param array<string,list<array<string,mixed>>> $regionTrees
-	 * @return array{html:string,styles:list<array{id:?string,css:string}>,revision:string,id:string,found?:bool}|null
+	 * @return PageFragmentResult|null
 	 */
 	public function renderFragment(
 		Template $template,
@@ -358,11 +376,11 @@ final class TemplateRenderer
 		string $id,
 		?TemplateResolutionContext $resolutionContext = null,
 		?string $expectedRevision = null,
-	): ?array {
+	): ?PageFragmentResult {
 		$shells = $this->resolveShells($resolutionContext);
 		$revision = $this->renderRevision($template, $context, $regionTrees, $shells);
 		if (null !== $expectedRevision && !hash_equals($revision, $expectedRevision)) {
-			return ['html' => '', 'styles' => [], 'revision' => $revision, 'id' => $id, 'found' => false];
+			return new PageFragmentResult(new FragmentResult(''), ['revision' => $revision, 'id' => $id, 'found' => false]);
 		}
 		$widgetPlan = $this->widgetPlan($template, $context, $regionTrees, $shells, $revision);
 		$tree = null;
@@ -436,7 +454,7 @@ final class TemplateRenderer
 			$styles = $context->customCssCollector?->fragments($context->editorMode) ?? [];
 		}
 
-		return ['html' => $html, 'styles' => $styles, 'revision' => $revision, 'id' => $resolvedId];
+		return new PageFragmentResult(new FragmentResult($html, $styles), ['revision' => $revision, 'id' => $resolvedId]);
 	}
 
 	/**

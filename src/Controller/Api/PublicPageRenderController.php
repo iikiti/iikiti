@@ -11,6 +11,9 @@ use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Security\GuestApiUser;
 use iikiti\CMS\Security\MfaAuthenticationGate;
 use iikiti\CMS\Web\BlockEditor\PageRendering;
+use iikiti\CMS\Web\Fragment\FragmentContext;
+use iikiti\CMS\Web\Fragment\FragmentRuntime;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -20,7 +23,6 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
-
 #[AsController]
 final readonly class PublicPageRenderController
 {
@@ -29,6 +31,7 @@ final readonly class PublicPageRenderController
 		private PageRepository $pages,
 		private Security $security,
 		private MfaAuthenticationGate $mfaGate,
+		private ?LoggerInterface $logger = null,
 	) {
 	}
 
@@ -95,6 +98,40 @@ final readonly class PublicPageRenderController
 		return $this->fragment($request, '/'.$slug, $kind, $page);
 	}
 
+	#[Route('/api/public/render/providers/{provider}', name: 'api_public_render_provider', requirements: ['provider' => '[a-z0-9][a-z0-9-]{0,62}\\.[a-z][a-z0-9_.-]{0,63}'], methods: ['GET', 'HEAD'])]
+	public function provider(Request $request, string $provider, FragmentRuntime $fragments): JsonResponse
+	{
+		$this->assertPublicRenderAccess($request);
+		$paramsJson = $request->query->get('params', '{}');
+		if (!is_string($paramsJson) || strlen($paramsJson) > 16_384) {
+			throw new BadRequestHttpException('Fragment parameters are invalid or too large.');
+		}
+		try {
+			$params = json_decode($paramsJson, true, 16, JSON_THROW_ON_ERROR);
+		} catch (\JsonException) {
+			throw new BadRequestHttpException('Fragment parameters must be a JSON object.');
+		}
+		if (!is_array($params) || (array_is_list($params) && [] !== $params)) {
+			throw new BadRequestHttpException('Fragment parameters must be a JSON object.');
+		}
+
+		try {
+			$result = $fragments->render($provider, new FragmentContext(
+				SiteRegistry::hasCurrent() ? SiteRegistry::getCurrent() : null,
+				(string) $request->headers->get('X-SITE-LOCALE', $request->getLocale()),
+				$params,
+			));
+		} catch (NotFoundHttpException $exception) {
+			throw $exception;
+		} catch (\Throwable $exception) {
+			$this->logger?->error('Public fragment provider failed.', ['provider' => $provider, 'exception' => $exception]);
+
+			return new JsonResponse(['message' => 'The requested fragment could not be rendered.'], Response::HTTP_INTERNAL_SERVER_ERROR, ['Cache-Control' => 'private, no-store']);
+		}
+
+		return new JsonResponse($result->toArray(), Response::HTTP_OK, ['Cache-Control' => 'private, no-store']);
+	}
+
 	private function assertPublicRenderAccess(Request $request): void
 	{
 		$user = $this->security->getUser();
@@ -129,7 +166,13 @@ final readonly class PublicPageRenderController
 			$uri .= '?'.http_build_query($query);
 		}
 
-		return Request::create($uri, 'GET', [], $request->cookies->all());
+		$renderRequest = Request::create($uri, 'GET', [], $request->cookies->all());
+		$locale = $request->headers->get('X-SITE-LOCALE');
+		if (is_string($locale) && '' !== $locale && strlen($locale) <= 64 && 1 !== preg_match('/[\x00-\x1F\x7F]/', $locale)) {
+			$renderRequest->setLocale($locale);
+		}
+
+		return $renderRequest;
 	}
 
 	private function manifest(Request $request, string $path, ?Page $page = null, bool $home = false): JsonResponse
@@ -167,19 +210,20 @@ final readonly class PublicPageRenderController
 			}
 			throw new NotFoundHttpException('The requested page fragment does not exist.');
 		}
-		if (is_string($revision) && !hash_equals($fragment['revision'], $revision)) {
+		$metadata = $fragment->metadata;
+		if (is_string($revision) && !hash_equals((string) ($metadata['revision'] ?? ''), $revision)) {
 			return new JsonResponse(
 				['message' => 'The page changed while its fragments were being rendered.'],
 				Response::HTTP_CONFLICT,
 				['Cache-Control' => 'private, no-store'],
 			);
 		}
-		if (false === ($fragment['found'] ?? true)) {
+		if (false === ($metadata['found'] ?? true)) {
 			throw new NotFoundHttpException('The requested page fragment does not exist.');
 		}
 
 		return new JsonResponse(
-			['found' => true, 'id' => $fragment['id'], 'revision' => $fragment['revision'], 'html' => $fragment['html'], 'styles' => $fragment['styles']],
+			['found' => true, 'id' => $metadata['id'], 'revision' => $metadata['revision'], 'html' => $fragment->fragment->html, 'styles' => $fragment->fragment->styles],
 			Response::HTTP_OK,
 			['Cache-Control' => 'private, no-store'],
 		);

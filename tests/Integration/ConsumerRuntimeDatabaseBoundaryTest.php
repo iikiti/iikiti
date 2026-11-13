@@ -40,21 +40,39 @@ final class ConsumerRuntimeDatabaseBoundaryTest extends WebTestCase
 	{
 		$this->setEnvironment('APPLICATION_ROLE', 'consumer');
 		$this->setEnvironment('DATABASE_URL', '');
-		$http = new MockHttpClient(static function (string $method, string $url, array $options): MockResponse {
+		$providerRequests = [];
+		$http = new MockHttpClient(static function (string $method, string $url, array $options) use (&$providerRequests): MockResponse {
 			self::assertSame('GET', $method);
 			self::assertTrue(self::hasHeader($options['headers'], 'X-SITE-HOST', 'www.example.test'));
 			self::assertStringStartsWith('guest2.', (string) self::header($options['headers'], 'X-AUTH-TOKEN'));
-			if (str_ends_with((string) parse_url($url, PHP_URL_PATH), '/manifest')) {
+			$path = (string) parse_url($url, PHP_URL_PATH);
+			if (str_ends_with($path, '/manifest')) {
 				return new MockResponse(json_encode([
-					'html' => '<!DOCTYPE html><html><head><template data-iikiti-fragment="custom-css"></template></head><body><main><template data-iikiti-region-slot="'.str_repeat('a', 32).'"></template></main></body></html>',
+					'html' => '<!DOCTYPE html><html><head><template data-iikiti-fragment="custom-css"></template></head><body><main><template data-iikiti-region-slot="'.str_repeat('a', 32).'"></template><template data-iikiti-provider-slot="'.str_repeat('b', 32).'"></template><template data-iikiti-provider-slot="'.str_repeat('c', 32).'"></template><template data-iikiti-provider-slot="'.str_repeat('d', 32).'"></template></main></body></html>',
 					'styles' => [],
 					'editor_mode' => false,
 					'revision' => str_repeat('a', 64),
-					'fragments' => [['kind' => 'region', 'id' => 'main', 'role' => 'main', 'slot' => str_repeat('a', 32)]],
+					'fragments' => [
+						['kind' => 'region', 'id' => 'main', 'role' => 'main', 'slot' => str_repeat('a', 32)],
+						['kind' => 'provider', 'id' => 'sample-plugin.first', 'role' => 'provider', 'slot' => str_repeat('b', 32), 'depth' => 0, 'key' => 'first', 'dependsOn' => [], 'params' => ['value' => 'one']],
+						['kind' => 'provider', 'id' => 'sample-plugin.second', 'role' => 'provider', 'slot' => str_repeat('c', 32), 'depth' => 0, 'key' => 'second', 'dependsOn' => ['first'], 'params' => ['value' => 'two']],
+						['kind' => 'provider', 'id' => 'sample-plugin.third', 'role' => 'provider', 'slot' => str_repeat('d', 32), 'depth' => 0, 'key' => 'third', 'dependsOn' => [], 'params' => ['value' => 'three']],
+					],
+				], JSON_THROW_ON_ERROR));
+			}
+			if (str_contains($path, '/providers/')) {
+				$provider = substr($path, (int) strrpos($path, '/') + 1);
+				$providerRequests[] = $provider;
+				parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+				self::assertArrayHasKey('params', $query);
+
+				return new MockResponse(json_encode([
+					'html' => '<aside>'.$provider.'</aside>',
+					'styles' => [['id' => 'sample-plugin.'.$provider, 'css' => '.'.$provider.'{}']],
 				], JSON_THROW_ON_ERROR));
 			}
 
-			self::assertStringEndsWith('/api/public/render/pages/about/fragments/region', (string) parse_url($url, PHP_URL_PATH));
+			self::assertStringEndsWith('/api/public/render/pages/about/fragments/region', $path);
 			parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
 			self::assertSame('@main', $query['_iikiti_fragment_id'] ?? null);
 
@@ -76,7 +94,40 @@ final class ConsumerRuntimeDatabaseBoundaryTest extends WebTestCase
 
 		self::assertResponseIsSuccessful();
 		self::assertSelectorTextContains('main', 'served by API');
-		self::assertSame(2, $http->getRequestsCount());
+		self::assertSelectorTextContains('main', 'sample-plugin.first');
+		self::assertSelectorTextContains('main', 'sample-plugin.second');
+		self::assertSelectorTextContains('main', 'sample-plugin.third');
+		self::assertLessThan(array_search('sample-plugin.second', $providerRequests, true), array_search('sample-plugin.first', $providerRequests, true));
+		self::assertSame(5, $http->getRequestsCount());
+	}
+
+	public function testSameOriginFragmentRequestRelaysWithoutDatabaseAccess(): void
+	{
+		$this->setEnvironment('APPLICATION_ROLE', 'consumer');
+		$this->setEnvironment('DATABASE_URL', '');
+		$http = new MockHttpClient(static function (string $method, string $url, array $options): MockResponse {
+			self::assertSame('GET', $method);
+			self::assertSame('/api/public/render/providers/sample-plugin.card', parse_url($url, PHP_URL_PATH));
+			self::assertTrue(self::hasHeader($options['headers'], 'X-SITE-HOST', 'www.example.test'));
+			self::assertStringStartsWith('guest2.', (string) self::header($options['headers'], 'X-AUTH-TOKEN'));
+			parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+			self::assertSame(['title' => 'Lazy'], json_decode($query['params'], true, 16, JSON_THROW_ON_ERROR));
+
+			return new MockResponse(json_encode([
+				'html' => '<aside>Lazy</aside>',
+				'styles' => [['id' => 'sample-plugin.card', 'css' => '.card{}']],
+			], JSON_THROW_ON_ERROR));
+		});
+		$client = static::createClient();
+		$client->catchExceptions(false);
+		static::getContainer()->set(HttpClientInterface::class, $http);
+		$params = rawurlencode(json_encode(['title' => 'Lazy'], JSON_THROW_ON_ERROR));
+
+		$client->request('GET', '/_iikiti/fragments/sample-plugin.card?params='.$params, server: ['HTTP_HOST' => 'www.example.test']);
+
+		self::assertResponseIsSuccessful();
+		self::assertSame('<aside>Lazy</aside>', json_decode($client->getResponse()->getContent(), true, 16, JSON_THROW_ON_ERROR)['html']);
+		self::assertSame(1, $http->getRequestsCount());
 	}
 
 	private function setEnvironment(string $name, string $value): void

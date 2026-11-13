@@ -9,6 +9,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Async\FiberTaskRunner;
 use iikiti\CMS\Entity\DbObject;
+use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\Template;
 use iikiti\CMS\Web\BlockEditor\Embed\EmbedResolver;
 use iikiti\CMS\Web\BlockEditor\CustomCssCompiler;
@@ -22,6 +23,13 @@ use iikiti\CMS\Web\BlockEditor\Twig\BlockTwigExtension;
 use iikiti\CMS\Web\BlockEditor\Twig\LocalizedTextExtension;
 use iikiti\CMS\Web\Icon\IconFontAssets;
 use iikiti\CMS\Web\Template\TemplateRenderer;
+use iikiti\CMS\Web\Fragment\FragmentContext;
+use iikiti\CMS\Web\Fragment\FragmentProviderInterface;
+use iikiti\CMS\Web\Fragment\FragmentProviderRegistry;
+use iikiti\CMS\Web\Fragment\FragmentResult;
+use iikiti\CMS\Web\Fragment\FragmentRuntime;
+use iikiti\CMS\Web\Fragment\FragmentTwigExtension;
+use iikiti\CMS\Web\BlockEditor\Render\CustomCssCollector;
 use iikiti\CMS\Response\Composition\HtmlFragmentComposer;
 use PHPUnit\Framework\TestCase;
 use Twig\Environment;
@@ -30,14 +38,18 @@ use Twig\Loader\FilesystemLoader;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 final class TemplateRendererTest extends TestCase
 {
-	private function renderer(string $layout = '<header>{{ region_header|raw }}</header><main id="main">{{ region_main|raw }}</main>'): TemplateRenderer
+	private function renderer(string $layout = '<header>{{ region_header|raw }}</header><main id="main">{{ region_main|raw }}</main>', ?FragmentTwigExtension $fragmentExtension = null): TemplateRenderer
 	{
 		$layoutEnv = new Environment(new ArrayLoader([
 			'layout.twig' => $layout,
 		]), ['strict_variables' => false]);
+		if (null !== $fragmentExtension) {
+			$layoutEnv->addExtension($fragmentExtension);
+		}
 
 		$blockTwig = new Environment(new FilesystemLoader(__DIR__.'/../../../templates'), [
 			'strict_variables' => false,
@@ -202,13 +214,13 @@ final class TemplateRendererTest extends TestCase
 		self::assertMatchesRegularExpression('/^[a-f0-9]{32}$/D', $manifest['fragments'][0]['slot']);
 		self::assertStringContainsString($manifest['fragments'][1]['slot'], $manifest['html']);
 		self::assertNotNull($fragment);
-		self::assertSame($manifest['revision'], $fragment['revision']);
-		self::assertStringContainsString($manifest['fragments'][2]['slot'], $fragment['html']);
-		self::assertStringNotContainsString('API fragment', $fragment['html']);
+		self::assertSame($manifest['revision'], $fragment->metadata['revision']);
+		self::assertStringContainsString($manifest['fragments'][2]['slot'], $fragment->fragment->html);
+		self::assertStringNotContainsString('API fragment', $fragment->fragment->html);
 		$widget = $renderer->renderFragment($template, $context, $trees, 'widget', $manifest['fragments'][2]['id']);
 		self::assertNotNull($widget);
-		self::assertSame($manifest['revision'], $widget['revision']);
-		self::assertStringContainsString('API fragment', $widget['html']);
+		self::assertSame($manifest['revision'], $widget->metadata['revision']);
+		self::assertStringContainsString('API fragment', $widget->fragment->html);
 		$staleWidget = $renderer->renderFragment(
 			$template,
 			$context,
@@ -218,14 +230,14 @@ final class TemplateRendererTest extends TestCase
 			expectedRevision: str_repeat('f', 64),
 		);
 		self::assertNotNull($staleWidget);
-		self::assertFalse($staleWidget['found']);
-		self::assertSame($manifest['revision'], $staleWidget['revision']);
+		self::assertFalse($staleWidget->metadata['found']);
+		self::assertSame($manifest['revision'], $staleWidget->metadata['revision']);
 		self::assertNull($renderer->renderFragment($template, $context, $trees, 'region', 'unknown'));
 
 		$template->setLayout('changed.twig');
 		$changed = $renderer->renderFragment($template, $context, $trees, 'region', 'main');
 		self::assertNotNull($changed);
-		self::assertNotSame($manifest['revision'], $changed['revision']);
+		self::assertNotSame($manifest['revision'], $changed->metadata['revision']);
 	}
 
 	public function testManifestOmitsConfiguredRegionsThatTheLayoutDoesNotRender(): void
@@ -238,5 +250,43 @@ final class TemplateRendererTest extends TestCase
 		$manifest = $renderer->renderManifest($template, new BlockRenderContext(editorMode: false), []);
 
 		self::assertSame(['main'], array_column($manifest['fragments'], 'id'));
+	}
+
+	public function testPluginFragmentUsesSharedProviderForManifestAndServerRenderedTwig(): void
+	{
+		$provider = new class implements FragmentProviderInterface {
+			public function getName(): string
+			{
+				return 'sample-plugin.card';
+			}
+
+			public function render(FragmentContext $context): FragmentResult
+			{
+				$title = htmlspecialchars((string) ($context->params['title'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+				return new FragmentResult('<aside>'.$title.'</aside>', [['id' => 'sample-plugin.card', 'css' => '.sample-card{}']]);
+			}
+		};
+		$site = $this->createStub(Site::class);
+		$site->method('getEnabledPlugins')->willReturn(['sample-plugin']);
+		$runtime = new FragmentRuntime(new FragmentProviderRegistry([$provider]));
+		$extension = new FragmentTwigExtension(static fn (): FragmentRuntime => $runtime, new RequestStack());
+		$layout = '<main>{{ region_main|raw }}{{ iikiti_fragment("sample-plugin.card", {title: "Twig card"}, {key: "card"}) }}</main>';
+		$renderer = $this->renderer($layout, $extension);
+		$template = $this->template([['id' => 'main', 'role' => 'main', 'name' => 'Main', 'allowed_types' => []]]);
+		$customCss = new CustomCssCollector();
+		$context = new BlockRenderContext(editorMode: false, site: $site, customCssCollector: $customCss);
+
+		$manifest = $renderer->renderManifest($template, $context, []);
+		self::assertCount(2, $manifest['fragments']);
+		$providerDescriptor = $manifest['fragments'][1];
+		self::assertSame('provider', $providerDescriptor['kind']);
+		self::assertSame('sample-plugin.card', $providerDescriptor['id']);
+		self::assertSame(['title' => 'Twig card'], $providerDescriptor['params']);
+		self::assertStringContainsString('data-iikiti-provider-slot="'.$providerDescriptor['slot'].'"', $manifest['html']);
+
+		$html = $this->renderer($layout, $extension)->render($template, $context, []);
+		self::assertStringContainsString('<aside>Twig card</aside>', $html);
+		self::assertSame([['id' => null, 'css' => '.sample-card{}']], $customCss->fragments(false));
 	}
 }

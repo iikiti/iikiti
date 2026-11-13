@@ -34,7 +34,7 @@ Configure `INTERNAL_API_BASE_URL` as the API service's HTTP(S) origin (without a
 path). Production requires HTTPS. The API runtime owns `DATABASE_URL` and uses
 `APPLICATION_ROLE=api`. A database-free public renderer can use
 `APPLICATION_ROLE=consumer`; this consumer slice supports `/`, `/{slug}`,
-`/admin` SPA shells, and public asset delivery, and returns 503 for routes that
+`/admin` SPA shells, `/_iikiti/fragments/{provider}`, and public asset delivery, and returns 503 for routes that
 have not crossed the API boundary yet. It obtains page-render manifests and
 server-rendered fragments from `/api/public/render/*` and public asset delivery through
 `/api/public/sites/{siteHost}/assets/*`, with the original site host and scheme
@@ -49,15 +49,20 @@ on both runtimes so short-lived guest credentials can be verified by the API.
 In isolated PHP runtimes, `INTERNAL_API_RESOLVE` can provide a JSON hostname-to-IP
 map for the transport socket while preserving the configured API hostname for the
 HTTP `Host` header and vhost routing.
-The database-owning `api` role renders its own homepage/assets locally to avoid
-self-HTTP through a single PHP worker pool; only database-free `consumer` pages
-proxy those operations over HTTP.
+The database-owning `api` role can render pages locally as a synchronous fallback
+to avoid self-HTTP through a single PHP worker pool. Browser-facing deployments
+that need concurrent server-rendered page fragments use the database-free
+`consumer` role and a separate API worker pool.
 
-For browser verification of consumer Fiber/API traffic, serve the browser-facing
-host from a separate `APPLICATION_ROLE=consumer` runtime and point its
-`INTERNAL_API_BASE_URL` at the API runtime. Do not use the API process itself as
-both consumer and API behind a single PHP worker pool; its synchronous nested
-HTTP calls can exhaust that pool.
+For concurrent full-page server rendering, serve the browser-facing host from a
+separate `APPLICATION_ROLE=consumer` runtime and point its
+`INTERNAL_API_BASE_URL` at the API runtime. The consumer and API must use separate
+PHP worker pools; the consumer starts independent fragment API requests through
+Fibers while the API workers render each fragment's Twig/Doctrine/PDO work. Do not
+use the API process itself as both consumer and API behind a single PHP worker
+pool; nested HTTP calls can exhaust that pool. This role setting is deployment
+configuration only: plugins call `window.iikiti.fragments` through a same-origin
+route and need no environment variable, API URL, or browser credential.
 
 For a single-runtime development profile, `PUBLIC_PAGE_RENDER_VIA_API=1` opts
 the API-role homepage and page routes into the manifest/fragment proxy while
@@ -96,26 +101,30 @@ The consumer resolves any user-session token first, then starts the page's
 same Fiber task group. The API resolves the site, page, template, shells,
 authorization, and editor mode; responses carry a render revision which the
 consumer compares before composing. The manifest returns a rendered document
-skeleton, CSS, region/shell descriptors, and independently rendered widget
-descriptors. Region/shell slots are server-issued random tokens. Widget IDs are
-site/revision-bound HMACs of structural tree paths (not block IDs), and their
-slot tokens are stable for that render revision. Consumers do not send block
-trees, query definitions, selectors, or arbitrary render data.
+skeleton, CSS, region/shell descriptors, independently rendered widget
+descriptors, and server-mode named plugin provider descriptors declared through
+`iikiti_fragment()`. Region/shell/provider slots are server-issued tokens.
+Widget IDs are site/revision-bound HMACs of structural tree paths (not block
+IDs), and their slot tokens are stable for that render revision. Consumers do
+not send block trees, query definitions, selectors, or arbitrary render data.
 
 The main region is fetched concurrently with the manifest; the consumer then
-requests all other listed regions, shells, and widgets in bounded
-`FiberTaskRunner` groups of at most 32 requests (up to 128 descriptors per
-page). Widget responses are composed by nesting depth so each parent slot exists
-before its child slot is filled. The consumer waits for all required responses,
-then fills the API-issued slots in the same main DOM document; this is concurrent
-rendering, not progressive browser display. Every fragment request repeats
-API-side user/guest, MFA, site, and page checks and verifies the manifest
-revision before rendering. If the page/template render state changes between the
-manifest and a fragment request, or any fragment request fails, the consumer
-returns an error rather than a partially composed document. When the 128-fragment
-budget is exhausted, additional eligible widgets render inline instead of
-producing an unfillable slot. The existing full-page API routes remain available
-for legacy callers.
+requests all other listed regions, shells, widgets, and server-mode plugin
+providers in bounded `FiberTaskRunner` groups of at most 32 requests (up to 128
+descriptors per page). Independent descriptors start together. Named provider
+placements can declare `dependsOn` sibling keys; the consumer waits for those
+requests before starting dependents and rejects cycles or unknown keys. Widget
+responses are composed by nesting depth so each parent slot exists before its
+child slot is filled. The consumer waits for all required server responses,
+then fills the API-issued slots in the same main DOM document before returning
+one complete HTML document. This is concurrent rendering, not progressive HTTP
+streaming. Every page-fragment request repeats API-side user/guest, MFA, site,
+and page checks and verifies the page render revision. Provider requests are
+limited to registered, site-enabled public providers and validated params. If a
+page-fragment request fails, the consumer returns an error rather than partially
+composed server HTML. When the 128-fragment budget is exhausted, additional
+eligible widgets render inline instead of producing an unfillable slot. Existing
+full-page API routes remain available for legacy callers.
 
 Each direct block node in a region or shell tree with a render template is a
 separate fragment by default. Deeper descendants render inline by default and
@@ -123,8 +132,19 @@ can opt in per saved widget instance with `renderMode: "always"`; `"never"`
 keeps a widget inline even at the region/shell boundary. Missing/invalid values
 use `"default"`. Query blocks remain atomic: the query and its per-result child
 templates render in one fragment so row bindings are not transported between
-requests. Direct API-role page rendering remains local and synchronous; only the
-consumer proxy fans out fragment requests to the API.
+requests. Direct API-role page rendering remains local and synchronous as a
+compatibility/development fallback; concurrent full-page server rendering uses
+the consumer proxy.
+
+The same named provider can be rendered by Twig into the initial page (default)
+or invoked through `/api/public/render/providers/{provider}`. An explicit Twig
+`delivery: "browser"` placement emits a browser descriptor; the browser fetches
+and inserts it progressively after the shell has been returned. Pages can mix
+server-composed and browser-delivered placements. The `window.iikiti.fragments`
+facade lazy-loads its implementation only on first use or when an explicit
+browser descriptor is present. `/_iikiti/fragments/{provider}` is same-origin and
+dispatches locally in API role or relays through the site-scoped guest token in
+consumer role; plugins do not configure the app role or API origin.
 
 The revision check covers the resolved template, region trees, shell definitions,
 page/site properties, and widget render/cache settings. Query blocks still

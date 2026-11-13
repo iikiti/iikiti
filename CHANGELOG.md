@@ -14,10 +14,11 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ## [Unreleased]
 
-> Last updated: 2026-11-11
+> Last updated: 2026-11-13
 
 ### Changed
 
+- 2026-11-13: Consumer page composition now renders named plugin fragments in dependency-aware concurrent batches while preserving complete server-composed pages by default and enabling opt-in progressive browser delivery.
 - 2026-11-11: Physical object storage now partitions by site and calendar quarter while retaining global IDs and foreign keys through an identity registry and ORM lookup view.
 - 2026-11-11: Declared localized property filters and sorts now use maintained locale-specific projections and ICU indexes instead of JSON value scans.
 - 2026-11-11: Expanded application-key documentation with key purposes, rotation triggers, invalidation effects, and operational risks.
@@ -48,6 +49,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-11-13: Added the shared named Fragment API for plugin providers, Twig/page layouts, same-origin JavaScript loading, and Svelte components with lazy client implementation loading.
 - 2026-11-11: Added application/site/object/user BCP 47 locales, separate translations and mixed-language property segments, plugin language/index declarations, and regional date/number formatting.
 - 2026-11-11: Added dedicated transfer-credential, guest-token, and widget-fragment keys with transactional application-key rotation for persisted ciphertext.
 - 2026-11-11: Added an encrypted, site-scoped Secrets API for core and plugin code, with wrapped master-key rotation and secret-property leak protections.
