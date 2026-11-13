@@ -6,4 +6,5 @@ framework:
     profiler:
         only_exceptions: false
         excluded_paths:
-            - '^/api/public/render/(?:home|pages/[^/]+)/(?:manifest|fragments/(?:region|shell))$'
+            - '^/api/public/render/(?:home|pages/[^/]+)/(?:manifest|fragments/(?:region|shell|widget))$'
+            - '^/api/public/render/providers/[^/]+$'

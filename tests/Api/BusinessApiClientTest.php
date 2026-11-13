@@ -9,9 +9,12 @@ use iikiti\CMS\Api\BusinessApiException;
 use iikiti\CMS\Async\FiberHttpClient;
 use iikiti\CMS\Async\FiberTaskRunner;
 use iikiti\CMS\Profiler\AsyncResponseDataCollector;
+use iikiti\CMS\Profiler\ProfilerQueryDiagnostics;
+use iikiti\CMS\Profiler\RemoteDoctrineDataCollector;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
+use Symfony\Component\HttpKernel\Profiler\Profiler;
 
 final class BusinessApiClientTest extends TestCase
 {
@@ -84,6 +87,87 @@ final class BusinessApiClientTest extends TestCase
 		self::assertStringNotContainsString('not-for-profiler', serialize($profiler));
 	}
 
+	public function testTrustedPageRenderRequestAggregatesAndStripsRemoteDoctrineQueries(): void
+	{
+		$diagnostics = new ProfilerQueryDiagnostics('shared-dev-secret');
+		$remoteProfiler = new RemoteDoctrineDataCollector();
+		$httpProfiler = new AsyncResponseDataCollector();
+		$symfonyProfiler = $this->createStub(Profiler::class);
+		$symfonyProfiler->method('isEnabled')->willReturn(true);
+		$client = new MockHttpClient(static function (string $method, string $url, array $options): MockResponse {
+			self::assertSame('GET', $method);
+			self::assertTrue(self::hasHeader($options['headers'], ProfilerQueryDiagnostics::REQUEST_ID_HEADER, (string) self::headerValue($options['headers'], ProfilerQueryDiagnostics::REQUEST_ID_HEADER)));
+			self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/D', (string) self::headerValue($options['headers'], ProfilerQueryDiagnostics::SIGNATURE_HEADER));
+
+			return new MockResponse(json_encode([
+				'id' => 'about',
+				ProfilerQueryDiagnostics::QUERY_DATA_KEY => [
+					'queries' => [[
+						'connection' => 'default',
+						'sql' => 'SELECT * FROM pages',
+						'params' => [],
+						'types' => [],
+						'execution_ms' => 0.4,
+					]],
+					'omitted' => 0,
+				],
+			], JSON_THROW_ON_ERROR));
+		});
+		$api = new BusinessApiClient(
+			$client,
+			'https://api.example.test',
+			'dev',
+			$httpProfiler,
+			queryDiagnostics: $diagnostics,
+			remoteDoctrineProfiler: $remoteProfiler,
+			symfonyProfiler: $symfonyProfiler,
+		);
+		$runner = new FiberTaskRunner($client, $httpProfiler);
+		$result = $runner->run([
+			'page' => static fn (FiberHttpClient $http): array => $api->requestAsync(
+				$http,
+				'GET',
+				'/api/public/render/pages/about/manifest',
+				collectDoctrineQueries: true,
+			),
+		]);
+
+		self::assertSame(['id' => 'about'], $result['page']);
+		self::assertSame(1, $remoteProfiler->getRequestCount());
+		self::assertSame('SELECT * FROM pages', $remoteProfiler->getQueries()[0]['sql']);
+		self::assertSame('/api/public/render/pages/about/manifest', $remoteProfiler->getQueries()[0]['path']);
+	}
+
+	public function testMissingRemoteDiagnosticsDoNotFailTheApiRequest(): void
+	{
+		$remoteProfiler = new RemoteDoctrineDataCollector();
+		$httpProfiler = new AsyncResponseDataCollector();
+		$symfonyProfiler = $this->createStub(Profiler::class);
+		$symfonyProfiler->method('isEnabled')->willReturn(true);
+		$client = new MockHttpClient(static fn (): MockResponse => new MockResponse('{"ok":true}'));
+		$api = new BusinessApiClient(
+			$client,
+			'https://api.example.test',
+			'dev',
+			$httpProfiler,
+			queryDiagnostics: new ProfilerQueryDiagnostics('shared-dev-secret'),
+			remoteDoctrineProfiler: $remoteProfiler,
+			symfonyProfiler: $symfonyProfiler,
+		);
+		$runner = new FiberTaskRunner($client, $httpProfiler);
+		$result = $runner->run([
+			'page' => static fn (FiberHttpClient $http): array => $api->requestAsync(
+				$http,
+				'GET',
+				'/api/public/render/home/manifest',
+				collectDoctrineQueries: true,
+			),
+		]);
+
+		self::assertSame(['ok' => true], $result['page']);
+		self::assertSame(1, $remoteProfiler->getUnavailableCount());
+	}
+
 	public function testSyncRequestRecordsQueryAndHttpStatusWithoutCredentialValues(): void
 	{
 		$client = new MockHttpClient(static fn (): MockResponse => new MockResponse('{"items":[]}', ['http_code' => 201]));
@@ -147,5 +231,20 @@ final class BusinessApiClientTest extends TestCase
 		}
 
 		return false;
+	}
+
+	/** @param array<array-key,mixed> $headers */
+	private static function headerValue(array $headers, string $name): ?string
+	{
+		foreach ($headers as $headerName => $headerValue) {
+			if (is_string($headerName) && 0 === strcasecmp($name, $headerName) && is_string($headerValue)) {
+				return $headerValue;
+			}
+			if (is_string($headerValue) && 1 === preg_match('/^'.preg_quote($name, '/').':\s*(.*?)$/iD', trim($headerValue), $matches)) {
+				return $matches[1];
+			}
+		}
+
+		return null;
 	}
 }

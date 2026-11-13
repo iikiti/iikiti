@@ -6,7 +6,10 @@ namespace iikiti\CMS\Api;
 
 use iikiti\CMS\Async\FiberHttpClient;
 use iikiti\CMS\Profiler\AsyncResponseDataCollector;
+use iikiti\CMS\Profiler\ProfilerQueryDiagnostics;
+use iikiti\CMS\Profiler\RemoteDoctrineDataCollector;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\HttpKernel\Profiler\Profiler;
 use Symfony\Contracts\HttpClient\Exception\HttpExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
@@ -24,6 +27,9 @@ final readonly class BusinessApiClient
 		private ?AsyncResponseDataCollector $profiler = null,
 		#[Autowire('%internal_api_resolve%')]
 		private array $resolve = [],
+		private ?ProfilerQueryDiagnostics $queryDiagnostics = null,
+		private ?RemoteDoctrineDataCollector $remoteDoctrineProfiler = null,
+		private ?Profiler $symfonyProfiler = null,
 	) {
 		$this->assertBaseUrl($baseUrl);
 		$this->assertResolveMap($resolve);
@@ -55,7 +61,7 @@ final readonly class BusinessApiClient
 			$response = $this->client->request(strtoupper($method), $url, $options);
 			$status = $this->responseStatus($response);
 
-			return $this->decode($response);
+			return $this->decode($response, $path);
 		} catch (HttpExceptionInterface $exception) {
 			$status = $this->responseStatus($exception->getResponse());
 			$failed = true;
@@ -83,9 +89,11 @@ final readonly class BusinessApiClient
 		array $query = [],
 		array $headers = [],
 		float $timeout = 5.0,
+		bool $collectDoctrineQueries = false,
 	): array {
 		$url = $this->url($path);
 		$options = $this->options($token, $body, $query, $headers, $timeout);
+		$collectDoctrineQueries = $this->addProfilerQueryHeaders($options, $method, $path, $collectDoctrineQueries);
 		$startedAt = hrtime(true);
 		$response = null;
 		$status = null;
@@ -95,7 +103,7 @@ final readonly class BusinessApiClient
 			$response = $http->request(strtoupper($method), $url, $options);
 			$status = $this->responseStatus($response);
 
-			return $this->decode($response);
+			return $this->decode($response, $path, $collectDoctrineQueries);
 		} catch (HttpExceptionInterface $exception) {
 			$status = $this->responseStatus($exception->getResponse());
 			$failed = true;
@@ -219,19 +227,68 @@ final readonly class BusinessApiClient
 	}
 
 	/** @return array<mixed> */
-	private function decode(ResponseInterface $response): array
+	private function decode(ResponseInterface $response, ?string $path = null, bool $collectDoctrineQueries = false): array
 	{
 		try {
 			$status = $response->getStatusCode();
 		} catch (HttpExceptionInterface $exception) {
+			if ($collectDoctrineQueries && null !== $path) {
+				$this->recordProfilerQueriesFromError($exception->getResponse(), $path);
+			}
 			throw $this->translateHttpException($exception);
 		}
 		if ($status < 200 || $status >= 300) {
+			if ($collectDoctrineQueries && null !== $path) {
+				$this->recordProfilerQueriesFromError($response, $path);
+			}
 			throw new BusinessApiException($status, $response->getHeaders(false));
 		}
 
 		$data = $response->toArray(false);
+		if (null !== $path) {
+			$this->extractProfilerQueries($data, $path, $collectDoctrineQueries);
+		}
+
 		return $data;
+	}
+
+	/** @param array<string,mixed> $options */
+	private function addProfilerQueryHeaders(array &$options, string $method, string $path, bool $requested): bool
+	{
+		if (!$requested || 'dev' !== $this->environment || !$this->symfonyProfiler?->isEnabled() || null === $this->queryDiagnostics) {
+			return false;
+		}
+		$headers = $this->queryDiagnostics->requestHeaders($method, $path);
+		if ([] === $headers) {
+			return false;
+		}
+
+		$options['headers'] = array_merge($options['headers'], $headers);
+
+		return true;
+	}
+
+	/** @param array<mixed> $data */
+	private function extractProfilerQueries(array &$data, string $path, bool $collect): void
+	{
+		$diagnostics = $data[ProfilerQueryDiagnostics::QUERY_DATA_KEY] ?? null;
+		unset($data[ProfilerQueryDiagnostics::QUERY_DATA_KEY]);
+		if ($collect) {
+			$this->remoteDoctrineProfiler?->record($path, is_array($diagnostics) ? $diagnostics : null);
+		}
+	}
+
+	private function recordProfilerQueriesFromError(ResponseInterface $response, string $path): void
+	{
+		try {
+			$data = $response->toArray(false);
+			$this->extractProfilerQueries($data, $path, true);
+			return;
+		} catch (\Throwable) {
+			// Invalid error payloads cannot carry profiler data; keep the API failure authoritative.
+		}
+
+		$this->remoteDoctrineProfiler?->record($path, null);
 	}
 
 	private function translateHttpException(HttpExceptionInterface $exception): BusinessApiException

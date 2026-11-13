@@ -108,6 +108,7 @@ final readonly class PublicPageApiProxy
 						$apiToken,
 						query: $request->query->all(),
 						headers: $headers,
+						collectDoctrineQueries: true,
 					);
 				},
 				'main' => function (FiberHttpClient $http) use ($path, $apiToken, $headers, $mainQuery): array {
@@ -118,6 +119,7 @@ final readonly class PublicPageApiProxy
 						$apiToken,
 						query: $mainQuery,
 						headers: $headers,
+						collectDoctrineQueries: true,
 					);
 				},
 			], 5.0);
@@ -181,6 +183,7 @@ final readonly class PublicPageApiProxy
 								$apiToken,
 								query: ['params' => json_encode((object) $fragment['params'], JSON_THROW_ON_ERROR, 16)],
 								headers: $headers,
+								collectDoctrineQueries: true,
 							);
 						}
 
@@ -195,6 +198,7 @@ final readonly class PublicPageApiProxy
 							$apiToken,
 							query: $query,
 							headers: $headers,
+							collectDoctrineQueries: true,
 						);
 					};
 				}
@@ -286,7 +290,7 @@ final readonly class PublicPageApiProxy
 		}
 
 		$token = $this->tasks->run([
-			'session-token' => fn (FiberHttpClient $http): ?string => $this->sessionTokens->tokenFor($http, $request, $siteHost),
+			'session-token' => fn (FiberHttpClient $http): ?string => $this->sessionTokens->tokenFor($http, $request, $siteHost, collectDoctrineQueries: true),
 		], 5.0)['session-token'];
 
 		return is_string($token) && '' !== $token ? $token : $guestToken;

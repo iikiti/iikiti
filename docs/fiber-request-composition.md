@@ -154,9 +154,17 @@ assembled. Fragment fan-out increases API request and database load, so keep wid
 only worthwhile descendants into separate requests. These independent HTTP
 operations, not Twig/DOM CPU work or a synchronous PDO query within one API
 request, are what Fibers overlap. In the development profiler, nested manifest/fragment
-requests are excluded as standalone profiles to avoid profiling the same render
-twice; the parent page's Asynchronous and Subrequest sections still record every
-API call and its duration.
+and server-rendered provider requests are excluded as standalone profiles to
+avoid profiling the same render twice. When the browser page request is profiled,
+the Doctrine Queries tab and metrics include SQL and parameters from its
+authenticated internal session-token, manifest, fragment, and provider calls;
+each remote statement's SQL comment identifies the page and selected Twig
+layout, with region names/roles, shell names/roles, widget types/tree locations,
+or the provider name where applicable. The comment also includes the API path.
+The diagnostic handoff is signed with the shared application secret, limited to
+development requests with the profiler enabled, and bounded; ordinary API and
+browser responses do not expose it. The parent page's Asynchronous and Subrequest
+sections continue to record API request timings.
 
 For a browser on a different origin from the API, configure `CORS_ALLOW_ORIGIN`
 for the exact consumer origin, allow credentials, and use a session cookie

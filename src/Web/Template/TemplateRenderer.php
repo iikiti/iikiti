@@ -9,18 +9,19 @@ use iikiti\CMS\Async\FiberTaskRunner;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Entity\Object\Template;
 use iikiti\CMS\Profiler\AsyncResponseDataCollector;
+use iikiti\CMS\Profiler\ProfilerQueryDiagnostics;
 use iikiti\CMS\Response\Composition\HtmlFragmentComposer;
 use iikiti\CMS\Web\BlockEditor\Embed\EmbedResolver;
-use iikiti\CMS\Web\BlockEditor\RenderFragmentLimits;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderContext;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderer;
 use iikiti\CMS\Web\BlockEditor\Render\RenderCacheTagCollector;
 use iikiti\CMS\Web\BlockEditor\Render\RenderedFragmentCache;
+use iikiti\CMS\Web\BlockEditor\RenderFragmentLimits;
 use iikiti\CMS\Web\BlockEditor\Render\WidgetFragmentPlan;
 use iikiti\CMS\Web\Fragment\FragmentContext;
 use iikiti\CMS\Web\Fragment\FragmentPlanCollector;
-use iikiti\CMS\Web\Fragment\PageFragmentResult;
 use iikiti\CMS\Web\Fragment\FragmentResult;
+use iikiti\CMS\Web\Fragment\PageFragmentResult;
 use Twig\Environment;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
@@ -420,6 +421,15 @@ final class TemplateRenderer
 		if (!$found) {
 			return null;
 		}
+		if (null !== $context->request) {
+			$pageContext = $context->request->attributes->get(ProfilerQueryDiagnostics::RENDER_CONTEXT_ATTRIBUTE);
+			if (is_string($pageContext)) {
+				$context->request->attributes->set(
+					ProfilerQueryDiagnostics::RENDER_CONTEXT_ATTRIBUTE,
+					$pageContext.' | '.$this->fragmentProfilerLabel($template, $kind, $resolvedId, $shells, $widgetEntry),
+				);
+			}
+		}
 
 		if ('widget' === $kind && null !== $widgetEntry) {
 			$renderWidget = function (RenderCacheTagCollector $cacheTags) use ($widgetEntry, $context, $widgetPlan): array {
@@ -455,6 +465,49 @@ final class TemplateRenderer
 		}
 
 		return new PageFragmentResult(new FragmentResult($html, $styles), ['revision' => $revision, 'id' => $resolvedId]);
+	}
+
+	/**
+	 * @param array<string,list<array<string,mixed>>> $shells
+	 * @param array{node:array<string,mixed>,path:string,root_kind:string,root_id:string}|null $widgetEntry
+	 */
+	private function fragmentProfilerLabel(Template $template, string $kind, string $id, array $shells, ?array $widgetEntry): string
+	{
+		if ('region' === $kind) {
+			foreach ($template->getRegions() as $region) {
+				if ($id === (string) ($region['id'] ?? '')) {
+					$name = trim((string) ($region['name'] ?? $id));
+					$role = trim((string) ($region['role'] ?? ''));
+
+					return sprintf('Region "%s" (%s%s)', '' !== $name ? $name : $id, $id, '' !== $role ? ', role '.$role : '');
+				}
+			}
+
+			return sprintf('Region %s', $id);
+		}
+
+		if ('shell' === $kind) {
+			foreach ($shells as $role => $roleShells) {
+				foreach ($roleShells as $shell) {
+					if ($id === (string) ($shell['id'] ?? '')) {
+						$name = trim((string) ($shell['name'] ?? $id));
+
+						return sprintf('Shell "%s" (%s, role %s)', '' !== $name ? $name : $id, $id, $role);
+					}
+				}
+			}
+
+			return sprintf('Shell %s', $id);
+		}
+
+		if ('widget' === $kind && null !== $widgetEntry) {
+			$type = (string) ($widgetEntry['node']['type'] ?? 'block');
+			$location = sprintf('%s %s, path %s', $widgetEntry['root_kind'], $widgetEntry['root_id'], $widgetEntry['path']);
+
+			return sprintf('Widget %s (%s)', $type, $location);
+		}
+
+		return sprintf('%s %s', ucfirst($kind), $id);
 	}
 
 	/**

@@ -6,8 +6,9 @@ namespace iikiti\CMS\Controller\Api;
 
 use iikiti\CMS\Entity\Object\Page;
 use iikiti\CMS\Entity\Object\User;
-use iikiti\CMS\Repository\Object\PageRepository;
+use iikiti\CMS\Profiler\ProfilerQueryDiagnostics;
 use iikiti\CMS\Registry\SiteRegistry;
+use iikiti\CMS\Repository\Object\PageRepository;
 use iikiti\CMS\Security\GuestApiUser;
 use iikiti\CMS\Security\MfaAuthenticationGate;
 use iikiti\CMS\Web\BlockEditor\PageRendering;
@@ -32,6 +33,7 @@ final readonly class PublicPageRenderController
 		private Security $security,
 		private MfaAuthenticationGate $mfaGate,
 		private ?LoggerInterface $logger = null,
+		private ?ProfilerQueryDiagnostics $queryDiagnostics = null,
 	) {
 	}
 
@@ -102,6 +104,9 @@ final readonly class PublicPageRenderController
 	public function provider(Request $request, string $provider, FragmentRuntime $fragments): JsonResponse
 	{
 		$this->assertPublicRenderAccess($request);
+		if ($this->queryDiagnostics?->isTrustedRequest($request)) {
+			$request->attributes->set(ProfilerQueryDiagnostics::RENDER_CONTEXT_ATTRIBUTE, sprintf('Fragment provider "%s"', $provider));
+		}
 		$paramsJson = $request->query->get('params', '{}');
 		if (strlen($paramsJson) > 16_384) {
 			throw new BadRequestHttpException('Fragment parameters are invalid or too large.');
@@ -167,6 +172,9 @@ final readonly class PublicPageRenderController
 		}
 
 		$renderRequest = Request::create($uri, 'GET', [], $request->cookies->all());
+		if ($this->queryDiagnostics?->isTrustedRequest($request)) {
+			$renderRequest->attributes->set(ProfilerQueryDiagnostics::RENDER_CONTEXT_ENABLED_ATTRIBUTE, true);
+		}
 		$locale = $request->headers->get('X-SITE-LOCALE');
 		if (is_string($locale) && '' !== $locale && strlen($locale) <= 64 && 1 !== preg_match('/[\x00-\x1F\x7F]/', $locale)) {
 			$renderRequest->setLocale($locale);
@@ -178,9 +186,11 @@ final readonly class PublicPageRenderController
 	private function manifest(Request $request, string $path, ?Page $page = null, bool $home = false): JsonResponse
 	{
 		$renderRequest = $this->renderRequest($request, $path);
+		$manifest = $this->pageRendering->renderManifest($renderRequest, $page, $home);
+		$this->copyRenderProfilerContext($renderRequest, $request);
 
 		return new JsonResponse(
-			$this->pageRendering->renderManifest($renderRequest, $page, $home),
+			$manifest,
 			Response::HTTP_OK,
 			['Cache-Control' => 'private, no-store'],
 		);
@@ -204,6 +214,7 @@ final readonly class PublicPageRenderController
 			$id,
 			is_string($revision) ? $revision : null,
 		);
+		$this->copyRenderProfilerContext($renderRequest, $request);
 		if (null === $fragment) {
 			if ('region' === $kind && '@main' === $id && null === $revision) {
 				return new JsonResponse(['found' => false], Response::HTTP_OK, ['Cache-Control' => 'private, no-store']);
@@ -236,5 +247,13 @@ final readonly class PublicPageRenderController
 			$response->getStatusCode(),
 			['Cache-Control' => 'private, no-store'],
 		);
+	}
+
+	private function copyRenderProfilerContext(Request $source, Request $target): void
+	{
+		$context = $source->attributes->get(ProfilerQueryDiagnostics::RENDER_CONTEXT_ATTRIBUTE);
+		if (is_string($context)) {
+			$target->attributes->set(ProfilerQueryDiagnostics::RENDER_CONTEXT_ATTRIBUTE, $context);
+		}
 	}
 }

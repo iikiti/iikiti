@@ -14,7 +14,7 @@ final readonly class ApiSessionTokenProvider
 	{
 	}
 
-	public function tokenFor(FiberHttpClient $http, Request $request, string $siteHost): ?string
+	public function tokenFor(FiberHttpClient $http, Request $request, string $siteHost, bool $collectDoctrineQueries = false): ?string
 	{
 		$token = $request->headers->get('X-AUTH-TOKEN');
 		if (null !== $token && '' !== $token) {
@@ -40,6 +40,7 @@ final readonly class ApiSessionTokenProvider
 					'X-SITE-HOST' => strtolower($siteHost),
 					'X-SITE-SCHEME' => $request->getScheme(),
 				],
+				collectDoctrineQueries: $collectDoctrineQueries,
 			);
 		} catch (BusinessApiException $exception) {
 			if (401 === $exception->statusCode) {

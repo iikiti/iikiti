@@ -9,6 +9,7 @@ use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Entity\Object\Page;
 use iikiti\CMS\Entity\Object\Template;
 use iikiti\CMS\Entity\Object\User;
+use iikiti\CMS\Profiler\ProfilerQueryDiagnostics;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Response\Composition\DomHtmlResponse;
 use iikiti\CMS\Response\Composition\HtmlFragmentComposer;
@@ -144,6 +145,12 @@ final class PageRendering
 			home: $home,
 		);
 		$template = $this->resolver->resolve($resolutionContext) ?? $this->defaultTemplate();
+		if (true === $request->attributes->get(ProfilerQueryDiagnostics::RENDER_CONTEXT_ENABLED_ATTRIBUTE)) {
+			$request->attributes->set(
+				ProfilerQueryDiagnostics::RENDER_CONTEXT_ATTRIBUTE,
+				$this->pageTemplateProfilerContext($request, $template),
+			);
+		}
 		$user = $this->security->getUser();
 		$canEdit = $user instanceof User && $this->configProvider->canEdit($user);
 		$editorMode = $canEdit && $request->query->has('edit');
@@ -212,6 +219,16 @@ final class PageRendering
 				$object instanceof Page ? $this->scopeClass('page', $object->getId()) : null,
 			])),
 		];
+	}
+
+	private function pageTemplateProfilerContext(Request $request, Template $template): string
+	{
+		$title = trim((string) $template->getTitle());
+		if ('' === $title) {
+			$title = null !== $template->getId() ? sprintf('template #%d', $template->getId()) : 'default template';
+		}
+
+		return sprintf('Page "%s" | Template "%s" | Twig "%s"', $request->getPathInfo(), $title, $template->getLayout());
 	}
 
 	/** @param array<string,mixed> $state */

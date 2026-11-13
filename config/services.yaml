@@ -70,6 +70,10 @@ services:
         exclude:
             - '../src/DependencyInjection/'
             - '../src/Filters/'
+            - '../src/Profiler/ProfilerQueryDiagnostics.php'
+            - '../src/Profiler/ProfilerQueryDiagnosticsSubscriber.php'
+            - '../src/Profiler/RemoteDoctrineDataCollector.php'
+            - '../src/Profiler/RemoteAwareDoctrineDataCollector.php'
             - '../src/Crypto/ApplicationKeyring.php'
             - '../src/Entity/'
             - '../src/Kernel.php'
@@ -262,6 +266,42 @@ services:
 
 when@dev:
     services:
+        iikiti\CMS\Profiler\ProfilerQueryDiagnostics:
+            autowire: true
+            arguments:
+                $applicationSecret: '%kernel.secret%'
+
+        iikiti\CMS\Profiler\RemoteDoctrineDataCollector:
+            autowire: true
+            autoconfigure: true
+            tags:
+                - { name: data_collector, id: iikiti.remote_doctrine }
+
+        data_collector.doctrine:
+            class: iikiti\CMS\Profiler\RemoteAwareDoctrineDataCollector
+            arguments:
+                $registry: '@doctrine'
+                $remoteQueries: '@iikiti\CMS\Profiler\RemoteDoctrineDataCollector'
+                $shouldValidateSchema: true
+                $debugDataHolder: '@doctrine.debug_data_holder'
+                $secondLevelCacheManagers: []
+            tags:
+                - { name: data_collector, template: '@Doctrine/Collector/db.html.twig', id: db, priority: 250 }
+
+        iikiti\CMS\Profiler\ProfilerQueryDiagnosticsSubscriber:
+            autowire: true
+            autoconfigure: true
+            arguments:
+                $debugDataHolder: '@doctrine.debug_data_holder'
+                $profiler: '@profiler'
+            tags:
+                - { name: kernel.event_subscriber }
+
+        iikiti\CMS\Api\BusinessApiClient:
+            autowire: true
+            arguments:
+                $symfonyProfiler: '@profiler'
+
         iikiti\CMS\Profiler\FirewallDataCollector:
             tags:
                 - { name: data_collector, id: iikiti.firewall }
