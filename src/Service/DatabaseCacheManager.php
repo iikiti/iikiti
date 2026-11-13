@@ -101,9 +101,10 @@ class DatabaseCacheManager
 		$hashContext = $context;
 		unset($hashContext['options'], $hashContext['cache']);
 		$hash = hash('xxh3', serialize($hashContext));
+		$operation = preg_replace('/[^A-Za-z0-9_.-]/', '_', $operation) ?? 'query';
 
 		return sprintf(
-			'%s:v%d:%s:%s:%s:%d',
+			'%s_v%d_%s_%s_%s_%d',
 			self::CACHE_KEY_PREFIX,
 			$generation,
 			str_replace('\\', '_', $entityClass),

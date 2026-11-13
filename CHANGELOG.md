@@ -50,6 +50,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Fixed
 
+- 2026-11-13: Database result-cache keys avoid Symfony Cache's reserved characters so enabled repository caching does not fail page requests.
 - 2026-11-13: Release the active session lock before exchanging its cookie for an API token, preventing authenticated API-backed pages from timing out with 502 responses.
 
 - 2026-11-13: Corrected PHPStan types and redundant checks in fragment rendering, queue dispatching, and Doctrine mapping tests.

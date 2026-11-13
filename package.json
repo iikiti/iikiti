@@ -1,21 +1,21 @@
 {
     "devDependencies": {
-        "@babel/core": "^8.1.0",
+        "@babel/core": "^8.1.2",
         "@babel/plugin-proposal-class-properties": "^7.18.6",
         "@babel/preset-env": "^8.0.7",
         "@hotwired/stimulus": "^3.2.2",
         "@symfony/stimulus-bridge": "^4.0.2",
-        "@symfony/webpack-encore": "^7.2.0",
+        "@symfony/webpack-encore": "^7.2.1",
         "@tailwindcss/postcss": "^4.3.5",
         "autoprefixer": "^10.6.2",
         "cash-dom": "^8.1.5",
         "copy-webpack-plugin": "^14.0.0",
         "file-loader": "^6.2.0",
-        "postcss": "^8.5.32",
+        "postcss": "^8.5.33",
         "postcss-import": "^17.0.1",
         "postcss-loader": "^8.2.1",
         "purgecss-webpack-plugin": "^8.0.0",
-        "sass": "^1.108.1",
+        "sass": "^1.108.2",
         "sass-loader": "^17.1.0",
         "svelte": "^5.57.3",
         "svelte-loader": "^3.2.4",
@@ -46,9 +46,9 @@
         "@codemirror/theme-one-dark": "^6.1.3",
         "@codemirror/view": "^6.43.15",
         "@js-temporal/polyfill": "^0.5.1",
-        "@lucide/svelte": "^1.70.0",
-        "baseline-browser-mapping": "^2.11.35",
-        "caniuse-lite": "^1.0.30001823",
-        "lucide-static": "^1.70.0"
+        "@lucide/svelte": "^1.72.0",
+        "baseline-browser-mapping": "^2.11.37",
+        "caniuse-lite": "^1.0.30001826",
+        "lucide-static": "^1.72.0"
     }
 }

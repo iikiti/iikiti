@@ -64,9 +64,11 @@ final class DatabaseCacheManagerTest extends TestCase
 			'value' => 'jane',
 		]);
 
-		$this->assertStringStartsWith('db_cache:v1:', $key);
+		$this->assertStringStartsWith('db_cache_v1_', $key);
 		$this->assertStringContainsString('User', $key);
-		$this->assertStringContainsString(':0', strrchr($key, ':'));
+		$this->assertSame('_0', substr($key, (int) strrpos($key, '_')));
+		$this->assertDoesNotMatchRegularExpression('/[{}()\/\\@:]/', $key);
+		$this->pool->getItem($key);
 	}
 
 	public function testGenerateCacheKeyChangesAfterInvalidate(): void
@@ -79,7 +81,7 @@ final class DatabaseCacheManagerTest extends TestCase
 		$after = $manager->generateCacheKey(self::ENTITY, 'findByProperty', $context);
 
 		$this->assertNotSame($before, $after);
-		$this->assertStringStartsWith('db_cache:v2:', $after);
+		$this->assertStringStartsWith('db_cache_v2_', $after);
 	}
 
 	public function testDecorateQueryAppliesCacheWhenEnabled(): void
@@ -91,7 +93,7 @@ final class DatabaseCacheManagerTest extends TestCase
 		$query->expects($this->once())->method('setResultCache');
 		$query->expects($this->once())->
 			method('enableResultCache')->
-			with(300, $this->stringStartsWith('db_cache:v1:'));
+			with(300, $this->stringStartsWith('db_cache_v1_'));
 
 		$manager->decorateQuery($query, self::ENTITY, [
 			'operation' => 'findOneBy',

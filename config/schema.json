@@ -3410,7 +3410,7 @@
                                             "properties": {
                                                 "scope": {
                                                     "$ref": "#/$defs/types/scalar",
-                                                    "description": "The regular expression that the request URL must match before adding the other options. When none is provided, the base URI is used instead."
+                                                    "description": "The regular expression that the request URL must match before adding the other options. When none is provided, the base URI is used instead. The regular expression should end with a \"/\", for example \"https://api\\.github\\.com/\", so that it doesn't match other hosts."
                                                 },
                                                 "base_uri": {
                                                     "$ref": "#/$defs/types/scalar",
@@ -9077,8 +9077,7 @@
                                                                             "$ref": "#/$defs/types/array_null",
                                                                             "items": {
                                                                                 "$ref": "#/$defs/types/scalar"
-                                                                            },
-                                                                            "minItems": 1
+                                                                            }
                                                                         },
                                                                         {
                                                                             "type": [
@@ -9086,7 +9085,7 @@
                                                                             ]
                                                                         }
                                                                     ],
-                                                                    "description": "Identifiers of this resource server, one of which the \"aud\" of the token must name. A single identifier may be given as a string."
+                                                                    "description": "Identifiers of this resource server, one of which the \"aud\" of the token must name. A single identifier may be given as a string. Defaults to the \"resource\" of \"resource_metadata\" when it is a URL."
                                                                 },
                                                                 "issuers": {
                                                                     "$ref": "#/$defs/types/array_null",
@@ -9259,7 +9258,7 @@
                                                                                     ]
                                                                                 }
                                                                             ],
-                                                                            "description": "Identifiers of this resource server, one of which the \"aud\" of the introspection response must name. A single identifier may be given as a string."
+                                                                            "description": "Identifiers of this resource server, one of which the \"aud\" of the introspection response must name. A single identifier may be given as a string. Defaults to the \"resource\" of \"resource_metadata\" when it is a URL."
                                                                         },
                                                                         "issuer": {
                                                                             "$ref": "#/$defs/types/scalar",
