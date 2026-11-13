@@ -25,4 +25,9 @@ export class Footer extends LayoutComponent {
   onHide(reason) {
     this.el.classList.add('iikiti-footer--hidden');
   }
+
+  destroy() {
+    this.el?.classList.remove('iikiti-footer--hidden');
+    super.destroy();
+  }
 }

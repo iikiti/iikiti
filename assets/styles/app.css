@@ -50,8 +50,8 @@
    do NOT force a background/border/text here so we never clobber a host's
    own palette (e.g. the admin's 2027 colors). */
 .iikiti-hidden { display: none !important; }
-.iikiti-header--hidden { transform: translateY(-100%); transition: transform var(--ik-transition); }
-.iikiti-footer--hidden { transform: translateY(100%); transition: transform var(--ik-transition); }
+.iikiti-header--hidden { transform: translateY(-100%); transition: transform var(--ik-transition), opacity var(--ik-transition); }
+.iikiti-footer--hidden { transform: translateY(100%); transition: transform var(--ik-transition), opacity var(--ik-transition); }
 .iikiti-sidebar__overlay {
     position: fixed; inset: 0; background: rgba(0, 0, 0, .4);
     opacity: 0; visibility: hidden; transition: opacity var(--ik-transition);
@@ -67,6 +67,17 @@
     transition: transform var(--ik-transition);
 }
 .iikiti-sidebar--mobile:not(.iikiti-sidebar--open) { transform: translateX(-100%); }
+.iikiti-bar--flow-transition.iikiti-sidebar--mobile {
+    transition: transform var(--ik-transition), translate var(--ik-transition), opacity var(--ik-transition);
+}
+@media (prefers-reduced-motion: reduce) {
+    .iikiti-header--hidden,
+    .iikiti-footer--hidden,
+    .iikiti-sidebar--mobile,
+    .iikiti-bar--flow-transition.iikiti-sidebar--mobile {
+        transition: none !important;
+    }
+}
 .iikiti-sidebar--collapsed { width: 4rem !important; }
 .iikiti-sidebar--collapsed [data-iikiti-sidebar-label] { display: none; }
 .iikiti-banner__dismiss {

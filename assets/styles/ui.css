@@ -50,19 +50,19 @@
 	--iikiti-z-toast: 4500;    /* notifications */
 
 	/* Viewport bar stack sizes, maintained by assets/js/iikiti/chrome/bars.js.
-	   px totals per side ("stack" bars only; fixed/absolute bars do not
-	   reserve space). "Stack" top/bottom bars push content via normal flow;
+	   Px totals per side. Fixed/absolute overlays are excluded by default but
+	   may be explicitly included. Top/bottom bars push content via normal flow;
 	   left/right rails push content via the body padding below. */
-	--iikiti-bars-top: 0px;
-	--iikiti-bars-right: 0px;
-	--iikiti-bars-bottom: 0px;
-	--iikiti-bars-left: 0px;
+	--theme-bars-top: 0px;
+	--theme-bars-right: 0px;
+	--theme-bars-bottom: 0px;
+	--theme-bars-left: 0px;
 }
 
 /* Side rails reserve horizontal space so they never cover page content. */
 body {
-	padding-inline-start: var(--iikiti-bars-left);
-	padding-inline-end: var(--iikiti-bars-right);
+	padding-inline-start: var(--theme-bars-left);
+	padding-inline-end: var(--theme-bars-right);
 }
 
 /* ========================= Viewport bars (chrome) ========================== */
@@ -78,6 +78,22 @@ body {
 	position: relative;
 	z-index: var(--iikiti-z-chrome);
 	margin: 0;
+}
+
+/* Flow-collapse uses compositor-friendly visual properties. The manager
+   changes reserved flow space once per visibility transition, not per frame. */
+.iikiti-bar--flow-transition {
+	will-change: transform, translate, opacity;
+	transition:
+		transform var(--ik-transition, 150ms ease),
+		translate var(--ik-transition, 150ms ease),
+		opacity var(--ik-transition, 150ms ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.iikiti-bar--flow-transition {
+		transition: none;
+	}
 }
 
 /* Drag-to-resize handle appended by the bars manager for resizable bars
@@ -164,10 +180,10 @@ body {
 	overflow-y: auto;
 }
 .iikiti-notification-center[data-position="bottom-right"],
-.iikiti-notification-center:not([data-position]) { bottom: calc(1rem + var(--iikiti-bars-bottom)); right: 1rem; }
-.iikiti-notification-center[data-position="bottom-left"] { bottom: calc(1rem + var(--iikiti-bars-bottom)); left: 1rem; }
-.iikiti-notification-center[data-position="top-right"] { top: calc(1rem + var(--iikiti-bars-top)); right: 1rem; }
-.iikiti-notification-center[data-position="top-left"] { top: calc(1rem + var(--iikiti-bars-top)); left: 1rem; }
+.iikiti-notification-center:not([data-position]) { bottom: calc(1rem + var(--theme-bars-bottom)); right: 1rem; }
+.iikiti-notification-center[data-position="bottom-left"] { bottom: calc(1rem + var(--theme-bars-bottom)); left: 1rem; }
+.iikiti-notification-center[data-position="top-right"] { top: calc(1rem + var(--theme-bars-top)); right: 1rem; }
+.iikiti-notification-center[data-position="top-left"] { top: calc(1rem + var(--theme-bars-top)); left: 1rem; }
 
 .iikiti-toast {
 	display: flex;

@@ -26,8 +26,14 @@ The standard guarantees:
 - Bars on the **left/right** ("rails") are fixed elements spanning vertically
   *between* the top and bottom stacks; they reserve horizontal space through
   `body` padding so content moves beside them.
-- Elements explicitly designated `fixed` or `absolute` are the only
-  exemption: they are left untouched and unmeasured (overlay chrome).
+- Elements explicitly designated `fixed` or `absolute` (or styled that way
+  before registration) are excluded from automatic space calculations and are
+  left untouched. `includeInLayout: 'include'` can explicitly reserve their
+  dimensions when an advanced layout needs it.
+- Scroll-driven framework component visibility updates the registered bar
+  totals and dependent offsets immediately. Framework-controlled bars animate
+  flow collapse by default; standalone plugin bars can opt into the same
+  behavior.
 - Bars can opt into **drag-to-resize** (a handle appears on the edge facing
   the content; the size persists in localStorage per bar id). The editor's
   top admin bar intentionally never enables this.
@@ -41,8 +47,11 @@ The standard guarantees:
      data-iikiti-bar-order="0"             <!-- lower = closer to the viewport edge -->
      data-iikiti-bar-sticky="true"          <!-- pin while scrolling (top/bottom) -->
      data-iikiti-bar-resizable="true"       <!-- adds the drag-to-resize handle -->
-     data-iikiti-bar-mode="stack"           <!-- stack (default) | fixed | absolute -->
-     data-iikiti-bar-size="240"             <!-- rails: explicit initial width (px) -->
+      data-iikiti-bar-mode="stack"           <!-- stack (default) | fixed | absolute -->
+      data-iikiti-bar-type="header"          <!-- optional inspection category -->
+      data-iikiti-bar-include-in-layout="auto" <!-- auto | include | exclude -->
+      data-iikiti-bar-collapse="auto"        <!-- auto | none | flow -->
+      data-iikiti-bar-size="240"             <!-- rails: explicit initial width (px) -->
      data-iikiti-bar-min-size="36"
      data-iikiti-bar-max-size="240"
      data-iikiti-bar-id="my-theme-banner">  <!-- stable id for size persistence -->
@@ -65,13 +74,25 @@ const reg = iikiti.bars.register(el, {
   sticky: true,                 // pin while scrolling
   resizable: false,
   mode: 'stack',               // 'fixed' | 'absolute' = overlay exemption
+  type: 'header',              // optional category for bars.list({ type })
+  includeInLayout: 'auto',     // 'include' | 'exclude' manual override
+  collapse: 'flow',            // request animated flow collapse
   size: 240,                   // rails: explicit width
   minSize: 36, maxSize: 240,
 });
+reg.setIncluded(true);         // force measurement; false excludes; null = auto
+reg.setVisible(false);         // synchronize custom JS/CSS visibility changes
+reg.setSticky(false);          // update configured sticky mode
+const off = reg.onChange((change) => console.log(change.property, change.previous, change.current));
+off();                          // remove the per-bar listener
 reg.destroy();                 // unregister; offsets re-layout
 
-iikiti.bars.getOffset('top');   // px reserved by "stack" bars on a side
-iikiti.bars.onChange(({ sides }) => { ... }); // re-layout notifications
+iikiti.bars.getOffset('top');   // current included total for the side
+iikiti.bars.refresh();          // schedule a fresh measurement after custom CSS changes
+iikiti.bars.onChange(({ sides, changes }) => { ... }); // global re-layout notifications
+iikiti.bars.list({ side: 'top', type: 'header', mode: 'stack' });
+iikiti.bars.list({ includeExcluded: true }); // include overlays/hidden bars for inspection
+iikiti.bars.list({ position: 'absolute', includeExcluded: true });
 iikiti.bars.autoWire(root);    // scan a subtree for data-iikiti-bar
 ```
 
@@ -86,13 +107,13 @@ The manager maintains these CSS variables on `:root` at all times:
 
 | Variable | Meaning |
 |---|---|
-| `--iikiti-bars-top` | px height of all "stack" bars on the top (0 if none) |
-| `--iikiti-bars-bottom` | px height of bottom stack bars **plus external bottom chrome** (e.g. the Symfony web profiler toolbar) |
-| `--iikiti-bars-left` / `-right` | px widths of all rail bars (0 if none) |
+| `--theme-bars-top` | px height of included top bars (0 if none) |
+| `--theme-bars-bottom` | px height of included bottom bars **plus external bottom chrome** (e.g. the Symfony web profiler toolbar) |
+| `--theme-bars-left` / `-right` | px widths of included rail bars (0 if none) |
 
 `ui.css` applies the left/right values as `body` padding-inline so rails push
 content, and every bottom-anchored notification offsets itself by
-`--iikiti-bars-bottom` so it never sits under the web profiler toolbar.
+`--theme-bars-bottom` so it never sits under the web profiler toolbar.
 Top/bottom bars push content via normal flow **and span the full viewport
 width**: the manager cancels the rail reserve with negative inline margins so
 a top header always runs across the rails (the rails are pinned between the
@@ -122,15 +143,40 @@ top and bottom stacks, i.e. below the header).
 - Rails need an explicit width (`data-iikiti-bar-size`, inline width, or the
   persisted resizable size); auto-width fixed elements would be circular.
   Default rail width is 220px.
-- A bar that hides (e.g. banner dismiss / sticky hide-reveal transforms)
-  drops out of the stack automatically (size becomes 0, offsets recompute via
-  ResizeObserver).
+- **Measurement policy:** `data-iikiti-bar-include-in-layout` / the
+  `includeInLayout` option accepts `auto` (default), `include`, or `exclude`.
+  `auto` excludes authored absolute/fixed overlays and hidden bars. `include`
+  and `exclude` override that decision. A forced-included hidden bar reserves
+  its last nonzero measured size; inspection reports its live rect separately.
+  For custom JS/CSS visibility, call the registration handle's `setVisible()`;
+  call `refresh()` after custom size/position changes.
+- **Inspection:** `bars.list({ side?, type?, mode?, position?, includeExcluded? })`
+  returns a filtered array of detailed snapshots with current dimensions,
+  cached size, effective contribution, viewport rect, `sticky`/`stuck` state,
+  visibility, inclusion and the live `element` reference. Set
+  `includeExcluded: true` to inspect absolute/fixed and otherwise excluded
+  bars; listing them does not make them reserve space. The existing
+  `bars.list()` and `bars.list(side)` summary forms are unchanged.
+- **Change events:** a registration handle's `onChange(fn)` reports actual
+  state transitions with `{ id, element, property, previous, current, bar }`
+  and returns an unsubscribe function. It distinguishes configured `sticky`
+  mode from runtime `stuck`/unstuck state. The global `bars.onChange(fn)` and
+  `iikiti:bars:change` event still run after re-layout and include a `changes`
+  array.
+- **Flow collapse:** `data-iikiti-bar-collapse` / `collapse` accepts `auto`,
+  `none`, or `flow`. `auto` animates framework-controlled component bars;
+  generic plugin bars default to no animated collapse and may opt into `flow`.
+  Framework bars can opt out with `none`. Reserved flow space and CSS variables
+  update at the start of hiding and are restored before showing. The visual
+  transition uses transform/opacity while the layout change occurs once at the
+  transition boundary; reduced-motion preferences disable animation. The
+  flow-collapse size change itself still requires a layout pass.
 - Resizable bars persist to `iikiti.bar.<id>.size` in localStorage.
 - **Symfony web profiler toolbar (dev only):** detected automatically. Its
   wrapper is kept at the end of the document flow so its static "clearer"
   reserves space at the page bottom (instead of mid-flow, which pushes content
   down at the top), and its fixed bar's height is counted into
-  `--iikiti-bars-bottom`, so bottom bars, rails and notifications stack above
+  `--theme-bars-bottom`, so bottom bars, rails and notifications stack above
   it. Our chrome's z-indexes (`--iikiti-z-*`, max 4500) stay below the
   profiler's `z-index: 99999`, so the bar API never covers it. Open/collapsed
   state is observed and recomputed automatically.

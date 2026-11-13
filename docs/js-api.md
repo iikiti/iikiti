@@ -287,12 +287,27 @@ console.log(Object.keys(window.iikiti.components.classes)); // ['banner', 'heade
 The viewport bars stacking standard. Full details, including the
 `data-iikiti-bar` markup, are in [front-end-ui-standard.md](front-end-ui-standard.md).
 
-- `bars.register(el | null, opts)`: registers a bar and returns `{ id, el, destroy() }`
+- `bars.register(el | null, opts)`: registers a bar and returns a handle with
+  `{ id, el, destroy(), setIncluded(), setVisible(), setSticky(), refresh(), onChange() }`
   or `null`. `opts` includes `id`, `side` (`top`/`right`/`bottom`/`left`), `order`,
-  `sticky`, `resizable`, `mode`. Passing `null` creates a slot element.
+  `sticky`, `resizable`, `mode`, optional `type`, `includeInLayout`
+  (`auto`/`include`/`exclude`), and `collapse` (`auto`/`none`/`flow`). Passing
+  `null` creates a slot element.
 - `bars.unregister(id)`: removes a bar and returns its element (or `null`).
-- `bars.getOffset(side)`: pixels reserved by stack bars on that side.
-- `bars.onChange(fn)`: fires after each re-layout; returns an unsubscribe function.
+- `bars.getOffset(side)`: current pixels reserved on that side, including
+  explicitly included bars and external bottom chrome.
+- `bars.list()`, `bars.list(side)`: preserve the legacy compact summary shape.
+  `bars.list({ side?, type?, mode?, position?, includeExcluded? })` returns
+  detailed snapshots with current width/height, last nonzero measured size,
+  effective contribution size, viewport rect, sticky/stuck/visibility status,
+  and the actual DOM element. By default the options form returns bars eligible
+  to contribute; set `includeExcluded: true` to inspect absolute/fixed or other
+  excluded bars without including them in calculations.
+- `bars.refresh()`: schedules a fresh measurement after a custom CSS/JS change.
+- `bars.onChange(fn)`: fires after each re-layout with `{ sides, changes }`;
+  returns an unsubscribe function. Registration handles also expose
+  `onChange(fn)`, which fires only on that bar's state transitions and returns
+  an unsubscribe function.
 - `bars.autoWire(scope?)`: registers every `[data-iikiti-bar]` element in `scope`.
 
 ```js
@@ -306,7 +321,17 @@ const bar = window.iikiti.bars.register(myHeaderEl, {
   side: 'top',
   order: 0,
   sticky: true,
+  type: 'header',
+  includeInLayout: 'auto',
+  collapse: 'flow',
 });
+bar.setIncluded(true); // force inclusion; false excludes; null restores auto
+bar.setVisible(false); // tell the manager about JS/CSS-driven visibility
+bar.setSticky(false);
+const stopBarChanges = bar.onChange(({ property, previous, current, element, bar }) => {
+  console.log(property, previous, current, element, bar);
+});
+stopBarChanges();
 bar.destroy();
 
 window.iikiti.bars.register(null, { id: 'promo-slot', side: 'top', sticky: true });
@@ -318,6 +343,10 @@ const stop = window.iikiti.bars.onChange(({ sides }) => {
   console.log('top reserved:', sides.top);
 });
 stop();
+
+const topChrome = window.iikiti.bars.list({ side: 'top', includeExcluded: true });
+const absoluteBars = window.iikiti.bars.list({ position: 'absolute', includeExcluded: true });
+console.log(topChrome[0]?.lastMeasuredSize, topChrome[0]?.rect, topChrome[0]?.element);
 ```
 
 ### `theme` (stable)

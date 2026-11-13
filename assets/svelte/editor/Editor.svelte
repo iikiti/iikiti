@@ -223,8 +223,8 @@
 	.iikiti-region-frame.locked { opacity: 0.85; }
 	.iikiti-editor__back {
 		position: fixed;
-		top: calc(1rem + var(--iikiti-bars-top, 0px));
-		left: calc(1rem + var(--iikiti-bars-left, 0px));
+		top: calc(1rem + var(--theme-bars-top, 0px));
+		left: calc(1rem + var(--theme-bars-left, 0px));
 		z-index: var(--iikiti-z-shell-header);
 		border: 1px solid var(--ik-panel-border, #ddd6cb);
 		background: var(--ik-panel-bg, #f9f7f2);

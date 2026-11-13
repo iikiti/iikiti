@@ -153,14 +153,23 @@ export class LayoutComponent {
     if (!el || this.barRegistration) return;
     const side = opts.barSide ?? el.dataset.iikitiBar ?? this.defaultBarSide;
     if (!side) return;
-    const mode = opts.position === 'fixed' || opts.position === 'absolute' ? opts.position : 'stack';
+    const declaredMode = el.dataset.iikitiBarMode;
+    const mode = opts.position === 'fixed' || opts.position === 'absolute'
+      ? opts.position
+      : (['stack', 'fixed', 'absolute'].includes(declaredMode) ? declaredMode : 'stack');
     this.barRegistration = bars.register(el, {
       id: el.dataset.iikitiBarId,
       side,
       order: Number(opts.barOrder ?? el.dataset.iikitiBarOrder ?? this.defaultBarOrder) || 0,
       mode,
       sticky: opts.position === 'sticky' || el.dataset.iikitiBarSticky === 'true',
+      visible: this.opts.sticky.length
+        ? (this.opts.initiallyVisible ?? (typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches))
+        : !el.classList.contains('iikiti-hidden'),
       resizable: el.dataset.iikitiBarResizable === 'true',
+      type: this.componentName,
+      collapse: opts.collapse ?? el.dataset.iikitiBarCollapse ?? 'auto',
+      frameworkManaged: true,
     });
   }
 
@@ -177,8 +186,10 @@ export class LayoutComponent {
       toggleSelector: this.opts.toggleSelector,
       targetSelector: this.opts.targetSelector,
       initiallyVisible: this.opts.initiallyVisible ?? (typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches),
+      animateVisibility: this.barRegistration?.flowCollapse === true,
       onShow: (reason) => {
         this._visible = true;
+        this.barRegistration?.setVisible(true);
         this.onShow?.(reason);
         this.opts.onShow?.(reason);
       },
@@ -186,6 +197,7 @@ export class LayoutComponent {
         this._visible = false;
         this.onHide?.(reason);
         this.opts.onHide?.(reason);
+        this.barRegistration?.setVisible(false);
       },
     });
   }
@@ -239,11 +251,11 @@ export class LayoutComponent {
 
   destroy() {
     if (this.destroyed) return;
+    this.sticky?.destroy();
     // Detach from the bars standard (element stays in the DOM; the manager
     // strips only the styles it applied).
     this.barRegistration?.destroy();
     this.barRegistration = undefined;
-    this.sticky?.destroy();
     this.onDestroy?.();
     this.destroyed = true;
   }
@@ -252,4 +264,3 @@ export class LayoutComponent {
     return this.constructor.name;
   }
 }
-

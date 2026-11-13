@@ -17,6 +17,8 @@
  * Imperative:
  *   new StickyController(el, { triggers: ['scroll','edge','button'], ... })
  */
+import { events } from '../events.js';
+
 const parseTriggers = (value) => {
   if (!value) return [];
   return (Array.isArray(value) ? value : String(value).split(',')).map((s) => s.trim()).filter(Boolean);
@@ -39,6 +41,7 @@ export class StickyController {
       targetSelector: opts.targetSelector,
       onShow: opts.onShow,
       onHide: opts.onHide,
+      animateVisibility: opts.animateVisibility === true,
     };
 
     /** @type {Record<string,boolean>} per-trigger demand to show */
@@ -81,6 +84,12 @@ export class StickyController {
     if (this.opts.triggers.includes('scroll')) {
       window.addEventListener('scroll', this._bound.onScroll, { passive: true });
       this._lastScroll = window.scrollY;
+      this._offFlowShift = events.on('iikiti:bars:flow-shift', () => this._suppressFlowScroll());
+    }
+    if (!this.visible) {
+      el.classList.add('iikiti-hidden');
+      el.setAttribute('aria-hidden', 'true');
+      if ('inert' in el) el.inert = true;
     }
     if (this.opts.triggers.includes('edge') || this.opts.triggers.includes('hover-target')) {
       document.addEventListener('pointermove', this._bound.onPointerMove, { passive: true });
@@ -113,8 +122,24 @@ export class StickyController {
     this._reconcile();
   }
 
+  _suppressFlowScroll() {
+    this._ignoreFlowScroll = true;
+    if (this._flowShiftRaf) cancelAnimationFrame(this._flowShiftRaf);
+    this._flowShiftRaf = requestAnimationFrame(() => {
+      this._flowShiftRaf = requestAnimationFrame(() => {
+        this._flowShiftRaf = 0;
+        this._ignoreFlowScroll = false;
+        this._lastScroll = window.scrollY;
+      });
+    });
+  }
+
   _onScroll() {
     const now = window.scrollY;
+    if (this._ignoreFlowScroll) {
+      this._lastScroll = now;
+      return;
+    }
     const delta = now - this._lastScroll;
     this._lastDirection = delta > 0 ? 'down' : 'up';
     this._lastScroll = now;
@@ -203,13 +228,19 @@ export class StickyController {
     clearTimeout(this._hideTimer);
     const applyNow = () => {
       if (show) {
+        if (!this.opts.animateVisibility) this._suppressFlowScroll();
         el.classList.remove('iikiti-hidden', 'iikiti-translate-out');
         el.classList.add('iikiti-translate-in');
         el.setAttribute('aria-hidden', 'false');
+        if ('inert' in el) el.inert = false;
         this.opts.onShow?.(reason);
       } else {
-        el.classList.add('iikiti-hidden');
         el.setAttribute('aria-hidden', 'true');
+        if ('inert' in el) el.inert = true;
+        if (!this.opts.animateVisibility) {
+          this._suppressFlowScroll();
+          el.classList.add('iikiti-hidden');
+        }
         this.opts.onHide?.(reason);
       }
       const toggleSel = this.opts.toggleSelector || el.dataset.stickyToggle;
@@ -228,10 +259,14 @@ export class StickyController {
     document.removeEventListener('pointermove', this._bound.onPointerMove);
     document.removeEventListener('pointerleave', this._bound.onPointerLeave);
     window.removeEventListener('resize', this._bound.onResize);
+    this._offFlowShift?.();
+    if (this._flowShiftRaf) cancelAnimationFrame(this._flowShiftRaf);
+    this._flowShiftRaf = 0;
     const { el } = this;
     if (el) {
       el.classList.remove('iikiti-hidden', 'iikiti-translate-out', 'iikiti-translate-in');
       el.setAttribute('aria-hidden', 'false');
+      if ('inert' in el) el.inert = false;
     }
     clearTimeout(this._showTimer);
     clearTimeout(this._hideTimer);

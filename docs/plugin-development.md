@@ -615,7 +615,13 @@ anything:
 - **Viewport bars:** declarative `data-iikiti-bar` markup or the imperative
   `iikiti.bars.register()` API (available on every page via
   `window.iikiti`), including the explicit `fixed`/`absolute` overlay
-  exemption and optional drag-to-resize.
+  exemption, `includeInLayout` override, detailed filtered `bars.list()`
+  snapshots, per-bar/global change subscriptions, and optional drag-to-resize.
+  Framework-controlled header/footer/sidebar hide/show uses accelerated
+  flow-collapse by default; custom plugin bars can opt in with
+  `collapse: 'flow'` or `data-iikiti-bar-collapse="flow"`. Use the returned
+  registration handle's `setVisible()` and `refresh()` when custom JS/CSS
+  changes visibility or geometry.
 - **Layering:** the shared z-index token scale
   (`--iikiti-z-*`: content, editor, shell, chrome, popover, floating, modal,
   tour, tooltip, toast; see the Layer scale table in

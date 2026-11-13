@@ -44,7 +44,8 @@ export class Banner extends LayoutComponent {
     const { el } = this;
     if (!el) return;
     el.setAttribute('aria-hidden', 'true');
-    el.style.display = 'none';
+    if (this.barRegistration) this.barRegistration.setVisible(false);
+    else el.style.display = 'none';
     this.onDismiss?.();
     this.opts.onDismiss?.();
   }

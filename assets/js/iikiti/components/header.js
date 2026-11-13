@@ -26,4 +26,9 @@ export class Header extends LayoutComponent {
   onHide(reason) {
     this.el.classList.add('iikiti-header--hidden');
   }
+
+  destroy() {
+    this.el?.classList.remove('iikiti-header--hidden');
+    super.destroy();
+  }
 }
