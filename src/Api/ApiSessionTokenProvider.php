@@ -26,6 +26,9 @@ final readonly class ApiSessionTokenProvider
 			return null;
 		}
 		[$cookieName, $cookieValue] = $sessionCookie;
+		// The token endpoint reads this same session, so release its lock before
+		// making the nested request or the API will wait for this request to finish.
+		$request->getSession()->save();
 
 		try {
 			$data = $this->api->requestAsync(

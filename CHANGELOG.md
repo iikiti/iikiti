@@ -44,6 +44,8 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Fixed
 
+- 2026-11-13: Release the active session lock before exchanging its cookie for an API token, preventing authenticated API-backed pages from timing out with 502 responses.
+
 - 2026-11-13: Corrected PHPStan types and redundant checks in fragment rendering, queue dispatching, and Doctrine mapping tests.
 - 2026-11-13: Removed deprecated Doctrine entity namespace aliases and Symfony event-dispatcher service interface references.
 - 2026-11-13: Replaced deprecated Doctrine DBAL identifier quoting and ORM association/order mapping declarations.

@@ -74,9 +74,11 @@ final class PublicPageApiProxyTest extends TestCase
 	public function testAuthenticatedSessionIsExchangedForItsUserBoundApiToken(): void
 	{
 		$requests = 0;
-		$client = new MockHttpClient(static function (string $method, string $url, array $options) use (&$requests): MockResponse {
+		$sessionSaved = false;
+		$client = new MockHttpClient(static function (string $method, string $url, array $options) use (&$requests, &$sessionSaved): MockResponse {
 			++$requests;
 			if (1 === $requests) {
+				self::assertTrue($sessionSaved, 'The current session must be saved before the nested token request.');
 				self::assertSame('POST', $method);
 				self::assertSame('https://api.example.test/api/auth/session-token', $url);
 				self::assertSame('APPSESSID=session-id', self::header($options['headers'], 'Cookie'));
@@ -106,8 +108,13 @@ final class PublicPageApiProxyTest extends TestCase
 			new GuestApiTokenManager('test-secret'),
 		);
 		$request = Request::create('https://www.example.test/about');
-		$session = $this->createStub(SessionInterface::class);
+		$session = $this->createMock(SessionInterface::class);
 		$session->method('getName')->willReturn('APPSESSID');
+		$session->expects(self::once())
+			->method('save')
+			->willReturnCallback(static function () use (&$sessionSaved): void {
+				$sessionSaved = true;
+			});
 		$request->setSession($session);
 		$request->cookies->set('APPSESSID', 'session-id');
 
