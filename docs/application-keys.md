@@ -97,9 +97,43 @@ is needed.
 ## Provisioning
 
 Generate independent random 32-byte values through a secure operator workflow
-and store them in the deployment's secret manager. A local shell can generate a
-base64 value with `php -r 'echo base64_encode(random_bytes(32)), PHP_EOL;'`;
-avoid putting generated values in shell history, logs, or committed files.
+and store them in the deployment's secret manager. Generate the default 32-byte,
+standard-base64 value with:
+
+```sh
+php bin/console iikiti:security:generate-key
+```
+
+The command accepts `--bytes=64` when another purpose requires a different size;
+use the size and encoding required by the specific key consumer. It prints only
+the generated value to stdout and does not update `.env.local`, keyrings, or a
+secret manager. Handle stdout as secret material: do not run it in CI jobs that
+capture output, redirect it to a broadly readable file, include it in shell
+commands or logs, or commit it. Store each independently generated value in the
+deployment's secret manager (or in an ignored, owner-readable `.env.local` for
+development).
+
+## Password Generation
+
+Generate a password locally with `php bin/console
+iikiti:security:generate-password`. The command prints one password to stdout and
+does not store it. Its `--strength` presets choose these default lengths and
+character sets:
+
+| Strength | Default length | Character classes |
+| --- | ---: | --- |
+| `weak` | 12 | lowercase letters and digits |
+| `medium` | 20 | lowercase and uppercase letters, and digits |
+| `strong` | 32 | lowercase and uppercase letters, digits, and symbols |
+| `paranoid` | 64 | lowercase and uppercase letters, digits, and symbols |
+
+`strong` is the default. Use `--length=48` to override a preset's length while
+keeping its character classes, and `--no-symbols` when a receiving service does
+not allow symbols. The generator ensures each selected character class appears
+at least once and uses PHP's cryptographically secure random generator. Do not
+choose a weaker preset or shorter length than the receiving service's policy
+requires; handle command output as secret material and avoid capturing it in
+logs or committed files.
 
 Example configuration (use a different random value for every key):
 
@@ -127,9 +161,9 @@ boundary changes, or an organizational rotation policy requires it. Do not
 rotate on every deployment without a reason; rotations require coordinated
 configuration changes and, for persisted ciphertext, a database migration step.
 
-The CLI does not generate key material or update a deployment secret manager.
-Provision the new key there first, include old and new keys, set the new ID
-active on every instance, and then run:
+The key-generation command only prints independent random material; it does not
+update a deployment secret manager. Provision the new key there first, include
+old and new keys, set the new ID active on every instance, and then run:
 
 ```sh
 php bin/console iikiti:security:keys:rotate

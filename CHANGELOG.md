@@ -52,6 +52,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-11-13: Added secure CLI generators for strength-profiled random passwords and base64-encoded key material.
 - 2026-11-13: Plugin manifests can declare semantic action claims/conflicts; plugins can query installed and site-active claims, while explicit conflicts block activation unless an audited admin override is requested.
 - 2026-11-13: Plugin install/update use `--plugin-version` to avoid colliding with Symfony Console's global `--version` option.
 - 2026-11-13: Added the shared named Fragment API for plugin providers, Twig/page layouts, same-origin JavaScript loading, and Svelte components with lazy client implementation loading.
