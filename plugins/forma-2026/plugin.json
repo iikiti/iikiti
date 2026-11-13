@@ -1,0 +1,9 @@
+{
+  "name": "Forma-2026",
+  "slug": "forma-2026",
+  "namespace": "iikiti\\Extension\\Forma2026",
+  "bundle_class": "iikiti\\Extension\\Forma2026\\Forma2026Bundle",
+  "version": "1.0.0",
+  "iikiti_version": "^1.0",
+  "description": "The accessible default site theme for iikiti."
+}

@@ -1,0 +1,264 @@
+/*
+ * Forma-2026 public theme. Selectors are scoped to the public page's body
+ * marker so this theme-only plugin can coexist with the editor, admin, and
+ * other plugin styles.
+ */
+body.forma-theme {
+    --forma-bg: #faf9f5;
+    --forma-surface: #fff;
+    --forma-text: #18241f;
+    --forma-muted: #46534c;
+    --forma-border: #737d76;
+    --forma-accent: #165b4a;
+    --forma-accent-hover: #104638;
+    --forma-on-accent: #fff;
+    --forma-focus: #0759a5;
+    --forma-danger: #a42323;
+    --forma-success: #17653d;
+    --forma-warning: #754400;
+    --forma-content-width: 72rem;
+    --forma-reading-width: 74ch;
+    --forma-radius: .5rem;
+    --forma-space-1: .5rem;
+    --forma-space-2: 1rem;
+    --forma-space-3: 1.5rem;
+    --forma-space-4: 2.5rem;
+
+    min-height: 100%;
+    color: var(--forma-text);
+    background: var(--forma-bg);
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 1rem;
+    line-height: 1.6;
+    color-scheme: light;
+}
+
+html.dark body.forma-theme {
+    --forma-bg: #121916;
+    --forma-surface: #1c2621;
+    --forma-text: #f2f5f0;
+    --forma-muted: #c0cbc3;
+    --forma-border: #89968e;
+    --forma-accent: #91dfb9;
+    --forma-accent-hover: #b4f0d1;
+    --forma-on-accent: #102019;
+    --forma-focus: #a8d7ff;
+    --forma-danger: #ff9e9e;
+    --forma-success: #9de2b4;
+    --forma-warning: #ffd18a;
+
+    color-scheme: dark;
+}
+
+body.forma-theme *,
+body.forma-theme *::before,
+body.forma-theme *::after {
+    box-sizing: border-box;
+}
+
+body.forma-theme .forma-2026 {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+body.forma-theme .forma-container {
+    width: min(100% - 2rem, var(--forma-content-width));
+    margin-inline: auto;
+}
+
+body.forma-theme .forma-content-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--forma-space-4);
+    padding-block: clamp(2rem, 6vw, 5rem);
+}
+
+body.forma-theme .forma-content-grid--with-sidebar {
+    grid-template-columns: minmax(0, 3fr) minmax(14rem, 1fr);
+}
+body.forma-theme .forma-content-grid--with-sidebar > .forma-main { grid-column: 1; }
+body.forma-theme .forma-content-grid--with-sidebar > .forma-sidebar { grid-column: 2; grid-row: 1; }
+
+body.forma-theme .forma-main,
+body.forma-theme .forma-sidebar {
+    min-width: 0;
+}
+
+body.forma-theme .forma-main h1,
+body.forma-theme .forma-main h2,
+body.forma-theme .forma-main h3,
+body.forma-theme .forma-main h4,
+body.forma-theme .forma-main h5,
+body.forma-theme .forma-main h6 {
+    color: var(--forma-text);
+    font-weight: 650;
+    line-height: 1.15;
+    text-wrap: balance;
+}
+
+body.forma-theme .forma-main h1 {
+    max-width: 18ch;
+    margin-block: 0 var(--forma-space-3);
+    font-size: clamp(2.25rem, 6vw, 4.5rem);
+    letter-spacing: -.045em;
+}
+
+body.forma-theme .forma-main h2 { margin-block: 2.5em .75em; font-size: clamp(1.5rem, 3vw, 2.25rem); letter-spacing: -.025em; }
+body.forma-theme .forma-main h3 { margin-block: 2em .6em; font-size: clamp(1.25rem, 2.2vw, 1.625rem); }
+body.forma-theme .forma-main p,
+body.forma-theme .forma-main ul,
+body.forma-theme .forma-main ol,
+body.forma-theme .forma-main blockquote,
+body.forma-theme .forma-main pre,
+body.forma-theme .forma-main figure {
+    max-width: var(--forma-reading-width);
+    margin-block: 0 var(--forma-space-2);
+}
+
+body.forma-theme .forma-main p { line-height: 1.7; }
+body.forma-theme .forma-main li + li { margin-block-start: .4em; }
+body.forma-theme .forma-card {
+    max-width: 60rem;
+    margin-block: var(--forma-space-3);
+    padding: clamp(1rem, 2.5vw, 1.5rem);
+    border: 1px solid var(--forma-border);
+    border-radius: var(--forma-radius);
+    background: var(--forma-surface);
+}
+body.forma-theme .forma-card > :first-child { margin-block-start: 0; }
+body.forma-theme .forma-card > :last-child { margin-block-end: 0; }
+body.forma-theme .forma-card h2,
+body.forma-theme .forma-card h3 { margin-block: .25rem .6rem; }
+body.forma-theme .forma-meta { color: var(--forma-muted); font-size: .9rem; }
+body.forma-theme .forma-main img,
+body.forma-theme .forma-main video {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--forma-radius);
+}
+body.forma-theme .forma-main figcaption { margin-block-start: .5rem; color: var(--forma-muted); font-size: .925rem; }
+body.forma-theme .forma-main blockquote { border-inline-start: .25rem solid var(--forma-accent); padding-inline-start: 1.25rem; color: var(--forma-muted); }
+body.forma-theme .forma-main pre,
+body.forma-theme .forma-main code { overflow-wrap: anywhere; }
+body.forma-theme .forma-main pre { overflow-x: auto; padding: 1rem; border: 1px solid var(--forma-border); border-radius: var(--forma-radius); background: var(--forma-surface); }
+
+body.forma-theme a {
+    color: var(--forma-accent);
+    text-decoration-thickness: .08em;
+    text-underline-offset: .18em;
+}
+body.forma-theme a:hover { color: var(--forma-accent-hover); }
+body.forma-theme a:focus-visible,
+body.forma-theme button:focus-visible,
+body.forma-theme input:focus-visible,
+body.forma-theme select:focus-visible,
+body.forma-theme textarea:focus-visible,
+body.forma-theme [tabindex="-1"]:focus-visible {
+    outline: 3px solid var(--forma-focus);
+    outline-offset: 3px;
+}
+
+body.forma-theme .forma-skip-link {
+    position: absolute;
+    z-index: var(--iikiti-z-chrome, 1000);
+    inset-block-start: .75rem;
+    inset-inline-start: .75rem;
+    transform: translateY(-200%);
+    padding: .75rem 1rem;
+    border-radius: var(--forma-radius);
+    color: var(--forma-on-accent);
+    background: var(--forma-accent);
+}
+body.forma-theme .forma-skip-link:focus-visible { transform: translateY(0); }
+
+body.forma-theme .forma-site-header,
+body.forma-theme .forma-site-footer {
+    color: var(--forma-text);
+    background: var(--forma-surface);
+}
+body.forma-theme .forma-site-header { border-block-end: 1px solid var(--forma-border); }
+body.forma-theme .forma-site-header__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem 2rem;
+    padding-block: var(--forma-space-2);
+}
+body.forma-theme .forma-site-header nav { display: flex; flex-wrap: wrap; gap: .25rem .75rem; }
+body.forma-theme .forma-site-header nav a { display: inline-flex; min-height: 2.75rem; align-items: center; padding-inline: .4rem; }
+body.forma-theme .forma-site-footer { border-block-start: 1px solid var(--forma-border); }
+body.forma-theme .forma-site-footer > .forma-container { padding-block: var(--forma-space-3); }
+body.forma-theme .forma-sidebar { color: var(--forma-muted); font-size: .95rem; }
+body.forma-theme .forma-sidebar h2,
+body.forma-theme .forma-sidebar h3 { color: var(--forma-text); font-size: 1.25rem; line-height: 1.3; }
+
+body.forma-theme :where(button, input, select, textarea) {
+    max-width: 100%;
+    font: inherit;
+}
+body.forma-theme :where(input, select, textarea) {
+    padding: .65rem .75rem;
+    border: 1px solid var(--forma-border);
+    border-radius: .25rem;
+    color: var(--forma-text);
+    background: var(--forma-surface);
+}
+body.forma-theme :where(button, .forma-button) {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    padding: .65rem 1rem;
+    border: 1px solid var(--forma-accent);
+    border-radius: var(--forma-radius);
+    color: var(--forma-on-accent);
+    background: var(--forma-accent);
+    font: inherit;
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+}
+body.forma-theme a.forma-button { color: var(--forma-on-accent); }
+body.forma-theme :where(button, .forma-button):hover { border-color: var(--forma-accent-hover); background: var(--forma-accent-hover); }
+body.forma-theme a.forma-button:hover { color: var(--forma-on-accent); }
+body.forma-theme :where(button, .forma-button):disabled,
+body.forma-theme [aria-disabled="true"] { opacity: .65; cursor: not-allowed; }
+body.forma-theme label { display: inline-block; margin-block-end: .35rem; font-weight: 600; }
+body.forma-theme [aria-invalid="true"] { border-color: var(--forma-danger); }
+body.forma-theme [role="alert"],
+body.forma-theme .forma-status--error { color: var(--forma-danger); }
+body.forma-theme .forma-status--success { color: var(--forma-success); }
+body.forma-theme .forma-status--warning { color: var(--forma-warning); }
+body.forma-theme .forma-muted { color: var(--forma-muted); }
+
+@media (max-width: 48rem) {
+    body.forma-theme .forma-container { width: min(100% - 1.5rem, var(--forma-content-width)); }
+    body.forma-theme .forma-content-grid,
+    body.forma-theme .forma-content-grid--with-sidebar { grid-template-columns: minmax(0, 1fr); gap: var(--forma-space-3); }
+    body.forma-theme .forma-content-grid--with-sidebar > .forma-sidebar { grid-column: 1; grid-row: auto; }
+    body.forma-theme .forma-site-header__inner { align-items: flex-start; flex-direction: column; gap: .25rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body.forma-theme *,
+    body.forma-theme *::before,
+    body.forma-theme *::after {
+        scroll-behavior: auto !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+    }
+}
+
+@media (forced-colors: active) {
+    body.forma-theme a:focus-visible,
+    body.forma-theme button:focus-visible,
+    body.forma-theme input:focus-visible,
+    body.forma-theme select:focus-visible,
+    body.forma-theme textarea:focus-visible {
+        outline: 2px solid Highlight;
+    }
+}

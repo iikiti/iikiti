@@ -1,0 +1,9 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    iikiti\Extension\Forma2026\:
+        resource: '../src/'
+        exclude:
+            - '../src/Forma2026Bundle.php'

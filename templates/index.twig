@@ -1,9 +1,11 @@
 {%  extends 'base/layout.twig' %}
 
+{% set iikiti_forma_theme = true %}
+
 {# Prevent right sidebar from showing. #}
 {#% block body_aside_right %}{% endblock %#}
 {% block body %}
 	<section data-component="BlockEditorComponent">
-		{% include 'base/default-block-editor-content.twig' %}
+		{% include '@Forma2026/default-block-editor-content.twig' %}
 	</section>
 {% endblock %}

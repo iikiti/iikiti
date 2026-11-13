@@ -220,6 +220,7 @@ final class PageRendering
 		return $this->twig->render('base/layout.twig', [
 			'doc' => ['title' => $state['template']->getTitle() ?? 'iikiti'],
 			'iikiti_page_body' => '',
+			'iikiti_forma_theme' => in_array($state['template']->getLayout(), [Template::DEFAULT_LAYOUT, Template::LEGACY_DEFAULT_LAYOUT], true),
 			'iikiti_use_fragment_composer' => true,
 			'iikiti_editor_mode' => $state['editor_mode'],
 			'iikiti_can_edit' => $state['can_edit'],

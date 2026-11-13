@@ -1,8 +1,14 @@
 # Plugin Development
 
 iikiti plugins are full Symfony bundles that are discovered, validated and
-registered at compile time by the kernel. They are installed under
-`cms/extensions/` and served from the iikiti plugin store.
+registered at compile time by the kernel. First-party plugins shipped with the
+application live under `plugins/`; store/developer-installed plugins use
+`cms/extensions/`.
+
+A theme is not a separate package type or runtime subsystem. It is presentation
+functionality inside a plugin bundle. A plugin may provide only a theme, only
+application code, or both; all of them use the same manifest, bundle, services,
+and Fragment API conventions.
 
 > **Terminology:** "plugin" is the primary term. "Extension" is a legacy alias
 > retained for backward compatibility (for example `getEnabledExtensions()`), and
@@ -11,6 +17,17 @@ registered at compile time by the kernel. They are installed under
 ## Directory layout
 
 ```
+plugins/
+└── forma-2026/                   # built-in theme-only plugin
+    ├── plugin.json
+    ├── src/Forma2026Bundle.php
+    ├── src/Fragment/ThemeStylesFragment.php
+    ├── config/services.yaml
+    ├── assets/theme.css
+    └── templates/
+        ├── default-block-editor-content.twig
+        └── errors/page.html.twig
+
 cms/extensions/
 ├── active/          # symlinks to installed plugins that are enabled (gitignored)
 ├── installed/       # extracted plugin packages (gitignored)
@@ -29,16 +46,23 @@ cms/extensions/
 Activation uses a symlink: `active/my-blog -> ../installed/my-blog`. The CMS
 creates and removes this automatically.
 
+First-party bundles shipped with the application live in the repository's
+`plugins/{slug}/` directory. The kernel validates and loads these built-in
+plugins alongside active store/developer-installed plugins. Built-ins are
+trusted application code, active for all sites, and are not installed or removed
+through the plugin store lifecycle.
+
 ## Namespace standard
 
 | Plugin origin | Composer name | PHP namespace | Bundle class |
 |---------------|---------------|---------------|--------------|
-| iikiti | `iikiti/plugin-{slug}` | `iikiti\Extension\{Slug}` | `iikiti\Extension\{Slug}\{Slug}Bundle` |
+| iikiti | `iikiti/plugin-{slug}` or an application-bundled package | `iikiti\Extension\{Slug}` | `iikiti\Extension\{Slug}\{Slug}Bundle` |
 | third-party | `{vendor}/plugin-{slug}` | `{Vendor}\Plugin\{Slug}` | `{Vendor}\Plugin\{Slug}\{Slug}Bundle` |
 
 The `iikiti\` vendor prefix is **reserved** for plugins built exclusively by
 iikiti. The CMS rejects third-party plugins that declare an `iikiti\` namespace;
-only packages served and signed by the iikiti store may use it.
+only application-bundled plugins and packages served and signed by the iikiti
+store may use it.
 
 Classes live under `src/` (PSR-4). The declared namespace maps to the plugin's
 `src/` directory.
@@ -534,6 +558,154 @@ anything:
 Full reference: [front-end-ui-standard.md](front-end-ui-standard.md).
 For every `window.iikiti` member and readiness signalling (`whenReady`), see
 [js-api.md](js-api.md).
+
+## Theme development within a plugin
+
+Themes are a subset of plugin development, not a distinct package type. Use the
+regular plugin manifest, bundle class, Twig namespace, services, and Fragment
+API. A theme-only plugin may contain no controllers or CMS data entities; a
+plugin may also combine a theme with any amount of application functionality.
+There is no separate theme registry or theme activation system.
+
+### Built-in default: Forma-2026
+
+The default installation ships **Forma-2026** (`forma-2026`) as a first-party,
+theme-only plugin in `plugins/forma-2026/`. Its `Forma2026Bundle` is loaded by
+the kernel with the other built-in and active plugin bundles. The theme's Twig
+templates use the bundle namespace `@Forma2026/`; `Template::DEFAULT_LAYOUT`
+selects `@Forma2026/default-block-editor-content.twig`. The site treats
+`forma-2026` as a required plugin, so its static stylesheet fragment is
+available for every site without per-site install or enable steps. The bundle
+is shipped and updated with the application, not through the store lifecycle.
+
+```text
+plugins/forma-2026/
+├── plugin.json
+├── src/Forma2026Bundle.php
+├── src/Fragment/ThemeStylesFragment.php
+├── config/services.yaml
+├── assets/theme.css
+└── templates/
+    ├── default-block-editor-content.twig
+    └── errors/page.html.twig
+```
+
+The generic historic layout reference remains as an alias for saved templates.
+New and legacy default layouts use the plugin's templates and styles; custom
+layout references are not rewritten. Forma-2026 provides a calm editorial
+system, responsive typography/surfaces, light and dark semantic palettes,
+accessible focus/skip navigation, and a reusable `.forma-card` / `.forma-meta`
+pattern set.
+
+### Providing a theme in an installed plugin
+
+Keep theme layouts and styles inside the plugin that owns them. For a bundle
+named `JournalBundle`, Symfony uses `@Journal/` as its Twig namespace:
+
+```text
+cms/extensions/installed/acme-journal/
+├── plugin.json
+├── src/JournalBundle.php
+├── src/Fragment/ThemeStylesFragment.php
+└── templates/themes/field-notes/layout.twig
+```
+
+Select `@Journal/themes/field-notes/layout.twig` as the `Template.layout`. The
+plugin is still a normal plugin: store/developer installation and per-site
+activation use the usual `cms/extensions/installed/{slug}` package and
+`cms/extensions/active/{slug}` symlink. A theme-only plugin needs no controller,
+admin page, or database object unless its theme actually requires them.
+
+Every block-editor layout must render the existing `main` region and treat
+`header`, `aside`, `footer`, and `dialog` as optional global shells, not extra
+content regions. Empty shell roles must produce no markup. Keep one main
+landmark and one page-level `h1`; add the skip link before the header's first
+interactive item. If a shell uses `data-iikiti-bar`, assume it may be reparented
+under `<body>` and do not depend on an ancestor wrapper for its styling. Follow
+the viewport-bar and `--iikiti-z-*` guidance earlier in this document.
+
+Example layout (the actual page template may add header/footer shells and theme
+partials as needed):
+
+```twig
+<div class="acme-journal-theme">
+    <a class="acme-journal-skip" href="#acme-journal-main">Skip to content</a>
+    <main id="acme-journal-main" tabindex="-1">
+        {{ iikiti_region('main', 'main', 'Main content', ['container'], region_main|default('')) }}
+    </main>
+</div>
+{{ iikiti_fragment('acme-journal.theme-styles') }}
+```
+
+Use plugin-prefixed CSS classes/custom properties and scope rules to the theme
+root where possible. The `site_ui` manifest is not a general stylesheet loader
+for server-rendered public pages; use a theme-owned Twig partial or return CSS
+through the Fragment API. The Fragment API composes and deduplicates static CSS
+with its normal server-rendered page flow:
+
+```php
+<?php
+
+namespace Acme\Plugin\Journal\Fragment;
+
+use iikiti\CMS\Web\Fragment\FragmentContext;
+use iikiti\CMS\Web\Fragment\FragmentProviderInterface;
+use iikiti\CMS\Web\Fragment\FragmentResult;
+
+final class ThemeStylesFragment implements FragmentProviderInterface
+{
+    public function getName(): string
+    {
+        return 'acme-journal.theme-styles';
+    }
+
+    public function render(FragmentContext $context): FragmentResult
+    {
+        return new FragmentResult('', [[
+            'id' => 'acme-journal.theme-styles',
+            'css' => '.acme-journal-theme { --acme-journal-bg: #faf9f5; background: var(--acme-journal-bg); }',
+        ]]);
+    }
+}
+```
+
+Keep CSS static/trusted or validate and bound all values used to generate it.
+Fragment providers are public and read-only: validate caller-controlled
+parameters, rely on Twig autoescaping for HTML, and do not include private or
+user-specific data. Retain server delivery by default and the existing
+asynchronous page-composition behavior.
+
+### Page patterns, accessibility, and errors
+
+Compose common pages within the single `main` region:
+
+- **Home/content landing:** short introduction followed by linked
+  `.forma-card` summaries with descriptive link names.
+- **Article/detail:** `<article>`, metadata, one `h1`, a machine-readable
+  `<time datetime="…">`, optional captioned figure, and readable prose.
+- **Archive/search:** labeled `form role="search"`, result count in text, and a
+  list of result links; preserve the query on validation.
+- **No results:** keep search available and announce the empty state with
+  `role="status"`, not as an error.
+
+Target WCAG 2.2 AA. Verify landmark/heading structure, skip navigation, keyboard
+operation and unobscured focus, descriptive labels, error associations, and
+status announcements. Measure at least 4.5:1 contrast for normal text and 3:1
+for large text and meaningful controls. Check 320 CSS px reflow/400% zoom,
+text resizing, reduced motion, forced colors, and dark mode. Prefer 44×44 CSS px
+touch targets; the WCAG 2.2 AA minimum is 24×24 CSS px with exceptions.
+
+Forma-2026 includes distinct 404 and 500 pages plus a generic error fallback.
+Its pages do not expose exception details and the HTML proxy preserves the HTTP
+status and safe `Retry-After`/`Allow` headers. Plugin-owned application errors
+should use the same rules and safe public content. Do not assume a plugin's
+Twig namespace alone globally replaces Symfony's host-level exception handler.
+
+Automated accessibility tools do not replace keyboard and assistive-technology
+checks. See [WCAG 2.2](https://www.w3.org/TR/WCAG22/),
+[front-end-ui-standard.md](front-end-ui-standard.md),
+[layout-shells.md](layout-shells.md), and
+[front-end-editor.md](front-end-editor.md).
 
 ## Editor sidebar extension API
 

@@ -46,7 +46,6 @@ Encore
      * and one CSS file (e.g. app.css) if your JavaScript imports CSS.
      */
     .addStyleEntry('tailwind', './assets/styles/app.css')
-
     .addEntry('iikiti', './assets/js/iikiti/index.js')
     // `admin` is the standalone admin SPA (loaded on /admin). The front-end
     // editor chunk is produced on demand by webpack code-splitting when

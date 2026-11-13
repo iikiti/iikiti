@@ -19,8 +19,8 @@ class PluginValidator
 	/**
 	 * Validate manifest semantics that do not require reading the filesystem.
 	 *
-	 * @param bool $allowReservedNamespace true only for plugins served and signed
-	 *                                     by the iikiti store
+	 * @param bool $allowReservedNamespace true only for application-bundled plugins
+	 *                                     or packages verified from the iikiti store
 	 *
 	 * @throws InvalidManifestException
 	 * @throws NamespaceViolationException

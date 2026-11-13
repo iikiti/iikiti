@@ -50,12 +50,17 @@ Business logic should be handled by API methods. For instance, a controller for 
   commands and `/api/admin/plugins/*` routes. "Extension" is a legacy alias
   (e.g. `getEnabledExtensions()`) kept for backward compatibility only.
 - Plugins are full Symfony bundles that extend `iikiti\CMS\Plugin\PluginBundle`
-  and are discovered at compile time from `cms/extensions/active/`.
+  and are discovered at compile time. First-party bundles shipped with the
+  application live under `plugins/{slug}/`; downloaded/developer-installed
+  plugins use `cms/extensions/active/` symlinks into `cms/extensions/installed/`.
 - The `iikiti\` vendor namespace is reserved for plugins built by iikiti.
   Third-party plugins use their own vendor namespace.
+- Themes are plugin functionality, not a separate package type or registry. A
+  plugin may contain only a theme, only application code, or both.
 - Every plugin ships a `plugin.json` manifest; see `docs/plugin-development.md`.
-- Installation/updates go through the store and enforce checksum, Ed25519
-  signature, namespace and review-state checks; see `docs/plugin-security.md`.
+- Store-managed plugin installation/updates enforce checksum, Ed25519 signature,
+  namespace and review-state checks; core-bundled plugins ship with the
+  application release. See `docs/plugin-security.md`.
 - Management is available via `iikiti:plugin:*` commands and the admin API; see
   `docs/plugin-api.md`.
 - When changing behaviour here, update the relevant plugin documentation and add

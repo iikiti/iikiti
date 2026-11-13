@@ -6,9 +6,9 @@ use ApiPlatform\Metadata\ApiResource;
 use Doctrine\ORM\Mapping as ORM;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Repository\Object\SiteRepository;
-use iikiti\CMS\Trait\MfaConfigurableTrait;
 use iikiti\CMS\Trait\ConfigurableTrait;
 use iikiti\CMS\Trait\LocaleConfigurableTrait;
+use iikiti\CMS\Trait\MfaConfigurableTrait;
 
 /**
  * Site entity
@@ -33,6 +33,7 @@ class Site extends DbObject
 	{
 		$requiredPlugins = [
 			'iikiti/components',
+			'forma-2026',
 		];
 
 		return array_merge(

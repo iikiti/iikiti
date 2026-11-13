@@ -6,13 +6,14 @@ use iikiti\CMS\Plugin\Exception\PluginException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
- * Discovers active plugins on disk and turns them into registered bundles.
+ * Discovers core-bundled and active plugins and turns them into registered bundles.
  *
  * Used directly by {@see \iikiti\CMS\Kernel::registerBundles()} (where no DI
  * container exists yet) and as a service by plugin management commands.
  */
 class PluginLoader
 {
+	public const BUILTIN_DIR = 'plugins';
 	public const ACTIVE_DIR = 'cms/extensions/active';
 	public const INSTALLED_DIR = 'cms/extensions/installed';
 	public const CACHE_DIR = 'cms/extensions/cache';
@@ -43,6 +44,11 @@ class PluginLoader
 		return $this->projectDir.'/'.self::ACTIVE_DIR;
 	}
 
+	public function getBuiltinPath(): string
+	{
+		return $this->projectDir.'/'.self::BUILTIN_DIR;
+	}
+
 	public function getInstalledPath(): string
 	{
 		return $this->projectDir.'/'.self::INSTALLED_DIR;
@@ -54,8 +60,8 @@ class PluginLoader
 	}
 
 	/**
-	 * Register PSR-4 autoloaders for every active plugin without instantiating
-	 * bundles.
+	 * Register PSR-4 autoloaders for bundled and active plugins without
+	 * instantiating bundles.
 	 *
 	 * Required very early in the kernel boot: the cached bundle list
 	 * (`*.bundles.php`) instantiates bundle classes directly, before
@@ -63,6 +69,8 @@ class PluginLoader
 	 */
 	public function registerAutoloaders(): void
 	{
+		$this->discoverBundledPlugins();
+
 		$activePath = $this->getActivePath();
 		if (!is_dir($activePath)) {
 			return;
@@ -96,7 +104,7 @@ class PluginLoader
 	}
 
 	/**
-	 * Discover every active plugin.
+	 * Discover every built-in and active plugin.
 	 *
 	 * Returns plugin metadata without instantiating bundle classes; use
 	 * {@see instantiate()} when actual bundle instances are required (i.e. when
@@ -110,18 +118,19 @@ class PluginLoader
 	public function discover(): array
 	{
 		$this->errors = [];
+		$discovered = $this->discoverBundledPlugins();
+		$knownSlugs = array_fill_keys(array_map(static fn (array $plugin): string => $plugin['manifest']->slug, $discovered), true);
 
 		$activePath = $this->getActivePath();
 		if (!is_dir($activePath)) {
-			return [];
+			return $discovered;
 		}
 
 		$entries = scandir($activePath);
 		if (false === $entries) {
-			return [];
+			return $discovered;
 		}
 
-		$discovered = [];
 		foreach ($entries as $entry) {
 			if ('.' === $entry || '..' === $entry) {
 				continue;
@@ -133,7 +142,14 @@ class PluginLoader
 			}
 
 			try {
-				$discovered[] = $this->loadPlugin($linkPath);
+				$target = $this->validator->resolveSymlinkTarget($linkPath, $this->getInstalledPath());
+				$manifest = PluginManifest::fromFile($target.'/'.PluginManifest::FILENAME);
+				if (isset($knownSlugs[$manifest->slug])) {
+					throw new PluginException(sprintf('Installed plugin slug "%s" conflicts with a bundled plugin.', $manifest->slug));
+				}
+				$plugin = $this->loadPlugin($linkPath);
+				$knownSlugs[$manifest->slug] = true;
+				$discovered[] = $plugin;
 			} catch (PluginException $exception) {
 				// Never let one broken plugin break the host site; surface the
 				// problem through getErrors() instead.
@@ -142,6 +158,74 @@ class PluginLoader
 		}
 
 		return $discovered;
+	}
+
+	/**
+	 * Load first-party plugin packages shipped with the application. These are
+	 * always active core components and do not use the install/activation symlink
+	 * lifecycle reserved for downloaded plugins.
+	 *
+	 * @return list<array{manifest: PluginManifest, path: string, installInfo: PluginInstallInfo, allowReservedNamespace: bool}>
+	 */
+	private function discoverBundledPlugins(): array
+	{
+		$root = $this->getBuiltinPath();
+		if (!is_dir($root)) {
+			return [];
+		}
+
+		$entries = scandir($root);
+		if (false === $entries) {
+			return [];
+		}
+
+		$plugins = [];
+		$knownSlugs = [];
+		foreach ($entries as $entry) {
+			if ('.' === $entry || '..' === $entry) {
+				continue;
+			}
+
+			$path = $root.'/'.$entry;
+			if (is_link($path) || !is_dir($path) || !is_file($path.'/'.PluginManifest::FILENAME)) {
+				continue;
+			}
+
+			try {
+				$realPath = realpath($path);
+				$realRoot = realpath($root);
+				if (false === $realPath || false === $realRoot || !str_starts_with($realPath, $realRoot.DIRECTORY_SEPARATOR)) {
+					throw new PluginException(sprintf('Bundled plugin "%s" resolves outside the built-in plugin directory.', $entry));
+				}
+
+				$manifest = PluginManifest::fromFile($realPath.'/'.PluginManifest::FILENAME);
+				if ($manifest->slug !== $entry) {
+					throw new PluginException(sprintf('Bundled plugin directory "%s" must match manifest slug "%s".', $entry, $manifest->slug));
+				}
+				if (isset($knownSlugs[$manifest->slug])) {
+					throw new PluginException(sprintf('Built-in plugin slug "%s" is declared more than once.', $manifest->slug));
+				}
+				$this->validator->validateManifest($manifest, true);
+				PluginAutoloader::registerPlugin($manifest, $realPath);
+				$this->validator->validateBundleClass($manifest, $realPath);
+				$knownSlugs[$manifest->slug] = true;
+				$plugins[] = [
+					'manifest' => $manifest,
+					'path' => $realPath,
+					'installInfo' => new PluginInstallInfo(
+						$manifest->slug,
+						$manifest->version,
+						PluginSource::BuiltIn,
+						state: PluginState::Published,
+					),
+					'allowReservedNamespace' => true,
+				];
+			} catch (PluginException $exception) {
+				$this->errors[] = sprintf('[%s] %s', $entry, $exception->getMessage());
+			}
+		}
+
+		return $plugins;
 	}
 
 	/**

@@ -4,21 +4,26 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Tests\Web\BlockEditor;
 
-use iikiti\CMS\Api\BusinessApiClient;
 use iikiti\CMS\Api\ApiSessionTokenProvider;
+use iikiti\CMS\Api\BusinessApiClient;
 use iikiti\CMS\Async\FiberTaskRunner;
 use iikiti\CMS\Profiler\AsyncResponseDataCollector;
 use iikiti\CMS\Response\Composition\DomHtmlResponse;
 use iikiti\CMS\Security\GuestApiTokenManager;
 use iikiti\CMS\Web\BlockEditor\PublicPageApiProxy;
+use iikiti\CMS\Web\Template\HttpErrorPageRenderer;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
+use Twig\Environment;
+use Twig\Loader\FilesystemLoader;
 
 final class PublicPageApiProxyTest extends TestCase
 {
+	private bool $sessionSaved = false;
+
 	public function testRequestsTheSiteScopedPageWithAReadOnlyGuestCredential(): void
 	{
 		$client = new MockHttpClient(static function (string $method, string $url, array $options): MockResponse {
@@ -64,21 +69,47 @@ final class PublicPageApiProxyTest extends TestCase
 			new ApiSessionTokenProvider($api),
 			new FiberTaskRunner($client),
 			new GuestApiTokenManager('test-secret'),
+			errorPages: $this->errorPageRenderer(),
 		);
 
 		$response = $proxy->page(Request::create('https://www.example.test/missing'), 'missing');
 
 		self::assertSame(404, $response->getStatusCode());
+		self::assertSame('text/html; charset=UTF-8', $response->headers->get('Content-Type'));
+		self::assertStringContainsString('no-store', $response->headers->get('Cache-Control'));
+		self::assertStringContainsString('Page not found', (string) $response->getContent());
+	}
+
+	public function testPreservesRateLimitStatusAndRetryAfterHeaderOnErrorPage(): void
+	{
+		$client = new MockHttpClient(static fn (): MockResponse => new MockResponse('{"message":"rate limited"}', [
+			'http_code' => 429,
+			'response_headers' => ['retry-after' => '60'],
+		]));
+		$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
+		$proxy = new PublicPageApiProxy(
+			$api,
+			new ApiSessionTokenProvider($api),
+			new FiberTaskRunner($client),
+			new GuestApiTokenManager('test-secret'),
+			errorPages: $this->errorPageRenderer(),
+		);
+
+		$response = $proxy->home(Request::create('https://www.example.test/'));
+
+		self::assertSame(429, $response->getStatusCode());
+		self::assertSame('60', $response->headers->get('Retry-After'));
+		self::assertStringContainsString('Please slow down', (string) $response->getContent());
 	}
 
 	public function testAuthenticatedSessionIsExchangedForItsUserBoundApiToken(): void
 	{
 		$requests = 0;
-		$sessionSaved = false;
-		$client = new MockHttpClient(static function (string $method, string $url, array $options) use (&$requests, &$sessionSaved): MockResponse {
+		$this->sessionSaved = false;
+		$client = new MockHttpClient(function (string $method, string $url, array $options) use (&$requests): MockResponse {
 			++$requests;
 			if (1 === $requests) {
-				self::assertTrue($sessionSaved, 'The current session must be saved before the nested token request.');
+				self::assertTrue($this->sessionSaved, 'The current session must be saved before the nested token request.');
 				self::assertSame('POST', $method);
 				self::assertSame('https://api.example.test/api/auth/session-token', $url);
 				self::assertSame('APPSESSID=session-id', self::header($options['headers'], 'Cookie'));
@@ -112,8 +143,8 @@ final class PublicPageApiProxyTest extends TestCase
 		$session->method('getName')->willReturn('APPSESSID');
 		$session->expects(self::once())
 			->method('save')
-			->willReturnCallback(static function () use (&$sessionSaved): void {
-				$sessionSaved = true;
+			->willReturnCallback(function (): void {
+				$this->sessionSaved = true;
 			});
 		$request->setSession($session);
 		$request->cookies->set('APPSESSID', 'session-id');
@@ -424,6 +455,17 @@ final class PublicPageApiProxyTest extends TestCase
 		}
 
 		return null;
+	}
+
+	private function errorPageRenderer(): HttpErrorPageRenderer
+	{
+		$root = dirname(__DIR__, 3);
+		$loader = new FilesystemLoader($root.'/templates');
+		$loader->addPath($root.'/plugins/forma-2026/templates', 'Forma2026');
+		$twig = new Environment($loader, ['autoescape' => 'html']);
+		$twig->addGlobal('app', (object) ['request' => (object) ['locale' => 'en']]);
+
+		return new HttpErrorPageRenderer($twig);
 	}
 
 }

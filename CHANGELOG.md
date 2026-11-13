@@ -18,6 +18,9 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Changed
 
+- 2026-11-13: New/default front-end templates use the built-in Forma-2026 plugin layout while preserving saved custom layouts and the legacy generic layout alias.
+- 2026-11-13: Core-shipped plugin bundles are discovered from `plugins/` alongside active installed plugins; Forma-2026 is required on every site.
+- 2026-11-13: API-backed public-page failures now render themed HTML error pages while retaining the HTTP status and safe `Retry-After`/`Allow` headers.
 - 2026-11-13: Consumer page composition now renders named plugin fragments in dependency-aware concurrent batches while preserving complete server-composed pages by default and enabling opt-in progressive browser delivery.
 - 2026-11-11: Physical object storage now partitions by site and calendar quarter while retaining global IDs and foreign keys through an identity registry and ORM lookup view.
 - 2026-11-11: Declared localized property filters and sorts now use maintained locale-specific projections and ICU indexes instead of JSON value scans.
@@ -54,6 +57,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-11-13: Added the accessible Forma-2026 built-in theme-only plugin, themed 404/500 and generic error pages, and plugin theme development guidance.
 - 2026-11-13: Added secure CLI generators for strength-profiled random passwords and base64-encoded key material.
 - 2026-11-13: Plugin manifests can declare semantic action claims/conflicts; plugins can query installed and site-active claims, while explicit conflicts block activation unless an audited admin override is requested.
 - 2026-11-13: Plugin install/update use `--plugin-version` to avoid colliding with Symfony Console's global `--version` option.

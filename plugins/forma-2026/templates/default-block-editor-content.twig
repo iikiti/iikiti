@@ -1,0 +1,54 @@
+{#
+  Forma-2026 keeps the editor's main region in the template. Header, footer,
+  sidebars, and dialogs remain optional global shells supplied by iikiti.
+#}
+{% set headers = iikiti_shells.header|default([]) %}
+{% set sidebars = iikiti_shells.aside|default([]) %}
+{% set footers = iikiti_shells.footer|default([]) %}
+{% set dialogs = iikiti_shells.dialog|default([]) %}
+
+<div class="forma-2026">
+    {% if headers is empty %}
+        <a class="forma-skip-link" href="#forma-main-content">Skip to main content</a>
+    {% endif %}
+
+    {% if headers is not empty %}
+        <header class="forma-site-header" data-iikiti-bar="top" data-iikiti-bar-order="1">
+            <a class="forma-skip-link" href="#forma-main-content">Skip to main content</a>
+            <div class="forma-container forma-site-header__inner">
+                {% for html in headers %}
+                    {{ iikiti_region('header-' ~ loop.index, 'header', 'Header', ['heading', 'text', 'image', 'icon', 'container'], html|raw) }}
+                {% endfor %}
+            </div>
+        </header>
+    {% endif %}
+
+    <div class="forma-container forma-content-grid{% if sidebars is not empty %} forma-content-grid--with-sidebar{% endif %}">
+        <main id="forma-main-content" class="forma-main" tabindex="-1">
+            {{ iikiti_region('main', 'main', 'Main content', ['heading', 'text', 'image', 'icon', 'video_embed', 'social_embed', 'query', 'container', 'dynamic'], region_main|default('')) }}
+        </main>
+
+        {% if sidebars is not empty %}
+            <aside class="forma-sidebar" aria-label="Additional content">
+                {% for html in sidebars %}
+                    {{ iikiti_region('aside-' ~ loop.index, 'sidebar', 'Sidebar', ['heading', 'text', 'image', 'icon', 'container'], html|raw) }}
+                {% endfor %}
+            </aside>
+        {% endif %}
+    </div>
+
+    {% if footers is not empty %}
+        <footer class="forma-site-footer" data-iikiti-bar="bottom">
+            <div class="forma-container">
+                {% for html in footers %}
+                    {{ iikiti_region('footer-' ~ loop.index, 'footer', 'Footer', ['heading', 'text', 'icon', 'container'], html|raw) }}
+                {% endfor %}
+            </div>
+        </footer>
+    {% endif %}
+
+    {% for html in dialogs %}
+        {{ html|raw }}
+    {% endfor %}
+</div>
+{{ iikiti_fragment('forma-2026.theme-styles') }}

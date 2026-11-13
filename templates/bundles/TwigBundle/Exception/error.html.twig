@@ -1,0 +1,35 @@
+{% set code = status_code|default(500) %}
+{% set title = 'We could not complete your request' %}
+{% set message = 'Please check the address or try again later.' %}
+{% if code == 400 %}
+    {% set title = 'This request could not be understood' %}
+    {% set message = 'Check the information and try again.' %}
+{% elseif code == 401 %}
+    {% set title = 'Sign-in is required' %}
+    {% set message = 'Sign in, then try your request again.' %}
+{% elseif code == 403 %}
+    {% set title = 'You do not have access to this page' %}
+    {% set message = 'If you believe you should have access, contact the site administrator.' %}
+{% elseif code == 405 %}
+    {% set title = 'This action is not available' %}
+    {% set message = 'Return to the previous page or continue from the home page.' %}
+{% elseif code == 410 %}
+    {% set title = 'This page is no longer available' %}
+    {% set message = 'The page has been removed.' %}
+{% elseif code == 429 %}
+    {% set title = 'Please slow down' %}
+    {% set message = 'Too many requests were made. Wait a little, then try again.' %}
+{% elseif code == 503 %}
+    {% set title = 'The service is temporarily unavailable' %}
+    {% set message = 'Please try again later.' %}
+{% elseif code >= 500 %}
+    {% set title = 'The service could not complete your request' %}
+    {% set message = 'Please try again later or return to the home page.' %}
+{% endif %}
+
+{% include '@Forma2026/errors/page.html.twig' with {
+    status_code: code,
+    title: title,
+    message: message,
+    action_label: 'Go to the home page'
+} only %}

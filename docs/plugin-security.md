@@ -9,10 +9,13 @@ CMS protects the host site and what is delegated to the store.
 
 ## Trust model
 
-1. **Store review (out of scope here).** The store reviews submitted plugins
+1. **Core-bundled plugins.** First-party plugins shipped under the repository's
+   `plugins/` directory are part of the application release and are validated
+   and loaded from that trusted source. Do not place third-party packages there.
+2. **Store review (out of scope here).** The store reviews submitted plugins
    (automated SAST and/or manual review), signs approved packages and publishes
    them.
-2. **CMS enforcement.** The CMS verifies integrity, authenticity, namespace
+3. **CMS enforcement.** The CMS verifies integrity, authenticity, namespace
    rules and review state at download **and** at activation/update/install — a
    manually placed plugin defaults to `pending_review` — so the documented
    production guarantee cannot be bypassed. Manage locally placed plugins with
@@ -39,7 +42,7 @@ when the override is set.
 |---------|-----------|
 | Integrity | SHA-256 checksum verification of the downloaded package (always) |
 | Authenticity | Ed25519 signature verification over the package bytes |
-| Namespace | `iikiti\` vendor prefix is reserved; third-party plugins are rejected if they use it |
+| Namespace | `iikiti\` vendor prefix is reserved for core-bundled and signed first-party plugins; third-party plugins are rejected if they use it |
 | Path safety | Activation symlinks must resolve inside `cms/extensions/installed/` |
 | Archive safety | Zip entries with `..`, absolute or drive-letter paths are rejected (zip-slip) |
 | Source policy | Third-party store URLs are refused on production and unless explicitly allowed |

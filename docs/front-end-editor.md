@@ -98,7 +98,9 @@ radio, legend, fieldset
 
 ## Templates
 DbObject (type discriminator `iikiti\\CMS\Entity\Object\Template`)` with JSON properties:
-- `layout` — Twig layout (default `base/default-block-editor-content.twig`).
+- `layout` — Twig layout (default `@Forma2026/default-block-editor-content.twig`,
+  supplied by the built-in Forma-2026 plugin; the historic generic path remains
+  an alias).
 - `regions` — `{id,name,role,allowed_types}` (a `main` region is required or an
   error is shown).
 - `blocks` / `blocks_draft` — `{regionId:[blockNode,...]}`.

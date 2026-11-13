@@ -4,21 +4,20 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Web\BlockEditor;
 
-use Exception;
+use iikiti\CMS\Api\ApiSessionTokenProvider;
 use iikiti\CMS\Api\BusinessApiClient;
 use iikiti\CMS\Api\BusinessApiException;
-use iikiti\CMS\Api\ApiSessionTokenProvider;
 use iikiti\CMS\Async\FiberHttpClient;
 use iikiti\CMS\Async\FiberTaskRunner;
 use iikiti\CMS\Profiler\AsyncResponseDataCollector;
 use iikiti\CMS\Response\Composition\DomHtmlResponse;
 use iikiti\CMS\Response\Composition\HtmlFragmentComposer;
 use iikiti\CMS\Security\GuestApiTokenManager;
-use iikiti\CMS\Web\BlockEditor\RenderFragmentLimits;
+use iikiti\CMS\Web\Template\HttpErrorPageRenderer;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpFoundation\JsonResponse;
 
 /** Proxies public page rendering to the database-owning business API runtime. */
 final readonly class PublicPageApiProxy
@@ -32,6 +31,7 @@ final readonly class PublicPageApiProxy
 		private GuestApiTokenManager $guestTokens,
 		private ?AsyncResponseDataCollector $profiler = null,
 		private ?LoggerInterface $logger = null,
+		private ?HttpErrorPageRenderer $errorPages = null,
 	) {
 	}
 
@@ -570,12 +570,18 @@ final readonly class PublicPageApiProxy
 	private function failureResponse(\Throwable $exception): Response
 	{
 		for ($failure = $exception; null !== $failure; $failure = $failure->getPrevious()) {
-			if ($failure instanceof BusinessApiException && in_array($failure->statusCode, [401, 403, 404, 409], true)) {
-				return new Response('', $failure->statusCode);
+			if ($failure instanceof BusinessApiException && $failure->statusCode >= 400 && $failure->statusCode <= 599) {
+				return $this->renderError($failure->statusCode, $failure->responseHeaders);
 			}
 		}
 
-		return new Response('', Response::HTTP_BAD_GATEWAY);
+		return $this->renderError(Response::HTTP_BAD_GATEWAY);
+	}
+
+	/** @param array<string,string> $headers */
+	private function renderError(int $statusCode, array $headers = []): Response
+	{
+		return $this->errorPages?->render($statusCode, $headers) ?? HttpErrorPageRenderer::fallback($statusCode, $headers);
 	}
 
 	private function rewriteAssetUrls(string $html, string $siteHost): string

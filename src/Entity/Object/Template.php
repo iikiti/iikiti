@@ -22,10 +22,13 @@ class Template extends DbObject
 {
 	public const bool SITE_SPECIFIC = true;
 
+	/** Layout identifier retained for templates persisted before Forma-2026. */
+	public const LEGACY_DEFAULT_LAYOUT = 'base/default-block-editor-content.twig';
+
 	/**
 	 * Default layout + regions used when no template object is configured.
 	 */
-	public const DEFAULT_LAYOUT = 'base/default-block-editor-content.twig';
+	public const DEFAULT_LAYOUT = '@Forma2026/default-block-editor-content.twig';
 
 	/**
 	 * @return list<array<string,mixed>>

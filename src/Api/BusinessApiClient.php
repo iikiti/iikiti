@@ -227,7 +227,7 @@ final readonly class BusinessApiClient
 			throw $this->translateHttpException($exception);
 		}
 		if ($status < 200 || $status >= 300) {
-			throw new BusinessApiException($status);
+			throw new BusinessApiException($status, $response->getHeaders(false));
 		}
 
 		$data = $response->toArray(false);
@@ -236,7 +236,9 @@ final readonly class BusinessApiClient
 
 	private function translateHttpException(HttpExceptionInterface $exception): BusinessApiException
 	{
-		return new BusinessApiException((int) $exception->getResponse()->getInfo('http_code'));
+		$response = $exception->getResponse();
+
+		return new BusinessApiException((int) $response->getInfo('http_code'), $response->getHeaders(false));
 	}
 
 	private function responseStatus(ResponseInterface $response): ?int
