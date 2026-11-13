@@ -119,7 +119,7 @@ final class PartitionedObjectStorageTest extends TestCase
 		$this->originalServerDbSchema = $_SERVER['DB_SCHEMA'] ?? null;
 		$_ENV['DB_SCHEMA'] = $this->schema;
 		$_SERVER['DB_SCHEMA'] = $this->schema;
-		$this->connection->executeStatement(sprintf('CREATE SCHEMA %s', $this->connection->quoteIdentifier($this->schema)));
+		$this->connection->executeStatement(sprintf('CREATE SCHEMA %s', $this->connection->quoteSingleIdentifier($this->schema)));
 		$sql = file_get_contents(__DIR__.'/../Fixtures/partitioned-objects-source-schema.sql');
 		if (false === $sql) {
 			throw new \RuntimeException('Partition source schema fixture is missing.');
@@ -128,8 +128,8 @@ final class PartitionedObjectStorageTest extends TestCase
 		if (!$nativeConnection instanceof \PDO) {
 			throw new \RuntimeException('The PostgreSQL cutover fixture requires a PDO connection.');
 		}
-		$nativeConnection->exec(str_replace('__SCHEMA__', $this->connection->quoteIdentifier($this->schema), $sql));
-		$this->connection->executeStatement(sprintf('SET search_path TO %s, public', $this->connection->quoteIdentifier($this->schema)));
+		$nativeConnection->exec(str_replace('__SCHEMA__', $this->connection->quoteSingleIdentifier($this->schema), $sql));
+		$this->connection->executeStatement(sprintf('SET search_path TO %s, public', $this->connection->quoteSingleIdentifier($this->schema)));
 
 		$this->executeMigration($this->createMigration('DoctrineMigrations\\Version20261111030000'));
 		$this->executeMigration($this->createMigration('DoctrineMigrations\\Version20261111040000'));
@@ -139,7 +139,7 @@ final class PartitionedObjectStorageTest extends TestCase
 	{
 		$this->entityManager?->close();
 		if (null !== $this->connection && '' !== $this->schema) {
-			$this->connection->executeStatement(sprintf('DROP SCHEMA %s CASCADE', $this->connection->quoteIdentifier($this->schema)));
+			$this->connection->executeStatement(sprintf('DROP SCHEMA %s CASCADE', $this->connection->quoteSingleIdentifier($this->schema)));
 			$this->connection->close();
 		}
 		if (null === $this->originalDbSchema) {
@@ -318,7 +318,7 @@ final class PartitionedObjectStorageTest extends TestCase
 			$schema,
 		), ['property_id' => $propertyId, 'object_id' => $objectId]);
 		$connection->executeStatement('SET enable_seqscan = off');
-		$collation = $this->connection()->quoteIdentifier($this->schema).'.'.$this->connection()->quoteIdentifier('iikiti_locale_und');
+		$collation = $this->connection()->quoteSingleIdentifier($this->schema).'.'.$this->connection()->quoteSingleIdentifier('iikiti_locale_und');
 		$sortPlan = implode("\n", $connection->fetchFirstColumn(sprintf(
 			'EXPLAIN SELECT object_id FROM %s.object_property_locale_index WHERE site_id = 2 AND object_type = \'page\' AND property_name = \'title\' AND query_locale = \'und\' ORDER BY value COLLATE %s',
 			$schema,
@@ -374,7 +374,7 @@ final class PartitionedObjectStorageTest extends TestCase
 
 	private function qualifiedSchema(): string
 	{
-		return $this->connection()->quoteIdentifier($this->schema);
+		return $this->connection()->quoteSingleIdentifier($this->schema);
 	}
 
 	/** @return array<string,mixed> */

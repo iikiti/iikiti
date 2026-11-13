@@ -606,7 +606,7 @@ final class Version20261111030000 extends AbstractMigration
 
 	private function quoteIdentifier(string $identifier): string
 	{
-		return $this->connection->quoteIdentifier($identifier);
+		return $this->connection->quoteSingleIdentifier($identifier);
 	}
 
 	private function table(string $name): string

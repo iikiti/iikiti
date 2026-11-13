@@ -59,7 +59,7 @@ final class LocalizedPropertyIndexQueryTest extends TestCase
 		$security->method('getUser')->willReturn($user);
 
 		$connection = $this->createStub(Connection::class);
-		$connection->method('quoteIdentifier')->willReturnCallback(static fn (string $name): string => '"'.$name.'"');
+		$connection->method('quoteSingleIdentifier')->willReturnCallback(static fn (string $name): string => '"'.$name.'"');
 		[$collationName, $indexName] = LocaleCollationManager::names(LocaleTag::fromString('en-CA'));
 		$connection->method('fetchAssociative')->willReturn([
 			'collation_name' => $collationName,
@@ -111,7 +111,7 @@ final class LocalizedPropertyIndexQueryTest extends TestCase
 			new ObjectPropertyDefinition('*', 'content', searchable: true, allowAnyLocale: true),
 		]);
 		$connection = $this->createStub(Connection::class);
-		$connection->method('quoteIdentifier')->willReturnCallback(static fn (string $name): string => '"'.$name.'"');
+		$connection->method('quoteSingleIdentifier')->willReturnCallback(static fn (string $name): string => '"'.$name.'"');
 		[$collationName, $indexName] = LocaleCollationManager::names(LocaleTag::fromString('fr-CA'));
 		$connection->method('fetchAssociative')->willReturn([
 			'collation_name' => $collationName,

@@ -7,6 +7,7 @@ namespace iikiti\CMS\Tests\Integration;
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Workflow\WorkflowDefinition;
+use iikiti\CMS\Entity\Workflow\WorkflowDefinitionSiteAssignment;
 use iikiti\CMS\Repository\Workflow\WorkflowDefinitionRepository;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -28,6 +29,18 @@ final class WorkflowSiteAssignmentMappingTest extends KernelTestCase
 			$this->entityManager->clear();
 		}
 		parent::tearDown();
+	}
+
+	public function testIdentifierJoinColumnsRemainNonNullableByDefault(): void
+	{
+		$metadata = $this->entityManager->getClassMetadata(WorkflowDefinitionSiteAssignment::class);
+
+		foreach (['definition', 'site'] as $fieldName) {
+			$mapping = $metadata->getAssociationMapping($fieldName);
+
+			self::assertTrue($mapping->id);
+			self::assertFalse($mapping->joinColumns[0]->nullable);
+		}
 	}
 
 	public function testWorkflowDefinitionSiteAssignmentsRoundTripThroughTheMappedEntity(): void

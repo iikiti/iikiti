@@ -14,7 +14,7 @@ final class ObjectPartitionManagerTest extends TestCase
 	public function testCreatesSiteAndQuarterPartitionsUsingSafeDateBounds(): void
 	{
 		$connection = $this->createMock(Connection::class);
-		$connection->method('quoteIdentifier')->willReturnCallback(static fn (string $name): string => '"'.$name.'"');
+		$connection->method('quoteSingleIdentifier')->willReturnCallback(static fn (string $name): string => '"'.$name.'"');
 		$connection->method('quote')->willReturnCallback(static fn (string $value): string => "'".$value."'");
 		$connection->expects(self::exactly(2))->method('fetchOne')->willReturn(true);
 		$statements = [];

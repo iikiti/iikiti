@@ -27,13 +27,13 @@ final class DatabaseTableNameResolver
 
 	public function resolve(string $table): string
 	{
-		$qualifiedTable = $this->connection->quoteIdentifier($table);
+		$qualifiedTable = $this->connection->quoteSingleIdentifier($table);
 		$schema = 'digital_asset_site_grants' === $table ? ($this->getAssetGrantSchema() ?? $this->schema) : $this->schema;
 		if ('' === $schema) {
 			return $qualifiedTable;
 		}
 
-		return $this->connection->quoteIdentifier($schema).'.'.$qualifiedTable;
+		return $this->connection->quoteSingleIdentifier($schema).'.'.$qualifiedTable;
 	}
 
 	public function getSchema(): string

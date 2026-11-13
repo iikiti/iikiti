@@ -6,11 +6,11 @@ namespace iikiti\CMS\Security\Firewall;
 
 use iikiti\CMS\Registry\SiteRegistry;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final readonly class FirewallRequestSubscriber implements EventSubscriberInterface
 {

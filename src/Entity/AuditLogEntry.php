@@ -111,7 +111,7 @@ class AuditLogEntry
 
 	/** @var Collection<int,AuditLogEntry> */
 	#[ORM\OneToMany(targetEntity: self::class, mappedBy: 'parent')]
-	#[ORM\OrderBy(['id' => 'ASC'])]
+	#[ORM\OrderBy(['id' => \SortDirection::Ascending])]
 	private Collection $subEvents;
 
 	public function __construct()

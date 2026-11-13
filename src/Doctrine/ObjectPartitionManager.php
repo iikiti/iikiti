@@ -35,7 +35,7 @@ final readonly class ObjectPartitionManager
 				$this->tableNames->resolve($sitePartition),
 				$this->tableNames->resolve('objects'),
 				$siteId,
-				$this->connection->quoteIdentifier('created_date'),
+				$this->connection->quoteSingleIdentifier('created_date'),
 			));
 			$this->connection->executeStatement(sprintf(
 				'CREATE TABLE IF NOT EXISTS %s PARTITION OF %s FOR VALUES FROM (%s) TO (%s)',

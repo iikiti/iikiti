@@ -44,6 +44,8 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Fixed
 
+- 2026-11-13: Removed deprecated Doctrine entity namespace aliases and Symfony event-dispatcher service interface references.
+- 2026-11-13: Replaced deprecated Doctrine DBAL identifier quoting and ORM association/order mapping declarations.
 - 2026-11-11: Set `DB_SCHEMA` explicitly for PHPUnit so integration services use the configured application schema.
 - 2026-11-11: Site locale and localized-index resolution now handles sites without an Application association instead of dereferencing a missing property.
 

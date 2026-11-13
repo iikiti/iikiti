@@ -13,12 +13,12 @@ class WorkflowDefinitionSiteAssignment
 {
 	#[ORM\Id]
 	#[ORM\ManyToOne(targetEntity: WorkflowDefinition::class, inversedBy: 'siteAssignments')]
-	#[ORM\JoinColumn(name: 'definition_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE', foreignKeyName: 'fk_workflow_definition_site_definition')]
+	#[ORM\JoinColumn(name: 'definition_id', referencedColumnName: 'id', onDelete: 'CASCADE', foreignKeyName: 'fk_workflow_definition_site_definition')]
 	private WorkflowDefinition $definition;
 
 	#[ORM\Id]
 	#[ORM\ManyToOne(targetEntity: Site::class)]
-	#[ORM\JoinColumn(name: 'site_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE', foreignKeyName: 'fk_workflow_definition_site_site')]
+	#[ORM\JoinColumn(name: 'site_id', referencedColumnName: 'id', onDelete: 'CASCADE', foreignKeyName: 'fk_workflow_definition_site_site')]
 	private Site $site;
 
 	public function __construct(WorkflowDefinition $definition, Site $site)

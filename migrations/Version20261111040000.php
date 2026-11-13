@@ -30,10 +30,10 @@ final class Version20261111040000 extends AbstractMigration
 		if (!is_string($schemaName) || '' === $schemaName || 1 !== preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $schemaName)) {
 			throw new \RuntimeException('DB_SCHEMA must be configured as a simple PostgreSQL schema identifier.');
 		}
-		$schemaIdentifier = $this->connection->quoteIdentifier($schemaName);
-		$projection = $schemaIdentifier.'.'.$this->connection->quoteIdentifier('object_property_locale_index');
-		$collations = $schemaIdentifier.'.'.$this->connection->quoteIdentifier('object_locale_index_collation');
-		$undCollation = $schemaIdentifier.'.'.$this->connection->quoteIdentifier('iikiti_locale_und');
+		$schemaIdentifier = $this->connection->quoteSingleIdentifier($schemaName);
+		$projection = $schemaIdentifier.'.'.$this->connection->quoteSingleIdentifier('object_property_locale_index');
+		$collations = $schemaIdentifier.'.'.$this->connection->quoteSingleIdentifier('object_locale_index_collation');
+		$undCollation = $schemaIdentifier.'.'.$this->connection->quoteSingleIdentifier('iikiti_locale_und');
 
 		$this->addSql('CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public');
 		$this->addSql(sprintf(
@@ -43,8 +43,8 @@ final class Version20261111040000 extends AbstractMigration
 		$this->addSql(sprintf(
 			'CREATE TABLE %s (object_property_id BIGINT NOT NULL, object_id BIGINT NOT NULL, object_site_id BIGINT NOT NULL, site_id BIGINT NOT NULL, object_type VARCHAR(255) NOT NULL, property_name VARCHAR(255) NOT NULL, query_locale VARCHAR(255) NOT NULL, source_locale VARCHAR(255) NOT NULL, value TEXT NOT NULL, is_searchable BOOLEAN NOT NULL, is_sortable BOOLEAN NOT NULL, search_vector TSVECTOR NOT NULL, PRIMARY KEY (object_property_id, site_id, query_locale), CONSTRAINT uniq_localized_index_object_field_locale UNIQUE (object_id, site_id, property_name, query_locale), CONSTRAINT fk_localized_index_property FOREIGN KEY (object_property_id) REFERENCES %s (id) ON DELETE CASCADE, CONSTRAINT fk_localized_index_object FOREIGN KEY (object_id) REFERENCES %s (id) ON DELETE CASCADE)',
 			$projection,
-			$schemaIdentifier.'.'.$this->connection->quoteIdentifier('object_properties'),
-			$schemaIdentifier.'.'.$this->connection->quoteIdentifier('object_identity'),
+			$schemaIdentifier.'.'.$this->connection->quoteSingleIdentifier('object_properties'),
+			$schemaIdentifier.'.'.$this->connection->quoteSingleIdentifier('object_identity'),
 		));
 		$this->addSql(sprintf(
 			'CREATE INDEX idx_localized_property_lookup ON %s (site_id, object_type, property_name, query_locale, object_id)',
@@ -80,9 +80,9 @@ final class Version20261111040000 extends AbstractMigration
 		if (!is_string($schemaName) || '' === $schemaName) {
 			throw new \RuntimeException('DB_SCHEMA must be configured to remove localized property indexes.');
 		}
-		$schemaIdentifier = $this->connection->quoteIdentifier($schemaName);
-		$this->addSql(sprintf('DROP TABLE %s', $schemaIdentifier.'.'.$this->connection->quoteIdentifier('object_property_locale_index')));
-		$this->addSql(sprintf('DROP TABLE %s', $schemaIdentifier.'.'.$this->connection->quoteIdentifier('object_locale_index_collation')));
-		$this->addSql(sprintf('DROP COLLATION %s', $schemaIdentifier.'.'.$this->connection->quoteIdentifier('iikiti_locale_und')));
+		$schemaIdentifier = $this->connection->quoteSingleIdentifier($schemaName);
+		$this->addSql(sprintf('DROP TABLE %s', $schemaIdentifier.'.'.$this->connection->quoteSingleIdentifier('object_property_locale_index')));
+		$this->addSql(sprintf('DROP TABLE %s', $schemaIdentifier.'.'.$this->connection->quoteSingleIdentifier('object_locale_index_collation')));
+		$this->addSql(sprintf('DROP COLLATION %s', $schemaIdentifier.'.'.$this->connection->quoteSingleIdentifier('iikiti_locale_und')));
 	}
 }

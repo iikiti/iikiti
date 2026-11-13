@@ -23,6 +23,15 @@ final class AuditLogEntryTest extends TestCase
 		self::assertSame('user', $entry->getActorType());
 	}
 
+	public function testSubEventsOrderUsesSortDirectionEnum(): void
+	{
+		$attribute = (new \ReflectionProperty(AuditLogEntry::class, 'subEvents'))->
+			getAttributes(\Doctrine\ORM\Mapping\OrderBy::class)[0]->
+			newInstance();
+
+		self::assertSame(['id' => \SortDirection::Ascending], $attribute->value);
+	}
+
 	public function testSetAction(): void
 	{
 		$entry = new AuditLogEntry();

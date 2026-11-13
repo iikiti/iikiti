@@ -13,7 +13,7 @@ final class DatabaseTableNameResolverTest extends TestCase
 	public function testQualifiesUnqualifiedProjectTablesOnlyWhenSchemaIsConfigured(): void
 	{
 		$connection = $this->createStub(Connection::class);
-		$connection->method('quoteIdentifier')->willReturnCallback(static fn (string $identifier): string => '"'.$identifier.'"');
+		$connection->method('quoteSingleIdentifier')->willReturnCallback(static fn (string $identifier): string => '"'.$identifier.'"');
 		$resolver = new DatabaseTableNameResolver($connection, 'cms_data');
 
 		self::assertSame('"cms_data"."batch_jobs"', $resolver->resolve('batch_jobs'));

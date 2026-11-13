@@ -70,7 +70,7 @@ final readonly class LocaleCollationManager
 		$this->assertCollationLocale($collationName, $tag);
 		$this->connection->executeStatement(sprintf(
 			'CREATE INDEX IF NOT EXISTS %s ON %s (site_id, object_type, property_name, query_locale, value COLLATE %s) INCLUDE (object_id)',
-			$this->connection->quoteIdentifier($indexName),
+			$this->connection->quoteSingleIdentifier($indexName),
 			$this->tableNames->resolve('object_property_locale_index'),
 			$collation,
 		));
@@ -155,7 +155,7 @@ final readonly class LocaleCollationManager
 
 		$this->connection->executeStatement(sprintf(
 			'CREATE INDEX %s ON %s (site_id, object_type, property_name, query_locale, value COLLATE %s) INCLUDE (object_id)',
-			$this->connection->quoteIdentifier($indexName),
+			$this->connection->quoteSingleIdentifier($indexName),
 			$this->tableNames->resolve('object_property_locale_index'),
 			$collation,
 		));
@@ -180,7 +180,7 @@ final readonly class LocaleCollationManager
 	private function qualifiedIdentifier(string $name): string
 	{
 		return '' === $this->schema ?
-			$this->connection->quoteIdentifier($name) :
-			$this->connection->quoteIdentifier($this->schema).'.'.$this->connection->quoteIdentifier($name);
+			$this->connection->quoteSingleIdentifier($name) :
+			$this->connection->quoteSingleIdentifier($this->schema).'.'.$this->connection->quoteSingleIdentifier($name);
 	}
 }
