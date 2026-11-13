@@ -72,6 +72,8 @@ readonly class PluginProvider implements ProviderInterface
 			activeSites: $activeSiteIds,
 			description: $manifest->description,
 			capabilities: $manifest->capabilities,
+			actions: $manifest->actions,
+			actionConflicts: $manifest->actionConflicts,
 		);
 	}
 }

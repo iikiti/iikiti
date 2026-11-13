@@ -51,6 +51,8 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-11-13: Plugin manifests can declare semantic action claims/conflicts; plugins can query installed and site-active claims, while explicit conflicts block activation unless an audited admin override is requested.
+- 2026-11-13: Plugin install/update use `--plugin-version` to avoid colliding with Symfony Console's global `--version` option.
 - 2026-11-13: Added the shared named Fragment API for plugin providers, Twig/page layouts, same-origin JavaScript loading, and Svelte components with lazy client implementation loading.
 - 2026-11-11: Added application/site/object/user BCP 47 locales, separate translations and mixed-language property segments, plugin language/index declarations, and regional date/number formatting.
 - 2026-11-11: Added dedicated transfer-credential, guest-token, and widget-fragment keys with transactional application-key rotation for persisted ciphertext.

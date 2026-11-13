@@ -6,8 +6,10 @@ namespace iikiti\CMS\Tests\Command\Plugin;
 
 use iikiti\CMS\Api\BusinessApiClient;
 use iikiti\CMS\Command\Plugin\ConfigureCommand;
+use iikiti\CMS\Command\Plugin\EnableCommand;
 use iikiti\CMS\Command\Plugin\InstallCommand;
 use iikiti\CMS\Command\Plugin\ListCommand;
+use iikiti\CMS\Command\Plugin\UpdateCommand;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -90,6 +92,7 @@ final class PluginCommandsApiTest extends TestCase
 				'sites' => [],
 				'storeUrl' => null,
 				'activate' => false,
+				'forceConflicts' => false,
 			], self::decodeBody($options));
 			self::assertTrue(self::hasHeader($options['headers'], 'X-AUTH-TOKEN', 'v2_user-bound-admin-token'));
 
@@ -99,6 +102,84 @@ final class PluginCommandsApiTest extends TestCase
 		$tester = new CommandTester(new InstallCommand($api));
 		self::assertSame(0, $tester->execute(['slug' => 'acme-blog', '--no-activate' => true]));
 		self::assertStringContainsString('Installed acme-blog 1.2.0.', $tester->getDisplay());
+	}
+
+	public function testEnableForwardsExplicitConflictOverride(): void
+	{
+		putenv('INTERNAL_API_TOKEN=v2_user-bound-admin-token');
+		$api = $this->api(static function (string $method, string $url, array $options): MockResponse {
+			self::assertSame('POST', $method);
+			self::assertSame('https://api.example.test/api/admin/plugins/enable', $url);
+			self::assertSame([
+				'slug' => 'acme-security',
+				'sites' => ['12'],
+				'forceConflicts' => true,
+			], self::decodeBody($options));
+
+			return new MockResponse('{"success":true,"message":"Enabled acme-security."}');
+		});
+
+		$tester = new CommandTester(new EnableCommand($api));
+		self::assertSame(0, $tester->execute([
+			'slug' => 'acme-security',
+			'--site' => ['12'],
+			'--force-conflicts' => true,
+		]));
+	}
+
+	public function testInstallForwardsExplicitConflictOverride(): void
+	{
+		putenv('INTERNAL_API_TOKEN=v2_user-bound-admin-token');
+		$api = $this->api(static function (string $method, string $url, array $options): MockResponse {
+			self::assertSame('POST', $method);
+			self::assertSame('https://api.example.test/api/admin/plugins/install', $url);
+			self::assertSame([
+				'slug' => 'acme-blog',
+				'version' => null,
+				'sites' => [],
+				'storeUrl' => null,
+				'activate' => true,
+				'forceConflicts' => true,
+			], self::decodeBody($options));
+
+			return new MockResponse('{"success":true,"message":"Installed acme-blog."}');
+		});
+
+		$tester = new CommandTester(new InstallCommand($api));
+		self::assertSame(0, $tester->execute(['slug' => 'acme-blog', '--force-conflicts' => true]));
+	}
+
+	public function testUpdateForwardsExplicitConflictOverride(): void
+	{
+		putenv('INTERNAL_API_TOKEN=v2_user-bound-admin-token');
+		$request = 0;
+		$api = $this->api(static function (string $method, string $url, array $options) use (&$request): MockResponse {
+			++$request;
+			if (1 === $request) {
+				self::assertSame('GET', $method);
+				self::assertSame('https://api.example.test/api/admin/plugins', $url);
+
+				return new MockResponse(json_encode(['hydra:member' => [[
+					'slug' => 'acme-blog',
+					'version' => '1.0.0',
+				]]], JSON_THROW_ON_ERROR));
+			}
+
+			self::assertSame('POST', $method);
+			self::assertSame('https://api.example.test/api/admin/plugins/update', $url);
+			self::assertSame([
+				'slug' => 'acme-blog',
+				'version' => null,
+				'storeUrl' => null,
+				'dryRun' => false,
+				'forceConflicts' => true,
+			], self::decodeBody($options));
+
+			return new MockResponse('{"success":true,"message":"Updated.","result":{"version":"1.1.0"}}');
+		});
+
+		$tester = new CommandTester(new UpdateCommand($api));
+		self::assertSame(0, $tester->execute(['slug' => 'acme-blog', '--force-conflicts' => true]));
 	}
 
 	public function testConfigureForwardsOptionalSiteHostContext(): void

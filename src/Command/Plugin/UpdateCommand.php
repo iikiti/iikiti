@@ -19,8 +19,9 @@ class UpdateCommand extends AbstractPluginCommand
 	{
 		$this->
 			addArgument('slug', InputArgument::OPTIONAL, 'Update a single plugin (defaults to all installed plugins).')->
-			addOption('version', null, InputOption::VALUE_REQUIRED, 'Force a specific target version.')->
+			addOption('plugin-version', null, InputOption::VALUE_REQUIRED, 'Force a specific target version.')->
 			addOption('store', null, InputOption::VALUE_REQUIRED, 'Override the store URL (non-production only).')->
+			addOption('force-conflicts', null, InputOption::VALUE_NONE, 'Update despite declared plugin action conflicts; records an audit event.')->
 			addOption('dry-run', null, InputOption::VALUE_NONE, 'Only report available updates.');
 		$this->configureSiteHostOption();
 	}
@@ -29,12 +30,13 @@ class UpdateCommand extends AbstractPluginCommand
 	{
 		$io = new SymfonyStyle($input, $output);
 		$slug = $input->getArgument('slug');
-		$forcedVersion = $input->getOption('version');
+		$forcedVersion = $input->getOption('plugin-version');
 		$storeUrl = $input->getOption('store');
 		$dryRun = (bool) $input->getOption('dry-run');
+		$forceConflicts = (bool) $input->getOption('force-conflicts');
 
 		if (null === $slug && null !== $forcedVersion) {
-			$io->error('The --version option requires a single plugin slug to be specified.');
+			$io->error('The --plugin-version option requires a single plugin slug to be specified.');
 
 			return self::FAILURE;
 		}
@@ -71,6 +73,7 @@ class UpdateCommand extends AbstractPluginCommand
 					'version' => $forcedVersion,
 					'storeUrl' => $storeUrl,
 					'dryRun' => $dryRun,
+					'forceConflicts' => $forceConflicts,
 				], siteHost: $this->siteHost($input));
 				$message = $this->operationMessage($response);
 				$io->text($dryRun ? sprintf('%s: %s', $candidateSlug, $message) : $message);

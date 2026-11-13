@@ -65,6 +65,10 @@ Classes live under `src/` (PSR-4). The declared namespace maps to the plugin's
     "routes": true,
     "doctrine_mappings": false
   },
+  "actions": {
+    "claims": ["security.firewall.inspect.sqli"],
+    "conflicts": ["content.transform.minify.html"]
+  },
   "permissions": {
     "manage": { "description": "Manage blog posts", "default_roles": ["ROLE_ADMIN"] }
   }
@@ -75,6 +79,53 @@ Required fields: `name`, `slug`, `namespace`, `bundle_class`, `version`,
 `iikiti_version`. `slug` must be lowercase alphanumeric with dashes.
 `edition` is `standard` or `pro` (used for open-core editions). Declared
 `dependencies` (slug → semver constraint) are validated before install/update.
+
+### Declaring and discovering plugin actions
+
+Use `actions.claims` to declare stable semantic behaviors that another plugin or
+an administrator may need to discover. IDs are exact, lowercase, namespaced
+keys up to 128 characters, such as `security.firewall.inspect.sqli`,
+`security.firewall.inspect.xss`, or `content.transform.minify.html`. Choose
+shared behavior names rather than PHP classes or plugin-specific IDs when two
+plugins may perform the same kind of work.
+
+`actions.conflicts` lists claim IDs that cannot safely be active alongside this
+plugin. For example, a formatter that reverses HTML minification can declare a
+conflict with `content.transform.minify.html`. A plugin that must be the only
+one performing a claimed action can list its own claim ID as a conflict. Claims
+with the same ID are discoverable but do not block activation by themselves;
+conflicts are explicit and matched by exact ID in either direction. Declarations
+are coordination metadata and do not prove what a plugin's code actually does.
+
+Plugins can inject `iikiti\CMS\Plugin\PluginActionRegistry` to inspect this
+metadata without loading another plugin's code:
+
+```php
+use iikiti\CMS\Entity\Object\Site;
+use iikiti\CMS\Plugin\PluginActionRegistry;
+
+final class ActionAwareService
+{
+    public function __construct(private PluginActionRegistry $pluginActions) {}
+
+    public function check(Site $site): void
+    {
+        // Omitting the site searches every installed manifest; passing it limits
+        // the result to plugins enabled on that site.
+        $firewallPlugins = $this->pluginActions->findClaimants('security.firewall.inspect.sqli', $site);
+        $conflicts = $this->pluginActions->findConflicts('my-plugin', $site);
+    }
+}
+```
+
+`getInstalledPlugins()` returns all installed manifests, including inactive
+plugins. `getActivePluginsForSite($site)` returns only plugins enabled on that
+site. `findClaimants($actionId)` uses exact IDs and searches installed manifests;
+pass a `Site` to restrict it to active plugins. `findConflicts($pluginSlug,
+$site)` checks the candidate plugin against the plugins currently active there.
+Use these APIs to coordinate behavior at runtime; the CMS independently blocks
+declared hard conflicts during activation unless an administrator explicitly
+overrides them.
 
 ## Bundle class
 

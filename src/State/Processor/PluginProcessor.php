@@ -5,6 +5,8 @@ namespace iikiti\CMS\State\Processor;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use iikiti\CMS\ApiResource\PluginOperation;
+use iikiti\CMS\Audit\AuditRecorder;
+use iikiti\CMS\Plugin\Exception\PluginActionConflictException;
 use iikiti\CMS\Plugin\Exception\PluginException;
 use iikiti\CMS\Plugin\Exception\PluginNotFoundException;
 use iikiti\CMS\Plugin\PluginAutoloader;
@@ -13,6 +15,7 @@ use iikiti\CMS\Plugin\PluginLoader;
 use iikiti\CMS\Plugin\PluginManager;
 use iikiti\CMS\Plugin\PluginValidator;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
@@ -29,6 +32,7 @@ readonly class PluginProcessor implements ProcessorInterface
 		private PluginDownloader $pluginDownloader,
 		private PluginValidator $validator,
 		private PluginLoader $loader,
+		private AuditRecorder $auditRecorder,
 	) {
 	}
 
@@ -48,6 +52,17 @@ readonly class PluginProcessor implements ProcessorInterface
 		} catch (PluginException $exception) {
 			$data->success = false;
 			$data->message = $exception->getMessage();
+			if ($exception instanceof PluginActionConflictException) {
+				$headerConflicts = array_slice($exception->getConflicts(), 0, 32);
+				$headers = [
+					'X-Plugin-Action-Conflicts' => json_encode($headerConflicts, JSON_THROW_ON_ERROR),
+				];
+				if (count($exception->getConflicts()) > count($headerConflicts)) {
+					$headers['X-Plugin-Action-Conflicts-Truncated'] = 'true';
+				}
+
+				throw new ConflictHttpException($exception->getMessage(), $exception, 0, $headers);
+			}
 
 			if ($exception instanceof PluginNotFoundException) {
 				throw new NotFoundHttpException($exception->getMessage(), $exception);
@@ -71,11 +86,21 @@ readonly class PluginProcessor implements ProcessorInterface
 		}
 
 		$package = $this->pluginDownloader->download($operation->slug, $version, $operation->storeUrl);
-		$manifest = $this->pluginManager->installPackage($package);
+		$siteIds = [] === $operation->sites ? null : array_map('strval', $operation->sites);
+		$manifest = $this->pluginManager->installPackage($package, $operation->activate, $siteIds, $operation->forceConflicts);
 
 		$activatedSites = null;
 		if ($operation->activate) {
+			$conflicts = $this->pluginManager->getActivationConflicts($manifest, $siteIds);
 			$activatedSites = $this->activateScope($operation);
+			$this->recordConflictOverride($operation, $conflicts);
+		} else {
+			$activeSiteIds = array_map(
+				static fn ($site): string => (string) $site->getId(),
+				$this->pluginManager->getActiveSites($manifest->slug),
+			);
+			$conflicts = $this->pluginManager->getActivationConflicts($manifest, $activeSiteIds);
+			$this->recordConflictOverride($operation, $conflicts);
 		}
 
 		$operation->success = true;
@@ -120,7 +145,13 @@ readonly class PluginProcessor implements ProcessorInterface
 		}
 
 		$package = $this->pluginDownloader->download($operation->slug, $version, $operation->storeUrl);
-		$manifest = $this->pluginManager->updatePackage($package);
+		$manifest = $this->pluginManager->updatePackage($package, $operation->forceConflicts);
+		$activeSiteIds = array_map(
+			static fn ($site): string => (string) $site->getId(),
+			$this->pluginManager->getActiveSites($manifest->slug),
+		);
+		$conflicts = $this->pluginManager->getActivationConflicts($manifest, $activeSiteIds);
+		$this->recordConflictOverride($operation, $conflicts);
 
 		$operation->success = true;
 		$operation->message = sprintf('Updated to %s.', $manifest->version);
@@ -139,7 +170,11 @@ readonly class PluginProcessor implements ProcessorInterface
 	private function enable(PluginOperation $operation): void
 	{
 		$this->requireInstalled($operation->slug);
+		$manifest = $this->pluginManager->getInstalled()[$operation->slug]['manifest'];
+		$siteIds = [] === $operation->sites ? null : array_map('strval', $operation->sites);
+		$conflicts = $this->pluginManager->getActivationConflicts($manifest, $siteIds, true);
 		$count = $this->activateScope($operation);
+		$this->recordConflictOverride($operation, $conflicts);
 
 		$operation->success = true;
 		$operation->message = sprintf('Enabled plugin "%s" for %d site(s).', $operation->slug, $count);
@@ -171,10 +206,27 @@ readonly class PluginProcessor implements ProcessorInterface
 	private function activateScope(PluginOperation $operation): int
 	{
 		if ([] === $operation->sites) {
-			return $this->pluginManager->activateForAllSites($operation->slug);
+			return $this->pluginManager->activateForAllSites($operation->slug, $operation->forceConflicts);
 		}
 
-		return $this->pluginManager->activateForSites($operation->slug, array_map('strval', $operation->sites));
+		return $this->pluginManager->activateForSites($operation->slug, array_map('strval', $operation->sites), $operation->forceConflicts);
+	}
+
+	/**
+	 * @param list<array{site:string,plugin:string,action:string}> $conflicts
+	 */
+	private function recordConflictOverride(PluginOperation $operation, array $conflicts): void
+	{
+		if (!$operation->forceConflicts || [] === $conflicts) {
+			return;
+		}
+
+		$this->auditRecorder->record(
+			summary: sprintf('Enabled plugin "%s" despite declared action conflicts', $operation->slug),
+			action: 'enabled_plugin',
+			objectType: 'Plugin',
+			details: ['plugin' => $operation->slug, 'conflicts' => $conflicts],
+		);
 	}
 
 	/**

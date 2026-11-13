@@ -6,6 +6,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Plugin\PluginRecord;
 use iikiti\CMS\ORM\QueryBuilder as OrmQueryBuilder;
+use iikiti\CMS\Plugin\Exception\PluginActionConflictException;
 use iikiti\CMS\Plugin\Exception\PluginException;
 use iikiti\CMS\Plugin\Exception\PluginNotFoundException;
 use iikiti\CMS\Plugin\Exception\SecurityViolationException;
@@ -31,6 +32,7 @@ class PluginManager
 		private readonly PluginLoader $loader,
 		private readonly PluginValidator $validator,
 		private readonly PluginRegistry $registry,
+		private readonly PluginActionMatcher $actionMatcher,
 		private readonly PluginLifecycleHandler $lifecycle,
 		private readonly PluginContainerRebuilder $rebuilder,
 		private readonly QueryBuilderFactory $queryBuilderFactory,
@@ -104,17 +106,27 @@ class PluginManager
 	/**
 	 * Install a downloaded package onto disk.
 	 *
+	 * @param list<string>|null $siteIds null means all sites when activation is requested
+	 *
 	 * @return PluginManifest the installed plugin's manifest
 	 *
 	 * @throws PluginException
 	 */
-	public function installPackage(PluginPackage $package): PluginManifest
+	public function installPackage(PluginPackage $package, bool $activate = false, ?array $siteIds = null, bool $overrideConflicts = false): PluginManifest
 	{
 		[$temp, $manifest] = $this->extractPackage($package);
 
 		try {
 			if ($manifest->slug !== $package->slug) {
 				throw new PluginException(sprintf('Package slug "%s" does not match manifest slug "%s".', $package->slug, $manifest->slug));
+			}
+			$activeSiteIds = $activate ? [] : array_map(
+				static fn (Site $site): string => (string) $site->getId(),
+				$this->getActiveSites($manifest->slug),
+			);
+			$sitesToCheck = $activate ? $siteIds : $activeSiteIds;
+			if ($activate || [] !== $activeSiteIds) {
+				$this->assertCanActivateForSites($manifest, $sitesToCheck, $overrideConflicts, false);
 			}
 
 			$this->validateDependenciesFor($manifest, $package->slug);
@@ -150,11 +162,18 @@ class PluginManager
 	 *
 	 * @return int the number of sites the plugin was actually activated for
 	 */
-	public function activateForAllSites(string $slug): int
+	public function activateForAllSites(string $slug, bool $overrideConflicts = false): int
 	{
+		$manifest = $this->requireInstalled($slug);
+		$this->assertStateAllowed($manifest);
+		$sites = $this->getSites();
+		$sitesToEnable = $this->sitesNeedingActivation($slug, $sites);
+		$siteIds = array_map(static fn (Site $site): string => (string) $site->getId(), $sitesToEnable);
+		$this->assertCanActivateForSites($manifest, $siteIds, $overrideConflicts);
+
 		$count = 0;
-		foreach ($this->getSites() as $site) {
-			if ($this->activateForSite($slug, (string) $site->getId())) {
+		foreach ($sitesToEnable as $site) {
+			if ($this->activateForSiteUnchecked($manifest, $site)) {
 				++$count;
 			}
 		}
@@ -174,11 +193,18 @@ class PluginManager
 	 *
 	 * @return int the number of sites the plugin was actually activated for
 	 */
-	public function activateForSites(string $slug, array $siteIds): int
+	public function activateForSites(string $slug, array $siteIds, bool $overrideConflicts = false): int
 	{
+		$manifest = $this->requireInstalled($slug);
+		$this->assertStateAllowed($manifest);
+		$sites = $this->resolveSites($siteIds);
+		$sitesToEnable = $this->sitesNeedingActivation($slug, $sites);
+		$targetSiteIds = array_map(static fn (Site $site): string => (string) $site->getId(), $sitesToEnable);
+		$this->assertCanActivateForSites($manifest, $targetSiteIds, $overrideConflicts);
+
 		$count = 0;
-		foreach ($siteIds as $siteId) {
-			if ($this->activateForSite($slug, (string) $siteId)) {
+		foreach ($sitesToEnable as $site) {
+			if ($this->activateForSiteUnchecked($manifest, $site)) {
 				++$count;
 			}
 		}
@@ -197,12 +223,24 @@ class PluginManager
 	 * @return bool true when the plugin was newly activated, false when it was
 	 *              already active
 	 */
-	public function activateForSite(string $slug, string $siteId): bool
+	public function activateForSite(string $slug, string $siteId, bool $overrideConflicts = false): bool
 	{
 		$manifest = $this->requireInstalled($slug);
 		$this->assertStateAllowed($manifest);
 
 		$site = $this->findSite($siteId);
+		if ($site->getConfiguration()->isPluginActive($slug)) {
+			return false;
+		}
+		$this->assertCanActivateForSites($manifest, [$siteId], $overrideConflicts);
+
+		return $this->activateForSiteUnchecked($manifest, $site);
+	}
+
+	private function activateForSiteUnchecked(PluginManifest $manifest, Site $site): bool
+	{
+		$slug = $manifest->slug;
+		$siteId = (string) $site->getId();
 		$configuration = $site->getConfiguration();
 		if ($configuration->isPluginActive($slug)) {
 			return false;
@@ -219,13 +257,13 @@ class PluginManager
 	/**
 	 * Enable a plugin for a site, or all sites when $siteId is null.
 	 */
-	public function activate(string $slug, ?string $siteId = null): int
+	public function activate(string $slug, ?string $siteId = null, bool $overrideConflicts = false): int
 	{
 		if (null === $siteId) {
-			return $this->activateForAllSites($slug);
+			return $this->activateForAllSites($slug, $overrideConflicts);
 		}
 
-		return $this->activateForSites($slug, [$siteId]);
+		return $this->activateForSites($slug, [$siteId], $overrideConflicts);
 	}
 
 	/**
@@ -311,7 +349,7 @@ class PluginManager
 	 * Upgrade an installed plugin to a new package, firing UPDATE once per active
 	 * site.
 	 */
-	public function updatePackage(PluginPackage $package): PluginManifest
+	public function updatePackage(PluginPackage $package, bool $overrideConflicts = false): PluginManifest
 	{
 		$installed = $this->getInstalled();
 		if (!isset($installed[$package->slug])) {
@@ -333,6 +371,7 @@ class PluginManager
 
 			$this->assertStateAllowed($manifest);
 			$this->validateDependenciesFor($manifest, $package->slug);
+			$this->assertCanActivateForSites($manifest, $activeSiteIds, $overrideConflicts, false);
 
 			$target = $this->loader->getInstalledPath().'/'.$manifest->slug;
 			$this->ensureDirectory($this->loader->getInstalledPath());
@@ -458,6 +497,98 @@ class PluginManager
 		}
 
 		return $map;
+	}
+
+	/**
+	 * Find declared hard conflicts if the candidate were enabled for the selected sites.
+	 * A null site list means every site; an empty list selects no sites.
+	 *
+	 * @param list<string>|null $siteIds
+	 *
+	 * @return list<array{site:string,plugin:string,action:string}>
+	 */
+	public function getActivationConflicts(PluginManifest $candidate, ?array $siteIds = null, bool $onlyInactiveSites = false): array
+	{
+		$sites = $this->resolveSites($siteIds);
+		$installed = [];
+		foreach ($this->getInstalled() as $slug => $plugin) {
+			$installed[$slug] = $plugin['manifest'];
+		}
+
+		$conflicts = [];
+		foreach ($sites as $site) {
+			if ($onlyInactiveSites && $site->getConfiguration()->isPluginActive($candidate->slug)) {
+				continue;
+			}
+			$active = [];
+			foreach ($site->getConfiguration()->getActivePlugins() as $activeSlug) {
+				if (isset($installed[$activeSlug])) {
+					$active[] = $installed[$activeSlug];
+				}
+			}
+
+			foreach ($this->actionMatcher->findConflicts($candidate, $active) as $conflict) {
+				$conflicts[] = [
+					'site' => (string) $site->getId(),
+					'plugin' => $conflict->pluginSlug,
+					'action' => $conflict->actionId,
+				];
+			}
+		}
+
+		return $conflicts;
+	}
+
+	/**
+	 * @param list<string>|null $siteIds
+	 *
+	 * @return list<array{site:string,plugin:string,action:string}>
+	 */
+	public function assertCanActivateForSites(
+		PluginManifest $candidate,
+		?array $siteIds = null,
+		bool $overrideConflicts = false,
+		bool $onlyInactiveSites = true,
+	): array {
+		$conflicts = $this->getActivationConflicts($candidate, $siteIds, $onlyInactiveSites);
+		if ([] !== $conflicts && !$overrideConflicts) {
+			throw new PluginActionConflictException('Plugin action conflicts prevent activation.', $conflicts);
+		}
+
+		return $conflicts;
+	}
+
+	/**
+	 * @param list<string>|null $siteIds
+	 *
+	 * @return list<Site>
+	 */
+	private function resolveSites(?array $siteIds): array
+	{
+		if (null === $siteIds) {
+			return $this->getSites();
+		}
+
+		$sites = [];
+		foreach ($siteIds as $siteId) {
+			$site = $this->findSite((string) $siteId);
+			$sites[(string) $site->getId()] = $site;
+		}
+
+		return array_values($sites);
+	}
+
+	/**
+	 * @param list<Site> $sites
+	 *
+	 * @return list<Site>
+	 */
+	private function sitesNeedingActivation(string $slug, array $sites): array
+	{
+		return array_values(array_filter(
+			$sites,
+			static fn (Site $site): bool => !$site->getConfiguration()->isPluginActive($slug),
+		));
 	}
 
 	private function findSite(string $siteId): Site

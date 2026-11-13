@@ -74,6 +74,8 @@ class PluginOperation
 
 		public bool $activate = true,
 
+		public bool $forceConflicts = false,
+
 		public bool $success = false,
 		public ?string $message = null,
 		public array $result = [],

@@ -5,6 +5,7 @@ namespace iikiti\CMS\Command\Plugin;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
@@ -17,6 +18,7 @@ class EnableCommand extends AbstractPluginCommand
 	protected function configure(): void
 	{
 		$this->addArgument('slug', InputArgument::REQUIRED, 'The plugin slug to enable.');
+		$this->addOption('force-conflicts', null, InputOption::VALUE_NONE, 'Enable despite declared plugin action conflicts; records an audit event.');
 		$this->configureSiteOptions();
 	}
 
@@ -27,7 +29,11 @@ class EnableCommand extends AbstractPluginCommand
 		$siteIds = $this->resolveSiteIds($input);
 
 		try {
-			$response = $this->requestApi('POST', '/api/admin/plugins/enable', ['slug' => $slug, 'sites' => $siteIds ?? []], siteHost: $this->siteHost($input));
+			$response = $this->requestApi('POST', '/api/admin/plugins/enable', [
+				'slug' => $slug,
+				'sites' => $siteIds ?? [],
+				'forceConflicts' => (bool) $input->getOption('force-conflicts'),
+			], siteHost: $this->siteHost($input));
 			$io->success($this->operationMessage($response));
 		} catch (\Throwable $exception) {
 			$io->error($exception->getMessage());

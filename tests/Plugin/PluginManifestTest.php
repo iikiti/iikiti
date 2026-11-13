@@ -40,6 +40,55 @@ final class PluginManifestTest extends TestCase
 		$this->assertFalse($manifest->usesReservedVendor());
 	}
 
+	public function testParsesAndSerializesActionDeclarations(): void
+	{
+		$manifest = PluginManifest::fromArray($this->validData([
+			'actions' => [
+				'claims' => ['security.firewall.inspect.sqli'],
+				'conflicts' => ['content.transform.minify.html'],
+			],
+		]));
+
+		$this->assertSame(['security.firewall.inspect.sqli'], $manifest->actions);
+		$this->assertSame(['content.transform.minify.html'], $manifest->actionConflicts);
+		$this->assertSame([
+			'claims' => ['security.firewall.inspect.sqli'],
+			'conflicts' => ['content.transform.minify.html'],
+		], $manifest->toArray()['actions']);
+	}
+
+	public function testActionDeclarationsDefaultToEmpty(): void
+	{
+		$manifest = PluginManifest::fromArray($this->validData());
+
+		$this->assertSame([], $manifest->actions);
+		$this->assertSame([], $manifest->actionConflicts);
+	}
+
+	public function testRejectsInvalidActionDeclarations(): void
+	{
+		$this->expectException(InvalidManifestException::class);
+		PluginManifest::fromArray($this->validData([
+			'actions' => ['claims' => ['Not.Valid']],
+		]));
+	}
+
+	public function testRejectsDuplicateActionDeclarations(): void
+	{
+		$this->expectException(InvalidManifestException::class);
+		PluginManifest::fromArray($this->validData([
+			'actions' => ['claims' => ['content.minify.html', 'content.minify.html']],
+		]));
+	}
+
+	public function testRejectsUnknownActionDeclarationFields(): void
+	{
+		$this->expectException(InvalidManifestException::class);
+		PluginManifest::fromArray($this->validData([
+			'actions' => ['claim' => ['content.minify.html']],
+		]));
+	}
+
 	public function testRejectsMissingRequiredField(): void
 	{
 		$data = $this->validData();

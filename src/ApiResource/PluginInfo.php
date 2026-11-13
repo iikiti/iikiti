@@ -31,6 +31,8 @@ class PluginInfo
 	/**
 	 * @param list<string>        $activeSites
 	 * @param array<string,mixed> $capabilities
+	 * @param list<string>        $actions
+	 * @param list<string>        $actionConflicts
 	 */
 	public function __construct(
 		public string $slug = '',
@@ -44,6 +46,8 @@ class PluginInfo
 		public array $activeSites = [],
 		public ?string $description = null,
 		public array $capabilities = [],
+		public array $actions = [],
+		public array $actionConflicts = [],
 	) {
 	}
 }

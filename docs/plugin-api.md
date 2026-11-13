@@ -10,10 +10,10 @@ All commands live under the `iikiti:plugin` namespace.
 
 ```
 iikiti:plugin:list                         List installed plugins and active sites
-iikiti:plugin:install {slug}               Download and install from the store
-iikiti:plugin:update [slug] [--dry-run]    Check for and apply updates
+iikiti:plugin:install {slug} [--force-conflicts] Download and install from the store
+iikiti:plugin:update [slug] [--dry-run] [--force-conflicts] Check for and apply updates
 iikiti:plugin:remove {slug} [--force]      Uninstall a plugin
-iikiti:plugin:enable {slug}                Enable for sites (default: all)
+iikiti:plugin:enable {slug} [--force-conflicts] Enable for sites (default: all)
 iikiti:plugin:disable {slug}               Disable for sites (default: all)
 iikiti:plugin:verify {slug}                Verify manifest, bundle class and link
 iikiti:plugin:configure {slug}             Read/update per-site configuration
@@ -21,8 +21,8 @@ iikiti:plugin:migrate                      Migrate legacy extensions config keys
 ```
 
 Site scope options (where applicable): `--site=ID` (repeatable) and
-`--all-sites` (default). Install/update accept `--version`, `--store` and, for
-updates, `--dry-run`.
+`--all-sites` (default). Install/update accept `--plugin-version`, `--store`,
+`--force-conflicts` and, for updates, `--dry-run`.
 
 Plugin commands call the administrative Business API using an explicit user
 API credential. Set `INTERNAL_API_TOKEN` to an administrator's API token and
@@ -81,11 +81,21 @@ Command body:
 }
 ```
 
-`sites` is a list of site ids; an empty list means **all sites**. The response
-echoes `success`, `message` and a `result` payload. Failures return a non-200
-status (`404` when the plugin is not installed, `422` for state/security/store
-errors) with the message in the error body, so clients can detect failed
-operations.
+`sites` is a list of site ids; an empty list means **all sites**. Management
+requests also accept `forceConflicts` (default `false`) to deliberately enable
+or update despite declared action conflicts. Without it, activation fails with
+HTTP `409 Conflict`; `X-Plugin-Action-Conflicts` contains a JSON list of
+`{site, plugin, action}` records, limited to 32 entries. If the list is longer,
+`X-Plugin-Action-Conflicts-Truncated: true` is included. Enabling several sites
+preflights the entire selection and changes none when any selected site
+conflicts. A deliberate override is recorded through the audit log. Installing
+without activation remains allowed. The `/api/admin/plugins` read model exposes
+each installed manifest's `actions` claims and `actionConflicts` IDs.
+
+The response echoes `success`, `message` and a `result` payload. Failures return
+a non-200 status (`404` when the plugin is not installed, `409` for declared
+action conflicts, `422` for state/security/store errors) with the message in the
+error body, so clients can detect failed operations.
 
 Install additionally accepts `activate` (default `true`) to install without
 enabling the plugin. Configuration requests accept `slug`, optional `siteId`,

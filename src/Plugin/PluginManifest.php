@@ -44,6 +44,10 @@ final class PluginManifest
 		public readonly ?array $editorUi = null,
 		/** @var array<string,mixed>|null */
 		public readonly ?array $siteUi = null,
+		/** @var list<string> declared semantic behavior/action identifiers */
+		public readonly array $actions = [],
+		/** @var list<string> action identifiers incompatible with this plugin */
+		public readonly array $actionConflicts = [],
 	) {
 	}
 
@@ -126,6 +130,7 @@ final class PluginManifest
 				$authors[] = array_map(static fn ($value): string => (string) $value, $author);
 			}
 		}
+		[$actions, $actionConflicts] = self::parseActions($data['actions'] ?? null);
 
 		return new self(
 			name: trim($data['name']),
@@ -144,7 +149,56 @@ final class PluginManifest
 			adminUi: self::parseUi($data['admin_ui'] ?? null),
 			editorUi: self::parseUi($data['editor_ui'] ?? null),
 			siteUi: self::parseUi($data['site_ui'] ?? null),
+			actions: $actions,
+			actionConflicts: $actionConflicts,
 		);
+	}
+
+	/**
+	 * @return array{list<string>,list<string>}
+	 */
+	private static function parseActions(mixed $actions): array
+	{
+		if (null === $actions) {
+			return [[], []];
+		}
+		if (!is_array($actions) || (array_is_list($actions) && [] !== $actions)) {
+			throw new InvalidManifestException('Plugin "actions" must be an object with optional "claims" and "conflicts" lists.');
+		}
+		if ([] !== array_diff(array_keys($actions), ['claims', 'conflicts'])) {
+			throw new InvalidManifestException('Plugin "actions" may contain only "claims" and "conflicts".');
+		}
+
+		return [
+			self::parseActionIdentifiers($actions['claims'] ?? [], 'claims'),
+			self::parseActionIdentifiers($actions['conflicts'] ?? [], 'conflicts'),
+		];
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	private static function parseActionIdentifiers(mixed $identifiers, string $field): array
+	{
+		if (!is_array($identifiers) || !array_is_list($identifiers)) {
+			throw new InvalidManifestException(sprintf('Plugin action "%s" must be a list of identifiers.', $field));
+		}
+		if (count($identifiers) > 100) {
+			throw new InvalidManifestException(sprintf('Plugin action "%s" cannot contain more than 100 identifiers.', $field));
+		}
+
+		$parsed = [];
+		foreach ($identifiers as $identifier) {
+			if (!is_string($identifier) || 1 !== preg_match('/^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$/D', $identifier) || strlen($identifier) > 128) {
+				throw new InvalidManifestException(sprintf('Plugin action "%s" contains an invalid identifier.', $field));
+			}
+			if (in_array($identifier, $parsed, true)) {
+				throw new InvalidManifestException(sprintf('Plugin action "%s" contains duplicate identifier "%s".', $field, $identifier));
+			}
+			$parsed[] = $identifier;
+		}
+
+		return $parsed;
 	}
 
 	/**
@@ -219,6 +273,10 @@ final class PluginManifest
 			'admin_ui' => $this->adminUi,
 			'editor_ui' => $this->editorUi,
 			'site_ui' => $this->siteUi,
+			'actions' => [
+				'claims' => $this->actions,
+				'conflicts' => $this->actionConflicts,
+			],
 		];
 	}
 

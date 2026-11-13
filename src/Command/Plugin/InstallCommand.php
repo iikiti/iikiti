@@ -19,8 +19,9 @@ class InstallCommand extends AbstractPluginCommand
 	{
 		$this->
 			addArgument('slug', InputArgument::REQUIRED, 'The plugin slug to install.')->
-			addOption('version', null, InputOption::VALUE_REQUIRED, 'Install a specific version (defaults to the latest).')->
+			addOption('plugin-version', null, InputOption::VALUE_REQUIRED, 'Install a specific version (defaults to the latest).')->
 			addOption('store', null, InputOption::VALUE_REQUIRED, 'Override the store URL (non-production only).')->
+			addOption('force-conflicts', null, InputOption::VALUE_NONE, 'Enable despite declared plugin action conflicts; records an audit event.')->
 			addOption('no-activate', null, InputOption::VALUE_NONE, 'Install without enabling the plugin.');
 		$this->configureSiteOptions();
 	}
@@ -29,9 +30,10 @@ class InstallCommand extends AbstractPluginCommand
 	{
 		$io = new SymfonyStyle($input, $output);
 		$slug = (string) $input->getArgument('slug');
-		$version = $input->getOption('version');
+		$version = $input->getOption('plugin-version');
 		$storeUrl = $input->getOption('store');
 		$activate = !$input->getOption('no-activate');
+		$forceConflicts = (bool) $input->getOption('force-conflicts');
 		$siteIds = $this->resolveSiteIds($input);
 
 		try {
@@ -42,6 +44,7 @@ class InstallCommand extends AbstractPluginCommand
 				'sites' => $siteIds ?? [],
 				'storeUrl' => $storeUrl,
 				'activate' => $activate,
+				'forceConflicts' => $forceConflicts,
 			], siteHost: $this->siteHost($input));
 			$io->success($this->operationMessage($response));
 		} catch (\Throwable $exception) {

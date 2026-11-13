@@ -7,6 +7,7 @@ use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Doctrine\DBAL\Result;
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Plugin\Lifecycle\PluginLifecycleHandler;
+use iikiti\CMS\Plugin\PluginActionMatcher;
 use iikiti\CMS\Plugin\PluginContainerRebuilder;
 use iikiti\CMS\Plugin\PluginLoader;
 use iikiti\CMS\Plugin\PluginManager;
@@ -120,6 +121,7 @@ final class PluginManagerQueryTest extends TestCase
 			$this->createStub(PluginLoader::class),
 			$this->createStub(PluginValidator::class),
 			$this->createStub(PluginRegistry::class),
+			new PluginActionMatcher(),
 			$this->createStub(PluginLifecycleHandler::class),
 			$this->createStub(PluginContainerRebuilder::class),
 			$factory,
