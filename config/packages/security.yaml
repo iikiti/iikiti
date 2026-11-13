@@ -121,6 +121,7 @@ security:
         - { path: ^/api/auth/mfa/, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/session-token$, roles: PUBLIC_ACCESS }
         - { path: ^/api/forms/, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/mcp$, roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api, roles: PUBLIC_ACCESS }
         - { path: ^/admin, roles: PUBLIC_ACCESS }
         - { path: ^/logout, roles: ROLE_USER }

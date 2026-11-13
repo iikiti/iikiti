@@ -18,6 +18,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Changed
 
+- 2026-11-13: Core and plugin API routes/functions are cataloged through one authenticated MCP endpoint behind the `api_list`, `api_describe`, and `api_request` tools.
 - 2026-11-13: New/default front-end templates use the built-in Forma-2026 plugin layout while preserving saved custom layouts and the legacy generic layout alias.
 - 2026-11-13: Core-shipped plugin bundles are discovered from `plugins/` alongside active installed plugins; Forma-2026 is required on every site.
 - 2026-11-13: API-backed public-page failures now render themed HTML error pages while retaining the HTTP status and safe `Retry-After`/`Allow` headers.
@@ -55,8 +56,13 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 - 2026-11-11: Set `DB_SCHEMA` explicitly for PHPUnit so integration services use the configured application schema.
 - 2026-11-11: Site locale and localized-index resolution now handles sites without an Application association instead of dereferencing a missing property.
 
+### Security
+
+- 2026-11-13: MCP is disabled by default, requires an authenticated API principal, applies per-user/site rate limits and existing endpoint permissions, and excludes authentication/internal worker routes.
+
 ### Added
 
+- 2026-11-13: Added MCP API discovery, descriptions, pagination, bounded API dispatch, and namespaced plugin function registration.
 - 2026-11-13: Added the accessible Forma-2026 built-in theme-only plugin, themed 404/500 and generic error pages, and plugin theme development guidance.
 - 2026-11-13: Added secure CLI generators for strength-profiled random passwords and base64-encoded key material.
 - 2026-11-13: Plugin manifests can declare semantic action claims/conflicts; plugins can query installed and site-active claims, while explicit conflicts block activation unless an audited admin override is requested.

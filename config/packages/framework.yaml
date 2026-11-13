@@ -19,6 +19,13 @@ framework:
     esi: { enabled: true }
     fragments: { path: /_fragment }
 
+    rate_limiter:
+        mcp_api:
+            policy: fixed_window
+            limit: '%mcp_api_rate_limit%'
+            interval: '1 minute'
+            cache_pool: cache.app
+
     property_info:
       with_constructor_extractor: true
 

@@ -67,6 +67,76 @@ store may use it.
 Classes live under `src/` (PSR-4). The declared namespace maps to the plugin's
 `src/` directory.
 
+## MCP API integration
+
+All caller-facing plugin routes under `/api/` are included in the shared iikiti
+MCP API catalog. API Platform operations use their resource metadata and schemas;
+custom controller routes use their route and controller metadata. The model
+discovers these entries through `iikiti.api_list`, gets full input/output details
+from `iikiti.api_describe`, and calls them through `iikiti.api_request`.
+
+There is exactly one MCP server endpoint (`/api/mcp`). A plugin must never
+configure a separate MCP endpoint, server, or credential. Plugin routes are
+namespaced from the owning plugin manifest and stay subject to the same API
+authentication, authorization, site context, and existing endpoint validation.
+Authentication and internal worker routes are not listed as callable APIs.
+
+For callable business functions that do not have an HTTP API route, implement
+`iikiti\CMS\Mcp\McpApiToolInterface` and register the service in the plugin's
+normal `config/services.yaml` with autoconfiguration enabled; otherwise add the
+`iikiti.mcp_api_tool` service tag explicitly. Its stable local name is prefixed
+by the runtime with `iikiti.plugin.<plugin-slug>.`; descriptions
+must explain purpose, appropriate use, side effects, and required context. Every
+input property must have a description and a valid JSON Schema. The existing
+business API/service used by `execute()` must perform its normal authorization,
+validation, site checks, and audit logging.
+
+```php
+namespace Acme\Plugin\Blog\Mcp;
+
+use iikiti\CMS\Mcp\McpApiToolInterface;
+use Acme\Plugin\Blog\Service\PostApi;
+
+final class ReadPostsTool implements McpApiToolInterface
+{
+    public function __construct(private PostApi $posts) {}
+
+    public function getName(): string { return 'read_posts'; }
+    public function getTitle(): string { return 'Read blog posts'; }
+    public function getDescription(): string
+    {
+        return 'Find blog posts visible to the current user and site. Use this to search or inspect posts; it does not modify content.';
+    }
+    public function getRequiredPermission(): string { return 'ROLE_ADMIN'; }
+
+    public function getInputSchema(): array
+    {
+        return [
+            'type' => 'object',
+            'properties' => [
+                'query' => ['type' => 'string', 'description' => 'Optional title/content search text.'],
+                'limit' => ['type' => 'integer', 'description' => 'Maximum posts to return.', 'minimum' => 1, 'maximum' => 50],
+            ],
+            'additionalProperties' => false,
+        ];
+    }
+
+    public function getOutputSchema(): ?array { return null; }
+    public function getAnnotations(): array { return ['readOnlyHint' => true, 'openWorldHint' => false]; }
+
+    public function execute(array $arguments): mixed
+    {
+        return $this->posts->search($arguments['query'] ?? '', $arguments['limit'] ?? 20);
+    }
+}
+```
+
+The example is a read-only API; implement separate write functions where the
+feature supports them, and describe their effects accurately. Implementations
+must not add `#[McpTool]`: the only MCP-level tools are the three iikiti wrappers.
+See [MCP API](mcp-api.md) for the complete endpoint contract and deployment
+configuration.
+
 ## Manifest (`plugin.json`)
 
 ```json

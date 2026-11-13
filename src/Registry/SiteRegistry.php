@@ -112,6 +112,7 @@ class SiteRegistry
 		if (str_starts_with((string) $request->attributes->get('_route'), 'api_public_render_')
 			|| str_starts_with((string) $request->attributes->get('_route'), 'api_public_asset_')
 			|| 'api_auth_session_token' === $request->attributes->get('_route')
+			|| '/api/mcp' === $request->getPathInfo()
 			|| str_starts_with($request->getPathInfo(), '/api/forms/')
 			|| str_starts_with($request->getPathInfo(), '/api/admin/')
 			|| str_starts_with($request->getPathInfo(), '/api/editor/')) {

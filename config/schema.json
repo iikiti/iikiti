@@ -2671,7 +2671,7 @@
                         "$ref": "#/$defs/nodes/notifier"
                     },
                     "rate_limiter": {
-                        "$ref": "#/$defs/types/variable"
+                        "$ref": "#/$defs/nodes/rate_limiter"
                     },
                     "uid": {
                         "$ref": "#/$defs/nodes/uid"
@@ -4435,6 +4435,593 @@
                 },
                 "additionalProperties": false
             },
+            "mcp": {
+                "$ref": "#/$defs/types/object_null",
+                "properties": {
+                    "servers": {
+                        "$ref": "#/$defs/types/array_null",
+                        "items": {
+                            "$ref": "#/$defs/types/object_null",
+                            "properties": {
+                                "name": {
+                                    "$ref": "#/$defs/types/string_null",
+                                    "default": null,
+                                    "description": "Name advertised to clients. Defaults to the configuration key."
+                                },
+                                "version": {
+                                    "$ref": "#/$defs/types/string_null",
+                                    "default": "0.0.1"
+                                },
+                                "description": {
+                                    "$ref": "#/$defs/types/string_null",
+                                    "default": null
+                                },
+                                "icons": {
+                                    "$ref": "#/$defs/types/array_null",
+                                    "items": {
+                                        "$ref": "#/$defs/types/object_null",
+                                        "properties": {
+                                            "src": {
+                                                "$ref": "#/$defs/types/string_null"
+                                            },
+                                            "mime_type": {
+                                                "$ref": "#/$defs/types/string_null",
+                                                "default": null
+                                            },
+                                            "sizes": {
+                                                "$ref": "#/$defs/types/array_null",
+                                                "items": {
+                                                    "$ref": "#/$defs/types/scalar"
+                                                },
+                                                "default": [
+                                                    "any"
+                                                ]
+                                            }
+                                        },
+                                        "required": [
+                                            "src"
+                                        ],
+                                        "additionalProperties": false
+                                    }
+                                },
+                                "website_url": {
+                                    "$ref": "#/$defs/types/string_null",
+                                    "default": null
+                                },
+                                "pagination_limit": {
+                                    "$ref": "#/$defs/types/integer",
+                                    "minimum": 1,
+                                    "default": 50
+                                },
+                                "instructions": {
+                                    "$ref": "#/$defs/types/string_null",
+                                    "default": null
+                                },
+                                "transports": {
+                                    "$ref": "#/$defs/types/object_null",
+                                    "properties": {
+                                        "stdio": {
+                                            "$ref": "#/$defs/types/boolean",
+                                            "default": false,
+                                            "description": "Expose the server over STDIO via the \"mcp:server\" command."
+                                        },
+                                        "http": {
+                                            "$ref": "#/$defs/types/boolean",
+                                            "default": true,
+                                            "description": "Expose the server over HTTP via a controller and route."
+                                        }
+                                    },
+                                    "additionalProperties": false,
+                                    "default": {
+                                        "stdio": false,
+                                        "http": true
+                                    }
+                                },
+                                "http": {
+                                    "$ref": "#/$defs/types/object_null",
+                                    "properties": {
+                                        "path": {
+                                            "$ref": "#/$defs/types/string_null",
+                                            "default": null,
+                                            "description": "HTTP endpoint path. Defaults to \"/mcp/<name>\"."
+                                        },
+                                        "allowed_hosts": {
+                                            "$ref": "#/$defs/types/variable",
+                                            "default": null,
+                                            "description": "DNS rebinding protection hosts (without port). Leave unset to keep the SDK default (localhost only), set an array of hostnames to expose a public MCP server, or false to disable the protection entirely."
+                                        },
+                                        "allowed_origins": {
+                                            "$ref": "#/$defs/types/array_null",
+                                            "items": {
+                                                "$ref": "#/$defs/types/scalar"
+                                            },
+                                            "description": "Origins (scheme, host and optional port) the DNS rebinding protection accepts besides same-origin requests, e.g. \"http://localhost:6274\". Use [\"*\"] to accept any Origin header."
+                                        }
+                                    },
+                                    "additionalProperties": false,
+                                    "default": {
+                                        "path": null,
+                                        "allowed_hosts": null,
+                                        "allowed_origins": []
+                                    }
+                                },
+                                "protocol_versions": {
+                                    "anyOf": [
+                                        {
+                                            "$ref": "#/$defs/types/array_null",
+                                            "items": {
+                                                "anyOf": [
+                                                    {
+                                                        "enum": [
+                                                            "2024-11-05",
+                                                            "2025-03-26",
+                                                            "2025-06-18",
+                                                            "2025-11-25",
+                                                            "2026-07-28"
+                                                        ]
+                                                    },
+                                                    {
+                                                        "$ref": "#/$defs/types/param"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "type": [
+                                                "string"
+                                            ]
+                                        }
+                                    ],
+                                    "description": "Narrows the revisions this server answers for; left unset the SDK's own support stands. Each era takes what belongs to it: the modern revisions listed become the only ones that leg answers for, and listing none of them refuses the modern era. A handshake-era revision pins the handshake to exactly that one; listing none leaves it negotiating over every revision it knows, which the SDK offers no way to narrow further."
+                                },
+                                "request_state": {
+                                    "$ref": "#/$defs/types/object_null",
+                                    "properties": {
+                                        "key": {
+                                            "$ref": "#/$defs/types/string_null",
+                                            "default": null,
+                                            "description": "HMAC key, at least 32 bytes. The same value must reach every process that might serve the retry."
+                                        },
+                                        "ttl": {
+                                            "$ref": "#/$defs/types/integer",
+                                            "minimum": 1,
+                                            "default": 600,
+                                            "description": "Seconds a minted state stays valid."
+                                        }
+                                    },
+                                    "additionalProperties": false,
+                                    "default": {
+                                        "key": null,
+                                        "ttl": 600
+                                    },
+                                    "description": "Signs the state a multi-round-trip answer carries through the client, which has no session to keep progress in. Required for a modern-era server whose handlers return an InputRequiredResult, and for one whose handlers call ClientGateway::elicit() more than once: the second ask has to carry the first answer to the next round."
+                                },
+                                "cache": {
+                                    "$ref": "#/$defs/types/object_null",
+                                    "properties": {
+                                        "ttl_ms": {
+                                            "$ref": "#/$defs/types/integer",
+                                            "minimum": 0,
+                                            "default": 0,
+                                            "description": "Default freshness in milliseconds. 0 refuses caching."
+                                        },
+                                        "scope": {
+                                            "anyOf": [
+                                                {
+                                                    "enum": [
+                                                        "private",
+                                                        "public"
+                                                    ]
+                                                },
+                                                {
+                                                    "$ref": "#/$defs/types/param"
+                                                }
+                                            ],
+                                            "default": "private"
+                                        },
+                                        "methods": {
+                                            "$ref": "#/$defs/types/object_null",
+                                            "additionalProperties": {
+                                                "$ref": "#/$defs/types/object_null",
+                                                "properties": {
+                                                    "ttl_ms": {
+                                                        "$ref": "#/$defs/types/integer",
+                                                        "minimum": 0
+                                                    },
+                                                    "scope": {
+                                                        "anyOf": [
+                                                            {
+                                                                "enum": [
+                                                                    "private",
+                                                                    "public"
+                                                                ]
+                                                            },
+                                                            {
+                                                                "$ref": "#/$defs/types/param"
+                                                            }
+                                                        ],
+                                                        "default": "private"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "ttl_ms"
+                                                ],
+                                                "additionalProperties": false
+                                            },
+                                            "description": "Per-method overrides, e.g. \"tools/list\". Use \"public\" only for answers that do not vary by caller."
+                                        }
+                                    },
+                                    "additionalProperties": false,
+                                    "default": {
+                                        "ttl_ms": 0,
+                                        "scope": "private",
+                                        "methods": []
+                                    },
+                                    "description": "Cache hints the modern-era leg puts on its answers. The spec requires them on server/discover, the list methods and resources/read."
+                                },
+                                "subscriptions": {
+                                    "$ref": "#/$defs/types/object_null",
+                                    "properties": {
+                                        "bus": {
+                                            "anyOf": [
+                                                {
+                                                    "enum": [
+                                                        "none",
+                                                        "memory",
+                                                        "cache"
+                                                    ]
+                                                },
+                                                {
+                                                    "$ref": "#/$defs/types/param"
+                                                }
+                                            ],
+                                            "default": "none"
+                                        },
+                                        "cache_pool": {
+                                            "$ref": "#/$defs/types/string_null",
+                                            "default": "cache.mcp.notifications",
+                                            "description": "PSR-16 service for the \"cache\" bus. Under PHP-FPM the publisher and the stream are different workers, so \"memory\" cannot reach them."
+                                        },
+                                        "lifetime": {
+                                            "$ref": "#/$defs/types/number",
+                                            "minimum": 0,
+                                            "default": 30,
+                                            "description": "Seconds a stream is held before the server closes it gracefully. 0 means until the client or the runtime ends it."
+                                        }
+                                    },
+                                    "additionalProperties": false,
+                                    "default": {
+                                        "bus": "none",
+                                        "cache_pool": "cache.mcp.notifications",
+                                        "lifetime": 30
+                                    },
+                                    "description": "Delivery for \"subscriptions/listen\" streams, which replace the HTTP GET stream in 2026-07-28."
+                                },
+                                "session": {
+                                    "$ref": "#/$defs/types/object_null",
+                                    "properties": {
+                                        "store": {
+                                            "anyOf": [
+                                                {
+                                                    "enum": [
+                                                        "file",
+                                                        "memory",
+                                                        "cache",
+                                                        "framework"
+                                                    ]
+                                                },
+                                                {
+                                                    "$ref": "#/$defs/types/param"
+                                                }
+                                            ],
+                                            "default": "file"
+                                        },
+                                        "directory": {
+                                            "$ref": "#/$defs/types/string_null",
+                                            "default": null,
+                                            "description": "Directory for the \"file\" store. Defaults to \"%kernel.cache_dir%/mcp-sessions/<name>\"."
+                                        },
+                                        "cache_pool": {
+                                            "$ref": "#/$defs/types/string_null",
+                                            "default": "cache.mcp.sessions",
+                                            "description": "PSR-16 cache service for the \"cache\" store."
+                                        },
+                                        "prefix": {
+                                            "$ref": "#/$defs/types/string_null",
+                                            "default": null,
+                                            "description": "Key prefix for the \"cache\" and \"framework\" stores and a \"session.lock.factory\" lock. Defaults to \"mcp-<name>-\"."
+                                        },
+                                        "ttl": {
+                                            "$ref": "#/$defs/types/integer",
+                                            "minimum": 1,
+                                            "default": 3600
+                                        },
+                                        "lock": {
+                                            "anyOf": [
+                                                {
+                                                    "$ref": "#/$defs/types/object_null",
+                                                    "properties": {
+                                                        "enabled": {
+                                                            "$ref": "#/$defs/types/boolean",
+                                                            "default": false
+                                                        },
+                                                        "factory": {
+                                                            "$ref": "#/$defs/types/string_null",
+                                                            "default": null,
+                                                            "description": "Service id of a Symfony\\Component\\Lock\\LockFactory, for a store shared across machines. Unset, the \"file\" store locks with flock() next to its session files."
+                                                        },
+                                                        "timeout": {
+                                                            "$ref": "#/$defs/types/number",
+                                                            "minimum": 0,
+                                                            "default": 30,
+                                                            "description": "Seconds to wait for a lock held by another request of the same session."
+                                                        },
+                                                        "ttl": {
+                                                            "$ref": "#/$defs/types/number",
+                                                            "minimum": 1,
+                                                            "default": 300,
+                                                            "description": "Seconds a \"factory\" lock lives before its store expires it; must exceed the longest handler run. Ignored by the file lock."
+                                                        }
+                                                    },
+                                                    "additionalProperties": false
+                                                },
+                                                {
+                                                    "type": [
+                                                        "boolean"
+                                                    ]
+                                                }
+                                            ],
+                                            "default": {
+                                                "enabled": false,
+                                                "factory": null,
+                                                "timeout": 30,
+                                                "ttl": 300
+                                            },
+                                            "description": "Serializes the concurrent requests of one session, so none of them overwrites what another saved."
+                                        }
+                                    },
+                                    "additionalProperties": false,
+                                    "default": {
+                                        "store": "file",
+                                        "directory": null,
+                                        "cache_pool": "cache.mcp.sessions",
+                                        "prefix": null,
+                                        "ttl": 3600,
+                                        "lock": {
+                                            "enabled": false,
+                                            "factory": null,
+                                            "timeout": 30,
+                                            "ttl": 300
+                                        }
+                                    },
+                                    "description": "Session storage. Every server needs its own store: session ids are not namespaced by server, so a shared store makes a session minted on one server valid on the others."
+                                },
+                                "registry": {
+                                    "$ref": "#/$defs/types/variable",
+                                    "default": {
+                                        "tools": [],
+                                        "prompts": [],
+                                        "resources": [],
+                                        "resource_templates": [],
+                                        "apps": []
+                                    },
+                                    "description": "The elements this server exposes, either as one list covering every kind or as a map narrowing each kind."
+                                }
+                            },
+                            "required": [
+                                "registry"
+                            ],
+                            "additionalProperties": false
+                        },
+                        "description": "The MCP servers this application exposes, each with its own identity, transports, session store and capabilities."
+                    },
+                    "clients": {
+                        "$ref": "#/$defs/types/array_null",
+                        "items": {
+                            "$ref": "#/$defs/types/object_null",
+                            "properties": {
+                                "client_info": {
+                                    "$ref": "#/$defs/types/object_null",
+                                    "properties": {
+                                        "name": {
+                                            "$ref": "#/$defs/types/string_null",
+                                            "default": null,
+                                            "description": "Defaults to the configuration key."
+                                        },
+                                        "version": {
+                                            "$ref": "#/$defs/types/string_null",
+                                            "default": "0.0.1"
+                                        },
+                                        "description": {
+                                            "$ref": "#/$defs/types/string_null",
+                                            "default": null
+                                        }
+                                    },
+                                    "additionalProperties": false,
+                                    "default": {
+                                        "name": null,
+                                        "version": "0.0.1",
+                                        "description": null
+                                    },
+                                    "description": "Identity advertised to every remote server of this client during the initialize handshake."
+                                },
+                                "protocol_version": {
+                                    "anyOf": [
+                                        {
+                                            "enum": [
+                                                "2024-11-05",
+                                                "2025-03-26",
+                                                "2025-06-18",
+                                                "2025-11-25",
+                                                "2026-07-28"
+                                            ]
+                                        },
+                                        {
+                                            "$ref": "#/$defs/types/param"
+                                        }
+                                    ],
+                                    "default": null,
+                                    "description": "MCP protocol version to negotiate. Leave unset to keep the SDK default."
+                                },
+                                "capabilities": {
+                                    "$ref": "#/$defs/types/object_null",
+                                    "properties": {
+                                        "roots_list_changed": {
+                                            "$ref": "#/$defs/types/boolean",
+                                            "default": false
+                                        }
+                                    },
+                                    "additionalProperties": false,
+                                    "default": {
+                                        "roots_list_changed": false
+                                    },
+                                    "description": "Client capabilities advertised during the handshake. \"roots\", \"sampling\" and \"elicitation\" are derived from the handlers configured below."
+                                },
+                                "roots": {
+                                    "$ref": "#/$defs/types/string_null",
+                                    "default": null,
+                                    "description": "Service id implementing Mcp\\Client\\Handler\\Request\\RootsCallbackInterface. Answers the server's \"roots/list\" requests."
+                                },
+                                "sampling": {
+                                    "$ref": "#/$defs/types/string_null",
+                                    "default": null,
+                                    "description": "Service id implementing Mcp\\Client\\Handler\\Request\\SamplingCallbackInterface. Enables the \"sampling\" capability."
+                                },
+                                "elicitation": {
+                                    "$ref": "#/$defs/types/string_null",
+                                    "default": null,
+                                    "description": "Service id implementing Mcp\\Client\\Handler\\Request\\ElicitationCallbackInterface. Enables the \"elicitation\" capability."
+                                },
+                                "forward_server_logs": {
+                                    "$ref": "#/$defs/types/boolean",
+                                    "default": true,
+                                    "description": "Forward logging notifications received from the remote servers to the \"mcp\" logger channel."
+                                },
+                                "init_timeout": {
+                                    "$ref": "#/$defs/types/integer",
+                                    "minimum": 1,
+                                    "default": 30
+                                },
+                                "request_timeout": {
+                                    "$ref": "#/$defs/types/integer",
+                                    "minimum": 1,
+                                    "default": 120
+                                },
+                                "max_retries": {
+                                    "$ref": "#/$defs/types/integer",
+                                    "minimum": 0,
+                                    "default": 3
+                                },
+                                "servers": {
+                                    "$ref": "#/$defs/types/array_null",
+                                    "items": {
+                                        "$ref": "#/$defs/types/object_null",
+                                        "properties": {
+                                            "transport": {
+                                                "anyOf": [
+                                                    {
+                                                        "enum": [
+                                                            "stdio",
+                                                            "http"
+                                                        ]
+                                                    },
+                                                    {
+                                                        "$ref": "#/$defs/types/param"
+                                                    }
+                                                ],
+                                                "description": "How the server is reached: as a child process (stdio) or over a remote HTTP endpoint (http)."
+                                            },
+                                            "command": {
+                                                "$ref": "#/$defs/types/array_null",
+                                                "items": {
+                                                    "$ref": "#/$defs/types/scalar"
+                                                },
+                                                "description": "Program and arguments for the stdio transport, e.g. [\"npx\", \"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]. The first element is the program, not a shell string."
+                                            },
+                                            "cwd": {
+                                                "$ref": "#/$defs/types/string_null",
+                                                "default": null,
+                                                "description": "Working directory of the stdio child process."
+                                            },
+                                            "env": {
+                                                "$ref": "#/$defs/types/array_null",
+                                                "items": {
+                                                    "$ref": "#/$defs/types/scalar"
+                                                },
+                                                "description": "Environment variables for the stdio child process."
+                                            },
+                                            "inherit_env": {
+                                                "$ref": "#/$defs/types/boolean",
+                                                "default": true,
+                                                "description": "Merge \"env\" on top of the current process environment instead of replacing it."
+                                            },
+                                            "max_buffer_size": {
+                                                "$ref": "#/$defs/types/integer_null",
+                                                "minimum": 1,
+                                                "default": null,
+                                                "description": "Maximum bytes buffered while waiting for a newline. Defaults to the SDK value."
+                                            },
+                                            "url": {
+                                                "$ref": "#/$defs/types/string_null",
+                                                "default": null,
+                                                "description": "Endpoint URL of the remote MCP server."
+                                            },
+                                            "headers": {
+                                                "$ref": "#/$defs/types/array_null",
+                                                "items": {
+                                                    "$ref": "#/$defs/types/scalar"
+                                                },
+                                                "description": "Additional request headers, e.g. Authorization."
+                                            },
+                                            "http_client": {
+                                                "$ref": "#/$defs/types/string_null",
+                                                "default": null,
+                                                "description": "Service id of a PSR-18 HTTP client. Defaults to \"psr18.http_client\" when available."
+                                            },
+                                            "max_sse_buffer_bytes": {
+                                                "$ref": "#/$defs/types/integer_null",
+                                                "minimum": 1,
+                                                "default": null,
+                                                "description": "Maximum bytes buffered per SSE event. Defaults to the SDK value."
+                                            },
+                                            "init_timeout": {
+                                                "$ref": "#/$defs/types/integer_null",
+                                                "minimum": 1,
+                                                "default": null,
+                                                "description": "Overrides the client-level value."
+                                            },
+                                            "request_timeout": {
+                                                "$ref": "#/$defs/types/integer_null",
+                                                "minimum": 1,
+                                                "default": null,
+                                                "description": "Overrides the client-level value."
+                                            },
+                                            "max_retries": {
+                                                "$ref": "#/$defs/types/integer_null",
+                                                "minimum": 0,
+                                                "default": null,
+                                                "description": "Overrides the client-level value."
+                                            }
+                                        },
+                                        "required": [
+                                            "transport"
+                                        ],
+                                        "additionalProperties": false
+                                    },
+                                    "minItems": 1,
+                                    "description": "The remote MCP servers this client connects to."
+                                }
+                            },
+                            "required": [
+                                "servers"
+                            ],
+                            "additionalProperties": false
+                        },
+                        "description": "The MCP clients this application uses to reach remote MCP servers. Each client owns a named set of server connections."
+                    }
+                },
+                "additionalProperties": false
+            },
             "messenger": {
                 "anyOf": [
                     {
@@ -6166,6 +6753,305 @@
                     "with_constructor_extractor": true
                 },
                 "description": "Property info configuration"
+            },
+            "rate_limiter": {
+                "anyOf": [
+                    {
+                        "$ref": "#/$defs/types/object_null",
+                        "properties": {
+                            "enabled": {
+                                "$ref": "#/$defs/types/boolean",
+                                "default": true
+                            },
+                            "builder": {
+                                "$ref": "#/$defs/types/object_null",
+                                "properties": {
+                                    "lock_factory": {
+                                        "$ref": "#/$defs/types/scalar",
+                                        "default": "auto",
+                                        "description": "The service ID of the lock factory to use with the RateLimiterBuilder."
+                                    },
+                                    "cache_pool": {
+                                        "$ref": "#/$defs/types/scalar",
+                                        "default": "cache.rate_limiter",
+                                        "description": "The cache pool to use with RateLimiterBuilder."
+                                    },
+                                    "storage_service": {
+                                        "$ref": "#/$defs/types/scalar",
+                                        "default": null,
+                                        "description": "The service ID of a custom storage implementation, this precedes any configured \"cache_pool\"."
+                                    }
+                                },
+                                "additionalProperties": false,
+                                "default": {
+                                    "lock_factory": "auto",
+                                    "cache_pool": "cache.rate_limiter",
+                                    "storage_service": null
+                                },
+                                "description": "Configuration for the RateLimiterBuilder service."
+                            },
+                            "limiters": {
+                                "$ref": "#/$defs/types/object_null",
+                                "additionalProperties": {
+                                    "$ref": "#/$defs/types/object_null",
+                                    "properties": {
+                                        "lock_factory": {
+                                            "$ref": "#/$defs/types/scalar",
+                                            "default": "auto",
+                                            "description": "The service ID of the lock factory used by this limiter (or null to disable locking)."
+                                        },
+                                        "cache_pool": {
+                                            "$ref": "#/$defs/types/scalar",
+                                            "default": "cache.rate_limiter",
+                                            "description": "The cache pool to use for storing the current limiter state."
+                                        },
+                                        "storage_service": {
+                                            "$ref": "#/$defs/types/scalar",
+                                            "default": null,
+                                            "description": "The service ID of a custom storage implementation, this precedes any configured \"cache_pool\"."
+                                        },
+                                        "policy": {
+                                            "anyOf": [
+                                                {
+                                                    "enum": [
+                                                        "fixed_window",
+                                                        "token_bucket",
+                                                        "sliding_window",
+                                                        "compound",
+                                                        "no_limit"
+                                                    ]
+                                                },
+                                                {
+                                                    "$ref": "#/$defs/types/param"
+                                                }
+                                            ],
+                                            "description": "The algorithm to be used by this limiter."
+                                        },
+                                        "limiters": {
+                                            "anyOf": [
+                                                {
+                                                    "$ref": "#/$defs/types/object_null",
+                                                    "additionalProperties": {
+                                                        "$ref": "#/$defs/types/object_null",
+                                                        "properties": {
+                                                            "key": {
+                                                                "$ref": "#/$defs/types/scalar",
+                                                                "default": null,
+                                                                "description": "The key to pass to this limiter, instead of the one passed to the compound limiter's create() method."
+                                                            }
+                                                        },
+                                                        "additionalProperties": false
+                                                    }
+                                                },
+                                                {
+                                                    "type": [
+                                                        "string"
+                                                    ]
+                                                }
+                                            ],
+                                            "description": "The limiters to use when using the \"compound\" policy."
+                                        },
+                                        "limit": {
+                                            "$ref": "#/$defs/types/integer",
+                                            "description": "The maximum allowed hits in a fixed interval or burst."
+                                        },
+                                        "interval": {
+                                            "$ref": "#/$defs/types/scalar",
+                                            "description": "Configures the fixed interval if \"policy\" is set to \"fixed_window\" or \"sliding_window\". The value must be a number followed by \"second\", \"minute\", \"hour\", \"day\", \"week\" or \"month\" (or their plural equivalent)."
+                                        },
+                                        "rate": {
+                                            "$ref": "#/$defs/types/object_null",
+                                            "properties": {
+                                                "interval": {
+                                                    "$ref": "#/$defs/types/scalar",
+                                                    "description": "Configures the rate interval. The value must be a number followed by \"second\", \"minute\", \"hour\", \"day\", \"week\" or \"month\" (or their plural equivalent)."
+                                                },
+                                                "amount": {
+                                                    "$ref": "#/$defs/types/integer",
+                                                    "default": 1,
+                                                    "description": "Amount of tokens to add each interval."
+                                                }
+                                            },
+                                            "additionalProperties": false,
+                                            "description": "Configures the fill rate if \"policy\" is set to \"token_bucket\"."
+                                        },
+                                        "anchor_at": {
+                                            "$ref": "#/$defs/types/scalar",
+                                            "default": null,
+                                            "description": "Aligns the \"fixed_window\" policy to a calendar (e.g. \"2024-01-05 00:00:00 UTC\" combined with `interval: 1 month` resets the counter on the 5th of each month). UTC if not specified."
+                                        }
+                                    },
+                                    "patternProperties": {
+                                        "^limiter$": {
+                                            "$ref": "#/$defs/types/variable"
+                                        }
+                                    },
+                                    "additionalProperties": false
+                                }
+                            }
+                        },
+                        "patternProperties": {
+                            "^limiter$": {
+                                "$ref": "#/$defs/types/variable"
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    {
+                        "$ref": "#/$defs/types/object_null",
+                        "additionalProperties": {
+                            "$ref": "#/$defs/types/object_null",
+                            "properties": {
+                                "lock_factory": {
+                                    "$ref": "#/$defs/types/scalar",
+                                    "default": "auto",
+                                    "description": "The service ID of the lock factory used by this limiter (or null to disable locking)."
+                                },
+                                "cache_pool": {
+                                    "$ref": "#/$defs/types/scalar",
+                                    "default": "cache.rate_limiter",
+                                    "description": "The cache pool to use for storing the current limiter state."
+                                },
+                                "storage_service": {
+                                    "$ref": "#/$defs/types/scalar",
+                                    "default": null,
+                                    "description": "The service ID of a custom storage implementation, this precedes any configured \"cache_pool\"."
+                                },
+                                "policy": {
+                                    "anyOf": [
+                                        {
+                                            "enum": [
+                                                "fixed_window",
+                                                "token_bucket",
+                                                "sliding_window",
+                                                "compound",
+                                                "no_limit"
+                                            ]
+                                        },
+                                        {
+                                            "$ref": "#/$defs/types/param"
+                                        }
+                                    ],
+                                    "description": "The algorithm to be used by this limiter."
+                                },
+                                "limiters": {
+                                    "anyOf": [
+                                        {
+                                            "$ref": "#/$defs/types/object_null",
+                                            "additionalProperties": {
+                                                "$ref": "#/$defs/types/object_null",
+                                                "properties": {
+                                                    "key": {
+                                                        "$ref": "#/$defs/types/scalar",
+                                                        "default": null,
+                                                        "description": "The key to pass to this limiter, instead of the one passed to the compound limiter's create() method."
+                                                    }
+                                                },
+                                                "additionalProperties": false
+                                            }
+                                        },
+                                        {
+                                            "type": [
+                                                "string"
+                                            ]
+                                        }
+                                    ],
+                                    "description": "The limiters to use when using the \"compound\" policy."
+                                },
+                                "limit": {
+                                    "$ref": "#/$defs/types/integer",
+                                    "description": "The maximum allowed hits in a fixed interval or burst."
+                                },
+                                "interval": {
+                                    "$ref": "#/$defs/types/scalar",
+                                    "description": "Configures the fixed interval if \"policy\" is set to \"fixed_window\" or \"sliding_window\". The value must be a number followed by \"second\", \"minute\", \"hour\", \"day\", \"week\" or \"month\" (or their plural equivalent)."
+                                },
+                                "rate": {
+                                    "$ref": "#/$defs/types/object_null",
+                                    "properties": {
+                                        "interval": {
+                                            "$ref": "#/$defs/types/scalar",
+                                            "description": "Configures the rate interval. The value must be a number followed by \"second\", \"minute\", \"hour\", \"day\", \"week\" or \"month\" (or their plural equivalent)."
+                                        },
+                                        "amount": {
+                                            "$ref": "#/$defs/types/integer",
+                                            "default": 1,
+                                            "description": "Amount of tokens to add each interval."
+                                        }
+                                    },
+                                    "additionalProperties": false,
+                                    "description": "Configures the fill rate if \"policy\" is set to \"token_bucket\"."
+                                },
+                                "anchor_at": {
+                                    "$ref": "#/$defs/types/scalar",
+                                    "default": null,
+                                    "description": "Aligns the \"fixed_window\" policy to a calendar (e.g. \"2024-01-05 00:00:00 UTC\" combined with `interval: 1 month` resets the counter on the 5th of each month). UTC if not specified."
+                                }
+                            },
+                            "patternProperties": {
+                                "^limiter$": {
+                                    "$ref": "#/$defs/types/variable"
+                                }
+                            },
+                            "additionalProperties": false
+                        },
+                        "properties": {
+                            "enabled": {
+                                "$ref": "#/$defs/types/boolean",
+                                "default": true
+                            },
+                            "builder": {
+                                "$ref": "#/$defs/types/object_null",
+                                "properties": {
+                                    "lock_factory": {
+                                        "$ref": "#/$defs/types/scalar",
+                                        "default": "auto",
+                                        "description": "The service ID of the lock factory to use with the RateLimiterBuilder."
+                                    },
+                                    "cache_pool": {
+                                        "$ref": "#/$defs/types/scalar",
+                                        "default": "cache.rate_limiter",
+                                        "description": "The cache pool to use with RateLimiterBuilder."
+                                    },
+                                    "storage_service": {
+                                        "$ref": "#/$defs/types/scalar",
+                                        "default": null,
+                                        "description": "The service ID of a custom storage implementation, this precedes any configured \"cache_pool\"."
+                                    }
+                                },
+                                "additionalProperties": false,
+                                "default": {
+                                    "lock_factory": "auto",
+                                    "cache_pool": "cache.rate_limiter",
+                                    "storage_service": null
+                                },
+                                "description": "Configuration for the RateLimiterBuilder service."
+                            }
+                        },
+                        "propertyNames": {
+                            "not": {
+                                "enum": [
+                                    "limiters",
+                                    "limiter"
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        "type": [
+                            "boolean"
+                        ]
+                    }
+                ],
+                "default": {
+                    "enabled": true,
+                    "builder": {
+                        "lock_factory": "auto",
+                        "cache_pool": "cache.rate_limiter",
+                        "storage_service": null
+                    },
+                    "limiters": []
+                }
             },
             "router": {
                 "anyOf": [
@@ -12973,6 +13859,9 @@
         "mailer": {
             "$ref": "#/$defs/nodes/mailer"
         },
+        "mcp": {
+            "$ref": "#/$defs/nodes/mcp"
+        },
         "messenger": {
             "$ref": "#/$defs/nodes/messenger"
         },
@@ -12990,6 +13879,9 @@
         },
         "property_info": {
             "$ref": "#/$defs/nodes/property_info"
+        },
+        "rate_limiter": {
+            "$ref": "#/$defs/nodes/rate_limiter"
         },
         "router": {
             "$ref": "#/$defs/nodes/router"
@@ -13064,6 +13956,9 @@
                 "maker": {
                     "$ref": "#/$defs/nodes/maker"
                 },
+                "mcp": {
+                    "$ref": "#/$defs/nodes/mcp"
+                },
                 "messenger": {
                     "$ref": "#/$defs/nodes/messenger"
                 },
@@ -13082,6 +13977,9 @@
                 },
                 "property_info": {
                     "$ref": "#/$defs/nodes/property_info"
+                },
+                "rate_limiter": {
+                    "$ref": "#/$defs/nodes/rate_limiter"
                 },
                 "router": {
                     "$ref": "#/$defs/nodes/router"
@@ -13157,6 +14055,9 @@
                 "mailer": {
                     "$ref": "#/$defs/nodes/mailer"
                 },
+                "mcp": {
+                    "$ref": "#/$defs/nodes/mcp"
+                },
                 "messenger": {
                     "$ref": "#/$defs/nodes/messenger"
                 },
@@ -13175,6 +14076,9 @@
                 },
                 "property_info": {
                     "$ref": "#/$defs/nodes/property_info"
+                },
+                "rate_limiter": {
+                    "$ref": "#/$defs/nodes/rate_limiter"
                 },
                 "router": {
                     "$ref": "#/$defs/nodes/router"
@@ -13251,6 +14155,9 @@
                 "mailer": {
                     "$ref": "#/$defs/nodes/mailer"
                 },
+                "mcp": {
+                    "$ref": "#/$defs/nodes/mcp"
+                },
                 "messenger": {
                     "$ref": "#/$defs/nodes/messenger"
                 },
@@ -13268,6 +14175,9 @@
                 },
                 "property_info": {
                     "$ref": "#/$defs/nodes/property_info"
+                },
+                "rate_limiter": {
+                    "$ref": "#/$defs/nodes/rate_limiter"
                 },
                 "router": {
                     "$ref": "#/$defs/nodes/router"

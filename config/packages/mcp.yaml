@@ -1,0 +1,19 @@
+mcp:
+    servers:
+        default:
+            # Keep MCP discovery fixed at the three wrapper tools. API routes and
+            # plugin functions are catalog entries, not top-level MCP tools.
+            registry:
+                tools: ['iikiti\CMS\Mcp\']
+                prompts: []
+                resources: []
+                resource_templates: []
+                apps: []
+
+            http:
+                path: /api/mcp
+                allowed_hosts: '%mcp_allowed_hosts%'
+
+            # Enable explicitly only after MCP authentication and host policy are configured.
+            transports:
+                http: '%mcp_http_enabled%'

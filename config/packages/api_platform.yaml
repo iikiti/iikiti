@@ -1,4 +1,9 @@
 api_platform:
+    # API operations are discovered by iikiti.api_list and dispatched through
+    # the three wrapper tools; never export each resource operation as an MCP tool.
+    mcp:
+        enabled: false
+
     title: Hello API Platform
     version: 1.0.0
     defaults:

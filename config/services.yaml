@@ -44,6 +44,18 @@ parameters:
     guest_api_token_allow_legacy: '%env(bool:default:guest_api_token_allow_legacy_default:GUEST_API_TOKEN_ALLOW_LEGACY)%'
     widget_fragment_hmac_key_default: ''
     widget_fragment_hmac_key: '%env(base64:default:widget_fragment_hmac_key_default:WIDGET_FRAGMENT_HMAC_KEY)%'
+    mcp_http_enabled_default: false
+    mcp_allowed_hosts_default: 'localhost,127.0.0.1,iikiti.localhost'
+    mcp_api_max_request_bytes_default: 1048576
+    mcp_api_max_response_bytes_default: 131072
+    mcp_api_max_page_size_default: 200
+    mcp_api_rate_limit_default: 120
+    mcp_http_enabled: '%env(bool:default:mcp_http_enabled_default:MCP_ENABLED)%'
+    mcp_allowed_hosts: '%env(csv:default:mcp_allowed_hosts_default:MCP_ALLOWED_HOSTS)%'
+    mcp_api_max_request_bytes: '%env(int:default:mcp_api_max_request_bytes_default:MCP_API_MAX_REQUEST_BYTES)%'
+    mcp_api_max_response_bytes: '%env(int:default:mcp_api_max_response_bytes_default:MCP_API_MAX_RESPONSE_BYTES)%'
+    mcp_api_max_page_size: '%env(int:default:mcp_api_max_page_size_default:MCP_API_MAX_PAGE_SIZE)%'
+    mcp_api_rate_limit: '%env(int:default:mcp_api_rate_limit_default:MCP_API_RATE_LIMIT)%'
 
 services:
     # default configuration for services in *this* file
