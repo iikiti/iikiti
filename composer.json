@@ -95,6 +95,7 @@
         "sort-packages": true,
         "allow-plugins": {
             "composer/package-versions-deprecated": true,
+            "php-http/discovery": true,
             "phpstan/extension-installer": true,
             "symfony/flex": true,
             "symfony/runtime": true
