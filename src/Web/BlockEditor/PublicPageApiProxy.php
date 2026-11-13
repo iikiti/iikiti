@@ -55,7 +55,7 @@ final readonly class PublicPageApiProxy
 			'X-SITE-LOCALE' => $request->getLocale(),
 		];
 		$params = $request->query->get('params', '{}');
-		if (!is_string($params) || strlen($params) > 16_384) {
+		if (strlen($params) > 16_384) {
 			return new JsonResponse(['message' => 'Fragment parameters are invalid or too large.'], Response::HTTP_BAD_REQUEST);
 		}
 
@@ -322,7 +322,7 @@ final readonly class PublicPageApiProxy
 				|| 1 === preg_match('/[\x00-\x1F\x7F]/', $fragment['id'])
 				|| !is_string($fragment['role'] ?? null)
 				|| '' === $fragment['role']
-				|| ('provider' === ($fragment['kind'] ?? null) && 'provider' !== $fragment['role'])
+				|| ('provider' === $fragment['kind'] && 'provider' !== $fragment['role'])
 				|| !is_string($fragment['slot'] ?? null)
 				|| 1 !== preg_match('/^[a-f0-9]{32}$/D', $fragment['slot'])) {
 				return null;

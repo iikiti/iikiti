@@ -10,7 +10,7 @@ use iikiti\CMS\Entity\Object\Site;
 final readonly class FragmentContext
 {
 	/**
-	 * @param array<string,mixed> $params
+	 * @param array<array-key,mixed> $params
 	 */
 	public function __construct(
 		public ?Site $site,

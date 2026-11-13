@@ -44,6 +44,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Fixed
 
+- 2026-11-13: Corrected PHPStan types and redundant checks in fragment rendering, queue dispatching, and Doctrine mapping tests.
 - 2026-11-13: Removed deprecated Doctrine entity namespace aliases and Symfony event-dispatcher service interface references.
 - 2026-11-13: Replaced deprecated Doctrine DBAL identifier quoting and ORM association/order mapping declarations.
 - 2026-11-11: Set `DB_SCHEMA` explicitly for PHPUnit so integration services use the configured application schema.

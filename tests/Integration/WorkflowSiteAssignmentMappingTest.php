@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace iikiti\CMS\Tests\Integration;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Mapping\ToOneOwningSideMapping;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Workflow\WorkflowDefinition;
 use iikiti\CMS\Entity\Workflow\WorkflowDefinitionSiteAssignment;
@@ -37,6 +38,7 @@ final class WorkflowSiteAssignmentMappingTest extends KernelTestCase
 
 		foreach (['definition', 'site'] as $fieldName) {
 			$mapping = $metadata->getAssociationMapping($fieldName);
+			self::assertInstanceOf(ToOneOwningSideMapping::class, $mapping);
 
 			self::assertTrue($mapping->id);
 			self::assertFalse($mapping->joinColumns[0]->nullable);

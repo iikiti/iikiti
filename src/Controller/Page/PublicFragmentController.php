@@ -51,7 +51,7 @@ final readonly class PublicFragmentController
 	private function params(Request $request): array
 	{
 		$encoded = $request->query->get('params', '{}');
-		if (!is_string($encoded) || strlen($encoded) > 16_384) {
+		if (strlen($encoded) > 16_384) {
 			throw new BadRequestHttpException('Fragment parameters are invalid or too large.');
 		}
 		try {

@@ -7,11 +7,11 @@ namespace iikiti\CMS\Web\Fragment;
 /** Collects Twig-declared fragments and validates their per-page dependency DAG. */
 final class FragmentPlanCollector
 {
-	/** @var array<string,array{key:string,provider:string,params:array<string,mixed>,delivery:string,dependsOn:list<string>,slot:?string}> */
+	/** @var array<string,array{key:string,provider:string,params:array<array-key,mixed>,delivery:string,dependsOn:list<string>,slot:?string}> */
 	private array $placements = [];
 
 	/**
-	 * @param array<string,mixed> $params
+	 * @param array<array-key,mixed> $params
 	 * @param array<string,mixed> $options
 	 */
 	public function declare(string $provider, array $params, array $options): string
@@ -64,7 +64,7 @@ final class FragmentPlanCollector
 		return sprintf('<template data-iikiti-provider-slot="%s"></template>', $slot);
 	}
 
-	/** @return list<array{kind:string,id:string,role:string,slot:string,depth:int,key:string,dependsOn:list<string>,params:array<string,mixed>}> */
+	/** @return list<array{kind:string,id:string,role:string,slot:string,depth:int,key:string,dependsOn:list<string>,params:array<array-key,mixed>}> */
 	public function serverDescriptors(): array
 	{
 		$this->validate();
@@ -88,20 +88,19 @@ final class FragmentPlanCollector
 		return $descriptors;
 	}
 
-	/** @param array<string,mixed> $params
+	/** @param array<array-key,mixed> $params
 	 * @param list<string> $dependsOn
 	 */
 	public static function browserPlaceholder(string $provider, array $params, string $key, array $dependsOn): string
 	{
 		if (1 !== preg_match('/^[a-z0-9][a-z0-9-]{0,62}\.[a-z][a-z0-9_.-]{0,63}$/D', $provider) ||
 			1 !== preg_match('/^[A-Za-z0-9_-]{1,64}$/D', $key) ||
-			!array_is_list($dependsOn) ||
 			([] !== $params && array_is_list($params)) ||
 			16_384 < strlen(json_encode($params, JSON_THROW_ON_ERROR, 16))) {
 			throw new \InvalidArgumentException('Browser fragment descriptor values are invalid.');
 		}
 		foreach ($dependsOn as $dependency) {
-			if (!is_string($dependency) || 1 !== preg_match('/^[A-Za-z0-9_-]{1,64}$/D', $dependency) || $dependency === $key) {
+			if (1 !== preg_match('/^[A-Za-z0-9_-]{1,64}$/D', $dependency) || $dependency === $key) {
 				throw new \InvalidArgumentException('Browser fragment dependency keys are invalid.');
 			}
 		}
@@ -109,7 +108,7 @@ final class FragmentPlanCollector
 			'provider' => $provider,
 			'params' => $params,
 			'id' => $key,
-			'dependsOn' => array_values($dependsOn),
+			'dependsOn' => $dependsOn,
 		], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR);
 
 		return sprintf(

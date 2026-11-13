@@ -16,6 +16,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Transport\Receiver\ReceiverInterface;
 use Symfony\Component\Messenger\Worker;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
+use Symfony\Contracts\EventDispatcher\ListenerIntrospectionInterface;
 use Symfony\Contracts\Service\ServiceProviderInterface;
 
 /**
@@ -35,7 +36,7 @@ final class BackgroundQueueRunner
 		private readonly MessageBusInterface $messageBus,
 		#[Autowire(service: 'messenger.receiver_locator')]
 		private readonly ServiceProviderInterface $receiverLocator,
-		private readonly EventDispatcherInterface $eventDispatcher,
+		private readonly EventDispatcherInterface&ListenerIntrospectionInterface $eventDispatcher,
 		private readonly ?LoggerInterface $logger = null,
 		#[Autowire('%background_runner_cooldown_seconds%')]
 		private readonly int $cooldownSeconds = 5,

@@ -21,18 +21,12 @@ final readonly class FragmentResult
 		if (strlen($html) > self::MAX_HTML_BYTES) {
 			throw new \InvalidArgumentException('Fragment HTML exceeds the response size limit.');
 		}
-		if (!array_is_list($styles) || count($styles) > self::MAX_STYLES) {
+		if (count($styles) > self::MAX_STYLES) {
 			throw new \InvalidArgumentException('Fragment styles exceed the response count limit.');
 		}
 
 		$totalCssBytes = 0;
 		foreach ($styles as $style) {
-			if (!is_array($style) ||
-				!array_key_exists('id', $style) ||
-				(!is_string($style['id']) && null !== $style['id']) ||
-				!is_string($style['css'] ?? null)) {
-				throw new \InvalidArgumentException('Fragment styles must contain a nullable string id and CSS string.');
-			}
 			if (1 === preg_match('/<\/style/i', $style['css'])) {
 				throw new \InvalidArgumentException('Fragment CSS cannot close its style element.');
 			}

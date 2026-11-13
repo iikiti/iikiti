@@ -103,7 +103,7 @@ final readonly class PublicPageRenderController
 	{
 		$this->assertPublicRenderAccess($request);
 		$paramsJson = $request->query->get('params', '{}');
-		if (!is_string($paramsJson) || strlen($paramsJson) > 16_384) {
+		if (strlen($paramsJson) > 16_384) {
 			throw new BadRequestHttpException('Fragment parameters are invalid or too large.');
 		}
 		try {
@@ -211,7 +211,7 @@ final readonly class PublicPageRenderController
 			throw new NotFoundHttpException('The requested page fragment does not exist.');
 		}
 		$metadata = $fragment->metadata;
-		if (is_string($revision) && !hash_equals((string) ($metadata['revision'] ?? ''), $revision)) {
+		if (is_string($revision) && !hash_equals($metadata['revision'], $revision)) {
 			return new JsonResponse(
 				['message' => 'The page changed while its fragments were being rendered.'],
 				Response::HTTP_CONFLICT,
