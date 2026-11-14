@@ -3,53 +3,91 @@
  * script blocking until the user sets preferences.
  *
  * Exposes `window.iikiti.consent`:
- *   getState(), isAllowed(category), allow(category), onChange(fn),
- *   showBanner(), hideBanner(), loadBanner()
+ *   getState(), isAllowed(category), allow(category), deny(category),
+ *   onChange(fn), showBanner(), hideBanner(), loadBanner(), initialize(),
+ *   getConfig(), getConfigVersion(), sessionId()
  *
  * Scripts marked `data-consent-category="analytics|marketing"` are blocked
  * (src neutralised) until consent is granted, then released.
+ *
+ * The core factory `createConsentManager(config, deps)` is exported for unit
+ * testing. `deps` accepts `{ fetch, localStorage, dispatchEvent, document }`.
  */
+
 (function () {
+	if (
+		typeof window === 'undefined' ||
+		typeof document === 'undefined' ||
+		typeof document.getElementById !== 'function'
+	) {
+		return;
+	}
 	if (window.iikiti?.consent) {
 		return;
 	}
 
-	const CONFIG_KEY = 'iikiti-consent-config';
+	const consent = createConsentManager({}, {
+		fetch: (...args) => window.fetch(...args),
+		localStorage: {
+			getItem: (key) => window.localStorage.getItem(key),
+			setItem: (key, value) => window.localStorage.setItem(key, value),
+		},
+		dispatchEvent: (evt) => window.dispatchEvent(evt),
+		document,
+		readConfig: () => {
+			try {
+				const el = document.getElementById('iikiti-consent-config');
+				return el ? JSON.parse(el.textContent || '{}') : {};
+			} catch {
+				return {};
+			}
+		},
+	});
+
+	window.iikiti = window.iikiti || {};
+	window.iikiti.consent = consent;
+
+	// Defer DOM initialization until the DOM is ready so config and scripts
+	// are present.
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', () => consent.initialize());
+	} else {
+		consent.initialize();
+	}
+})();
+
+/**
+ * Create a consent manager instance.
+ *
+ * @param {object} config - Banner config (version, default_categories, bannerUrl)
+ * @param {object} deps - Injected dependencies for testability
+ * @param {function} deps.fetch - Fetch function (defaults to global fetch)
+ * @param {object} deps.localStorage - Storage (defaults to global localStorage)
+ * @param {function} deps.dispatchEvent - Dispatch function (defaults to global)
+ * @param {object} deps.document - Document (defaults to global document)
+ * @returns {{ getState: function, isAllowed: function, allow: function,
+ *   deny: function, onChange: function, showBanner: function,
+ *   hideBanner: function, loadBanner: function, initialize: function,
+ *   getConfig: function, getConfigVersion: function, sessionId: function }}
+ */
+export function createConsentManager(config, deps = {}) {
+	const {
+		fetch: fetchFn = globalThis.fetch.bind(globalThis),
+		localStorage: ls = globalThis.localStorage,
+		dispatchEvent: dispatch = globalThis.dispatchEvent.bind(globalThis),
+		document: doc = globalThis.document,
+		readConfig,
+	} = deps;
+
 	const STORAGE_KEY = 'iikiti:consent';
+	const SESSION_KEY = 'iikiti:consent:session';
 	const CATEGORIES = ['necessary', 'analytics', 'marketing'];
 
-	/**
-	 * @typedef {object} ConsentState
-	 * @property {boolean} hasConsented
-	 * @property {{ necessary: boolean, analytics: boolean, marketing: boolean }} categories
-	 * @property {number} version
-	 * @property {number} configVersion
-	 * @property {boolean} stale
-	 * @property {string} legalFramework
-	 * @property {string|null} geoCountry
-	 * @property {object|null} signals
-	 * @property {string|null} proofToken
-	 * @property {string|null} consentedAt
-	 */
-
-	let config = {};
 	let state = null;
 	let sessionId = null;
 	let listeners = [];
 	let blocked = [];
 	let released = false;
-
-	function readConfig() {
-		const el = document.getElementById(CONFIG_KEY);
-		if (el) {
-			try {
-				config = JSON.parse(el.textContent || '{}');
-			} catch {
-				config = {};
-			}
-		}
-		return config;
-	}
 
 	function getConfig() {
 		return config;
@@ -75,10 +113,19 @@
 		if (sessionId) {
 			return sessionId;
 		}
-		let existing = localStorage.getItem('iikiti:consent:session');
+		let existing = null;
+		try {
+			existing = ls.getItem(SESSION_KEY);
+		} catch {
+			// ignore
+		}
 		if (!existing) {
 			existing = crypto.randomUUID?.() ?? (Math.random().toString(36) + Date.now().toString(36));
-			localStorage.setItem('iikiti:consent:session', existing);
+			try {
+				ls.setItem(SESSION_KEY, existing);
+			} catch {
+				// ignore
+			}
 		}
 		sessionId = existing;
 		return sessionId;
@@ -86,7 +133,7 @@
 
 	function readStored() {
 		try {
-			const raw = localStorage.getItem(STORAGE_KEY);
+			const raw = ls.getItem(STORAGE_KEY);
 			if (raw) {
 				return JSON.parse(raw);
 			}
@@ -98,7 +145,7 @@
 
 	function writeStored(value) {
 		try {
-			localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+			ls.setItem(STORAGE_KEY, JSON.stringify(value));
 		} catch {
 			// ignore
 		}
@@ -107,30 +154,34 @@
 	function detectSignals() {
 		const signals = {};
 		try {
-			if (navigator.userAgentData?.brands) {
-				// gpc via header only is read server-side; client fallback
-			}
-			if (typeof navigator.globalPrivacyControl === 'boolean' && navigator.globalPrivacyControl) {
+			if (
+				typeof globalThis.navigator?.globalPrivacyControl === 'boolean' &&
+				globalThis.navigator.globalPrivacyControl
+			) {
 				signals.gpc = true;
 			}
 		} catch {
 			// ignore
 		}
-		const dnt = navigator.doNotTrack;
-		if (dnt === '1' || dnt === 'yes') {
-			signals.dnt = true;
+		try {
+			const dnt = globalThis.navigator?.doNotTrack;
+			if (dnt === '1' || dnt === 'yes') {
+				signals.dnt = true;
+			}
+		} catch {
+			// ignore
 		}
 		return signals;
 	}
 
-	function autoSelect(state) {
+	function autoSelect(stateArg) {
 		const signals = detectSignals();
 		const hasSignal = Boolean(signals.gpc || signals.dnt);
-		if (hasSignal && state.categories.analytics) {
-			state.categories.analytics = false;
+		if (hasSignal && stateArg.categories.analytics) {
+			stateArg.categories.analytics = false;
 		}
-		if (hasSignal && state.categories.marketing) {
-			state.categories.marketing = false;
+		if (hasSignal && stateArg.categories.marketing) {
+			stateArg.categories.marketing = false;
 		}
 		return signals;
 	}
@@ -159,13 +210,16 @@
 			consent_state: state,
 		};
 		try {
-			window.dispatchEvent(
-				new CustomEvent('iikiti:consent-mode-update', { detail: eventDetail, cancelable: true })
+			dispatch(
+				new CustomEvent('iikiti:consent-mode-update', {
+					detail: eventDetail,
+					cancelable: true,
+				})
 			);
 		} catch {
 			// ignore
 		}
-		if (window.iikiti?.components) {
+		if (typeof window !== 'undefined' && window.iikiti?.components) {
 			window.iikiti.components.emit('consent-mode-update', eventDetail);
 		}
 	}
@@ -178,7 +232,11 @@
 		ensureSessionId();
 		const next = {
 			hasConsented: true,
-			categories: { necessary: true, analytics: Boolean(categories.analytics), marketing: Boolean(categories.marketing) },
+			categories: {
+				necessary: true,
+				analytics: Boolean(categories.analytics),
+				marketing: Boolean(categories.marketing),
+			},
 			version: getConfigVersion(),
 			configVersion: getConfigVersion(),
 			stale: false,
@@ -192,10 +250,14 @@
 		};
 
 		try {
-			const response = await fetch('/api/privacy/consent', {
+			const response = await fetchFn('/api/privacy/consent', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ categories: next.categories, session_id: sessionId, version: next.version }),
+				body: JSON.stringify({
+					categories: next.categories,
+					session_id: sessionId,
+					version: next.version,
+				}),
 			});
 			if (response.ok) {
 				const result = await response.json();
@@ -247,15 +309,20 @@
 			if (el.dataset.consentSrc) {
 				const src = el.dataset.consentSrc;
 				const type = el.dataset.consentType;
-				// Re-insert a fresh script so the browser executes it.
-				const replacement = document.createElement('script');
+				const replacement = doc.createElement('script');
 				replacement.src = src;
 				if (type) {
 					replacement.type = type;
 				}
-				// Copy non-src attributes.
 				for (const attr of el.attributes) {
-					if (attr.name !== 'src' && attr.name !== 'type' && attr.name !== 'data-consent-category' && attr.name !== 'data-iikiti-consent-blocked' && attr.name !== 'data-consent-src' && attr.name !== 'data-consent-type') {
+					if (
+						attr.name !== 'src' &&
+						attr.name !== 'type' &&
+						attr.name !== 'data-consent-category' &&
+						attr.name !== 'data-iikiti-consent-blocked' &&
+						attr.name !== 'data-consent-src' &&
+						attr.name !== 'data-consent-type'
+					) {
 						replacement.setAttribute(attr.name, attr.value);
 					}
 				}
@@ -269,17 +336,28 @@
 
 	/** Intercept dynamically created scripts. */
 	function installCreateElementInterceptor() {
-		const nativeCreateElement = document.createElement.bind(document);
-		document.createElement = function (tag, options) {
+		const nativeCreateElement = doc.createElement.bind(doc);
+		doc.createElement = function (tag, options) {
 			const el = nativeCreateElement(tag, options);
 			if (tag.toLowerCase() === 'script') {
 				const originalSetAttribute = el.setAttribute.bind(el);
 				el.setAttribute = function (name, value) {
 					originalSetAttribute(name, value);
-					if (name === 'data-consent-category' && CATEGORIES.includes(value) && value !== 'necessary' && !released) {
+					if (
+						name === 'data-consent-category' &&
+						CATEGORIES.includes(value) &&
+						value !== 'necessary' &&
+						!released
+					) {
 						blockScript(el);
 					}
-					if (name === 'src' && el.dataset.consentCategory && CATEGORIES.includes(el.dataset.consentCategory) && el.dataset.consentCategory !== 'necessary' && !released) {
+					if (
+						name === 'src' &&
+						el.dataset.consentCategory &&
+						CATEGORIES.includes(el.dataset.consentCategory) &&
+						el.dataset.consentCategory !== 'necessary' &&
+						!released
+					) {
 						blockScript(el);
 					}
 					return undefined;
@@ -290,66 +368,77 @@
 	}
 
 	function installMutationObserver() {
-		if (!window.MutationObserver) {
+		if (!globalThis.MutationObserver) {
 			return;
 		}
-		const observer = new MutationObserver((mutations) => {
+		const observer = new globalThis.MutationObserver((mutations) => {
 			for (const mutation of mutations) {
 				for (const node of mutation.addedNodes) {
 					if (node.nodeType !== 1) {
 						continue;
 					}
 					const el = node;
-					if (el.tagName === 'SCRIPT' && el.dataset.consentCategory && CATEGORIES.includes(el.dataset.consentCategory) && el.dataset.consentCategory !== 'necessary' && !released) {
+					if (
+						el.tagName === 'SCRIPT' &&
+						el.dataset.consentCategory &&
+						CATEGORIES.includes(el.dataset.consentCategory) &&
+						el.dataset.consentCategory !== 'necessary' &&
+						!released
+					) {
 						blockScript(el);
 					}
 					el.querySelectorAll?.('script[data-consent-category]').forEach((s) => {
-						if (CATEGORIES.includes(s.dataset.consentCategory) && s.dataset.consentCategory !== 'necessary' && !released && !s.dataset.iikitiConsentBlocked) {
+						if (
+							CATEGORIES.includes(s.dataset.consentCategory) &&
+							s.dataset.consentCategory !== 'necessary' &&
+							!released &&
+							!s.dataset.iikitiConsentBlocked
+						) {
 							blockScript(s);
 						}
 					});
 				}
 			}
 		});
-		observer.observe(document.documentElement || document, { childList: true, subtree: true });
+		observer.observe(doc.documentElement || doc, { childList: true, subtree: true });
 	}
 
 	function blockExistingScripts() {
-		document.querySelectorAll('script[data-consent-category]').forEach((el) => {
+		doc.querySelectorAll('script[data-consent-category]').forEach((el) => {
 			blockScript(el);
 		});
 	}
 
 	async function loadBanner() {
-		if (window.iikiti?.consent?.bannerLoaded) {
-			return window.iikiti.consent.bannerLoaded;
-		}
-		// Prefer an already-registered mount API (consent-banner.js loaded on
-		// the page); otherwise lazy-load it via the JS loader.
-		if (window.iikiti?.consentBanner?.mount) {
-			window.iikiti.consent.bannerLoaded = Promise.resolve();
-			return window.iikiti.consent.bannerLoaded;
+		if (api.bannerLoaded) {
+			return api.bannerLoaded;
 		}
 		const bannerUrl = config.bannerUrl;
-		const promise = window.iikiti.loader
-			.loadScript(bannerUrl ? bannerUrl : 'consent-banner', { strategy: 'complete' })
-			.then(() => {
-				window.iikiti.consent.bannerLoaded = true;
-				return window.iikiti.consent;
-			});
-		window.iikiti.consent.bannerLoaded = promise;
-		return promise;
+		if (typeof window !== 'undefined' && window.iikiti?.consentBanner?.mount) {
+			api.bannerLoaded = Promise.resolve();
+			return api.bannerLoaded;
+		}
+		if (typeof window !== 'undefined' && window.iikiti?.loader) {
+			api.bannerLoaded = window.iikiti.loader
+				.loadScript(bannerUrl ? bannerUrl : 'consent-banner', { strategy: 'complete' })
+				.then(() => {
+					api.bannerLoaded = true;
+					return api;
+				});
+			return api.bannerLoaded;
+		}
+		return Promise.resolve();
 	}
 
 	function showBanner() {
-		const container = document.getElementById('iikiti-consent-banner');
+		const container = doc.getElementById('iikiti-consent-banner');
 		if (!container) {
 			return;
 		}
 		container.style.display = '';
 		void (async () => {
 			await loadBanner();
-			if (window.iikiti?.consentBanner?.mount) {
+			if (typeof window !== 'undefined' && window.iikiti?.consentBanner?.mount) {
 				window.iikiti.consentBanner.mount(container, async ({ analytics, marketing }) => {
 					await applyConsent(
 						{ necessary: true, analytics, marketing },
@@ -362,50 +451,20 @@
 	}
 
 	function hideBanner() {
-		const container = document.getElementById('iikiti-consent-banner');
+		const container = doc.getElementById('iikiti-consent-banner');
 		if (container) {
 			container.style.display = 'none';
 		}
 	}
 
 	async function initialize() {
-		readConfig();
+		if (readConfig) {
+			config = readConfig();
+		}
+		initializeState();
 		blockExistingScripts();
 		installCreateElementInterceptor();
 		installMutationObserver();
-
-		const stored = readStored();
-		const signals = detectSignals();
-		let initial = { necessary: true, analytics: false, marketing: false };
-
-		if (stored && stored.categories && stored.version === getConfigVersion()) {
-			initial = stored.categories;
-		} else if (stored && stored.categories) {
-			// stale version: force re-consent, but keep defaults as starting point
-			initial = getDefaultCategories();
-		}
-
-		state = {
-			hasConsented: Boolean(stored && stored.version === getConfigVersion()),
-			categories: initial,
-			version: stored?.version ?? 0,
-			configVersion: getConfigVersion(),
-			stale: Boolean(!stored || stored.version !== getConfigVersion()),
-			legalFramework: stored?.legalFramework ?? 'none',
-			geoCountry: stored?.geoCountry ?? null,
-			signals,
-			proofToken: stored?.proofToken ?? null,
-			consentedAt: stored?.consentedAt ?? null,
-			userId: stored?.userId ?? null,
-			sessionId: stored?.sessionId ?? null,
-		};
-
-		// Auto-select deny for analytics/marketing when a GPC/DNT signal is
-		// present and the user has not previously consented.
-		if (!state.hasConsented) {
-			const signalForced = autoSelect(state);
-			state.signals = { ...state.signals, ...signalForced };
-		}
 
 		if (!state.hasConsented) {
 			showBanner();
@@ -413,7 +472,7 @@
 
 		// Fetch server-side consent state (may override local for logged-in users).
 		try {
-			const response = await fetch('/api/privacy/consent', {
+			const response = await fetchFn('/api/privacy/consent', {
 				headers: { Accept: 'application/json' },
 				credentials: 'include',
 			});
@@ -451,6 +510,41 @@
 		}
 	}
 
+	function initializeState() {
+		const stored = readStored();
+		const signals = detectSignals();
+		let initial = { necessary: true, analytics: false, marketing: false };
+
+		if (stored && stored.categories && stored.version === getConfigVersion()) {
+			initial = stored.categories;
+		} else if (stored && stored.categories) {
+			initial = getDefaultCategories();
+		}
+
+		state = {
+			hasConsented: Boolean(stored && stored.version === getConfigVersion()),
+			categories: initial,
+			version: stored?.version ?? 0,
+			configVersion: getConfigVersion(),
+			stale: Boolean(!stored || stored.version !== getConfigVersion()),
+			legalFramework: stored?.legalFramework ?? 'none',
+			geoCountry: stored?.geoCountry ?? null,
+			signals,
+			proofToken: stored?.proofToken ?? null,
+			consentedAt: stored?.consentedAt ?? null,
+			userId: stored?.userId ?? null,
+			sessionId: stored?.sessionId ?? null,
+		};
+
+		// Privacy signals override defaults when consent has not been recorded.
+		if (!state.hasConsented) {
+			const signalForced = autoSelect(state);
+			state.signals = { ...state.signals, ...signalForced };
+		}
+	}
+
+	initializeState();
+
 	const api = {
 		getState() {
 			return state ? { ...state } : null;
@@ -479,6 +573,7 @@
 		showBanner,
 		hideBanner,
 		loadBanner,
+		initialize,
 		getConfig,
 		getConfigVersion,
 		sessionId: function () {
@@ -486,13 +581,5 @@
 		},
 	};
 
-	window.iikiti = window.iikiti || {};
-	window.iikiti.consent = api;
-
-	// Defer initialization until the DOM is ready so config and scripts are present.
-	if (document.readyState === 'loading') {
-		document.addEventListener('DOMContentLoaded', initialize);
-	} else {
-		initialize();
-	}
-})();
+	return api;
+}

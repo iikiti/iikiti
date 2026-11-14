@@ -1,17 +1,19 @@
 import { test, expect, beforeEach, afterEach } from 'bun:test';
-import { loadIf, __resetLoaderCacheForTests } from '../../assets/js/iikiti/loader.js';
+let loadIf;
+let resetLoaderCache;
 
 /**
  * Minimal DOM stand-in: records appended <script> elements and fires onload
  * on the next microtask so loadIf can resolve without a browser.
  */
 let appended;
-const originalDocument = globalThis.document;
+let originalDocument;
 
-beforeEach(() => {
+beforeEach(async () => {
+	originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
 	appended = [];
-	__resetLoaderCacheForTests();
 	globalThis.document = {
+		readyState: 'complete',
 		createElement: () => ({ dataset: {} }),
 		querySelector: () => null,
 		head: {
@@ -23,18 +25,21 @@ beforeEach(() => {
 			},
 		},
 	};
+	({ loadIf, __resetLoaderCacheForTests: resetLoaderCache } = await import('../../assets/js/iikiti/loader.js'));
+	resetLoaderCache();
 });
 
 afterEach(() => {
-	globalThis.document = originalDocument;
-	delete globalThis.__polyfillNamespace;
+	resetLoaderCache();
+	if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument);
+	else delete globalThis.document;
 });
 
 test('returns the native value directly and never loads the polyfill', async () => {
 	const nativeValue = { native: true };
 	const value = await loadIf(() => nativeValue, {
 		url: '/vendor/polyfill.js',
-		read: () => globalThis.__polyfillNamespace,
+		read: () => undefined,
 	});
 
 	expect(value).toBe(nativeValue);
@@ -52,10 +57,7 @@ test('loads the polyfill and resolves to the reference read after load', async (
 	const polyfillRef = { polyfilled: true };
 	const value = await loadIf(() => undefined, {
 		url: '/vendor/polyfill.js',
-		read: () => {
-			globalThis.__polyfillNamespace = polyfillRef;
-			return globalThis.__polyfillNamespace;
-		},
+		read: () => polyfillRef,
 	});
 
 	expect(value).toBe(polyfillRef);
@@ -64,10 +66,8 @@ test('loads the polyfill and resolves to the reference read after load', async (
 });
 
 test('concurrent callers share a single script load', async () => {
-	const read = () => {
-		globalThis.__polyfillNamespace = { shared: true };
-		return globalThis.__polyfillNamespace;
-	};
+	const shared = { shared: true };
+	const read = () => shared;
 	const spec = { url: '/vendor/shared.js', read };
 
 	const [first, second] = await Promise.all([

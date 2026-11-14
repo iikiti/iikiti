@@ -18,6 +18,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-11-14: Added Bun frontend unit coverage for consent, fragments, readiness, plugins, tours, notifications, events, and layout utilities, with a `bun run test` script.
 - 2026-11-14: Added the Consent Management plugin (`plugins/consent-management`) with a Svelte consent banner (necessary/analytics/marketing), consent API (`POST`/`GET /api/privacy/consent`), consent records keyed by user/session in `object_properties`, frontend script blocking until consent, GPC/Do-Not-Track signal auto-selection, geo-targeted legal frameworks, proof-of-consent capture, and `AuditRecorder` audit logging.
 - 2026-11-14: Added admin consent log (`/api/admin/privacy/consent-log`) and banner configuration (`/api/admin/privacy/config`) screens behind `ROLE_ADMIN`.
 - 2026-11-14: Added `consent-manager` and `consent-banner` webpack entries and the `consent-management.banner` public fragment.
@@ -25,6 +26,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Changed
 
+- 2026-11-14: Extracted the consent manager into a testable factory while preserving browser initialization, component notifications, and banner-load deduplication.
 - 2026-11-14: Inline CSS minification upgraded to CSS Typed OM v1.1.1 with `keepComments` and `ruleCallback`; opaque-rule newlines are stripped so minified output stays compact.
 - 2026-11-14: Inline CSS minification now uses the CSS Typed OM parser and minified renderer, which are also available to plugins for stylesheet mutation.
 - 2026-11-13: API-render Doctrine statements and timings feed the browser request's native query list and metrics, annotated with page, Twig layout, fragment, and provider context.
@@ -59,6 +61,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Fixed
 
+- 2026-11-14: Made the consent preferences backdrop a properly labelled button, resolving its Svelte accessibility build warnings.
 - 2026-11-13: Database result-cache keys avoid Symfony Cache's reserved characters so enabled repository caching does not fail page requests.
 - 2026-11-13: Release the active session lock before exchanging its cookie for an API token, preventing authenticated API-backed pages from timing out with 502 responses.
 

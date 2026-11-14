@@ -18,12 +18,16 @@
 </script>
 
 <div class="fixed inset-0 z-[60] flex items-center justify-center p-4" aria-hidden={!open}>
-	<div
-		class="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
+	<button
+		type="button"
+		aria-label="Close privacy preferences"
+		tabindex="-1"
+		disabled={!open}
+		class="fixed inset-0 border-0 p-0 bg-black/40 backdrop-blur-sm transition-opacity"
 		class:opacity-100={open}
 		class:opacity-0={!open}
 		onclick={onClose}
-	></div>
+	></button>
 	<dialog
 		class="w-full max-w-md bg-surface rounded-lg border border-border p-6 shadow-xl"
 		open={open}
