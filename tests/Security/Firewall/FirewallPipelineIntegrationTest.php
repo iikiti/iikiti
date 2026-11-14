@@ -246,12 +246,104 @@ final class FirewallPipelineIntegrationTest extends TestCase
 		$this->runPipeline($this->apiRequest(), null, $resolver, $site);
 	}
 
+	public function testDisabledFirewallBypassesIpBlockAndStageOneWithoutEvents(): void
+	{
+		$this->seedIpMatcher(new FirewallIpMatcher([$this->ipRule('block-attacker', '198.51.100.7/32', 'block')]));
+		$request = Request::create('/api/forms/submit', 'POST', [], [], [], ['CONTENT_TYPE' => 'application/json'], '{"payload":"<script>alert(1)</script>"}');
+		$request->server->set('REMOTE_ADDR', '198.51.100.7');
+
+		[$event, $securityEvents] = $this->runPipeline($request, null, null, null, false);
+
+		self::assertNull($event->getResponse());
+		self::assertSame([], $securityEvents);
+		self::assertFalse($request->attributes->has(FirewallRequestSubscriber::CONTEXT_ATTRIBUTE));
+	}
+
+	public function testDisabledFirewallBypassesStructuralDosAndPreAuthRateLimit(): void
+	{
+		$this->seedIpMatcher(new FirewallIpMatcher());
+		$oversized = Request::create('/api/items', 'POST', [], [], [], ['CONTENT_LENGTH' => '999999999', 'CONTENT_TYPE' => 'application/json'], '{}');
+		[$dosEvent, $dosEvents] = $this->runPipeline($oversized, $this->policy(['dos' => ['maxBodyBytesByGroup' => ['api' => 10]]]), null, null, false);
+
+		self::assertNull($dosEvent->getResponse());
+		self::assertSame([], $dosEvents);
+
+		$rule = $this->rateRule('core:test-pre-disabled', 'pre_auth-disabled', 1);
+		$policy = $this->policy(['rateLimits' => [$rule]]);
+		$this->runPipeline($this->apiRequest(), $policy, null, null, false);
+		[$second, $securityEvents] = $this->runPipeline($this->apiRequest(), $policy, null, null, false);
+
+		self::assertNull($second->getResponse());
+		self::assertSame([], $securityEvents);
+	}
+
+	public function testDisabledFirewallSkipsWafRuleEvaluation(): void
+	{
+		$this->seedIpMatcher(new FirewallIpMatcher());
+		$request = Request::create('/api/forms/submit', 'POST', [], [], [], ['CONTENT_TYPE' => 'application/json'], '{"payload":"<script>alert(1)</script>"}');
+		[$event, $securityEvents] = $this->runPipeline($request, null, null, null, false);
+
+		self::assertNull($event->getResponse());
+		self::assertSame([], $securityEvents);
+	}
+
+	public function testDisabledFeedbackSubscriberSkipsPostAuthRateLimitAndErrorStormStrikes(): void
+	{
+		$this->seedIpMatcher(new FirewallIpMatcher());
+		$security = $this->createStub(Security::class);
+		$security->method('getUser')->willReturn(new class implements \Symfony\Component\Security\Core\User\UserInterface {
+			public function getRoles(): array { return ['ROLE_USER']; }
+			public function eraseCredentials(): void {}
+			public function getUserIdentifier(): string { return 'jim@example.test'; }
+		});
+		$rule = $this->rateRule('core:test-post-disabled', 'post_auth-disabled', 1, 'user');
+		$dos = $this->dosDefaults([
+			'errorStormThreshold' => 1,
+			'errorStormWindow' => 60,
+			'errorStormAction' => 'enforce',
+			'autoBanEnabled' => true,
+			'autoBanAction' => 'enforce',
+			'autoBanStrikeThreshold' => 1,
+			'autoBanWindow' => 300,
+			'autoBanDurations' => [300],
+		]);
+		$subscriber = new FirewallFeedbackSubscriber(
+			$security,
+			new FirewallRateLimiterManager($this->cache),
+			new FirewallAnomalyDetector($this->cache, new NullLogger()),
+			$this->autoBans(),
+			new NullLogger(),
+			false,
+		);
+		$request = Request::create('/api/items');
+		$request->attributes->set(FirewallRequestSubscriber::CONTEXT_ATTRIBUTE, [
+			'policy' => ['rateLimits' => [$rule], 'dos' => $dos, 'bots' => []],
+			'clientIp' => '192.0.2.88',
+			'siteId' => null,
+			'routeGroup' => 'api',
+			'stage' => [],
+		]);
+		$kernel = $this->createStub(HttpKernelInterface::class);
+		$first = new RequestEvent($kernel, $request, HttpKernelInterface::MAIN_REQUEST);
+		$subscriber->onPostAuthRequest($first);
+		$second = new RequestEvent($kernel, $request, HttpKernelInterface::MAIN_REQUEST);
+		$subscriber->onPostAuthRequest($second);
+		self::assertNull($second->getResponse());
+
+		$response = new Response('nope', Response::HTTP_NOT_FOUND);
+		$subscriber->onKernelResponse(new ResponseEvent($kernel, $request, HttpKernelInterface::MAIN_REQUEST, $response));
+		$subscriber->onKernelResponse(new ResponseEvent($kernel, $request, HttpKernelInterface::MAIN_REQUEST, $response));
+
+		self::assertSame(0, $this->cacheCountFor('err', '192.0.2.88'));
+		self::assertSame(0, $this->persistedBanCount, 'Disabled firewall must not persist error-storm auto-bans.');
+	}
+
 	/**
 	 * Builds the subscriber with real Stage-1 collaborators and the given policy, then dispatches the request.
 	 *
 	 * @return array{RequestEvent,list<FirewallSecurityEvent>}
 	 */
-	private function runPipeline(Request $request, ?FirewallResolvedPolicy $policy = null, ?FirewallProtectionPolicyResolverInterface $resolver = null, ?Site $site = null): array
+	private function runPipeline(Request $request, ?FirewallResolvedPolicy $policy = null, ?FirewallProtectionPolicyResolverInterface $resolver = null, ?Site $site = null, bool $enabled = true): array
 	{
 		$this->clearCurrentSite();
 		if (null !== $site) {
@@ -296,6 +388,8 @@ final class FirewallPipelineIntegrationTest extends TestCase
 			$dispatcher,
 			new NullLogger(),
 			$services,
+			'api',
+			$enabled,
 		);
 
 		$kernel = $this->createStub(HttpKernelInterface::class);

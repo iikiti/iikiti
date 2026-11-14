@@ -135,6 +135,17 @@ final class FirewallDataCollectorTest extends TestCase
 		self::assertArrayNotHasKey('cookies', $stage);
 	}
 
+	public function testReportsEnabledStateFromConfiguration(): void
+	{
+		$enabled = new FirewallDataCollector(true);
+		$enabled->collect(Request::create('/'), new Response());
+		self::assertTrue($enabled->isEnabled());
+
+		$disabled = new FirewallDataCollector(false);
+		$disabled->collect(Request::create('/'), new Response());
+		self::assertFalse($disabled->isEnabled());
+	}
+
 	public function testStageMetadataDefaultsWhenEventCarriesNone(): void
 	{
 		$collector = new FirewallDataCollector();

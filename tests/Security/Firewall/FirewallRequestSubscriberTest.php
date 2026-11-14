@@ -127,10 +127,46 @@ final class FirewallRequestSubscriberTest extends TestCase
 		self::assertSame([], $securityEvents[0]->stageMetadata, 'Stage-2-only construction emits no Stage-1 metadata.');
 	}
 
+	public function testDisabledFirewallBypassesWafAndDispatchesNoEvents(): void
+	{
+		$request = Request::create(
+			'/api/internal/probe',
+			'POST',
+			[],
+			[],
+			[],
+			['CONTENT_TYPE' => 'application/json'],
+			'{"payload":"<script>alert(1)</script>"}',
+		);
+		[$event, $securityEvents] = $this->evaluate($request, null, false);
+
+		self::assertNull($event->getResponse());
+		self::assertSame([], $securityEvents);
+		self::assertFalse($request->attributes->has(FirewallRequestSubscriber::CONTEXT_ATTRIBUTE));
+	}
+
+	public function testDisabledFirewallSkipsSiteBoundPolicyEnforcement(): void
+	{
+		$site = $this->siteWithRules([[
+			'id' => 'deny-private-api',
+			'name' => 'Block private API',
+			'action' => 'deny',
+			'conditions' => ['condition' => 'request.match', 'options' => [
+				'target' => 'path', 'operator' => 'contains', 'value' => '/api/private',
+			]],
+		]]);
+		$request = Request::create('/api/private/items');
+		$request->attributes->set('_api_operation_name', 'private_api_items');
+		[$event, $securityEvents] = $this->evaluate($request, $site, false);
+
+		self::assertNull($event->getResponse());
+		self::assertSame([], $securityEvents);
+	}
+
 	/**
 	 * @return array{RequestEvent,list<FirewallSecurityEvent>}
 	 */
-	private function evaluate(Request $request, ?Site $site = null): array
+	private function evaluate(Request $request, ?Site $site = null, bool $enabled = true): array
 	{
 		$this->clearCurrentSite();
 		if (null !== $site) {
@@ -160,6 +196,9 @@ final class FirewallRequestSubscriberTest extends TestCase
 			new FirewallRuleEvaluator($validator, $conditions),
 			$dispatcher,
 			new NullLogger(),
+			null,
+			'api',
+			$enabled,
 		);
 		$kernel = $this->createStub(HttpKernelInterface::class);
 		$event = new RequestEvent($kernel, $request, HttpKernelInterface::MAIN_REQUEST);

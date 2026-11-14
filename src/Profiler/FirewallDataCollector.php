@@ -7,6 +7,7 @@ namespace iikiti\CMS\Profiler;
 use iikiti\CMS\Security\Firewall\FirewallAction;
 use iikiti\CMS\Security\Firewall\FirewallFinding;
 use iikiti\CMS\Security\Firewall\FirewallSecurityEvent;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -17,6 +18,12 @@ final class FirewallDataCollector extends DataCollector implements EventSubscrib
 {
 	private const MAX_FINDINGS = 100;
 	private const MAX_MATCHED_CONDITIONS = 64;
+
+	public function __construct(
+		#[Autowire('%firewall_enabled%')]
+		private readonly bool $firewallEnabled = true,
+	) {
+	}
 
 	public static function getSubscribedEvents(): array
 	{
@@ -39,6 +46,7 @@ final class FirewallDataCollector extends DataCollector implements EventSubscrib
 		}
 
 		$this->data = [
+			'enabled' => $this->firewallEnabled,
 			'evaluated' => true,
 			'stage' => $this->safeStage($event->stageMetadata),
 			'request' => [
@@ -58,8 +66,16 @@ final class FirewallDataCollector extends DataCollector implements EventSubscrib
 	public function collect(Request $request, Response $response, ?\Throwable $exception = null): void
 	{
 		$data = $this->currentData();
+		$data['enabled'] = $this->isEnabled();
 		$data['response_status'] = $response->getStatusCode();
 		$this->data = $data;
+	}
+
+	public function isEnabled(): bool
+	{
+		$enabled = $this->currentData()['enabled'] ?? null;
+
+		return is_bool($enabled) ? $enabled : $this->firewallEnabled;
 	}
 
 	public function isEvaluated(): bool

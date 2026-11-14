@@ -4,7 +4,11 @@
         <div class="tab-content">
             <h2>Web Application Firewall</h2>
 
-            {% if not collector.evaluated %}
+            {% if not collector.enabled %}
+                <div class="empty">
+                    <p>Firewall is disabled (<code>FIREWALL_ENABLED=false</code>).</p>
+                </div>
+            {% elseif not collector.evaluated %}
                 <div class="empty">
                     <p>No firewall evaluation was recorded for this request.</p>
                 </div>

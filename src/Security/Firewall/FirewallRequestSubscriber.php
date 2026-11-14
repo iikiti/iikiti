@@ -78,6 +78,8 @@ final readonly class FirewallRequestSubscriber implements EventSubscriberInterfa
 		private ?FirewallStageOneServices $stageOne = null,
 		#[Autowire('%application_role%')]
 		private string $applicationRole = 'api',
+		#[Autowire('%firewall_enabled%')]
+		private bool $enabled = true,
 	) {
 	}
 
@@ -90,6 +92,9 @@ final readonly class FirewallRequestSubscriber implements EventSubscriberInterfa
 	public function onKernelRequest(RequestEvent $event): void
 	{
 		if (!$event->isMainRequest()) {
+			return;
+		}
+		if (!$this->enabled) {
 			return;
 		}
 

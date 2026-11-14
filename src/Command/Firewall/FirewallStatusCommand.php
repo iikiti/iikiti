@@ -11,6 +11,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 #[AsCommand(
 	name: 'iikiti:firewall:status',
@@ -20,8 +21,11 @@ final class FirewallStatusCommand extends Command
 {
 	private const PAGE_LIMIT = 100;
 
-	public function __construct(private readonly FirewallIpBanRepository $bans)
-	{
+	public function __construct(
+		private readonly FirewallIpBanRepository $bans,
+		#[Autowire('%firewall_enabled%')]
+		private readonly bool $firewallEnabled = true,
+	) {
 		parent::__construct();
 	}
 
@@ -33,6 +37,10 @@ final class FirewallStatusCommand extends Command
 	protected function execute(InputInterface $input, OutputInterface $output): int
 	{
 		$io = new SymfonyStyle($input, $output);
+		$io->writeln(sprintf(
+			'Firewall status: %s',
+			$this->firewallEnabled ? 'enabled' : 'disabled (FIREWALL_ENABLED=false)',
+		));
 		$siteOption = $input->getOption('site');
 		$siteId = null;
 		if (null !== $siteOption) {

@@ -24,6 +24,8 @@ parameters:
     background_runner_time_limit_seconds: '%env(float:default:background_runner_time_limit_default:BACKGROUND_RUNNER_TIME_LIMIT_SECONDS)%'
     background_runner_excluded_receivers_default: 'failed'
     background_runner_excluded_receivers: '%env(csv:default:background_runner_excluded_receivers_default:BACKGROUND_RUNNER_EXCLUDED_RECEIVERS)%'
+    firewall_enabled_default: true
+    firewall_enabled: '%env(bool:default:firewall_enabled_default:FIREWALL_ENABLED)%'
     firewall_max_inspection_bytes_default: 8388608
     firewall_max_inspection_bytes: '%env(int:default:firewall_max_inspection_bytes_default:FIREWALL_MAX_INSPECTION_BYTES)%'
     firewall_max_uploads_default: 20

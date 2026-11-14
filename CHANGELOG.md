@@ -18,6 +18,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-11-14: Added the `FIREWALL_ENABLED` environment variable (`firewall_enabled` container parameter, default `true`) to enable or disable the entire application-level request firewall; when `false`, Stage 1, Stage 2 WAF, and feedback subscribers are bypassed, no firewall events are dispatched, the profiler reports the firewall as disabled, and `iikiti:firewall:status` prints the disabled state.
 - 2026-11-14: Added the `cache.firewall_ratelimit` cache pool (86400s default lifetime) for rate-limit counters, DoS anomaly counters, and strike counters.
 - 2026-11-14: Added the `firewall_ip_bans` operational table and `FirewallIpBan` entity/repository for temporary auto and manual IP/CIDR bans, with `FirewallIpBanProvider` feeding active bans into the compiled IP matcher at priority -1000.
 - 2026-11-14: Added the firewall protection policy package (`CoreProtectionPolicyDefaults`, `FirewallProtectionPolicyValidator`, `FirewallProtectionPolicyResolver`, `FirewallProtectionPolicyStore`) for Application and Site rate-limit, L7 DoS, and bot/AI policies with `required`/`default` inheritance.

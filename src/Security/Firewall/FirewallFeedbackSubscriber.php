@@ -11,6 +11,7 @@ use iikiti\CMS\Security\Firewall\RateLimit\FirewallRateLimitDecision;
 use iikiti\CMS\Security\Firewall\RateLimit\FirewallRateLimiterManager;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -33,6 +34,8 @@ final readonly class FirewallFeedbackSubscriber implements EventSubscriberInterf
 		private FirewallAnomalyDetector $anomalies,
 		private FirewallAutoBanManager $autoBans,
 		private LoggerInterface $logger,
+		#[Autowire('%firewall_enabled%')]
+		private readonly bool $enabled = true,
 	) {
 	}
 
@@ -48,7 +51,7 @@ final readonly class FirewallFeedbackSubscriber implements EventSubscriberInterf
 
 	public function onPostAuthRequest(RequestEvent $event): void
 	{
-		if (!$event->isMainRequest()) {
+		if (!$this->enabled || !$event->isMainRequest()) {
 			return;
 		}
 
@@ -96,7 +99,7 @@ final readonly class FirewallFeedbackSubscriber implements EventSubscriberInterf
 
 	public function onKernelResponse(ResponseEvent $event): void
 	{
-		if (!$event->isMainRequest()) {
+		if (!$this->enabled || !$event->isMainRequest()) {
 			return;
 		}
 
@@ -132,6 +135,9 @@ final readonly class FirewallFeedbackSubscriber implements EventSubscriberInterf
 
 	public function onKernelTerminate(TerminateEvent $event): void
 	{
+		if (!$this->enabled) {
+			return;
+		}
 		$slotKey = $event->getRequest()->attributes->get(FirewallRequestSubscriber::CONCURRENCY_SLOT_ATTRIBUTE);
 		if (!is_string($slotKey) || '' === $slotKey) {
 			return;

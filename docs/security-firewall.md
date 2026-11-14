@@ -157,6 +157,7 @@ Configure deployment limits no higher than the web server/PHP limits:
 
 | Setting | Default | Purpose |
 |---------|---------|---------|
+| `FIREWALL_ENABLED` | `true` | Enables or disables the entire application-level firewall (Stage 1 and Stage 2 plus feedback). Set `false` for testing or when an external/hardware WAF is in front of the application. When disabled, no firewall events are dispatched and the profiler reports the firewall as disabled |
 | `FIREWALL_MAX_INSPECTION_BYTES` | `8388608` | Maximum aggregate bytes inspected per request |
 | `FIREWALL_MAX_UPLOADS` | `20` | Maximum files inspected per request |
 | `FIREWALL_MAX_INSPECTION_MILLISECONDS` | `5000` | Request inspection and condition-evaluation budget |
