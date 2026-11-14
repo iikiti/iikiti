@@ -342,6 +342,7 @@ when@dev:
                 $symfonyProfiler: '@profiler'
 
         iikiti\CMS\Profiler\FirewallDataCollector:
+            autowire: true
             tags:
                 - { name: data_collector, id: iikiti.firewall }
                 - { name: kernel.event_subscriber }
@@ -349,6 +350,7 @@ when@dev:
 when@test:
     services:
         iikiti\CMS\Profiler\FirewallDataCollector:
+            autowire: true
             tags:
                 - { name: data_collector, id: iikiti.firewall }
                 - { name: kernel.event_subscriber }

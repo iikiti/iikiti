@@ -19,6 +19,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 ### Added
 
 - 2026-11-14: Added the `FIREWALL_ENABLED` environment variable (`firewall_enabled` container parameter, default `true`) to enable or disable the entire application-level request firewall; when `false`, Stage 1, Stage 2 WAF, and feedback subscribers are bypassed, no firewall events are dispatched, the profiler reports the firewall as disabled, and `iikiti:firewall:status` prints the disabled state.
+- 2026-11-14: Added an always-visible `Firewall status` (`Enabled` / `Disabled`) metric to `templates/profiler/firewall_section.html.twig` across disabled, not-evaluated, and evaluated request states.
 - 2026-11-14: Added the `cache.firewall_ratelimit` cache pool (86400s default lifetime) for rate-limit counters, DoS anomaly counters, and strike counters.
 - 2026-11-14: Added the `firewall_ip_bans` operational table and `FirewallIpBan` entity/repository for temporary auto and manual IP/CIDR bans, with `FirewallIpBanProvider` feeding active bans into the compiled IP matcher at priority -1000.
 - 2026-11-14: Added the firewall protection policy package (`CoreProtectionPolicyDefaults`, `FirewallProtectionPolicyValidator`, `FirewallProtectionPolicyResolver`, `FirewallProtectionPolicyStore`) for Application and Site rate-limit, L7 DoS, and bot/AI policies with `required`/`default` inheritance.
@@ -56,6 +57,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Fixed
 
+- 2026-11-14: Enabled `autowire: true` on `FirewallDataCollector` under `when@dev` and `when@test` in `config/services.yaml` so `#[Autowire('%firewall_enabled%')]` injects `FIREWALL_ENABLED` into the Symfony Web Profiler collector instead of falling back to the default `true`.
 - 2026-11-14: Fixed `FirewallFeedbackSubscriber::onPostAuthRequest()` to inspect the firewall request context and `SiteRegistry::hasCurrent()` before hydrating the user on site-independent routes, preventing `User::getRoles()` site-context errors on stateful lazy firewalls.
 - 2026-11-14: Fixed `FirewallIpRule` and `FirewallTrustedAutomation` nullable property removal in `object_properties`, API Platform `gen_id` serialization on `FirewallSimulateResource` and `FirewallIpRuleImportResource` via dedicated output DTOs, `Post`/`Delete` provider routing on IP rules/bans/automations, `AuditLogEntry` action lengths (`<= 32` chars), and `FirewallBotDetector` finding emission for non-impersonated bot actions.
 

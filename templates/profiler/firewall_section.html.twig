@@ -4,18 +4,13 @@
         <div class="tab-content">
             <h2>Web Application Firewall</h2>
 
-            {% if not collector.enabled %}
-                <div class="empty">
-                    <p>Firewall is disabled (<code>FIREWALL_ENABLED=false</code>).</p>
+            <div class="metrics">
+                <div class="metric">
+                    <span class="value {{ collector.enabled ? 'text-success' : 'text-error' }}">{{ collector.enabled ? 'Enabled' : 'Disabled' }}</span>
+                    <span class="label">Firewall status</span>
                 </div>
-            {% elseif not collector.evaluated %}
-                <div class="empty">
-                    <p>No firewall evaluation was recorded for this request.</p>
-                </div>
-            {% else %}
-                {% set request = collector.requestSummary %}
-                {% set outcome = collector.outcome %}
-                <div class="metrics">
+                {% if collector.enabled and collector.evaluated %}
+                    {% set outcome = collector.outcome %}
                     <div class="metric">
                         <span class="value {{ outcome == 'blocked' ? 'text-error' : (outcome == 'reported' ? 'text-warning' : 'text-success') }}">{{ outcome|replace({'_': ' '})|title }}</span>
                         <span class="label">Outcome</span>
@@ -32,7 +27,19 @@
                         <span class="value">{{ collector.findings|length }}</span>
                         <span class="label">Matched rules shown</span>
                     </div>
+                {% endif %}
+            </div>
+
+            {% if not collector.enabled %}
+                <div class="empty">
+                    <p>Firewall is disabled (<code>FIREWALL_ENABLED=false</code>).</p>
                 </div>
+            {% elseif not collector.evaluated %}
+                <div class="empty">
+                    <p>No firewall evaluation was recorded for this request.</p>
+                </div>
+            {% else %}
+                {% set request = collector.requestSummary %}
 
                 {% set stage = collector.stage %}
                 <h4>Stage 1 (metadata gate)</h4>
