@@ -18,6 +18,8 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Changed
 
+- 2026-11-14: Inline CSS minification upgraded to CSS Typed OM v1.1.1 with `keepComments` and `ruleCallback`; opaque-rule newlines are stripped so minified output stays compact.
+- 2026-11-14: Inline CSS minification now uses the CSS Typed OM parser and minified renderer, which are also available to plugins for stylesheet mutation.
 - 2026-11-13: API-render Doctrine statements and timings feed the browser request's native query list and metrics, annotated with page, Twig layout, fragment, and provider context.
 - 2026-11-13: Viewport bars use `--theme-bars-*` variables and provide visibility-aware sizing, plugin inspection/change APIs, and compositor-friendly flow collapse.
 - 2026-11-13: Core and plugin API routes/functions are cataloged through one authenticated MCP endpoint behind the `api_list`, `api_describe`, and `api_request` tools.

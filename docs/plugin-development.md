@@ -1153,13 +1153,14 @@ the SSE reader uses authenticated `fetch` so API tokens stay in headers.
 
 ## Inline asset response filters
 
-Main HTML responses minify CSS in `<style>` elements and JavaScript in inline
-`<script>` elements by default. `style` attributes, scripts with a `src`, and
-non-JavaScript data scripts such as `application/ld+json` and `importmap` are
-left alone. The filters use a formatting heuristic to skip content without
-comments, line breaks, or repeated horizontal whitespace; compact readable
-one-line source can therefore be treated as already minified. If a minifier
-fails on an element, its original content is retained.
+Main HTML responses minify CSS in `<style>` elements using the core
+`jimbo2150/php-css-typed-om` parser and `CSSRenderer` minified mode, and
+JavaScript in inline `<script>` elements. `style` attributes, scripts with a
+`src`, and non-JavaScript data scripts such as `application/ld+json` and
+`importmap` are left alone. CSS stylesheets with parse diagnostics or
+`/*!...*/`, `@license`, or `@preserve` comments are left unchanged. A transform
+is applied only when its output is shorter; failures retain the original
+element content.
 
 Set environment defaults in the runtime environment (for example `.env.local`):
 
@@ -1176,6 +1177,60 @@ local identifier mangling and is off by default; it only runs when JS minifying
 is enabled. It requires the Terser package and Node.js to be installed in the
 application runtime. If the optional process is unavailable or fails, ordinary
 JS minification still applies.
+
+### Parsing and mutating CSS
+
+The CSS Typed OM package is a core Composer dependency, so its classes are
+available to plugin PHP code through the application autoloader; plugins do not
+need a duplicate Composer dependency or a CMS wrapper service. Parse a
+stylesheet, inspect diagnostics, then mutate and render it through the CSSOM:
+
+```php
+use Jimbo2150\PhpCssTypedOm\CSSOM\CSSRenderMode;
+use Jimbo2150\PhpCssTypedOm\CSSOM\CSSRenderer;
+use Jimbo2150\PhpCssTypedOm\CSSOM\CSSRenderOptions;
+use Jimbo2150\PhpCssTypedOm\CSSOM\CSSStyleRule;
+use Jimbo2150\PhpCssTypedOm\CSSOM\CSSStyleSheet;
+
+$stylesheet = CSSStyleSheet::parse($css);
+if ([] !== $stylesheet->getParseErrors()) {
+    return $css;
+}
+
+$rule = $stylesheet->getCssRules()[0] ?? null;
+if ($rule instanceof CSSStyleRule) {
+    $rule->getStyle()->setProperty('color', 'rebeccapurple');
+}
+
+$css = CSSRenderer::render($stylesheet, new CSSRenderOptions(CSSRenderMode::Minified));
+```
+
+`CSSRenderOptions` accepts `keepComments` (whether to retain comments in opaque-rule output, default `true`) and `ruleCallback` (a closure that transforms each rendered rule after its children). Use `keepComments: false` to strip comments from opaque rules, or `ruleCallback` to post-process rendered output:
+
+```php
+use Jimbo2150\PhpCssTypedOm\CSSOM\CSSOpaqueRule;
+use Jimbo2150\PhpCssTypedOm\CSSOM\CSSRenderMode;
+use Jimbo2150\PhpCssTypedOm\CSSOM\CSSRenderer;
+use Jimbo2150\PhpCssTypedOm\CSSOM\CSSRenderOptions;
+use Jimbo2150\PhpCssTypedOm\CSSOM\CSSRule;
+
+$options = new CSSRenderOptions(
+    mode: CSSRenderMode::Minified,
+    keepComments: false,
+    ruleCallback: static function (CSSRule $rule, string $text): string {
+        if ($rule instanceof CSSOpaqueRule) {
+            return str_replace(["\r\n", "\r", "\n"], '', $text);
+        }
+        return $text;
+    },
+);
+$css = CSSRenderer::render($stylesheet, $options);
+```
+
+Use `CSSRenderMode::Pretty` when readable formatting is desired. CSS parsing
+recovers malformed rules and reports diagnostics, so check `getParseErrors()`
+before using a stylesheet that must remain complete. Renderer output is CSS,
+not an HTML sanitizer; use the appropriate HTML text context when embedding it.
 
 Plugins can intercept the effective values once per HTML response by listening
 to `InlineAssetMinificationOptionsEvent::NAME`. The event runs after environment
