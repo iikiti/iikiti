@@ -47,6 +47,8 @@ Encore
      */
     .addStyleEntry('tailwind', './assets/styles/app.css')
     .addEntry('iikiti', './assets/js/iikiti/index.js')
+    .addEntry('consent-manager', './plugins/consent-management/assets/consent-manager.js')
+    .addEntry('consent-banner', './plugins/consent-management/assets/consent-banner.js')
     // `admin` is the standalone admin SPA (loaded on /admin). The front-end
     // editor chunk is produced on demand by webpack code-splitting when
     // `iikiti` dynamically imports `./svelte/editor/mount`.

@@ -18,8 +18,10 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
-- 2026-11-14: Added per-site security header policy management (admin GET/PUT/test API, kernel.response emission, per-request CSP nonce injection, and rate-limited /api/internal/csp-reports endpoint).
-- 2026-11-14: Added documentation under docs/security-headers.md covering API, modes, storage, CSP specifics, and configuration.
+- 2026-11-14: Added the Consent Management plugin (`plugins/consent-management`) with a Svelte consent banner (necessary/analytics/marketing), consent API (`POST`/`GET /api/privacy/consent`), consent records keyed by user/session in `object_properties`, frontend script blocking until consent, GPC/Do-Not-Track signal auto-selection, geo-targeted legal frameworks, proof-of-consent capture, and `AuditRecorder` audit logging.
+- 2026-11-14: Added admin consent log (`/api/admin/privacy/consent-log`) and banner configuration (`/api/admin/privacy/config`) screens behind `ROLE_ADMIN`.
+- 2026-11-14: Added `consent-manager` and `consent-banner` webpack entries and the `consent-management.banner` public fragment.
+- 2026-11-14: Added documentation under docs/consent-management.md.
 
 ### Changed
 
