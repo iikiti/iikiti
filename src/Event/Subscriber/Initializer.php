@@ -5,6 +5,8 @@ namespace iikiti\CMS\Event\Subscriber;
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Filters\HtmlFilter;
+use iikiti\CMS\Filters\InlineCssFilter;
+use iikiti\CMS\Filters\InlineJavaScriptFilter;
 use iikiti\CMS\Registry\ApplicationRegistry;
 use iikiti\CMS\Registry\SiteRegistry;
 use Override;
@@ -36,6 +38,8 @@ class Initializer implements EventSubscriberInterface
 		private Security $security,
 		private SiteRegistry $siteRegistry,
 		private ApplicationRegistry $appRegistry,
+		private InlineCssFilter $inlineCssFilter,
+		private InlineJavaScriptFilter $inlineJavaScriptFilter,
 		#[Autowire('%application_role%')]
 		private string $applicationRole,
 		#[Autowire('%public_page_render_via_api%')]
@@ -95,6 +99,8 @@ class Initializer implements EventSubscriberInterface
 			OutputParser::appendFilter(function (ResponseEvent $event) use ($stopwatch) {
 				HtmlFilter::filterHtml($event, $stopwatch);
 			});
+			OutputParser::appendFilter($this->inlineCssFilter->filter(...));
+			OutputParser::appendFilter($this->inlineJavaScriptFilter->filter(...));
 			static::$hasInitialized = true;
 		}
 

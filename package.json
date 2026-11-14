@@ -49,6 +49,7 @@
         "@lucide/svelte": "^1.72.0",
         "baseline-browser-mapping": "^2.11.37",
         "caniuse-lite": "^1.0.30001826",
-        "lucide-static": "^1.72.0"
+        "lucide-static": "^1.72.0",
+        "terser": "^5.51.2"
     }
 }

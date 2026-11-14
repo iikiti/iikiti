@@ -3,6 +3,12 @@ parameters:
     application_role: '%env(default:application_role_default:APPLICATION_ROLE)%'
     public_page_render_via_api_default: false
     public_page_render_via_api: '%env(bool:default:public_page_render_via_api_default:PUBLIC_PAGE_RENDER_VIA_API)%'
+    inline_css_minify_default: true
+    inline_css_minify: '%env(bool:default:inline_css_minify_default:INLINE_CSS_MINIFY)%'
+    inline_js_minify_default: true
+    inline_js_minify: '%env(bool:default:inline_js_minify_default:INLINE_JS_MINIFY)%'
+    inline_js_uglify_default: false
+    inline_js_uglify: '%env(bool:default:inline_js_uglify_default:INLINE_JS_UGLIFY)%'
     internal_api_resolve_default: '{}'
     internal_api_resolve: '%env(json:default:internal_api_resolve_default:INTERNAL_API_RESOLVE)%'
     digital_asset_storage_dir: '%kernel.project_dir%/var/digital-assets'
@@ -86,6 +92,16 @@ services:
     iikiti\CMS\Service\AssetStorage:
         arguments:
             $directory: '%env(default:digital_asset_storage_dir:DIGITAL_ASSET_STORAGE_DIRECTORY)%'
+
+    iikiti\CMS\Filters\InlineAssetMinificationOptionsResolver:
+        arguments:
+            $defaultCssMinify: '%inline_css_minify%'
+            $defaultJsMinify: '%inline_js_minify%'
+            $defaultJsUglify: '%inline_js_uglify%'
+
+    iikiti\CMS\Filters\InlineCssFilter: ~
+    iikiti\CMS\Filters\InlineJavaScriptFilter: ~
+    iikiti\CMS\Filters\TerserUglifier: ~
 
     iikiti\CMS\Security\Firewall\FirewallRequestContextFactory:
         arguments:

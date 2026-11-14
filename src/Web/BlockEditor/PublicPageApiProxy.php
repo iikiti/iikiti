@@ -9,6 +9,7 @@ use iikiti\CMS\Api\BusinessApiClient;
 use iikiti\CMS\Api\BusinessApiException;
 use iikiti\CMS\Async\FiberHttpClient;
 use iikiti\CMS\Async\FiberTaskRunner;
+use iikiti\CMS\Filters\InlineAssetMinificationOptions;
 use iikiti\CMS\Profiler\AsyncResponseDataCollector;
 use iikiti\CMS\Response\Composition\DomHtmlResponse;
 use iikiti\CMS\Response\Composition\HtmlFragmentComposer;
@@ -132,6 +133,10 @@ final readonly class PublicPageApiProxy
 
 				return new Response('', Response::HTTP_BAD_GATEWAY);
 			}
+			$request->attributes->set(
+				InlineAssetMinificationOptions::REQUEST_ATTRIBUTE,
+				$manifest['inline_asset_minification'],
+			);
 
 			$renderedFragments = [];
 			$mainFragment = $this->normalizeFragmentResult($bootstrap['main'] ?? null, $manifest['editor_mode']);
@@ -296,12 +301,16 @@ final readonly class PublicPageApiProxy
 		return is_string($token) && '' !== $token ? $token : $guestToken;
 	}
 
-	/** @return array{html:string,styles:list<array{id:?string,css:string}>,editor_mode:bool,revision:string,fragments:list<array<string,mixed>>}|null */
+	/** @return array{html:string,styles:list<array{id:?string,css:string}>,editor_mode:bool,revision:string,fragments:list<array<string,mixed>>,inline_asset_minification:array{css_minify:bool,js_minify:bool,js_uglify:bool}}|null */
 	private function normalizeManifest(mixed $manifest): ?array
 	{
+		$inlineAssetOptions = is_array($manifest)
+			? InlineAssetMinificationOptions::fromArray($manifest['inline_asset_minification'] ?? null)
+			: null;
 		if (!is_array($manifest)
 			|| !is_string($manifest['html'] ?? null)
 			|| !is_bool($manifest['editor_mode'] ?? null)
+			|| null === $inlineAssetOptions
 			|| !is_string($manifest['revision'] ?? null)
 			|| 1 !== preg_match('/^[a-f0-9]{64}$/D', $manifest['revision'])
 			|| !is_array($manifest['fragments'] ?? null)
@@ -428,6 +437,7 @@ final readonly class PublicPageApiProxy
 			'editor_mode' => $manifest['editor_mode'],
 			'revision' => $manifest['revision'],
 			'fragments' => $fragments,
+			'inline_asset_minification' => $inlineAssetOptions->toArray(),
 		];
 	}
 

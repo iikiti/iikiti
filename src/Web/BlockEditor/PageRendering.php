@@ -9,6 +9,7 @@ use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Entity\Object\Page;
 use iikiti\CMS\Entity\Object\Template;
 use iikiti\CMS\Entity\Object\User;
+use iikiti\CMS\Filters\InlineAssetMinificationOptionsResolver;
 use iikiti\CMS\Profiler\ProfilerQueryDiagnostics;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Response\Composition\DomHtmlResponse;
@@ -44,6 +45,7 @@ final class PageRendering
 		private readonly CustomCssCompiler $customCssCompiler,
 		private readonly Security $security,
 		private readonly Environment $twig,
+		private readonly InlineAssetMinificationOptionsResolver $inlineAssetOptions,
 	) {
 	}
 
@@ -77,7 +79,7 @@ final class PageRendering
 	/**
 	 * Returns a server-rendered layout skeleton and fixed API fragment descriptors.
 	 *
-	 * @return array{html:string,styles:list<array{id:?string,css:string}>,editor_mode:bool,revision:string,fragments:list<array{kind:string,id:string,role:string,slot:string}>}
+	 * @return array{html:string,styles:list<array{id:?string,css:string}>,editor_mode:bool,revision:string,fragments:list<array{kind:string,id:string,role:string,slot:string}>,inline_asset_minification:array{css_minify:bool,js_minify:bool,js_uglify:bool}}
 	 */
 	public function renderManifest(Request $request, ?DbObject $object = null, bool $home = false): array
 	{
@@ -101,6 +103,10 @@ final class PageRendering
 			'editor_mode' => $state['editor_mode'],
 			'revision' => $manifest['revision'],
 			'fragments' => $manifest['fragments'],
+			'inline_asset_minification' => $this->inlineAssetOptions->resolve(
+				$request,
+				SiteRegistry::isInitialized() && SiteRegistry::hasCurrent() ? SiteRegistry::getCurrent() : null,
+			)->toArray(),
 		];
 	}
 

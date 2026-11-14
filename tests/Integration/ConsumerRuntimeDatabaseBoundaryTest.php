@@ -52,6 +52,7 @@ final class ConsumerRuntimeDatabaseBoundaryTest extends WebTestCase
 					'styles' => [],
 					'editor_mode' => false,
 					'revision' => str_repeat('a', 64),
+					'inline_asset_minification' => ['css_minify' => true, 'js_minify' => true, 'js_uglify' => false],
 					'fragments' => [
 						['kind' => 'region', 'id' => 'main', 'role' => 'main', 'slot' => str_repeat('a', 32)],
 						['kind' => 'provider', 'id' => 'sample-plugin.first', 'role' => 'provider', 'slot' => str_repeat('b', 32), 'depth' => 0, 'key' => 'first', 'dependsOn' => [], 'params' => ['value' => 'one']],

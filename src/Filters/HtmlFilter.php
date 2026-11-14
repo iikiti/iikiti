@@ -3,11 +3,9 @@
 namespace iikiti\CMS\Filters;
 
 use Dom\Document;
-use Dom\HTMLDocument;
 use Dom\Node;
 use DOMNode;
 use iikiti\CMS\Utility\Variable as V;
-use iikiti\CMS\Response\Composition\DomHtmlResponse;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\Stopwatch\Stopwatch;
 
@@ -38,19 +36,13 @@ class HtmlFilter extends AbstractFilter
 			return;
 		}
 		$stopwatch->start('html_load');
-		$response = $event->getResponse();
-		$dom = $response instanceof DomHtmlResponse
-			? $response->document()
-			: HTMLDocument::createFromString(
-				(string) $response->getContent(),
-				LIBXML_COMPACT | LIBXML_NOERROR,
-			);
+		$dom = self::getHtmlDocument($event);
 		$stopwatch->stop('html_load');
 		$stopwatch->start('html_minify');
 		self::minifyHtml($dom);
 		$stopwatch->stop('html_minify');
 		$stopwatch->start('html_save');
-		$event->getResponse()->setContent($dom->saveHTML($dom));
+		self::saveHtmlDocument($event, $dom);
 		$stopwatch->stop('html_save');
 	}
 

@@ -14,7 +14,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ## [Unreleased]
 
-> Last updated: 2026-11-13
+> Last updated: 2026-11-14
 
 ### Changed
 
@@ -65,6 +65,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-11-14: Added configurable inline CSS/JavaScript response minifiers with per-site and plugin event overrides plus optional Terser compression/mangling.
 - 2026-11-13: Added MCP API discovery, descriptions, pagination, bounded API dispatch, and namespaced plugin function registration.
 - 2026-11-13: Added the accessible Forma-2026 built-in theme-only plugin, themed 404/500 and generic error pages, and plugin theme development guidance.
 - 2026-11-13: Added secure CLI generators for strength-profiled random passwords and base64-encoded key material.

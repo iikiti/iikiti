@@ -53,11 +53,16 @@ final class PublicPageApiProxyTest extends TestCase
 			new GuestApiTokenManager('test-secret'),
 		);
 
-		$response = $proxy->page(Request::create('https://www.example.test/about?lang=en'), 'about');
+		$request = Request::create('https://www.example.test/about?lang=en');
+		$response = $proxy->page($request, 'about');
 
 		self::assertSame(200, $response->getStatusCode());
 		self::assertInstanceOf(DomHtmlResponse::class, $response);
 		self::assertStringContainsString('<p>remote page</p>', (string) $response->getContent());
+		self::assertSame(
+			['css_minify' => true, 'js_minify' => true, 'js_uglify' => false],
+			$request->attributes->get(\iikiti\CMS\Filters\InlineAssetMinificationOptions::REQUEST_ATTRIBUTE),
+		);
 	}
 
 	public function testMapsAnUnavailablePageFromTheBusinessApi(): void
@@ -425,6 +430,7 @@ final class PublicPageApiProxyTest extends TestCase
 			'editor_mode' => $editorMode,
 			'revision' => str_repeat('a', 64),
 			'fragments' => $fragments,
+			'inline_asset_minification' => ['css_minify' => true, 'js_minify' => true, 'js_uglify' => false],
 		], JSON_THROW_ON_ERROR);
 	}
 

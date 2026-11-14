@@ -1150,3 +1150,57 @@ The admin library exports `BatchProgress` from the `@iikiti/ui` alias. Plugins
 can embed it in custom screens with the shared API client and a batch ID. Its
 single event endpoint supports polling (`mode=poll`) and SSE (`mode=stream`);
 the SSE reader uses authenticated `fetch` so API tokens stay in headers.
+
+## Inline asset response filters
+
+Main HTML responses minify CSS in `<style>` elements and JavaScript in inline
+`<script>` elements by default. `style` attributes, scripts with a `src`, and
+non-JavaScript data scripts such as `application/ld+json` and `importmap` are
+left alone. The filters use a formatting heuristic to skip content without
+comments, line breaks, or repeated horizontal whitespace; compact readable
+one-line source can therefore be treated as already minified. If a minifier
+fails on an element, its original content is retained.
+
+Set environment defaults in the runtime environment (for example `.env.local`):
+
+```dotenv
+INLINE_CSS_MINIFY=1
+INLINE_JS_MINIFY=1
+INLINE_JS_UGLIFY=0
+```
+
+An explicit boolean in the site's generic configuration overrides the matching
+environment value: `inline_css_minify`, `inline_js_minify`, or
+`inline_js_uglify`. JS uglification enables Terser's additional compression and
+local identifier mangling and is off by default; it only runs when JS minifying
+is enabled. It requires the Terser package and Node.js to be installed in the
+application runtime. If the optional process is unavailable or fails, ordinary
+JS minification still applies.
+
+Plugins can intercept the effective values once per HTML response by listening
+to `InlineAssetMinificationOptionsEvent::NAME`. The event runs after environment
+and site configuration have been resolved and before either filter runs. Its
+`getSite()` may return `null` when there is no site context; listeners change
+the current response's options with `setMinifyCss()`,
+`setMinifyJavaScript()`, and `setUglifyJavaScript()`.
+
+```php
+use iikiti\CMS\Filters\InlineAssetMinificationOptionsEvent;
+use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
+
+#[AsEventListener(event: InlineAssetMinificationOptionsEvent::NAME)]
+final class InlineAssetOptionsSubscriber
+{
+    public function onResolve(InlineAssetMinificationOptionsEvent $event): void
+    {
+        if (null !== $event->getSite() && $event->getSite()->getId() === 12) {
+            $event->setUglifyJavaScript(false);
+        }
+    }
+}
+```
+
+In API mode the event receives the current site. Consumer-composed pages receive
+the API-resolved options through the private, no-store render manifest, so the
+final response uses the same site and plugin decisions without loading site
+configuration in the consumer runtime.
