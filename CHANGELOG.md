@@ -16,6 +16,11 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 > Last updated: 2026-11-14
 
+### Added
+
+- 2026-11-14: Added per-site security header policy management (admin GET/PUT/test API, kernel.response emission, per-request CSP nonce injection, and rate-limited /api/internal/csp-reports endpoint).
+- 2026-11-14: Added documentation under docs/security-headers.md covering API, modes, storage, CSP specifics, and configuration.
+
 ### Changed
 
 - 2026-11-14: Inline CSS minification upgraded to CSS Typed OM v1.1.1 with `keepComments` and `ruleCallback`; opaque-rule newlines are stripped so minified output stays compact.
