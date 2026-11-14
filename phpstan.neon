@@ -3,6 +3,8 @@ parameters:
 	paths:
 		- src
 		- tests
+	scanFiles:
+		- migrations/Version20261114170000.php
 	doctrine:
 		objectManagerLoader: tests/object-manager.php
 		allowNullablePropertyForRequiredField: true

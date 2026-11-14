@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace iikiti\CMS\Tests\Integration;
 
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 final class ConsumerRuntimeDatabaseBoundaryTest extends WebTestCase
 {
@@ -42,6 +42,10 @@ final class ConsumerRuntimeDatabaseBoundaryTest extends WebTestCase
 		$this->setEnvironment('DATABASE_URL', '');
 		$providerRequests = [];
 		$http = new MockHttpClient(static function (string $method, string $url, array $options) use (&$providerRequests): MockResponse {
+			$headerResponse = self::headerResolution($method, $url, $options, '/about');
+			if (null !== $headerResponse) {
+				return $headerResponse;
+			}
 			self::assertSame('GET', $method);
 			self::assertTrue(self::hasHeader($options['headers'], 'X-SITE-HOST', 'www.example.test'));
 			self::assertStringStartsWith('guest2.', (string) self::header($options['headers'], 'X-AUTH-TOKEN'));
@@ -91,7 +95,7 @@ final class ConsumerRuntimeDatabaseBoundaryTest extends WebTestCase
 		self::assertSame('consumer', $container->getParameter('application_role'));
 		$container->set(HttpClientInterface::class, $http);
 
-		$client->request('GET', '/about', server: ['HTTP_HOST' => 'www.example.test']);
+		$client->request('GET', '/about', server: ['HTTP_HOST' => 'www.example.test', 'HTTP_X_EXAMPLE' => 'outer', 'HTTP_AUTHORIZATION' => 'private', 'HTTP_COOKIE' => 'private']);
 
 		self::assertResponseIsSuccessful();
 		self::assertSelectorTextContains('main', 'served by API');
@@ -99,7 +103,8 @@ final class ConsumerRuntimeDatabaseBoundaryTest extends WebTestCase
 		self::assertSelectorTextContains('main', 'sample-plugin.second');
 		self::assertSelectorTextContains('main', 'sample-plugin.third');
 		self::assertLessThan(array_search('sample-plugin.second', $providerRequests, true), array_search('sample-plugin.first', $providerRequests, true));
-		self::assertSame(5, $http->getRequestsCount());
+		self::assertSame('noindex', $client->getResponse()->headers->get('X-Robots-Tag'));
+		self::assertSame(6, $http->getRequestsCount());
 	}
 
 	public function testSameOriginFragmentRequestRelaysWithoutDatabaseAccess(): void
@@ -107,6 +112,10 @@ final class ConsumerRuntimeDatabaseBoundaryTest extends WebTestCase
 		$this->setEnvironment('APPLICATION_ROLE', 'consumer');
 		$this->setEnvironment('DATABASE_URL', '');
 		$http = new MockHttpClient(static function (string $method, string $url, array $options): MockResponse {
+			$headerResponse = self::headerResolution($method, $url, $options, '/_iikiti/fragments/sample-plugin.card');
+			if (null !== $headerResponse) {
+				return $headerResponse;
+			}
 			self::assertSame('GET', $method);
 			self::assertSame('/api/public/render/providers/sample-plugin.card', parse_url($url, PHP_URL_PATH));
 			self::assertTrue(self::hasHeader($options['headers'], 'X-SITE-HOST', 'www.example.test'));
@@ -128,7 +137,25 @@ final class ConsumerRuntimeDatabaseBoundaryTest extends WebTestCase
 
 		self::assertResponseIsSuccessful();
 		self::assertSame('<aside>Lazy</aside>', json_decode($client->getResponse()->getContent(), true, 16, JSON_THROW_ON_ERROR)['html']);
-		self::assertSame(1, $http->getRequestsCount());
+		self::assertSame(2, $http->getRequestsCount());
+	}
+
+	/** @param array<string,mixed> $options */
+	private static function headerResolution(string $method, string $url, array $options, string $outerPath): ?MockResponse
+	{
+		if ('/api/internal/response-headers/resolve' !== parse_url($url, PHP_URL_PATH)) {
+			return null;
+		}
+		self::assertSame('POST', $method);
+		$data = json_decode($options['body'], true, flags: JSON_THROW_ON_ERROR);
+		self::assertSame($outerPath, $data['payload']['path']);
+		self::assertSame('www.example.test', $data['payload']['host']);
+		self::assertSame(200, $data['payload']['status']);
+		self::assertArrayNotHasKey('authorization', $data['payload']['headers']);
+		self::assertArrayNotHasKey('cookie', $data['payload']['headers']);
+		self::assertNull(self::header($options['headers'], 'X-AUTH-TOKEN'));
+
+		return new MockResponse('{"rules":{"x-robots-tag":{"name":"x-robots-tag","action":"set","value":"noindex"}},"siteMode":"default","vary":[]}');
 	}
 
 	private function setEnvironment(string $name, string $value): void

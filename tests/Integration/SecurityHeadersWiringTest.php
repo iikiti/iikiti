@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Tests\Integration;
 
-use iikiti\CMS\Controller\Api\Admin\SecurityHeadersController;
+use iikiti\CMS\Controller\Api\Admin\ResponseHeadersController;
 use iikiti\CMS\Controller\Api\Internal\CspReportController;
 use iikiti\CMS\Event\Subscriber\SecurityHeadersSubscriber;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class SecurityHeadersWiringTest extends KernelTestCase
 {
-	public function testSecurityHeadersControllerIsRegistered(): void
+	public function testResponseHeadersControllerIsRegistered(): void
 	{
 		self::bootKernel();
-		self::assertInstanceOf(SecurityHeadersController::class, self::getContainer()->get(SecurityHeadersController::class));
+		self::assertInstanceOf(ResponseHeadersController::class, self::getContainer()->get(ResponseHeadersController::class));
 	}
 
 	public function testCspReportControllerIsRegistered(): void
@@ -37,9 +37,12 @@ final class SecurityHeadersWiringTest extends KernelTestCase
 		$routeCollection = $router->getRouteCollection();
 
 		$expectedRoutes = [
-			'api_admin_site_security_headers_get' => '/api/admin/sites/{siteId}/security/headers',
-			'api_admin_site_security_headers_put' => '/api/admin/sites/{siteId}/security/headers',
-			'api_admin_site_security_headers_test' => '/api/admin/sites/{siteId}/security/headers/test',
+			'api_admin_application_headers_get' => '/api/admin/applications/{applicationId}/headers',
+			'api_admin_application_headers_put' => '/api/admin/applications/{applicationId}/headers',
+			'api_admin_application_headers_preview' => '/api/admin/applications/{applicationId}/headers/preview',
+			'api_site_headers_get' => '/api/site/{siteId}/headers',
+			'api_site_headers_put' => '/api/site/{siteId}/headers',
+			'api_site_headers_preview' => '/api/site/{siteId}/headers/preview',
 			'api_internal_csp_reports' => '/api/internal/csp-reports',
 		];
 
@@ -48,5 +51,8 @@ final class SecurityHeadersWiringTest extends KernelTestCase
 			self::assertNotNull($route, "Route {$name} should exist");
 			self::assertSame($path, $route->getPath());
 		}
+		self::assertNull($routeCollection->get('api_admin_site_security_headers_get'));
+		self::assertNull($routeCollection->get('api_admin_site_security_headers_put'));
+		self::assertNull($routeCollection->get('api_admin_site_security_headers_test'));
 	}
 }

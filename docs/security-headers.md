@@ -1,129 +1,164 @@
-# Security Headers Management
+# Response Header Management
 
-A per-site security-header policy that complements the existing request firewall. The firewall inspects inbound traffic; this feature governs outbound response headers, giving site administrators declarative control over browser security behavior.
+The response-header API manages Application-wide and per-site policies. General
+headers apply to Symfony responses, including redirects and errors, over both
+HTTP and HTTPS, unless a rule's conditions exclude them. Apache-served static
+files bypass Symfony and are not covered by these policies.
 
-## Overview
+## Scope and Precedence
 
-Security headers are emitted by a `kernel.response` listener after site resolution, so headers are site-scoped. Headers are only emitted when:
+Application rules are either `default`, which site rules can override, or
+`required`, which matching site rules cannot override. Within each category,
+the highest-priority matching rule wins; list order breaks ties. Header names
+are case-insensitive. A winning `remove` action removes the header rather than
+falling back to a lower-priority rule. Only one value is emitted for each name.
 
-- The effective mode is `on` (see Modes below), AND
-- The request is secure (HTTPS), AND
-- The response is successful (2xx/3xx).
+Environment security defaults are the baseline. An Application default may
+override one, a matching site rule may override that, and a matching required
+Application rule wins over all site rules. Unrelated custom rules do not remove
+security defaults. The standard security headers retain their existing security
+mode gate, described below.
 
-Default safe policies are applied per environment — stricter in production, relaxed in development to avoid breaking the dev toolbar.
+## API
 
-## Headers managed
+- `GET` and `PUT /api/admin/applications/{applicationId}/headers` read or replace
+  an Application policy. These require a globally assigned administrator role.
+- `GET` and `PUT /api/site/{siteId}/headers` read or replace the current site's
+  policy. These require a site-manager role for that site, or global admin.
+- `POST` to either path plus `/preview` evaluates rules without saving them.
 
-| Header | Purpose | Notes |
-|--------|---------|-------|
-| `Content-Security-Policy` | Restrict script/style sources; control inline execution via nonces/hashes | Nonce placeholder `__IIKITI_CSP_NONCE__` replaced per-request |
-| `Content-Security-Policy-Report-Only` | Test a CSP without enforcing (violation reports only) | Same nonce substitution as CSP |
-| `Strict-Transport-Security` | HSTS with `includeSubDomains` and `preload` options | Prod default: `max-age=31536000; includeSubDomains; preload` |
-| `X-Frame-Options` | `DENY` / `SAMEORIGIN` / `ALLOW-FROM` | |
-| `X-Content-Type-Options` | `nosniff` | |
-| `Referrer-Policy` | `no-referrer`, `same-origin`, `strict-origin-when-cross-origin`, etc. | |
-| `Permissions-Policy` | Camera, microphone, geolocation, payment, etc. | |
-| `Cross-Origin-Opener-Policy` | `same-origin` / `same-origin-allow-popups` | |
-| `Cross-Origin-Embedder-Policy` | `require-corp` / `unsafe-none` | |
-| `Cross-Origin-Resource-Policy` | `same-origin` / `same-site` / `cross-origin` | |
+Use a user API token in `X-AUTH-TOKEN`. For a site API call, the path ID must
+match the site resolved from the request host; `X-SITE-HOST` supplies the
+site context when using the API through an internal origin. Writes replace a
+whole versioned policy; read the current policy first and preserve unrelated
+rules when updating it.
 
-## CSP specifics
-
-- Nonce-based policy for inline scripts/styles: a per-request nonce is generated and injected into inline `<script nonce="...">` and `<style nonce="...">` tags that lack one, so nonce-based CSP works without template changes. The policy includes `nonce-{value}`.
-- Hash-based policy for trusted inline blocks: admin-supplied hash sources are stored in the CSP value and emitted verbatim.
-- `report-uri` / `report-to` points to `POST /api/internal/csp-reports` (rate-limited, stored for admin review).
-- Report-only mode first, then enforce after violations are cleared.
-
-## API (ROLE_ADMIN)
-
-- `GET /api/admin/sites/{siteId}/security/headers` — current header policy
-- `PUT /api/admin/sites/{siteId}/security/headers` — replace the policy
-- `POST /api/admin/sites/{siteId}/security/headers/test` — render a sample response with applied headers for verification
-
-The site ID in the path must match the site resolved from the request host, otherwise a 404 is returned. The caller must have `ROLE_ADMIN`.
-
-Policy body (PUT):
+For example, an Application policy may require a robots directive on HTTPS
+responses under `/private`:
 
 ```json
 {
-  "headers": [
-    { "name": "Content-Security-Policy", "mode": "on", "value": "default-src 'self' __IIKITI_CSP_NONCE__" },
-    { "name": "X-Frame-Options", "mode": "on", "value": "DENY" }
+  "rules": [
+    {
+      "name": "X-Robots-Tag",
+      "action": "set",
+      "value": "noindex, nofollow",
+      "priority": 10,
+      "inheritance": "required",
+      "conditions": {
+        "all": [
+          {"field": "scheme", "operator": "equals", "value": "https"},
+          {"field": "path", "operator": "prefix", "value": "/private"}
+        ]
+      }
+    }
   ]
 }
 ```
 
-Each header needs `name` and `value`; `mode` defaults to `default` (inherits effective-mode rules). Unknown header names or `mode: "off"` / empty values are skipped.
+Rules have `name`, `action` (`set` or `remove`), optional integer `priority`
+(default 0), and optional `conditions`. A `set` rule has a string `value`;
+`remove` has none. Application rules additionally accept `inheritance`
+(`default` or `required`, defaulting to `default`); site rules must omit it.
 
-## Storage
+Conditions are nested `all` and `any` lists or a single `not` condition.
+Leaf predicates have `field` and `operator`: scheme and method support
+`equals`; path supports `equals`, `prefix`, or `regex`; status supports
+`equals` or `class` (a class value is an integer from 1 through 5); and header
+supports `present`, `equals`, or `regex`, with a `name` field identifying the
+request header. Regex values are raw patterns without delimiters. Pattern
+length, match execution, tree depth, and policy size are bounded; executable
+regex constructs and credential/cookie header conditions are rejected.
+Transport, framing, cookie, cache, and framework-managed response headers are
+reserved and cannot be configured. Equality comparisons are case-sensitive.
+Policies are limited to 100 rules and 65,536 JSON bytes; a condition tree may
+contain at most 64 nodes and eight levels. Header names are limited to 128
+bytes, header values to 8,192 bytes, and regex patterns to 256 bytes. Regex
+errors do not match, even under `not`. Responses vary on all request headers
+referenced by rules, including rules that did not match.
 
-The policy is stored on the `Site` object as a site configuration property (`security_headers_policy`), versioned for rollback. Each PUT bumps the version; administrators can roll back by re-applying an older observed policy.
+For example, `POST /api/site/42/headers/preview` accepts:
 
-## Modes
-
-### Global switch (environment variable)
-
-`IIKITI_SECURITY_HEADERS`
-
-| Value | Effect |
-|-------|--------|
-| blank / `default` / `true` / `1` | default (headers on when secure + successful) |
-| `off` | forced off for **all** sites, overriding any administrative settings |
-| anything else | treated as `default` |
-
-The env var defaults to blank/empty (use the standard default). Setting it to `true` is the same as default. Setting it to `off` is forced off and overrides administrative settings for all sites.
-
-### Per-site setting
-
-Stored on the Site configuration as `security_headers_mode`:
-
-| Value | Effect |
-|-------|--------|
-| `default` (unset) | headers on when secure + successful |
-| `forced_off` | headers off for this site |
-| `forced_on` | headers on regardless of secure/successful |
-
-Global overrides all site settings unless the site is set to `default`. Global forced-off (`IIKITI_SECURITY_HEADERS=off`) overrides everything for all sites.
-
-## Integration
-
-- Pairs with existing `MCP_ALLOWED_HOSTS` DNS-rebinding concepts via CSP `frame-ancestors` and `connect-src`.
-- Emitted by a `kernel.response` listener after site resolution.
-- CSP violation reports POST to `POST /api/internal/csp-reports` (rate-limited, stored in the `csp_reports` table for admin review).
-
-## Database
-
-A new `csp_reports` table is created via `migrations/Version20261114120000.php` to store violation reports. No migration is required for the header policy itself (it reuses the existing `object_properties` table).
-
-## Configuration example
-
-Add to `.env.local`:
-
-```env
-IIKITI_SECURITY_HEADERS=default
+```json
+{
+  "request": {
+    "scheme": "https",
+    "method": "GET",
+    "path": "/private/page",
+    "headers": {"X-Region": "eu"}
+  },
+  "status": 404
+}
 ```
 
-Force off globally:
+Preview returns the winning configured `rules` by normalized name, including
+`remove` winners. Include an optional `rules` list to preview a replacement
+without saving it. It does not simulate built-in security defaults or nonce
+generation.
 
-```env
-IIKITI_SECURITY_HEADERS=off
-```
+The old `/api/admin/sites/{siteId}/security/headers` routes are removed. The
+data migration copies existing security policies into the new format, retaining
+the original data and preserving the old replace-all behavior with explicit
+removals for omitted security defaults. The migration stops and identifies the
+site if an old policy contains values that fail the new safety checks; correct
+the legacy policy before rerunning the migration.
 
-## Verification
+## Security Headers
 
-Run:
+The built-in security set includes Content Security Policy (enforced and
+report-only), HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy,
+Permissions-Policy, Cross-Origin-Opener-Policy, Cross-Origin-Embedder-Policy,
+and Cross-Origin-Resource-Policy. Defaults are stricter in production and
+relaxed for the development toolbar.
 
-```bash
-bun run build   # frontend, if applicable
-php bin/console lint:container
-vendor/bin/phpstan analyse
-vendor/bin/php-cs-fixer fix --dry-run --diff
-php bin/phpunit tests/Service/SecurityHeaderPolicyTest.php \
-  tests/Service/SecurityHeaderStoreTest.php \
-  tests/Controller/Api/Admin/SecurityHeadersControllerTest.php \
-  tests/Integration/SecurityHeadersWiringTest.php
-```
+`IIKITI_SECURITY_HEADERS=off` disables those security headers globally. With
+the default environment setting, the site's `security_headers_mode` is
+`default`, `forced_off`, or `forced_on`. Default mode emits the security set
+only on secure, successful responses; forced-on includes HTTP and error
+responses. General non-security headers are independent of this switch.
 
-## Changelog
+CSP and report-only CSP values may contain `__IIKITI_CSP_NONCE__`, replaced by
+the per-response nonce; the HTML response listener adds the nonce to script and
+style tags that lack one. CSP violation reports are accepted at
+`POST /api/internal/csp-reports` and stored in `csp_reports`.
 
-Recorded in `CHANGELOG.md` under `## [Unreleased] > Added`.
+`X-Robots-Tag` is a normal general-header rule, not a separate SEO setting. A
+future SEO administrative interface must modify the same stored rule; it is not
+implemented here.
+
+## Runtime Configuration
+
+Configure `IIKITI_DEFAULT_APPLICATION_ID` with an existing Application ID for
+requests whose host does not resolve to a site. Host-mapped site/Application
+context takes precedence. The fallback is important for login, admin shell,
+unmatched-host errors, and other site-independent responses. Deploy the new
+code and run `php bin/console doctrine:migrations:migrate` before using the new
+API; review any reported invalid legacy policy before retrying the migration.
+For example, in `.env.local` set `IIKITI_DEFAULT_APPLICATION_ID` to the ID of
+the Application that should handle otherwise unmapped requests. A missing or
+invalid fallback returns 503 for requests without a resolvable Application.
+
+For `APPLICATION_ROLE=consumer`, `INTERNAL_API_BASE_URL` must point to a
+separate API runtime. Both runtimes must use the same `APP_SECRET` for the
+authenticated internal header-resolution request. The consumer supplies the
+original request context and final response status without forwarding user
+credentials or cookies.
+The API runtime only resolves hosts listed in `IIKITI_CONSUMER_HOSTS`
+(comma-separated, for example `www.example.com,shop.example.com`); other hosts
+receive 400. Set it to the public hosts that the consumer serves.
+
+The consumer forwards only the fixed headers `Accept-Language`, `User-Agent`,
+and `X-Device` for conditions. Rules may condition on other request headers
+only if they are added to that allow-list; other headers are not forwarded.
+
+The clocks of the two runtimes must be within 60 seconds. The internal request
+accepts at most 100 headers, 4,096 bytes per header value, and 65,536 bytes of
+JSON. If resolution fails, a successful response becomes 503 with `no-store`;
+a non-success response (redirect, 4xx, 5xx) keeps its original status and body
+with `no-store` added.
+Streamed and file responses cannot have nonce attributes injected after output
+is generated; their HTML content must already include the matching nonce when
+using a nonce-based CSP.
+
+Changes made directly in Apache or another reverse proxy are outside this API.
+Protect and configure those layers separately where needed.

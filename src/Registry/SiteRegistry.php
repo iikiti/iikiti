@@ -70,8 +70,11 @@ class SiteRegistry
 		bool $publicPageRenderViaApi,
 	): void {
 		$route = $requestStack->getCurrentRequest()?->attributes->get('_route');
+		$path = $requestStack->getCurrentRequest()?->getPathInfo() ?? '';
 		$consumerProxyRoute = in_array($route, ['home', 'page', 'digital_asset_file', 'public_fragment'], true);
 		$siteIndependentRoute = 'html_login' === $route || in_array($route, ['admin_home', 'admin_spa'], true)
+			|| 1 === preg_match('~^/api/admin/applications/[^/]+/headers(?:/preview)?$~D', $path)
+			|| 'api_internal_response_headers_resolve' === $route
 			|| ('consumer' === $applicationRole && $consumerProxyRoute)
 			|| ($publicPageRenderViaApi && in_array($route, ['home', 'page'], true));
 		if (static::$populated || !static::$initialized || 'consumer' === $applicationRole || $siteIndependentRoute) {
@@ -115,6 +118,7 @@ class SiteRegistry
 			|| '/api/mcp' === $request->getPathInfo()
 			|| str_starts_with($request->getPathInfo(), '/api/forms/')
 			|| str_starts_with($request->getPathInfo(), '/api/admin/')
+			|| 1 === preg_match('~^/api/site/[^/]+/headers(?:/preview)?$~D', $request->getPathInfo())
 			|| str_starts_with($request->getPathInfo(), '/api/editor/')) {
 			$forwardedHost = $request->headers->get('X-SITE-HOST');
 			if (is_string($forwardedHost) && '' !== $forwardedHost) {

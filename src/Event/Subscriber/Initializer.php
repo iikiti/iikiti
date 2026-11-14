@@ -84,6 +84,8 @@ class Initializer implements EventSubscriberInterface
 		$apiBackedPageRoute = $this->publicPageRenderViaApi && in_array($route, ['home', 'page'], true);
 		$siteIndependentRoute = 'html_login' === $route
 			|| in_array($route, ['admin_home', 'admin_spa'], true)
+			|| 1 === preg_match('~^/api/admin/applications/[^/]+/headers(?:/preview)?$~D', $event->getRequest()->getPathInfo())
+			|| 'api_internal_response_headers_resolve' === $route
 			|| ('consumer' === $this->applicationRole && $consumerProxyRoute)
 			|| $apiBackedPageRoute;
 		if ('consumer' === $this->applicationRole) {
@@ -120,7 +122,9 @@ class Initializer implements EventSubscriberInterface
 	 */
 	protected function _verifyUserHasSiteAccess(Request $request): void
 	{
-		if ('consumer' === $this->applicationRole || in_array($request->attributes->get('_route'), ['admin_home', 'admin_spa', 'html_login'], true)) {
+		if ('consumer' === $this->applicationRole || in_array($request->attributes->get('_route'), ['admin_home', 'admin_spa', 'html_login'], true)
+			|| 'api_internal_response_headers_resolve' === $request->attributes->get('_route')
+			|| 1 === preg_match('~^/api/(?:admin/applications|site)/[^/]+/headers(?:/preview)?$~D', $request->getPathInfo())) {
 			return;
 		}
 

@@ -64,6 +64,10 @@ parameters:
     mcp_api_rate_limit: '%env(int:default:mcp_api_rate_limit_default:MCP_API_RATE_LIMIT)%'
     iikiti_security_headers_default: 'default'
     iikiti_security_headers: '%env(default:iikiti_security_headers_default:IIKITI_SECURITY_HEADERS)%'
+    iikiti_default_application_id_default: 0
+    iikiti_default_application_id: '%env(int:default:iikiti_default_application_id_default:IIKITI_DEFAULT_APPLICATION_ID)%'
+    iikiti_consumer_hosts_default: ''
+    iikiti_consumer_hosts: '%env(csv:default:iikiti_consumer_hosts_default:IIKITI_CONSUMER_HOSTS)%'
 
 services:
     # default configuration for services in *this* file

@@ -18,6 +18,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-11-14: Added a data migration from legacy site security header policies to response header rules, retaining legacy settings and replace-all behavior.
 - 2026-11-14: Added Bun frontend unit coverage for consent, fragments, readiness, plugins, tours, notifications, events, and layout utilities, with a `bun run test` script.
 - 2026-11-14: Added the Consent Management plugin (`plugins/consent-management`) with a Svelte consent banner (necessary/analytics/marketing), consent API (`POST`/`GET /api/privacy/consent`), consent records keyed by user/session in `object_properties`, frontend script blocking until consent, GPC/Do-Not-Track signal auto-selection, geo-targeted legal frameworks, proof-of-consent capture, and `AuditRecorder` audit logging.
 - 2026-11-14: Added admin consent log (`/api/admin/privacy/consent-log`) and banner configuration (`/api/admin/privacy/config`) screens behind `ROLE_ADMIN`.
@@ -26,6 +27,8 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Changed
 
+- 2026-11-14: Replaced the site security-header API with conditional Application and site response-header policies, including required Application rules and shared X-Robots-Tag support.
+- 2026-11-14: Consumer header resolution now forwards only `Accept-Language`, `User-Agent`, and `X-Device`; the internal resolver accepts only hosts listed in `IIKITI_CONSUMER_HOSTS`; resolution failures keep non-success responses intact and return 503 only for successful responses.
 - 2026-11-14: Extracted the consent manager into a testable factory while preserving browser initialization, component notifications, and banner-load deduplication.
 - 2026-11-14: Inline CSS minification upgraded to CSS Typed OM v1.1.1 with `keepComments` and `ruleCallback`; opaque-rule newlines are stripped so minified output stays compact.
 - 2026-11-14: Inline CSS minification now uses the CSS Typed OM parser and minified renderer, which are also available to plugins for stylesheet mutation.
