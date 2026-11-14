@@ -9,7 +9,9 @@ use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Post;
 use iikiti\CMS\State\Processor\FirewallRulePackActivationProcessor;
 
-#[ApiResource(operations: [
+#[ApiResource(
+	formats: ['jsonld' => ['application/ld+json'], 'json' => ['application/json']],
+	operations: [
 	new Post(
 		uriTemplate: '/admin/security/firewall/packs/{key}/activate',
 		name: 'admin_firewall_pack_activate',

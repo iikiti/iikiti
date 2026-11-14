@@ -116,6 +116,17 @@ final class FirewallRequestSubscriberTest extends TestCase
 		self::assertSame([], $securityEvents[0]->findings);
 	}
 
+	public function testStageTwoOnlyConstructionEmitsNoStageOneMetadata(): void
+	{
+		$request = Request::create('/api/items');
+		$request->attributes->set('_api_operation_name', 'items_get');
+		[$event, $securityEvents] = $this->evaluate($request);
+
+		self::assertNull($event->getResponse());
+		self::assertCount(1, $securityEvents);
+		self::assertSame([], $securityEvents[0]->stageMetadata, 'Stage-2-only construction emits no Stage-1 metadata.');
+	}
+
 	/**
 	 * @return array{RequestEvent,list<FirewallSecurityEvent>}
 	 */

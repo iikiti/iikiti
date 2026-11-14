@@ -40,6 +40,7 @@ final class FirewallDataCollector extends DataCollector implements EventSubscrib
 
 		$this->data = [
 			'evaluated' => true,
+			'stage' => $this->safeStage($event->stageMetadata),
 			'request' => [
 				'method' => $this->boundedString($event->requestSummary['method'], 32),
 				'path' => $this->boundedString($event->requestSummary['path'], 2048),
@@ -88,6 +89,14 @@ final class FirewallDataCollector extends DataCollector implements EventSubscrib
 		return is_array($request) ? $request : null;
 	}
 
+	/** @return array{ip_action:string,bot:array<string,mixed>|null,rate_limit:array<string,mixed>|null,dos_status:string,bypass_waf:bool,denied_by:string|null} */
+	public function getStage(): array
+	{
+		$stage = $this->currentData()['stage'] ?? [];
+
+		return is_array($stage) ? $stage : $this->safeStage([]);
+	}
+
 	public function getAction(): ?string
 	{
 		$action = $this->currentData()['action'] ?? null;
@@ -118,6 +127,38 @@ final class FirewallDataCollector extends DataCollector implements EventSubscrib
 	public function reset(): void
 	{
 		$this->data = [];
+	}
+
+	/**
+	 * Whitelists Stage-1 outcome fields so profiler output carries only bounded verdicts, never raw
+	 * headers, cookies, bodies, or header values.
+	 *
+	 * @param array<string,mixed> $stage
+	 *
+	 * @return array{ip_action:string,bot:array<string,mixed>|null,rate_limit:array<string,mixed>|null,dos_status:string,bypass_waf:bool,denied_by:string|null}
+	 */
+	private function safeStage(array $stage): array
+	{
+		$bot = is_array($stage['bot'] ?? null) ? $stage['bot'] : null;
+		$rateLimit = is_array($stage['rate_limit'] ?? null) ? $stage['rate_limit'] : null;
+
+		return [
+			'ip_action' => $this->boundedString(is_string($stage['ip_action'] ?? null) ? $stage['ip_action'] : 'none', 32),
+			'bot' => null === $bot ? null : [
+				'action' => $this->boundedString(is_string($bot['action'] ?? null) ? $bot['action'] : 'none', 32),
+				'botId' => is_string($bot['botId'] ?? null) ? $this->boundedString($bot['botId'], 128) : null,
+				'verified' => (bool) ($bot['verified'] ?? false),
+				'impersonated' => (bool) ($bot['impersonated'] ?? false),
+				'bypassWaf' => (bool) ($bot['bypassWaf'] ?? false),
+			],
+			'rate_limit' => null === $rateLimit ? null : [
+				'rule' => is_string($rateLimit['rule'] ?? null) ? $this->boundedString($rateLimit['rule'], 128) : null,
+				'accepted' => (bool) ($rateLimit['accepted'] ?? true),
+			],
+			'dos_status' => $this->boundedString(is_string($stage['dos_status'] ?? null) ? $stage['dos_status'] : 'allowed', 32),
+			'bypass_waf' => (bool) ($stage['bypass_waf'] ?? false),
+			'denied_by' => is_string($stage['denied_by'] ?? null) ? $this->boundedString($stage['denied_by'], 64) : null,
+		];
 	}
 
 	/** @return array{rule_id:string,name:string,action:string,priority:int,matched_conditions:list<array<string,mixed>>,conditions_truncated:bool} */

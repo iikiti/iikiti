@@ -43,6 +43,18 @@ class AuditLogEntry
 		'created_api_token',
 		'deleted_api_token',
 		'property_deleted',
+		'firewall_blocked',
+		'firewall_throttled',
+		'firewall_ip_rule_created',
+		'firewall_ip_rule_updated',
+		'firewall_ip_rule_deleted',
+		'firewall_ip_rules_imported',
+		'firewall_ip_banned',
+		'firewall_ip_unbanned',
+		'firewall_policy_updated',
+		'firewall_automation_created',
+		'firewall_automation_updated',
+		'firewall_automation_deleted',
 	];
 
 	/** @var list<string> */

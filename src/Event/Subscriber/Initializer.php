@@ -86,6 +86,8 @@ class Initializer implements EventSubscriberInterface
 			|| in_array($route, ['admin_home', 'admin_spa'], true)
 			|| 1 === preg_match('~^/api/admin/applications/[^/]+/headers(?:/preview)?$~D', $event->getRequest()->getPathInfo())
 			|| 'api_internal_response_headers_resolve' === $route
+			|| 'api_internal_firewall_resolve' === $route
+			|| 'firewall_challenge_verify' === $route
 			|| ('consumer' === $this->applicationRole && $consumerProxyRoute)
 			|| $apiBackedPageRoute;
 		if ('consumer' === $this->applicationRole) {

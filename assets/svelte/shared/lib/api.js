@@ -20,10 +20,16 @@ export class ApiClient {
 		this.siteScheme = siteScheme;
 	}
 
-	getHeaders(body = null) {
+	/**
+	 * @param {*} body
+	 * @param {string|null} [siteHostOverride] `null` keeps the client default;
+	 *   an empty string suppresses the site-host headers for that request.
+	 */
+	getHeaders(body = null, siteHostOverride = null) {
 		const headers = { 'X-AUTH-TOKEN': this.token };
-		if (this.siteHost) {
-			headers['X-SITE-HOST'] = this.siteHost;
+		const siteHost = siteHostOverride ?? this.siteHost;
+		if (siteHost) {
+			headers['X-SITE-HOST'] = siteHost;
 			headers['X-SITE-SCHEME'] = this.siteScheme;
 		}
 		if (typeof FormData === 'undefined' || !(body instanceof FormData)) {
@@ -35,15 +41,17 @@ export class ApiClient {
 
 	async request(path, options = {}) {
 		const headers = {
-			...this.getHeaders(options.body),
+			...this.getHeaders(options.body, options.siteHost ?? null),
 			...options.headers,
 		};
+		// `siteHost` is a client-side routing hint, not a fetch option.
+		const { siteHost: _siteHost, ...fetchOptions } = options;
 		if (typeof FormData !== 'undefined' && options.body instanceof FormData) {
 			delete headers['Content-Type'];
 		}
 
 		const response = await fetch(`${this.baseUrl}${path}`, {
-			...options,
+			...fetchOptions,
 			headers,
 		});
 
@@ -270,6 +278,197 @@ export class ApiClient {
 		const path = query ? `/sites?${query}` : '/sites';
 		const data = await this.request(path);
 		return this.parsePaged(data);
+	}
+
+	/* ------------------------------------------------------------------ */
+	/* Firewall                                                            */
+	/* ------------------------------------------------------------------ */
+
+	/**
+	 * Resolves a firewall scope to its request path and optional host override.
+	 * Global scope uses admin routes; site scope uses `/site/{siteId}/...` and
+	 * sends `X-SITE-HOST` so the site is resolved for the request.
+	 *
+	 * @param {'global'|'site'} scope
+	 * @param {string|number|null} siteId
+	 * @returns {{ base: string, siteHost: string|null }}
+	 */
+	firewallScope(scope, siteId = null) {
+		if (scope === 'site') {
+			if (siteId === null || siteId === undefined || siteId === '') {
+				throw new Error('A site id is required for site-scoped firewall requests.');
+			}
+			return { base: `/site/${encodeURIComponent(String(siteId))}/security/firewall`, siteHost: this.siteHost || null };
+		}
+
+		// Global admin routes are host-independent: an empty override suppresses
+		// the client's default X-SITE-HOST so admin calls never resolve a site.
+		return { base: '/admin/security/firewall', siteHost: '' };
+	}
+
+	/** Builds a firewall request path for a scope plus optional sub-path and id. */
+	firewallPath(scope, siteId, subPath = '', id = null) {
+		const { base, siteHost } = this.firewallScope(scope, siteId);
+		const idPart = id === null || id === undefined ? '' : `/${encodeURIComponent(String(id))}`;
+
+		return { path: `${base}${subPath}${idPart}`, siteHost };
+	}
+
+	/**
+	 * Unwraps an API Platform collection into a plain array. Handles Hydra
+	 * (`hydra:member`), JSON-LD/plain `member`, `{ items: [...] }`, and bare arrays.
+	 *
+	 * @returns {any[]}
+	 */
+	unwrapCollection(data) {
+		return this.extractItems(data);
+	}
+
+	/** Sends a firewall-scoped request, applying the scope's host override. */
+	firewallRequest(scope, siteId, subPath, { id = null, method, body, query } = {}) {
+		const { path, siteHost } = this.firewallPath(scope, siteId, subPath, id);
+		const suffix = query ? `?${new URLSearchParams(query).toString()}` : '';
+		return this.request(`${path}${suffix}`, {
+			method,
+			body: body === undefined ? undefined : JSON.stringify(body),
+			siteHost,
+		});
+	}
+
+	// Application & site protection policy ---------------------------------
+
+	/** @param {string|number} applicationId */
+	async getFirewallApplicationPolicy(applicationId) {
+		return this.request(`/admin/applications/${encodeURIComponent(String(applicationId))}/firewall/policy`);
+	}
+
+	/** @param {string|number} applicationId @param {object} payload */
+	async updateFirewallApplicationPolicy(applicationId, payload) {
+		return this.request(`/admin/applications/${encodeURIComponent(String(applicationId))}/firewall/policy`, {
+			method: 'PUT',
+			body: JSON.stringify(payload),
+		});
+	}
+
+	/** @param {string|number} siteId */
+	async getFirewallSiteProtection(siteId) {
+		return this.firewallRequest('site', siteId, '/protection', { method: 'GET' });
+	}
+
+	/** @param {string|number} siteId @param {object} payload */
+	async updateFirewallSiteProtection(siteId, payload) {
+		return this.firewallRequest('site', siteId, '/protection', { method: 'PUT', body: payload });
+	}
+
+	// IP rules & import -----------------------------------------------------
+
+	/** @returns {Promise<any[]>} */
+	async getFirewallIpRules(scope, siteId = null) {
+		const data = await this.firewallRequest(scope, siteId, '/ip-rules', { method: 'GET' });
+		return this.unwrapCollection(data);
+	}
+
+	async createFirewallIpRule(scope, siteId, payload) {
+		return this.firewallRequest(scope, siteId, '/ip-rules', { method: 'POST', body: payload });
+	}
+
+	async updateFirewallIpRule(scope, siteId, id, payload) {
+		return this.firewallRequest(scope, siteId, '/ip-rules', { id, method: 'PUT', body: payload });
+	}
+
+	async deleteFirewallIpRule(scope, siteId, id) {
+		await this.firewallRequest(scope, siteId, '/ip-rules', { id, method: 'DELETE' });
+	}
+
+	/** Global scope only. @param {Array<object>} items */
+	async importFirewallIpRules(items) {
+		return this.request('/admin/security/firewall/ip-rules/import', {
+			method: 'POST',
+			body: JSON.stringify({ items }),
+		});
+	}
+
+	// Active bans ----------------------------------------------------------
+
+	/** @returns {Promise<any[]>} */
+	async getFirewallBans(scope, siteId = null) {
+		const data = await this.firewallRequest(scope, siteId, '/bans', { method: 'GET' });
+		return this.unwrapCollection(data);
+	}
+
+	/** Global scope only (manual ban). @param {object} payload */
+	async createFirewallBan(payload) {
+		return this.request('/admin/security/firewall/bans', {
+			method: 'POST',
+			body: JSON.stringify(payload),
+		});
+	}
+
+	async deleteFirewallBan(scope, siteId, id) {
+		await this.firewallRequest(scope, siteId, '/bans', { id, method: 'DELETE' });
+	}
+
+	// Bot catalog & automations -------------------------------------------
+
+	/** @returns {Promise<any[]>} */
+	async getFirewallBotCatalog() {
+		const data = await this.request('/admin/security/firewall/bots/catalog');
+		return this.unwrapCollection(data);
+	}
+
+	/** @returns {Promise<any[]>} */
+	async getFirewallAutomations(scope, siteId = null) {
+		const data = await this.firewallRequest(scope, siteId, '/automations', { method: 'GET' });
+		return this.unwrapCollection(data);
+	}
+
+	async createFirewallAutomation(scope, siteId, payload) {
+		return this.firewallRequest(scope, siteId, '/automations', { method: 'POST', body: payload });
+	}
+
+	async updateFirewallAutomation(scope, siteId, id, payload) {
+		return this.firewallRequest(scope, siteId, '/automations', { id, method: 'PUT', body: payload });
+	}
+
+	async deleteFirewallAutomation(scope, siteId, id) {
+		await this.firewallRequest(scope, siteId, '/automations', { id, method: 'DELETE' });
+	}
+
+	// Events & simulation --------------------------------------------------
+
+	/** @returns {Promise<any[]>} */
+	async getFirewallEvents(scope, siteId = null) {
+		const data = await this.firewallRequest(scope, siteId, '/events', { method: 'GET' });
+		return this.unwrapCollection(data);
+	}
+
+	async simulateFirewallRequest(scope, siteId, payload) {
+		return this.firewallRequest(scope, siteId, '/simulate', { method: 'POST', body: payload });
+	}
+
+	// WAF rules & packs ----------------------------------------------------
+
+	/** @param {string|number} siteId */
+	async getFirewallWafPolicy(siteId) {
+		return this.firewallRequest('site', siteId, '/policy', { method: 'GET' });
+	}
+
+	/** @param {string|number} siteId @param {Array<object>} rules */
+	async updateFirewallWafPolicy(siteId, rules) {
+		return this.firewallRequest('site', siteId, '/policy', { method: 'PUT', body: { rules } });
+	}
+
+	/** @returns {Promise<any[]>} */
+	async getFirewallRulePacks() {
+		const data = await this.request('/admin/security/firewall/packs');
+		return this.unwrapCollection(data);
+	}
+
+	async activateFirewallRulePack(id, version) {
+		return this.request(`/admin/security/firewall/packs/${encodeURIComponent(String(id))}/activate`, {
+			method: 'POST',
+			body: JSON.stringify({ version }),
+		});
 	}
 }
 

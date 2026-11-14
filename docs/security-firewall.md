@@ -87,6 +87,41 @@ targets accept `name`. Optional `transformations` run in order and are limited t
 `lowercase`, `urlDecode`, `urlDecodeUni`, `htmlEntityDecode`, `removeNulls`, and
 `normalizePath`.
 
+## Two-Stage Pipeline
+
+Each main request passes through two stages in `FirewallRequestSubscriber` (request priority 9):
+
+1. **Stage 1 (metadata gate, no body read).** Runs in this order and short-circuits on the first decision:
+   IP rules (`FirewallIpRuleStore`, global required > site > global default) → bot classification
+   (`FirewallBotDetector`; `challenge` redirects unless a clearance cookie is valid, `/api/*` never
+   receives a challenge) → structural DoS limits (`FirewallDosGuard`, 400/413) → pre-auth rate limits
+   (`FirewallRateLimiterManager`, 429 with `X-RateLimit-*` and `Retry-After`) → expensive-route concurrency
+   (`FirewallAnomalyDetector`, 429 with `Retry-After: 5` when the cap is enforced).
+2. **Stage 2 (body-aware WAF).** Runs unless a verified trusted automation has `bypassWaf` set.
+
+Stage-1 denials dispatch `FirewallSecurityEvent` with bounded `stageMetadata` (`ip_action`, `bot`,
+`rate_limit`, `dos_status`, `bypass_waf`, `denied_by`). No raw headers, cookies, or bodies are recorded.
+
+`FirewallFeedbackSubscriber` completes the pipeline: post-authentication rate limits (priority 7),
+rate-limit headers and 4xx error-storm strikes (response), and concurrency-slot release (terminate).
+
+Site-less non-API requests are not evaluated. Site-less `/api/*` traffic uses global rules only.
+
+## Consumer-Mode Protection Policy
+
+In a consumer runtime (`APPLICATION_ROLE=consumer`) the Application and Site tables are not local.
+`FirewallProtectionPolicyResolverSelector` therefore delegates to `RemoteFirewallProtectionResolver`,
+which calls the API runtime's `POST /api/internal/firewall/resolve`:
+
+- The request body is `{payload, signature}`; `signature` is `HMAC-SHA256(json(payload), kernel.secret)`.
+- The API rejects a signature mismatch, a `time` more than 60 seconds from the server clock, or a
+  `Host` that is not listed in `IIKITI_CONSUMER_HOSTS`. The response is `Cache-Control: no-store`.
+- The API runtime itself uses `LocalFirewallProtectionPolicyResolver` (local stores).
+
+Required setup for a consumer: set `APP_SECRET` to the same value on both runtimes, set
+`INTERNAL_API_BASE_URL` to a separate API runtime (targeting the consumer itself returns 503), and list
+the consumer host in `IIKITI_CONSUMER_HOSTS` on the API runtime.
+
 ## Request-Path Performance
 
 The compiled ruleset is cached in the dedicated `cache.firewall` pool for five
@@ -226,8 +261,7 @@ only the documented subset and rejects the complete pack if any directive,
 variable, operator, transformation, action, or rule cannot be represented.
 There is no best-effort skip mode and this is not full OWASP CRS compatibility.
 
-Supported SecLang operators are `@rx`, `@contains`, `@streq`, `@beginsWith`, and
-`@endsWith`. Supported variables are `REQUEST_URI`, `REQUEST_FILENAME`,
+Supported SecLang operators are `@rx`, `@contains`, `@streq`, `@beginsWith`, `@endsWith`, and `@ipMatch` (on `REMOTE_ADDR`). Supported variables are `REQUEST_URI`, `REQUEST_FILENAME`,
 `REQUEST_METHOD`, `REMOTE_ADDR`, `REQUEST_HEADERS[:name]`,
 `REQUEST_COOKIES[:name]`, `ARGS` (query and form fields), `ARGS_GET`,
 `ARGS_POST`, `REQUEST_BODY`, and `FILES_TMP_CONTENT`. Multiple variables are OR
@@ -270,3 +304,39 @@ vendor/bin/phpunit tests/Security/Firewall
 After adding/removing providers, rebuild the container and confirm the pack
 source appears in the admin status API. Set initial custom actions to `report`,
 inspect event findings, and only then opt individual site rules into `deny`.
+
+## Two-Stage Protection Pipeline (IP, Rate Limiting, L7 DoS & Bots/AI)
+
+Incoming requests pass through Stage 1 **before** `FirewallRequestContextFactory`
+reads bodies or spools uploads, and Stage 2 evaluates WAF rules only for
+requests that clear Stage 1 (unless bypassed by a verified trusted automation):
+
+1. **IP Rules & Active Bans (`FirewallIpRule`, `FirewallIpBan`)**:
+   - Canonical IPv4/IPv6 CIDR matching (`IpCidrNormalizer`, `FirewallIpMatcher`, and the `ip.cidr` WAF condition).
+   - Strict precedence: `global (required)` > `site` > `global (default)`.
+   - Active temporary bans (`firewall_ip_bans`) are mirrored into `cache.firewall` at priority `-1000`.
+2. **Bots, AI & Trusted Automations (`FirewallBotCatalog`, `FirewallBotVerifier`, `FirewallBotDetector`)**:
+   - Categorizes `search_engine`, `ai_training`, `ai_agent`, `monitoring`, `social_preview`, and `malicious_scanner` user agents with Application (`default`/`required`) and Site overrides (`allow`, `throttle`, `report`, `challenge`, `block`).
+   - Defaults allow verified search engines, monitoring, social previews, and user-triggered AI agents, while blocking `ai_training` crawlers and `malicious_scanner` tools.
+   - Verifies claimed bot identity via signed bot CIDR feeds (`FirewallBotCidrFeedStore` / `FirewallBotCidrProviderInterface`) and optional bounded cached FCrDNS (`fcrdnsEnabled`, opt-in), flagging unverified impersonators when an active verification source exists.
+   - Supports custom trusted automations (`FirewallTrustedAutomation`) via CIDR, constant-time header secret, HMAC-SHA256, or Ed25519 HTTP signature, with secrets encrypted/hashed at rest (`FirewallAutomationSecretCipher`) and never returned in API responses.
+   - Supports `FirewallChallengeProviderInterface` and the built-in `CoreProofOfWorkChallengeProvider` (`POST /_firewall/challenge/verify` issuing an IP/UA-bound `iikiti_fw_clearance` cookie) for suspicious HTML browser routes while downgrading `challenge` to `block` on `/api/*`.
+3. **Layer 7 DoS & Anomaly Guards (`FirewallDosGuard`, `FirewallAnomalyDetector`, `FirewallAutoBanManager`)**:
+   - Pre-inspection bounds on header count/bytes, URI length, query parameters, cookie count/bytes, and route-group `Content-Length` caps (including unexpected bodies on `GET`/`HEAD`).
+   - Response-phase 4xx error-storm detection (`401`/`403`/`404`/`422`), bounded expensive-route concurrency slots released on `KernelEvents::TERMINATE`, and strike-based escalating auto-bans (defaulting to `report` mode initially).
+4. **Rate Limiting (`FirewallRateLimiterManager`)**:
+   - Uses `symfony/rate-limiter` backed by `cache.firewall_ratelimit` (`sliding_window`, `token_bucket`, `fixed_window`) across `ip`, `subnet`, `user`, `token`, `ip_and_route`, `bot_identity`, and `site` keys, emitting `X-RateLimit-*` and `Retry-After` headers.
+   - Auth/MFA defaults (`/api/auth/login`, `/api/auth/mfa/*`, `/api/auth/session-token`) enforce `throttle` (`429`); broader defaults (`/api/forms/*`, anonymous `/api/*`) ship in `report` mode.
+5. **Consumer Mode & CLI Recovery**:
+   - Consumer runtimes resolve policies and IP verdicts via `RemoteFirewallProtectionResolver` -> `POST /api/internal/firewall/resolve` when shared cache is absent.
+   - Emergency CLI commands: `iikiti:firewall:ip-allow`, `iikiti:firewall:ip-block`, `iikiti:firewall:ip-list`, `iikiti:firewall:unban`, and `iikiti:firewall:status`.
+   - Scheduled maintenance provider `security.firewall.maintenance` purges expired bans and IP rules.
+
+### Protection Management APIs
+
+- **Application Policy (`ROLE_ADMIN`)**: `GET/PUT /api/admin/applications/{applicationId}/firewall/policy`
+- **Site Protection (`ROLE_SITE_MANAGER`)**: `GET/PUT /api/site/{siteId}/security/firewall/protection`
+- **IP Rules & Bulk Import**: `GET/POST/PUT/DELETE /api/admin/security/firewall/ip-rules*`, `POST /api/admin/security/firewall/ip-rules/import`, `GET/POST/PUT/DELETE /api/site/{siteId}/security/firewall/ip-rules*`
+- **Active Bans**: `GET/POST /api/admin/security/firewall/bans`, `DELETE /api/admin/security/firewall/bans/{id}`, `GET/DELETE /api/site/{siteId}/security/firewall/bans*`
+- **Bots & Trusted Automations**: `GET /api/admin/security/firewall/bots/catalog`, `GET/POST/PUT/DELETE /api/admin/security/firewall/automations*`, `GET/POST/PUT/DELETE /api/site/{siteId}/security/firewall/automations*`
+- **Events & Dry-Run Simulator**: `GET /api/admin/security/firewall/events`, `GET /api/site/{siteId}/security/firewall/events`, `POST /api/admin/security/firewall/simulate`, `POST /api/site/{siteId}/security/firewall/simulate`

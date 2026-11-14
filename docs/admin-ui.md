@@ -241,3 +241,17 @@ Each list view provides:
 The admin UI supports editing of metadata (names, labels, descriptions,
 configurations). Full content editing (pages, blocks, content) is handled on
 the front-end.
+
+## Firewall Management (`/security/firewall`)
+
+The **Firewall** screen (`assets/svelte/admin/routes/Firewall.svelte`, registered
+in `CoreAdminExtension`) provides a 7-tab interface with a **Global (Application)**
+vs **Site** scope selector:
+
+- **Overview & Simulator**: Active rule/ban counts, recent sanitized security events, and a dry-run request simulator.
+- **IP Allow & Blocklist**: Manage IPv4/IPv6 CIDR rules with inheritance (`default`/`required`), expiration, priority, and bulk CIDR import.
+- **Active Bans**: Inspect active auto/manual bans, unban entries, or promote bans to permanent rules.
+- **Rate Limiting**: Configure `sliding_window`, `token_bucket`, and `fixed_window` rules across route groups and key strategies.
+- **L7 DoS Protection**: Configure early structural bounds, 4xx storm thresholds, expensive-route concurrency caps, and auto-ban escalation.
+- **Bots, AI & Automations**: Configure category and per-bot postures (`Search Engines`, `AI Training Crawlers`, `AI User Agents`, `Monitoring`, `Social Previews`, `Malicious Scanners`), FCrDNS opt-in, honeypot paths, built-in JS/PoW challenge difficulty/TTL, and custom trusted automations.
+- **WAF Rules & Rule Packs**: Manage site WAF rules and activate/roll back signed rule packs.

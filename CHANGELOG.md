@@ -18,12 +18,45 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-11-14: Added the `cache.firewall_ratelimit` cache pool (86400s default lifetime) for rate-limit counters, DoS anomaly counters, and strike counters.
+- 2026-11-14: Added the `firewall_ip_bans` operational table and `FirewallIpBan` entity/repository for temporary auto and manual IP/CIDR bans, with `FirewallIpBanProvider` feeding active bans into the compiled IP matcher at priority -1000.
+- 2026-11-14: Added the firewall protection policy package (`CoreProtectionPolicyDefaults`, `FirewallProtectionPolicyValidator`, `FirewallProtectionPolicyResolver`, `FirewallProtectionPolicyStore`) for Application and Site rate-limit, L7 DoS, and bot/AI policies with `required`/`default` inheritance.
+- 2026-11-14: Added `FirewallRouteClassifier` and `FirewallRateLimiterManager` (sliding window, fixed window, token bucket, subnet/IP/user/token keying, pre-auth and post-auth phases, dry-run simulation) with `FirewallRateLimitDecision` emitting `X-RateLimit-*` and `Retry-After` headers.
+- 2026-11-14: Added `FirewallDosGuard` early L7 structural limits (headers, URI, query params, cookies, route-group body caps, unexpected GET/HEAD bodies), `FirewallAnomalyDetector` 4xx storm detection and bounded expensive-route concurrency slots, and `FirewallAutoBanManager` strike accumulation with backoff bans and unban.
+- 2026-11-14: Added the `security.firewall.maintenance` scheduled task purging expired bans and IP rules, and the `iikiti:firewall:unban` and `iikiti:firewall:status` commands.
+- 2026-11-14: Added `FirewallIpBan` / `FirewallIpBanRepository` / `FirewallIpBanProvider` documentation exception in `docs/database-objects.md` (see migration `Version20261114180000`).
+- 2026-11-14: Added the bot/AI catalog (`FirewallBotCatalog`, `FirewallBotDefinition`) covering search engines, AI training and agent crawlers, monitoring, social previews, and malicious scanners.
+- 2026-11-14: Added signed bot CIDR feed storage (`FirewallBotCidrFeedStore`, `FirewallBotCidrProviderInterface`) under `var/firewall/bot-cidrs/`, cached in `cache.firewall`.
+- 2026-11-14: Added bounded, cached opt-in FCrDNS verification (`FirewallFcrdnsVerifier`, `NativeDnsLookup`) with 3600s positive and 900s negative TTLs in `cache.firewall_ratelimit`.
+- 2026-11-14: Added the `FirewallTrustedAutomation` entity and repository for CIDR, header-secret, HMAC, and Ed25519 HTTP-signature automations, with `FirewallAutomationSecretCipher` encrypting HMAC secrets at rest.
+- 2026-11-14: Added `FirewallBotVerifier` and `FirewallBotDetector` for spoof-resistant bot identity, impersonation detection, honeypot traps, category and per-bot postures, and `/api/*` challenge-to-block downgrade.
+- 2026-11-14: Added the `FirewallChallengeProviderInterface` hook, `FirewallChallengeManager`, and the built-in `CoreProofOfWorkChallengeProvider` interstitial with an IP- and UA-bound `iikiti_fw_clearance` cookie.
+- 2026-11-14: Added `POST /_firewall/challenge/verify` (`FirewallChallengeController`) validating signed PoW challenges, expiry, IP and UA binding, and local-only return paths.
+- 2026-11-14: Added the Firewall admin screen (`/security/firewall`, `CoreAdminExtension` menu, screen, and `firewall-ip-rules` resource) with a 7-tab Svelte UI (overview & simulator, IP rules, active bans, rate limits, L7 DoS, bots/AI/automations, WAF rules & packs) and global/site scope selection.
+- 2026-11-14: Added firewall `ApiClient` methods in `assets/svelte/shared/lib/api.js` covering application/site protection policies, IP rules and import, bans, bot catalog and automations, events, simulation, and WAF policy and rule packs, with `X-SITE-HOST` scoping for site requests, plus `FirewallSiteProtection`/`FirewallIpRule` typings in `assets/svelte/shared/types/index.ts`.
+
+- 2026-11-14: Added IPv4/IPv6 CIDR firewall IP rules (`FirewallIpRule`, `FirewallIpRuleRepository`, `FirewallIpMatcher`) with global required > site > global default precedence, a cached `FirewallIpRuleStore`, the `ip.cidr` WAF condition, SecLang `@ipMatch` on `REMOTE_ADDR`, and the `iikiti:firewall:ip-allow`, `ip-block`, and `ip-list` commands.
 - 2026-11-14: Added a data migration from legacy site security header policies to response header rules, retaining legacy settings and replace-all behavior.
 - 2026-11-14: Added Bun frontend unit coverage for consent, fragments, readiness, plugins, tours, notifications, events, and layout utilities, with a `bun run test` script.
 - 2026-11-14: Added the Consent Management plugin (`plugins/consent-management`) with a Svelte consent banner (necessary/analytics/marketing), consent API (`POST`/`GET /api/privacy/consent`), consent records keyed by user/session in `object_properties`, frontend script blocking until consent, GPC/Do-Not-Track signal auto-selection, geo-targeted legal frameworks, proof-of-consent capture, and `AuditRecorder` audit logging.
 - 2026-11-14: Added admin consent log (`/api/admin/privacy/consent-log`) and banner configuration (`/api/admin/privacy/config`) screens behind `ROLE_ADMIN`.
 - 2026-11-14: Added `consent-manager` and `consent-banner` webpack entries and the `consent-management.banner` public fragment.
 - 2026-11-14: Added documentation under docs/consent-management.md.
+- 2026-11-14: Added the two-stage firewall pipeline: `FirewallRequestSubscriber` Stage 1 (IP rules, bot classification, structural DoS, pre-auth rate limits, expensive-route concurrency) runs before body parsing, and Stage 2 WAF evaluation runs unless a verified trusted automation bypasses it.
+- 2026-11-14: Added `FirewallFeedbackSubscriber` for post-auth rate limits, `X-RateLimit-*` response headers, 4xx error-storm auto-ban strikes, and concurrency-slot release on terminate.
+- 2026-11-14: Added consumer-mode firewall policy resolution: `RemoteFirewallProtectionResolver` and the HMAC-signed `POST /api/internal/firewall/resolve` endpoint (`FirewallResolveController`), selected by `FirewallProtectionPolicyResolverSelector` in consumer runtimes.
+- 2026-11-14: Added `FirewallConcurrencySlotResult` so expensive-route slot acquisition distinguishes a cap breach (`exceeded`) from an unavailable counter store (fail-open).
+- 2026-11-14: Added bounded Stage-1 outcome metadata (`FirewallSecurityEvent::$stageMetadata`) and a Stage 1 summary table in the firewall profiler panel; raw headers, cookies, and bodies are never captured.
+- 2026-11-14: Added the firewall security audit subscriber (`FirewallSecurityAuditSubscriber`) recording `firewall_blocked` / `firewall_throttled` entries for denials and report findings only; clean requests are never recorded and identical (IP, rule, action) events are rate-guarded to one per 60 seconds via `cache.firewall_ratelimit`.
+- 2026-11-14: Added Milestone 4a API surface: application (`/api/admin/applications/{applicationId}/firewall/policy`) and site (`/api/site/{siteId}/security/firewall/protection`) protection policy resources, IP rule CRUD with atomic bulk import (`admin_firewall_ip_rules_import`, max 500), active ban list/create/delete, trusted automation CRUD with write-only secrets (`hasSecret` output), bot catalog, bounded firewall events feed, and dry-run simulator endpoints.
+- 2026-11-14: Added `FirewallSimulator` dry-run evaluation across IP rules, bot classification, DoS guard, non-consuming rate-limit peek, and WAF rules; simulation never records strikes, bans, audit rows, or security events.
+- 2026-11-14: Added `FirewallSiteScope` guard so every `/api/site/{siteId}/...` firewall endpoint rejects a site id that does not match the request-host site with not-found.
+- 2026-11-14: Added `firewall_blocked`, `firewall_throttled`, and firewall management audit actions to `AuditLogEntry::ACTIONS`.
+
+### Fixed
+
+- 2026-11-14: Fixed `FirewallFeedbackSubscriber::onPostAuthRequest()` to inspect the firewall request context and `SiteRegistry::hasCurrent()` before hydrating the user on site-independent routes, preventing `User::getRoles()` site-context errors on stateful lazy firewalls.
+- 2026-11-14: Fixed `FirewallIpRule` and `FirewallTrustedAutomation` nullable property removal in `object_properties`, API Platform `gen_id` serialization on `FirewallSimulateResource` and `FirewallIpRuleImportResource` via dedicated output DTOs, `Post`/`Delete` provider routing on IP rules/bans/automations, `AuditLogEntry` action lengths (`<= 32` chars), and `FirewallBotDetector` finding emission for non-impersonated bot actions.
 
 ### Changed
 
@@ -61,6 +94,8 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 - 2026-10-21: Icon custom CSS in the editor targets the SVG root instead of the full-width preview wrapper.
 - 2026-10-21: Editor widget roots mirror public type classes, custom classes, and IDs so ancestor nested selectors style descendant widgets instead of editor selection frames.
 - 2026-10-21: Editor custom CSS uses owner-specific stylesheets, allowing widget, template, and page rules to update or clear without a reload.
+- 2026-11-14: Routed `CspReportController` rate limiting through the shared `FirewallRateLimiterManager` (rule `core:csp-reports`, 30 requests per 60 seconds per IP) instead of a manual `cache.app` counter; the 429 now also sends `Retry-After`.
+- 2026-11-14: Made `api_internal_firewall_resolve`, `firewall_challenge_verify`, and `/api/admin/applications/{id}/firewall` site-independent in `Initializer` and `SiteRegistry`.
 
 ### Fixed
 
@@ -73,6 +108,9 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 - 2026-11-13: Replaced deprecated Doctrine DBAL identifier quoting and ORM association/order mapping declarations.
 - 2026-11-11: Set `DB_SCHEMA` explicitly for PHPUnit so integration services use the configured application schema.
 - 2026-11-11: Site locale and localized-index resolution now handles sites without an Application association instead of dereferencing a missing property.
+- 2026-11-14: Fixed expensive-route concurrency slot refusals being indistinguishable from an unavailable cache; `acquireConcurrencySlot()` now returns `FirewallConcurrencySlotResult`.
+- 2026-11-14: `FirewallRequestSubscriber` no longer exits early for site-less consumer public routes in `consumer` mode; Stage 1 (IP, bot, rate limit, DoS) now runs there while Stage 2 WAF stays skipped without a site.
+- 2026-11-14: `FirewallResolveController` now resolves the site by request `host` and returns an authoritative `ipMatch` decision; `RemoteFirewallProtectionResolver` sends `host` and `clientIp` and Stage 1 honors a returned `ipMatch` short-circuit.
 
 ### Security
 

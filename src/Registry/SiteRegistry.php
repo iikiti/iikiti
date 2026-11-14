@@ -75,6 +75,8 @@ class SiteRegistry
 		$siteIndependentRoute = 'html_login' === $route || in_array($route, ['admin_home', 'admin_spa'], true)
 			|| 1 === preg_match('~^/api/admin/applications/[^/]+/headers(?:/preview)?$~D', $path)
 			|| 'api_internal_response_headers_resolve' === $route
+			|| 'api_internal_firewall_resolve' === $route
+			|| 'firewall_challenge_verify' === $route
 			|| ('consumer' === $applicationRole && $consumerProxyRoute)
 			|| ($publicPageRenderViaApi && in_array($route, ['home', 'page'], true));
 		if (static::$populated || !static::$initialized || 'consumer' === $applicationRole || $siteIndependentRoute) {

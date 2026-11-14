@@ -97,6 +97,20 @@ final class AdminMenuRegistryTest extends TestCase
 		self::assertContains('/audit-log', $paths);
 	}
 
+	public function testFirewallScreenIsRegisteredForTheSvelteRoute(): void
+	{
+		$registry = new AdminMenuRegistry([new CoreAdminExtension()]);
+
+		$firewall = array_values(array_filter(
+			$registry->getScreens(),
+			static fn (AdminScreen $s): bool => '/security/firewall' === $s->path,
+		));
+
+		self::assertCount(1, $firewall);
+		self::assertSame('Firewall', $firewall[0]->component);
+		self::assertSame('custom', $firewall[0]->type);
+	}
+
 	public function testScreensAreSortedByPath(): void
 	{
 		$extension = new CoreAdminExtension();

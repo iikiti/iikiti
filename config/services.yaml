@@ -287,9 +287,15 @@ services:
         arguments:
             $environment: '%kernel.environment%'
 
-    iikiti\CMS\Controller\Api\Internal\CspReportController:
+
+    # Protection policy source: local stores in API runtimes, signed remote resolver in consumer runtimes.
+    iikiti\CMS\Security\Firewall\Policy\FirewallProtectionPolicyResolverInterface:
+        alias: iikiti\CMS\Security\Firewall\Policy\FirewallProtectionPolicyResolverSelector
+
+    # Optional Stage-1 collaborators for FirewallRequestSubscriber; Stage 2 runs without them.
+    iikiti\CMS\Security\Firewall\FirewallRequestSubscriber:
         arguments:
-            $cache: '@cache.app'
+            $stageOne: '@iikiti\CMS\Security\Firewall\FirewallStageOneServices'
 
     iikiti\CMS\Audit\AuditRequestListener:
         autowire: true

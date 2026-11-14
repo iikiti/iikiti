@@ -30,6 +30,30 @@
                     </div>
                 </div>
 
+                {% set stage = collector.stage %}
+                <h4>Stage 1 (metadata gate)</h4>
+                <table>
+                    <tbody>
+                        <tr><th>IP rule action</th><td><code>{{ stage.ip_action }}</code></td></tr>
+                        <tr><th>Bot</th><td>
+                            {% if stage.bot is null %}<span class="text-muted">not evaluated</span>
+                            {% else %}
+                                <code>{{ stage.bot.action }}</code>
+                                {% if stage.bot.botId %} &middot; {{ stage.bot.botId }}{% endif %}
+                                {% if stage.bot.verified %} &middot; verified{% endif %}
+                                {% if stage.bot.impersonated %} &middot; <span class="text-error">impersonated</span>{% endif %}
+                            {% endif %}
+                        </td></tr>
+                        <tr><th>Rate limit</th><td>
+                            {% if stage.rate_limit is null %}<span class="text-muted">no rule applied</span>
+                            {% else %}<code>{{ stage.rate_limit.rule }}</code> &middot; {{ stage.rate_limit.accepted ? 'accepted' : 'rejected' }}{% endif %}
+                        </td></tr>
+                        <tr><th>DoS guard</th><td><code>{{ stage.dos_status }}</code></td></tr>
+                        <tr><th>WAF bypassed</th><td>{{ stage.bypass_waf ? 'yes (trusted automation)' : 'no' }}</td></tr>
+                        <tr><th>Denied by</th><td>{{ stage.denied_by ?? 'not denied in stage 1' }}</td></tr>
+                    </tbody>
+                </table>
+
                 <h4>Request context</h4>
                 <table>
                     <tbody>

@@ -96,4 +96,61 @@ final class FirewallDataCollectorTest extends TestCase
 		self::assertCount(64, $collector->getFindings()[0]['matched_conditions']);
 		self::assertTrue($collector->isFindingsTruncated());
 	}
+
+	public function testCapturesBoundedStageOneMetadataWithoutRawRequestValues(): void
+	{
+		$collector = new FirewallDataCollector();
+		$secretHeader = 'Bearer super-secret-token';
+		$collector->onFirewallSecurityEvent(new FirewallSecurityEvent(
+			[new FirewallFinding('bot:impersonation', 'Client claims Googlebot.', FirewallAction::Report)],
+			FirewallAction::Deny,
+			['method' => 'GET', 'path' => '/', 'siteId' => 2, 'clientIp' => '203.0.113.9'],
+			[
+				'ip_action' => 'none',
+				'bot' => ['action' => 'block', 'category' => 'search', 'botId' => 'googlebot', 'verified' => false, 'impersonated' => true, 'bypassWaf' => false, 'rawHeader' => $secretHeader],
+				'rate_limit' => ['rule' => 'core:rl-public-api', 'accepted' => true, 'remaining' => 3],
+				'dos_status' => 'allowed',
+				'bypass_waf' => false,
+				'denied_by' => 'bot_block',
+				'cookies' => ['session' => $secretHeader],
+			],
+		));
+		$collector->collect(Request::create('/'), new Response('', Response::HTTP_FORBIDDEN));
+
+		$stage = $collector->getStage();
+		self::assertSame('none', $stage['ip_action']);
+		self::assertSame('block', $stage['bot']['action']);
+		self::assertSame('googlebot', $stage['bot']['botId']);
+		self::assertTrue($stage['bot']['impersonated']);
+		self::assertSame('core:rl-public-api', $stage['rate_limit']['rule']);
+		self::assertTrue($stage['rate_limit']['accepted']);
+		self::assertSame('bot_block', $stage['denied_by']);
+		self::assertSame('allowed', $stage['dos_status']);
+		self::assertFalse($stage['bypass_waf']);
+
+		$serialized = serialize($collector);
+		self::assertStringNotContainsString($secretHeader, $serialized);
+		self::assertArrayNotHasKey('rawHeader', $stage['bot']);
+		self::assertArrayNotHasKey('remaining', $stage['rate_limit']);
+		self::assertArrayNotHasKey('cookies', $stage);
+	}
+
+	public function testStageMetadataDefaultsWhenEventCarriesNone(): void
+	{
+		$collector = new FirewallDataCollector();
+		$collector->onFirewallSecurityEvent(new FirewallSecurityEvent(
+			[],
+			FirewallAction::Report,
+			['method' => 'GET', 'path' => '/', 'siteId' => null, 'clientIp' => '127.0.0.1'],
+		));
+		$collector->collect(Request::create('/'), new Response());
+
+		$stage = $collector->getStage();
+		self::assertSame('none', $stage['ip_action']);
+		self::assertNull($stage['bot']);
+		self::assertNull($stage['rate_limit']);
+		self::assertSame('allowed', $stage['dos_status']);
+		self::assertFalse($stage['bypass_waf']);
+		self::assertNull($stage['denied_by']);
+	}
 }

@@ -25,3 +25,6 @@ framework:
             cache.firewall:
                 adapter: cache.app
                 default_lifetime: 300
+            cache.firewall_ratelimit:
+                adapter: cache.app
+                default_lifetime: 86400

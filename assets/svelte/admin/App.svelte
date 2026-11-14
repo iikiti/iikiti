@@ -17,6 +17,7 @@
 	import WorkflowTasksRoute from './routes/WorkflowTasks.svelte';
 	import SiteGroupsRoute from './routes/SiteGroups.svelte';
 	import AuditLogRoute from './routes/AuditLog.svelte';
+	import FirewallRoute from './routes/Firewall.svelte';
 	import PluginsRoute from './routes/Plugins.svelte';
 	import PluginStoreRoute from './routes/PluginStore.svelte';
 	import SearchIndexesRoute from './routes/SearchIndexes.svelte';
@@ -73,6 +74,7 @@
 		SearchIndexes: SearchIndexesRoute,
 		SearchFilters: SearchFiltersRoute,
 		SearchSiteGroups: SearchSiteGroupsRoute,
+		Firewall: FirewallRoute,
 	};
 
 	// Match against the pathname only so dynamic-id screens (e.g.

@@ -31,6 +31,7 @@ class CoreAdminExtension implements AdminExtensionInterface
 			AdminMenuItem::create('Batch Jobs', '/batches', 'activity', 54),
 			AdminMenuItem::create('Schedules', '/schedules', 'clock', 53),
 			AdminMenuItem::create('Site Transfer', '/site-transfer', 'arrow-right-left', 52),
+			AdminMenuItem::create('Firewall', '/security/firewall', 'shield-alert', 25),
 			AdminMenuItem::create('Templates', '/admin/templates', 'layout-template', 35),
 			AdminMenuItem::create('Layouts', '/admin/layouts', 'panels-top-left', 34),
 			AdminMenuItem::create('Site Groups', '/site-groups', 'layers', 50),
@@ -60,6 +61,7 @@ class CoreAdminExtension implements AdminExtensionInterface
 			AdminApiResource::create('plugins', '/api/admin/plugins', 'Plugins'),
 			AdminApiResource::create('search', '/api/admin/search/indexes', 'Search'),
 			AdminApiResource::create('audit-logs', '/api/admin/audit-logs', 'Audit Log'),
+			AdminApiResource::create('firewall-ip-rules', '/api/admin/security/firewall/ip-rules', 'Firewall'),
 			AdminApiResource::create('block-widgets', '/api/admin/block-widgets', 'Block Widgets'),
 		];
 	}
@@ -196,6 +198,7 @@ class CoreAdminExtension implements AdminExtensionInterface
 			// Custom component: the list shows human summaries and the detail view
 			// is addressed by #/audit-log?id=N, which the generic list cannot do.
 			new AdminScreen(path: '/audit-log', title: 'Audit Log', type: 'custom', apiPath: '/admin/audit-logs', component: 'AuditLog'),
+			new AdminScreen(path: '/security/firewall', title: 'Firewall', type: 'custom', component: 'Firewall', description: 'Manage IP rules, rate limits, Layer 7 DoS protections, bot/AI policies, and WAF rules'),
 		];
 	}
 }

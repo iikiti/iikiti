@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Security\Firewall;
 
+use iikiti\CMS\Security\Firewall\Ip\IpCidrNormalizer;
 use StardotHosting\SecRuleParser\Parser;
 
 final readonly class FirewallRulePackConverter
@@ -166,7 +167,7 @@ final class SecLangRuleConverter
 		$operator = trim($operator);
 		$operatorName = '@rx';
 		if (str_starts_with($operator, '@')) {
-			if (!preg_match('/^@(rx|contains|streq|beginsWith|endsWith)(?:\s+(.*))?$/s', $operator, $matches)) {
+			if (!preg_match('/^@(rx|contains|streq|beginsWith|endsWith|ipMatch)(?:\s+(.*))?$/s', $operator, $matches)) {
 				throw new \InvalidArgumentException('SecLang operator is outside the supported subset.');
 			}
 			$operatorName = match ($matches[1]) {
@@ -175,6 +176,7 @@ final class SecLangRuleConverter
 				'streq' => 'equals',
 				'beginsWith' => 'starts_with',
 				'endsWith' => 'ends_with',
+				'ipMatch' => 'ip_match',
 			};
 			$operator = $matches[2] ?? '';
 		}
@@ -267,6 +269,10 @@ final class SecLangRuleConverter
 	 */
 	private function conditionForVariables(string $variables, string $operator, string $value, array $transformations): array
 	{
+		if ('ip_match' === $operator) {
+			return $this->ipMatchCondition($variables, $value);
+		}
+
 		$conditions = [];
 		foreach (explode('|', $variables) as $variable) {
 			$variable = trim($variable);
@@ -297,6 +303,32 @@ final class SecLangRuleConverter
 		}
 
 		return 1 === count($conditions) ? $conditions[0] : ['any' => $conditions];
+	}
+
+	/**
+	 * Only REMOTE_ADDR is meaningful for @ipMatch; other variables would need
+	 * a different subject and are rejected rather than silently reinterpreted.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function ipMatchCondition(string $variables, string $value): array
+	{
+		if ('REMOTE_ADDR' !== trim($variables)) {
+			throw new \InvalidArgumentException('SecLang @ipMatch is only supported against REMOTE_ADDR.');
+		}
+
+		$cidrs = array_values(array_filter(
+			array_map('trim', explode(',', $value)),
+			static fn (string $entry): bool => '' !== $entry,
+		));
+		foreach ($cidrs as $cidr) {
+			IpCidrNormalizer::normalize($cidr);
+		}
+		if ([] === $cidrs) {
+			throw new \InvalidArgumentException('SecLang @ipMatch requires at least one address or CIDR.');
+		}
+
+		return ['condition' => 'ip.cidr', 'options' => ['value' => $cidrs]];
 	}
 
 	/** @return list<string> */

@@ -12,6 +12,7 @@ use iikiti\CMS\State\Processor\FirewallSitePolicyProcessor;
 use iikiti\CMS\State\Provider\FirewallSitePolicyProvider;
 
 #[ApiResource(
+	formats: ['jsonld' => ['application/ld+json'], 'json' => ['application/json']],
 	operations: [
 		new Get(
 			uriTemplate: '/site/{siteId}/security/firewall/policy',
