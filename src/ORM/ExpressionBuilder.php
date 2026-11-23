@@ -127,12 +127,12 @@ final class ExpressionBuilder extends Expr
 
 	public function and(mixed ...$parts): Andx
 	{
-		return $this->andX(...$parts);
+		return $this->andX(...array_values($parts));
 	}
 
 	public function or(mixed ...$parts): Orx
 	{
-		return $this->orX(...$parts);
+		return $this->orX(...array_values($parts));
 	}
 
 	/**
