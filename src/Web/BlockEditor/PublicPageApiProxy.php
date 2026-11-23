@@ -79,11 +79,26 @@ final readonly class PublicPageApiProxy
 			return new JsonResponse(['message' => 'Fragment parameters are invalid or too large.'], Response::HTTP_BAD_REQUEST);
 		}
 
+		return $this->executeFragmentRequest($request, $provider, $siteHost, $guestToken, $headers, $params, forceTokenRefresh: false);
+	}
+
+	/** @param array<string,string> $headers */
+	private function executeFragmentRequest(
+		Request $request,
+		string $provider,
+		string $siteHost,
+		string $guestToken,
+		array $headers,
+		string $params,
+		bool $forceTokenRefresh,
+	): Response {
+		$tokenInfo = ['token' => $guestToken, 'from_session_cache' => false];
 		try {
+			$tokenInfo = $this->resolveApiToken($request, $siteHost, $guestToken, $forceTokenRefresh);
 			$result = $this->api->request(
 				'GET',
 				'/api/public/render/providers/'.rawurlencode($provider),
-				$this->apiTokenFor($request, $siteHost, $guestToken),
+				$tokenInfo['token'],
 				query: ['params' => $params],
 				headers: $headers,
 			);
@@ -93,6 +108,11 @@ final readonly class PublicPageApiProxy
 
 			return new JsonResponse(['html' => $result['html'], 'styles' => $result['styles']], Response::HTTP_OK, ['Cache-Control' => 'private, no-store']);
 		} catch (BusinessApiException $exception) {
+			if (Response::HTTP_UNAUTHORIZED === $exception->statusCode && $tokenInfo['from_session_cache'] && !$forceTokenRefresh) {
+				$this->sessionTokens->invalidateCachedToken($request, $siteHost);
+
+				return $this->executeFragmentRequest($request, $provider, $siteHost, $guestToken, $headers, $params, forceTokenRefresh: true);
+			}
 			$status = in_array($exception->statusCode, [Response::HTTP_BAD_REQUEST, Response::HTTP_FORBIDDEN, Response::HTTP_NOT_FOUND], true) ?
 				$exception->statusCode :
 				(Response::HTTP_CONFLICT === $exception->statusCode ? Response::HTTP_CONFLICT : Response::HTTP_BAD_GATEWAY);
@@ -105,7 +125,7 @@ final readonly class PublicPageApiProxy
 		}
 	}
 
-	private function render(Request $request, string $path): Response
+	private function render(Request $request, string $path, bool $forceTokenRefresh = false): Response
 	{
 		$siteHost = strtolower($request->getHost());
 		$guestToken = $this->guestTokens->issue($siteHost);
@@ -116,8 +136,10 @@ final readonly class PublicPageApiProxy
 			'X-SITE-LOCALE' => $request->getLocale(),
 		];
 
+		$tokenInfo = ['token' => $guestToken, 'from_session_cache' => false];
 		try {
-			$apiToken = $this->apiTokenFor($request, $siteHost, $guestToken);
+			$tokenInfo = $this->resolveApiToken($request, $siteHost, $guestToken, $forceTokenRefresh);
+			$apiToken = $tokenInfo['token'];
 			$mainQuery = $request->query->all();
 			$mainQuery['_iikiti_fragment_id'] = '@main';
 			$bootstrap = $this->tasks->run([
@@ -159,10 +181,6 @@ final readonly class PublicPageApiProxy
 			);
 
 			$renderedFragments = [];
-			$mainFragment = $this->normalizeFragmentResult($bootstrap['main'] ?? null, $manifest['editor_mode']);
-			if (null === $mainFragment) {
-				return new Response('', Response::HTTP_BAD_GATEWAY);
-			}
 			$mainDescriptor = null;
 			foreach ($manifest['fragments'] as $fragment) {
 				if ('region' === $fragment['kind'] && 'main' === $fragment['role']) {
@@ -171,6 +189,10 @@ final readonly class PublicPageApiProxy
 				}
 			}
 			if (null !== $mainDescriptor) {
+				$mainFragment = $this->normalizeFragmentResult($bootstrap['main'] ?? null, $manifest['editor_mode']);
+				if (null === $mainFragment) {
+					return new Response('', Response::HTTP_BAD_GATEWAY);
+				}
 				if (!$mainFragment['found'] ||
 					$mainFragment['id'] !== $mainDescriptor['id'] ||
 					$mainFragment['revision'] !== $manifest['revision']) {
@@ -267,6 +289,11 @@ final readonly class PublicPageApiProxy
 
 			return new DomHtmlResponse($document, Response::HTTP_OK, ['Cache-Control' => 'private, no-store']);
 		} catch (\Throwable $exception) {
+			if ($tokenInfo['from_session_cache'] && !$forceTokenRefresh && $this->isUnauthorizedException($exception)) {
+				$this->sessionTokens->invalidateCachedToken($request, $siteHost);
+
+				return $this->render($request, $path, forceTokenRefresh: true);
+			}
 			$this->logger?->error('Public page API fragment request failed.', [
 				'exception_chain' => $this->exceptionChainSummary($exception),
 				'server_addr' => $request->server->get('SERVER_ADDR'),
@@ -343,21 +370,42 @@ final readonly class PublicPageApiProxy
 		return $chain;
 	}
 
-	private function apiTokenFor(Request $request, string $siteHost, string $guestToken): string
+	/** @return array{token:string,from_session_cache:bool} */
+	private function resolveApiToken(Request $request, string $siteHost, string $guestToken, bool $forceRefresh = false): array
 	{
 		$existingToken = $request->headers->get('X-AUTH-TOKEN');
 		if (is_string($existingToken) && '' !== $existingToken) {
-			return $existingToken;
+			return ['token' => $existingToken, 'from_session_cache' => false];
 		}
 		if (!$this->sessionTokens->hasSessionCookie($request)) {
-			return $guestToken;
+			return ['token' => $guestToken, 'from_session_cache' => false];
+		}
+		if (!$forceRefresh) {
+			$cachedToken = $this->sessionTokens->cachedTokenFor($request, $siteHost);
+			if (null !== $cachedToken) {
+				return ['token' => $cachedToken, 'from_session_cache' => true];
+			}
 		}
 
 		$token = $this->tasks->run([
 			'session-token' => fn (FiberHttpClient $http): ?string => $this->sessionTokens->tokenFor($http, $request, $siteHost, collectDoctrineQueries: true),
 		], 5.0)['session-token'];
 
-		return is_string($token) && '' !== $token ? $token : $guestToken;
+		return [
+			'token' => is_string($token) && '' !== $token ? $token : $guestToken,
+			'from_session_cache' => false,
+		];
+	}
+
+	private function isUnauthorizedException(\Throwable $exception): bool
+	{
+		for ($failure = $exception; null !== $failure; $failure = $failure->getPrevious()) {
+			if ($failure instanceof BusinessApiException && Response::HTTP_UNAUTHORIZED === $failure->statusCode) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/** @return array{html:string,styles:list<array{id:?string,css:string}>,editor_mode:bool,revision:string,fragments:list<array<string,mixed>>,inline_asset_minification:array{css_minify:bool,js_minify:bool,js_uglify:bool}}|null */
@@ -557,10 +605,9 @@ final readonly class PublicPageApiProxy
 			if ('provider' !== $fragment['kind'] && ($result['revision'] ?? null) !== $manifest['revision']) {
 				throw new BusinessApiException(Response::HTTP_CONFLICT);
 			}
-			$fragmentStyles = $this->normalizeStyles($result['styles'] ?? null, $manifest['editor_mode'], allowPublicStyleIds: 'provider' === $fragment['kind']);
-			if (null === $fragmentStyles) {
-				throw new \UnexpectedValueException('The API returned invalid page fragment styles.');
-			}
+			// Fragment styles were already validated by normalizeFragmentResult()/normalizeProviderResult().
+			/** @var list<array{id:?string,css:string}> $fragmentStyles */
+			$fragmentStyles = is_array($result['styles'] ?? null) ? $result['styles'] : [];
 
 			$slotAttribute = match ($fragment['kind']) {
 				'region' => 'data-iikiti-region-slot',
@@ -577,8 +624,10 @@ final readonly class PublicPageApiProxy
 		}
 		$styles = $this->renderStyles($styleFragments, $manifest['editor_mode'], $siteHost);
 		$composer->insertIntoPlaceholder('[data-iikiti-fragment="custom-css"]', $styles);
+		$document = $composer->document();
+		$this->applyAssetCrossOrigin($document, $this->assetBaseUrl($siteHost));
 
-		return $composer->document();
+		return $document;
 	}
 
 	/** @return list<array{id:?string,css:string}>|null */
@@ -657,31 +706,63 @@ final readonly class PublicPageApiProxy
 		return $this->errorPages?->render($statusCode, $headers) ?? HttpErrorPageRenderer::fallback($statusCode, $headers);
 	}
 
+	private function assetBaseUrl(string $siteHost): string
+	{
+		return $this->api->getBaseUrl().'/api/public/sites/'.rawurlencode($siteHost).'/assets/';
+	}
+
+	private function applyAssetCrossOrigin(\Dom\HTMLDocument $document, string $assetBase): void
+	{
+		foreach ($document->querySelectorAll('img, video') as $element) {
+			if ($element->hasAttribute('crossorigin')) {
+				continue;
+			}
+			$src = $element->getAttribute('src') ?? '';
+			$srcset = $element->getAttribute('srcset') ?? '';
+			$poster = $element->getAttribute('poster') ?? '';
+			$matchesAsset = str_contains($src, $assetBase)
+				|| str_contains($srcset, $assetBase)
+				|| str_contains($poster, $assetBase);
+			if (!$matchesAsset && 'VIDEO' === strtoupper($element->nodeName)) {
+				foreach ($element->querySelectorAll('source') as $source) {
+					if (str_contains($source->getAttribute('src') ?? '', $assetBase)) {
+						$matchesAsset = true;
+						break;
+					}
+				}
+			}
+			if ($matchesAsset) {
+				$element->setAttribute('crossorigin', 'use-credentials');
+			}
+		}
+	}
+
 	private function rewriteAssetUrls(string $html, string $siteHost): string
 	{
-		$assetBase = $this->api->getBaseUrl().'/api/public/sites/'.rawurlencode($siteHost).'/assets/';
-		$html = preg_replace_callback(
-			'~(?<prefix>["\'=(\s])/assets/([a-f0-9]{64})/([a-z][a-z0-9_-]{0,63})~i',
-			static function (array $match) use ($assetBase): string {
-				return $match['prefix'].$assetBase.$match[2].'/'.$match[3];
-			},
-			$html,
-		) ?? $html;
-		$html = preg_replace_callback(
-			'~(?<prefix>["\'=(\s])(/api/forms/[a-z0-9_./-]+(?:\?[^"\'\s>]*)?)~i',
-			function (array $match): string {
-				return $match['prefix'].$this->api->getBaseUrl().$match[2];
-			},
-			$html,
-		) ?? $html;
+		if (false === stripos($html, '/assets/') && false === stripos($html, '/api/forms/')) {
+			return $html;
+		}
 
-		return preg_replace_callback('~<(?:img|video)\b[^>]*>~i', static function (array $match) use ($assetBase): string {
-			$tag = $match[0];
-			if (!str_contains($tag, $assetBase) || 1 === preg_match('/\bcrossorigin\s*=/i', $tag)) {
-				return $tag;
-			}
+		$assetBase = $this->assetBaseUrl($siteHost);
+		if (false !== stripos($html, '/assets/')) {
+			$html = preg_replace_callback(
+				'~(?<prefix>["\'=(\s])/assets/([a-f0-9]{64})/([a-z][a-z0-9_-]{0,63})~i',
+				static function (array $match) use ($assetBase): string {
+					return $match['prefix'].$assetBase.$match[2].'/'.$match[3];
+				},
+				$html,
+			) ?? $html;
+		}
+		if (false !== stripos($html, '/api/forms/')) {
+			$html = preg_replace_callback(
+				'~(?<prefix>["\'=(\s])(/api/forms/[a-z0-9_./-]+(?:\?[^"\'\s>]*)?)~i',
+				function (array $match): string {
+					return $match['prefix'].$this->api->getBaseUrl().$match[2];
+				},
+				$html,
+			) ?? $html;
+		}
 
-			return substr($tag, 0, -1).' crossorigin="use-credentials">';
-		}, $html) ?? $html;
+		return $html;
 	}
 }

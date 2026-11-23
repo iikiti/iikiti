@@ -22,28 +22,70 @@ final class WidgetFragmentPlannerTest extends TestCase
 		);
 	}
 
-	public function testPlansDirectChildrenByDefaultAndHonorsPerWidgetOverrides(): void
+	public function testPlansDirectChildrenByDefaultWhenMultipleSiblingsExistAndHonorsPerWidgetOverrides(): void
 	{
-		$tree = [[
-			'id' => 'root',
-			'type' => 'container',
-			'children' => [
-				['id' => 'default-child', 'type' => 'text'],
-				['id' => 'async-child', 'type' => 'text', 'renderMode' => 'always'],
-				[
-					'id' => 'sync-parent',
-					'type' => 'container',
-					'renderMode' => 'never',
-					'children' => [['id' => 'nested-async', 'type' => 'text', 'renderMode' => 'always']],
+		$tree = [
+			[
+				'id' => 'root-a',
+				'type' => 'container',
+				'children' => [
+					['id' => 'default-child', 'type' => 'text'],
+					['id' => 'async-child', 'type' => 'text', 'renderMode' => 'always'],
+					[
+						'id' => 'sync-parent',
+						'type' => 'container',
+						'renderMode' => 'never',
+						'children' => [['id' => 'nested-async', 'type' => 'text', 'renderMode' => 'always']],
+					],
 				],
 			],
-		]];
+			[
+				'id' => 'root-b',
+				'type' => 'container',
+				'children' => [],
+			],
+		];
 
 		$plan = $this->planner->plan([
 			['kind' => 'region', 'id' => 'main', 'role' => 'main', 'tree' => $tree],
 		], new BlockRenderContext(editorMode: false), str_repeat('a', 64), 10);
 
-		self::assertSame(['root', 'async-child', 'nested-async'], $this->blockIds($plan));
+		self::assertSame(['root-a', 'async-child', 'nested-async', 'root-b'], $this->blockIds($plan));
+	}
+
+	public function testSingleTopLevelDefaultWidgetStaysInlineUnlessCachedOrAlways(): void
+	{
+		$singleDefault = [[
+			'id' => 'only-root',
+			'type' => 'container',
+			'children' => [['id' => 'child', 'type' => 'text']],
+		]];
+		$planDefault = $this->planner->plan([
+			['kind' => 'region', 'id' => 'main', 'role' => 'main', 'tree' => $singleDefault],
+		], new BlockRenderContext(editorMode: false), str_repeat('1', 64), 10);
+		self::assertSame([], $this->blockIds($planDefault));
+
+		$singleCached = [[
+			'id' => 'cached-root',
+			'type' => 'container',
+			'cacheMode' => 'global',
+			'children' => [],
+		]];
+		$planCached = $this->planner->plan([
+			['kind' => 'region', 'id' => 'main', 'role' => 'main', 'tree' => $singleCached],
+		], new BlockRenderContext(editorMode: false), str_repeat('2', 64), 10);
+		self::assertSame(['cached-root'], $this->blockIds($planCached));
+
+		$singleAlways = [[
+			'id' => 'always-root',
+			'type' => 'container',
+			'renderMode' => 'always',
+			'children' => [],
+		]];
+		$planAlways = $this->planner->plan([
+			['kind' => 'region', 'id' => 'main', 'role' => 'main', 'tree' => $singleAlways],
+		], new BlockRenderContext(editorMode: false), str_repeat('3', 64), 10);
+		self::assertSame(['always-root'], $this->blockIds($planAlways));
 	}
 
 	public function testUsesStructuralIdentityForDuplicateBlockIds(): void
@@ -51,6 +93,7 @@ final class WidgetFragmentPlannerTest extends TestCase
 		$tree = [[
 			'id' => 'root',
 			'type' => 'container',
+			'renderMode' => 'always',
 			'children' => [
 				['id' => 'duplicate', 'type' => 'text', 'renderMode' => 'always'],
 				['id' => 'duplicate', 'type' => 'text', 'renderMode' => 'always'],
@@ -72,6 +115,7 @@ final class WidgetFragmentPlannerTest extends TestCase
 		$tree = [[
 			'id' => 'root',
 			'type' => 'container',
+			'renderMode' => 'always',
 			'children' => [
 				['id' => 'query', 'type' => 'query', 'children' => [
 					['id' => 'query-child', 'type' => 'text', 'renderMode' => 'always'],

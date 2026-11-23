@@ -41,7 +41,7 @@ final class FragmentTwigExtension extends AbstractExtension
 		$delivery = $options['delivery'] ?? 'server';
 		$key = $options['key'] ?? 'fragment-'.bin2hex(random_bytes(8));
 		$dependsOn = $options['dependsOn'] ?? [];
-		if (!in_array($delivery, ['server', 'browser'], true) ||
+		if (!in_array($delivery, ['server', 'browser', 'inline'], true) ||
 			!is_string($key) ||
 			1 !== preg_match('/^[A-Za-z0-9_-]{1,64}$/D', $key) ||
 			!is_array($dependsOn) ||
@@ -63,9 +63,19 @@ final class FragmentTwigExtension extends AbstractExtension
 		}
 		$collector = $twigContext['_iikiti_fragment_plan'] ?? null;
 		if ($collector instanceof FragmentPlanCollector) {
-			return $collector->declare($provider, $params, $options + ['key' => $key]);
-		}
-		if ('browser' === $delivery) {
+			if ('inline' === $delivery) {
+				if (!$collector->canInline($dependsOn)) {
+					throw new \InvalidArgumentException(sprintf('Inline fragment "%s" cannot depend on a non-inline or undeclared fragment.', $key));
+				}
+				$collector->declare($provider, $params, ['delivery' => 'inline', 'key' => $key, 'dependsOn' => $dependsOn]);
+			} elseif ('server' === $delivery
+				&& $fragments->isInlineable($provider, $baseContext->site)
+				&& $collector->canInline($dependsOn)) {
+				$collector->declare($provider, $params, ['delivery' => 'inline', 'key' => $key, 'dependsOn' => $dependsOn]);
+			} else {
+				return $collector->declare($provider, $params, $options + ['key' => $key]);
+			}
+		} elseif ('browser' === $delivery) {
 			return FragmentPlanCollector::browserPlaceholder($provider, $params, $key, $dependsOn);
 		}
 

@@ -50,6 +50,7 @@ final class RenderedFragmentCache
 			$fragmentId,
 			$scope,
 			$context->request?->getRequestUri(),
+			$context->request?->getLocale(),
 		]));
 		$attempt = new RenderedFragmentCacheAttempt();
 

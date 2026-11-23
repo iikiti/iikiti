@@ -4,7 +4,6 @@ namespace iikiti\CMS\Filters;
 
 use Dom\Document;
 use Dom\Node;
-use DOMNode;
 use iikiti\CMS\Utility\Variable as V;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\Stopwatch\Stopwatch;
@@ -14,6 +13,14 @@ use Symfony\Component\Stopwatch\Stopwatch;
  */
 class HtmlFilter extends AbstractFilter
 {
+	/** @var array<string,true> */
+	private const array PRESERVED_ELEMENTS = [
+		'PRE' => true,
+		'SCRIPT' => true,
+		'STYLE' => true,
+		'TEXTAREA' => true,
+	];
+
 	/**
 	 * Only static methods, prevent creating instances.
 	 */
@@ -23,7 +30,7 @@ class HtmlFilter extends AbstractFilter
 
 	public static function filterHtml(
 		ResponseEvent $event,
-		Stopwatch $stopwatch
+		?Stopwatch $stopwatch = null
 	): void {
 		$useHtmlFilter = V::is_true($_ENV['HTML_FILTER'] ?? true);
 		$appEnv = $_ENV['APP_ENV'] ?? 'prod';
@@ -35,42 +42,52 @@ class HtmlFilter extends AbstractFilter
 		) {
 			return;
 		}
-		$stopwatch->start('html_load');
+		$stopwatch?->start('html_load');
 		$dom = self::getHtmlDocument($event);
-		$stopwatch->stop('html_load');
-		$stopwatch->start('html_minify');
+		$stopwatch?->stop('html_load');
+		$stopwatch?->start('html_minify');
 		self::minifyHtml($dom);
-		$stopwatch->stop('html_minify');
-		$stopwatch->start('html_save');
+		$stopwatch?->stop('html_minify');
+		$stopwatch?->start('html_save');
 		self::saveHtmlDocument($event, $dom);
-		$stopwatch->stop('html_save');
+		$stopwatch?->stop('html_save');
 	}
 
 	protected static function minifyHtml(Document $dom): void
 	{
-		$nodes = $dom->querySelectorAll('*');
-		foreach ($nodes as $node) {
-			foreach($node->childNodes as $child) {
-				if($child->nodeType === XML_COMMENT_NODE ) {
-					$child->parentNode?->removeChild($child);
-					continue;
-				} else if($child->nodeType !== XML_TEXT_NODE) {
-					continue;
-				}
-				$ancestor = $child;
-				while($ancestor = $ancestor->parentNode) {
-					if(in_array($ancestor->nodeName, ['PRE', 'SCRIPT', 'STYLE'])) {
-						continue 2;
+		self::minifyNode($dom);
+	}
+
+	private static function minifyNode(Node $node): void
+	{
+		if (isset(self::PRESERVED_ELEMENTS[strtoupper($node->nodeName)])) {
+			return;
+		}
+
+		$child = $node->firstChild;
+		while (null !== $child) {
+			// Advance before mutating so comment removal never skips the next sibling.
+			$next = $child->nextSibling;
+			$nodeType = $child->nodeType;
+			if (XML_COMMENT_NODE === $nodeType) {
+				$node->removeChild($child);
+			} elseif (XML_TEXT_NODE === $nodeType) {
+				$original = $child->textContent ?? '';
+				if ('' !== $original) {
+					$collapsed = (string) preg_replace_callback(
+						'/(?:[\h]{2,}|\v+)/u',
+						static fn (array $matches): string => static::__collapseWhitespace_cb($matches),
+						$original,
+					);
+					if ($collapsed !== $original) {
+						$child->textContent = $collapsed;
 					}
 				}
-				$child->textContent = (string) preg_replace_callback(
-					'/(?:[\h]{2,}|\v+)/u',
-					function(...$args): string {
-						return static::__collapseWhitespace_cb(...$args);
-					},
-					$child->textContent
-				);
+			} elseif (XML_ELEMENT_NODE === $nodeType) {
+				self::minifyNode($child);
 			}
+
+			$child = $next;
 		}
 	}
 
@@ -84,7 +101,9 @@ class HtmlFilter extends AbstractFilter
 		}
 
 		return (string) preg_replace(
-			'/(?:\v+|(\h)\h+)/u', '$1', $text[0]
+			'/(?:\v+|(\h)\h+)/u',
+			'$1',
+			$text[0]
 		);
 	}
 }

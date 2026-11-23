@@ -16,6 +16,7 @@ use iikiti\CMS\Web\BlockEditor\Render\BlockRenderContext;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderer;
 use iikiti\CMS\Web\BlockEditor\Render\RenderCacheTagCollector;
 use iikiti\CMS\Web\BlockEditor\Render\RenderedFragmentCache;
+use iikiti\CMS\Web\BlockEditor\Render\RootContainerRule;
 use iikiti\CMS\Web\BlockEditor\RenderFragmentLimits;
 use iikiti\CMS\Web\BlockEditor\Render\WidgetFragmentPlan;
 use iikiti\CMS\Web\Fragment\FragmentContext;
@@ -275,8 +276,11 @@ final class TemplateRenderer
 			return ['html' => $this->renderNoMainRegion($context), 'revision' => $revision, 'fragments' => []];
 		}
 
+		$widgetPlan = $this->widgetPlan($template, $context, $regionTrees, $shells, $revision);
 		$fragments = [];
-		$regionSlots = [];
+		$regionPlaceholders = [];
+		/** @var array<string,list<string>> $inlinedRootSlots */
+		$inlinedRootSlots = [];
 		$orderedRegions = $regions;
 		$regionPriority = ['main' => 0, 'header' => 2];
 		usort($orderedRegions, static fn (array $left, array $right): int =>
@@ -287,12 +291,20 @@ final class TemplateRenderer
 				continue;
 			}
 
+			$tree = $regionTrees[$regionId] ?? [];
+			$widgetSlots = $this->inlinedWidgetSlots('region', $regionId, $tree, $context, $widgetPlan);
+			if (null !== $widgetSlots) {
+				$inlinedRootSlots['region:'.$regionId] = $widgetSlots;
+				$regionPlaceholders[$regionId] = $this->renderWidgetSlotPlaceholders($widgetSlots);
+				continue;
+			}
+
 			$slot = bin2hex(random_bytes(16));
-			$regionSlots[$regionId] = $slot;
+			$regionPlaceholders[$regionId] = sprintf('<template data-iikiti-region-slot="%s"></template>', $slot);
 			$fragments[] = ['kind' => 'region', 'id' => $regionId, 'role' => (string) ($region['role'] ?? ''), 'slot' => $slot];
 		}
 
-		$shellSlots = [];
+		$shellPlaceholders = [];
 		$roles = array_keys($shells);
 		$rolePriority = ['aside' => 0, 'sidebar' => 0, 'footer' => 1, 'dialog' => 2, 'header' => 3];
 		usort($roles, static fn (string $left, string $right): int => ($rolePriority[$left] ?? 1) <=> ($rolePriority[$right] ?? 1));
@@ -304,8 +316,16 @@ final class TemplateRenderer
 					continue;
 				}
 
+				$tree = is_array($shell['blocks'] ?? null) ? array_values($shell['blocks']) : [];
+				$widgetSlots = $this->inlinedWidgetSlots('shell', $shellId, $tree, $context, $widgetPlan);
+				if (null !== $widgetSlots) {
+					$inlinedRootSlots['shell:'.$shellId] = $widgetSlots;
+					$shellPlaceholders[$role][] = $this->renderWidgetSlotPlaceholders($widgetSlots);
+					continue;
+				}
+
 				$slot = bin2hex(random_bytes(16));
-				$shellSlots[$role][] = ['slot' => $slot, 'shell' => $shell];
+				$shellPlaceholders[$role][] = sprintf('<template data-iikiti-shell-slot="%s"></template>', $slot);
 				$fragments[] = ['kind' => 'shell', 'id' => $shellId, 'role' => $role, 'slot' => $slot];
 			}
 		}
@@ -322,12 +342,12 @@ final class TemplateRenderer
 		];
 		$fragmentPlan = new FragmentPlanCollector();
 		$vars['_iikiti_fragment_plan'] = $fragmentPlan;
-		foreach ($regionSlots as $regionId => $slot) {
-			$vars[$this->regionVar($regionId)] = sprintf('<template data-iikiti-region-slot="%s"></template>', $slot);
+		foreach ($regionPlaceholders as $regionId => $placeholder) {
+			$vars[$this->regionVar($regionId)] = $placeholder;
 		}
-		foreach ($shellSlots as $role => $roleShells) {
-			foreach ($roleShells as $entry) {
-				$vars['iikiti_shells'][$role][] = sprintf('<template data-iikiti-shell-slot="%s"></template>', $entry['slot']);
+		foreach ($shellPlaceholders as $role => $rolePlaceholders) {
+			foreach ($rolePlaceholders as $placeholder) {
+				$vars['iikiti_shells'][$role][] = $placeholder;
 			}
 		}
 
@@ -338,6 +358,7 @@ final class TemplateRenderer
 			$html = $this->renderError($exception->getMessage());
 			$fragments = [];
 			$pluginFragments = [];
+			$inlinedRootSlots = [];
 		}
 		$fragments = array_values(array_filter($fragments, static function (array $fragment) use ($html): bool {
 			$attribute = 'region' === $fragment['kind'] ? 'data-iikiti-region-slot' : 'data-iikiti-shell-slot';
@@ -348,7 +369,14 @@ final class TemplateRenderer
 		foreach ($fragments as $fragment) {
 			$visibleRoots[$fragment['kind'].':'.$fragment['id']] = true;
 		}
-		$widgetPlan = $this->widgetPlan($template, $context, $regionTrees, $shells, $revision);
+		foreach ($inlinedRootSlots as $rootKey => $slots) {
+			foreach ($slots as $slot) {
+				if (str_contains($html, sprintf('data-iikiti-widget-slot="%s"', $slot))) {
+					$visibleRoots[$rootKey] = true;
+					break;
+				}
+			}
+		}
 		foreach ($widgetPlan->descriptors() as $descriptor) {
 			$entry = $widgetPlan->entry($descriptor['id']);
 			if (null !== $entry && isset($visibleRoots[$entry['root_kind'].':'.$entry['root_id']])) {
@@ -452,7 +480,9 @@ final class TemplateRenderer
 			$html = $rendered['html'];
 			$styles = $rendered['styles'];
 		} else {
-			if (null !== $this->fiberTaskRunner && null !== $this->embedResolver) {
+			if (null !== $this->fiberTaskRunner
+				&& null !== $this->embedResolver
+				&& null === $this->inlinedWidgetSlots($kind, $resolvedId, $tree ?? [], $context, $widgetPlan)) {
 				$fragmentTrees = 'region' === $kind ? [$resolvedId => $tree ?? []] : ['shell' => $tree ?? []];
 				$context = $context->withPrefetchedEmbeds($this->embedResolver->prefetchOembeds(
 					$this->embedUrls($fragmentTrees, $context, []),
@@ -665,6 +695,54 @@ final class TemplateRenderer
 	}
 
 	/**
+	 * Returns top-level widget slot tokens when a non-empty root tree renders
+	 * exclusively planned widget placeholders (zero inline HTML or root styles),
+	 * allowing the manifest to embed those widget slots directly and skip an
+	 * extra empty region/shell fragment request.
+	 *
+	 * @param list<array<string,mixed>> $tree
+	 * @return list<string>|null
+	 */
+	private function inlinedWidgetSlots(
+		string $rootKind,
+		string $rootId,
+		array $tree,
+		BlockRenderContext $context,
+		WidgetFragmentPlan $widgetPlan,
+	): ?array {
+		if ([] === $tree) {
+			return null;
+		}
+
+		$rootPath = WidgetFragmentPlan::rootPath($rootKind, $rootId);
+		$slots = [];
+		foreach ($tree as $index => $node) {
+			$type = (string) ($node['type'] ?? '');
+			if (!$context->editorMode && !RootContainerRule::isAllowedAtRoot($type)) {
+				continue;
+			}
+			$descriptor = $widgetPlan->descriptorAtPath(WidgetFragmentPlan::childPath($rootPath, (int) $index));
+			if (null === $descriptor) {
+				return null;
+			}
+			$slots[] = $descriptor['slot'];
+		}
+
+		return [] === $slots ? null : $slots;
+	}
+
+	/** @param list<string> $slots */
+	private function renderWidgetSlotPlaceholders(array $slots): string
+	{
+		$html = '';
+		foreach ($slots as $slot) {
+			$html .= '<template data-iikiti-widget-slot="'.htmlspecialchars($slot, ENT_QUOTES).'"></template>';
+		}
+
+		return $html;
+	}
+
+	/**
 	 * @param array<string,list<array<string,mixed>>> $regionTrees
 	 * @param array<string,list<array<string,mixed>>> $shells
 	 */
@@ -683,6 +761,7 @@ final class TemplateRenderer
 			'site' => $this->objectSnapshot($context->site),
 			'object' => $this->objectSnapshot($context->object),
 			'request_uri' => $context->request?->getRequestUri(),
+			'locale' => $context->request?->getLocale(),
 			'editor_mode' => $context->editorMode,
 			'can_edit' => $context->canEdit,
 		];

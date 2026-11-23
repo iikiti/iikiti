@@ -25,7 +25,7 @@ final class ShellProvider
 	{
 		$grouped = [];
 		/** @var list<Shell> $shells */
-		$shells = $this->shellRepository->findAll();
+		$shells = $this->shellRepository->findAllWithProperties();
 		foreach ($shells as $shell) {
 			$grouped[$shell->getRole()][] = [
 				'id' => $shell->getId(),

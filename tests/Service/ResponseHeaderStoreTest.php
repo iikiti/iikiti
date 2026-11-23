@@ -9,6 +9,7 @@ use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Service\ResponseHeaderPolicy;
 use iikiti\CMS\Service\ResponseHeaderStore;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
 
 final class ResponseHeaderStoreTest extends TestCase
 {
@@ -42,5 +43,24 @@ final class ResponseHeaderStoreTest extends TestCase
 		$site->setProperty('response_headers_policy', ['version' => -1, 'rules' => []]);
 		$this->expectException(\UnexpectedValueException::class);
 		(new ResponseHeaderStore(new ResponseHeaderPolicy()))->getPolicy($site);
+	}
+
+	public function testContentHashCacheReflectsInMemorySetPolicyImmediately(): void
+	{
+		$cache = new ArrayAdapter();
+		$store = new ResponseHeaderStore(new ResponseHeaderPolicy(), $cache);
+		$site = new Site();
+
+		$store->setPolicy($site, [['name' => 'X-Robots-Tag', 'action' => 'set', 'value' => 'noindex']]);
+		$first = $store->getPolicy($site);
+		self::assertSame('noindex', $first['rules'][0]['value']);
+		self::assertCount(1, $cache->getValues());
+
+		// Second read hits cache; updating policy in memory before flush() produces a new key immediately.
+		self::assertSame($first, $store->getPolicy($site));
+		$store->setPolicy($site, [['name' => 'X-Robots-Tag', 'action' => 'set', 'value' => 'index']]);
+		$updated = $store->getPolicy($site);
+		self::assertSame('index', $updated['rules'][0]['value']);
+		self::assertCount(2, $cache->getValues());
 	}
 }

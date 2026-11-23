@@ -165,13 +165,27 @@ final class HtmlFragmentComposer
 
 	private function parseFragment(string $html, string $context = 'body'): DocumentFragment
 	{
-		$context = 'head' === strtolower($context) ? 'head' : 'body';
+		$fragment = $this->document->createDocumentFragment();
+		if ('' === $html) {
+			return $fragment;
+		}
+
+		$tag = strtolower($context);
+		[$prefix, $suffix, $selector] = match ($tag) {
+			'head' => ['<!DOCTYPE html><html><head>', '</head><body></body></html>', 'head'],
+			'table' => ['<!DOCTYPE html><html><body><table>', '</table></body></html>', 'table'],
+			'tbody', 'thead', 'tfoot' => ['<!DOCTYPE html><html><body><table><'.$tag.'>', '</'.$tag.'></table></body></html>', $tag],
+			'tr' => ['<!DOCTYPE html><html><body><table><tbody><tr>', '</tr></tbody></table></body></html>', 'tr'],
+			'colgroup' => ['<!DOCTYPE html><html><body><table><colgroup>', '</colgroup></table></body></html>', 'colgroup'],
+			'select' => ['<!DOCTYPE html><html><body><select>', '</select></body></html>', 'select'],
+			'optgroup' => ['<!DOCTYPE html><html><body><select><optgroup>', '</optgroup></select></body></html>', 'optgroup'],
+			default => ['<!DOCTYPE html><html><head></head><body>', '</body></html>', 'body'],
+		};
 		$fragmentDocument = HTMLDocument::createFromString(
-			'<!DOCTYPE html><html><head>'.('head' === $context ? $html : '').'</head><body>'.('body' === $context ? $html : '').'</body></html>',
+			$prefix.$html.$suffix,
 			LIBXML_COMPACT | LIBXML_NOERROR,
 		);
-		$container = $fragmentDocument->querySelector($context);
-		$fragment = $this->document->createDocumentFragment();
+		$container = $fragmentDocument->querySelector($selector);
 		if (null === $container) {
 			return $fragment;
 		}

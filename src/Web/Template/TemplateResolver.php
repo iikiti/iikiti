@@ -6,6 +6,7 @@ namespace iikiti\CMS\Web\Template;
 
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\Object\Template;
+use iikiti\CMS\Repository\Object\TemplateRepository;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 /**
@@ -22,6 +23,7 @@ final class TemplateResolver
 		private readonly EntityManagerInterface $em,
 		#[AutowireIterator('iikiti.cms.template_rule')]
 		private readonly iterable $rules = [],
+		private readonly ?TemplateRepository $templateRepository = null,
 	) {
 	}
 
@@ -40,13 +42,15 @@ final class TemplateResolver
 			}
 		}
 
-		// DQL (not the ObjectRepository query builder, whose type filter does not
-		// match the stored short discriminator).
 		if (null !== $context->site) {
-			/** @var list<Template> $candidates */
-			$candidates = $this->em->createQuery('SELECT t FROM ' . Template::class . ' t WHERE t.site = :site')
-				->setParameter('site', $context->site)
-				->getResult();
+			if (null !== $this->templateRepository) {
+				$candidates = $this->templateRepository->findBySiteWithProperties($context->site);
+			} else {
+				/** @var list<Template> $candidates */
+				$candidates = $this->em->createQuery('SELECT t FROM '.Template::class.' t WHERE t.site = :site')
+					->setParameter('site', $context->site)
+					->getResult();
+			}
 		} else {
 			$candidates = $this->em->getRepository(Template::class)->findAll();
 		}

@@ -6,6 +6,7 @@ use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Doctrine\Collections\ArrayCollection;
 use iikiti\CMS\Entity\Object\Application;
 use iikiti\CMS\Entity\Object\Site;
+use iikiti\CMS\Entity\ObjectProperty;
 use iikiti\CMS\Registry\ApplicationRegistry;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\ObjectRepository;
@@ -31,6 +32,28 @@ class ApplicationRepository extends ObjectRepository
 	public function getCurrentApplication(): ?Application
 	{
 		return $this->appRegistry->getCurrent();
+	}
+
+	/**
+	 * Loads an Application by ID with its properties eager-fetched in a single
+	 * cached query (no LIMIT 1 so the joined OneToMany collection is never truncated).
+	 */
+	public function findByIdWithProperties(int|string $id): ?Application
+	{
+		$qb = $this->createQueryBuilder('o')
+			->leftJoin('o.properties', 'all_props')
+			->addSelect('all_props')
+			->andWhere('o.id = :id')
+			->setParameter('id', $id);
+
+		/** @var list<Application> $results */
+		$results = $this->_executeAndCache($qb, [
+			'operation' => 'findByIdWithProperties',
+			'id' => (string) $id,
+			'dependentClasses' => [ObjectProperty::class],
+		]);
+
+		return $results[0] ?? null;
 	}
 
 	/**

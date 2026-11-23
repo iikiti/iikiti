@@ -2,9 +2,11 @@
 
 namespace iikiti\CMS\Repository\Object;
 
+use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\Object\Application;
 use iikiti\CMS\Entity\Object\Site;
+use iikiti\CMS\Entity\ObjectProperty;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\ObjectRepository;
 use iikiti\CMS\Service\DatabaseCacheManager;
@@ -41,7 +43,7 @@ class SiteRepository extends ObjectRepository
 			return null;
 		}
 
-		return $this->getApplicationRepository()->find($applicationId);
+		return $this->getApplicationRepository()->findByIdWithProperties($applicationId);
 	}
 
 	public function getCurrent(): ?Site
@@ -75,7 +77,26 @@ class SiteRepository extends ObjectRepository
 	 */
 	public function findByDomain(string $domain, ?int $appId = null): array
 	{
-		return $this->findByProperty(Site::DOMAIN_PROPERTY_KEY, $domain);
+		// Filter on alias `p` while eager-fetching the full property collection
+		// via a distinct alias `all_props` so Site::$properties is never truncated
+		// to only the `domain` property.
+		$qb = $this->createQueryBuilder('o')
+			->join(
+				'o.properties',
+				'p',
+				Join::WITH,
+				'p.name = :name AND JSONB_CONTAINS(p.value, :value) = true',
+			)
+			->leftJoin('o.properties', 'all_props')
+			->addSelect('all_props')
+			->setParameter('name', Site::DOMAIN_PROPERTY_KEY)
+			->setParameter('value', json_encode($domain));
+
+		return $this->_executeAndCache($qb, [
+			'operation' => 'findByDomain',
+			'domain' => $domain,
+			'dependentClasses' => [ObjectProperty::class],
+		]);
 	}
 
 	/**

@@ -88,11 +88,16 @@ When no `X-AUTH-TOKEN` is supplied, the page proxy issues a five-minute,
 site-host-bound guest credential. The API accepts that credential only for
 read-only GET/HEAD public page-render operations. An explicitly supplied
 user-bound API token is forwarded and remains subject to API-side site and role
-checks. If the request has a Symfony session cookie, the proxy forwards only
-that cookie to `POST /api/auth/session-token`; the stateful API firewall resolves
-the authenticated user and returns that user's short-lived API token. The cookie
-is not forwarded to the page-render operation. API and consumer runtimes must
-share the session store and `APP_SECRET` for this exchange to work.
+checks. If the request has a Symfony session cookie, the proxy first checks a
+short-lived (60-second) session-stored cache keyed by site host and session
+cookie hash (releasing the session lock immediately), and otherwise forwards
+only that cookie to `POST /api/auth/session-token` so the stateful API firewall
+returns that user's short-lived API token. If a cached token receives HTTP 401,
+the proxy invalidates it and retries once; logging out revokes the user's
+ephemeral `ApiToken` records in the database and clears the cached session
+entry. The cookie is not forwarded to the page-render operation. API and
+consumer runtimes must share the session store and `APP_SECRET` for this
+exchange to work.
 
 ### Public Page Fragment API
 
@@ -126,15 +131,33 @@ composed server HTML. When the 128-fragment budget is exhausted, additional
 eligible widgets render inline instead of producing an unfillable slot. Existing
 full-page API routes remain available for legacy callers.
 
-Each direct block node in a region or shell tree with a render template is a
-separate fragment by default. Deeper descendants render inline by default and
-can opt in per saved widget instance with `renderMode: "always"`; `"never"`
-keeps a widget inline even at the region/shell boundary. Missing/invalid values
-use `"default"`. Query blocks remain atomic: the query and its per-result child
+Direct block nodes in a region or shell tree with a render template use
+`renderMode: "default"` unless overridden. Under `"default"`, top-level nodes
+split into independent widget fragments when a region/shell has at least two
+eligible top-level siblings (providing real parallelism) or when the widget
+opts into server-side rendered output caching (`cacheMode: "global"` or
+`"user_group"`). Single uncached top-level widgets stay inline inside their
+region/shell fragment so simple pages finish in a single HTTP wave instead of
+forcing a second sequential round-trip. When every renderable top-level node in
+a region or shell splits into a widget fragment, the manifest emits those
+widget slot placeholders directly and omits the empty region/shell stub
+descriptor. Deeper descendants render inline by default and can opt in per
+saved widget instance with `renderMode: "always"`; `"never"` keeps a widget
+inline even at the region/shell boundary. Missing/invalid values use
+`"default"`. Query blocks remain atomic: the query and its per-result child
 templates render in one fragment so row bindings are not transported between
 requests. Direct API-role page rendering remains local and synchronous as a
 compatibility/development fallback; concurrent full-page server rendering uses
 the consumer proxy.
+
+Pure-static, zero-I/O fragment providers may implement
+`iikiti\CMS\Web\Fragment\InlineableFragmentProviderInterface` (such as
+`forma-2026.theme-styles`), or placements may pass `delivery: "inline"`, so
+they execute inline during manifest generation (appending their CSS to manifest
+styles without a separate Wave 2 HTTP subrequest) while remaining callable via
+`/api/public/render/providers/{provider}` and `/_iikiti/fragments/{provider}`.
+Inline placements participate in `FragmentPlanCollector` DAG validation and have
+their satisfied keys stripped from server-fragment `dependsOn` lists.
 
 The same named provider can be rendered by Twig into the initial page (default)
 or invoked through `/api/public/render/providers/{provider}`. An explicit Twig
@@ -147,7 +170,8 @@ dispatches locally in API role or relays through the site-scoped guest token in
 consumer role; plugins do not configure the app role or API origin.
 
 The revision check covers the resolved template, region trees, shell definitions,
-page/site properties, and widget render/cache settings. Query blocks still
+page/site properties, request locale, and widget render/cache settings (and
+rendered widget cache keys also vary by request locale). Query blocks still
 execute on the API for each fragment request; their database reads remain
 synchronous and may observe updates made while a multi-fragment page is
 assembled. Fragment fan-out increases API request and database load, so keep widget counts bounded and opt

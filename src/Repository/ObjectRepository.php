@@ -318,7 +318,7 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 	 *
 	 * @return array<T>
 	 */
-	private function _executeAndCache(QueryBuilder $qb, array $context): array
+	protected function _executeAndCache(QueryBuilder $qb, array $context): array
 	{
 		$query = $qb->getQuery();
 		$this->_applyCache($query, $context);
@@ -333,7 +333,7 @@ abstract class ObjectRepository extends ServiceEntityRepository implements Searc
 	 *
 	 * @return T|null
 	 */
-	private function _executeAndCacheOne(QueryBuilder $qb, array $context): ?object
+	protected function _executeAndCacheOne(QueryBuilder $qb, array $context): ?object
 	{
 		$query = $qb->getQuery();
 		$this->_applyCache($query, $context);

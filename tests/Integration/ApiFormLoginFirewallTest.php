@@ -22,7 +22,7 @@ final class ApiFormLoginFirewallTest extends WebTestCase
 		$sites = $this->createStub(SiteRepository::class);
 		$sites->method('findByDomain')->willReturn([]);
 		$applications = $this->createStub(ApplicationRepository::class);
-		$applications->method('find')->willReturn(new Application());
+		$applications->method('findByIdWithProperties')->willReturn(new Application());
 		$entityManager = $this->createStub(EntityManagerInterface::class);
 		$entityManager->method('getRepository')->willReturnCallback(static fn (string $class) => Site::class === $class ? $sites : $applications);
 		$policy = new ResponseHeaderPolicy();

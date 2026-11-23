@@ -108,15 +108,17 @@ final class PageRendering
 			$state['region_trees'],
 			$state['resolution_context'],
 		);
-		$composer = new HtmlFragmentComposer($this->baseLayout($request, $state));
-		$composer->insertIntoPlaceholder('[data-iikiti-fragment="page"]', $manifest['html']);
-		$iconFont = $this->iconFontAssets->shouldLink($state['can_edit']) ?
-			$this->twig->render('base/_icon_font_link.twig') :
-			'';
-		$composer->insertIntoPlaceholder('[data-iikiti-fragment="icon-font"]', $iconFont);
+		// Render the layout skeleton directly with Twig instead of parsing and
+		// re-serializing a temporary HTMLDocument on the API side.
+		$html = $this->baseLayout($request, $state, [
+			'iikiti_use_fragment_composer' => false,
+			'iikiti_custom_css_placeholder' => true,
+			'iikiti_page_body' => $manifest['html'],
+			'iikiti_icon_font' => $this->iconFontAssets->shouldLink($state['can_edit']),
+		]);
 
 		return [
-			'html' => $composer->render(),
+			'html' => $html,
 			'styles' => $state['custom_css']->fragments($state['editor_mode']),
 			'editor_mode' => $state['editor_mode'],
 			'revision' => $manifest['revision'],
@@ -130,7 +132,7 @@ final class PageRendering
 
 	public function renderFragment(Request $request, ?DbObject $object, bool $home, string $kind, string $id, ?string $expectedRevision = null): ?PageFragmentResult
 	{
-		$state = $this->prepareRenderState($request, $object, $home, includePageStyles: false);
+		$state = $this->prepareRenderState($request, $object, $home, includePageStyles: false, forFragment: true);
 
 		return $this->templateRenderer->renderFragment(
 			$state['template'],
@@ -161,7 +163,7 @@ final class PageRendering
 	 *   scope_classes:list<string>
 	 * }
 	 */
-	private function prepareRenderState(Request $request, ?DbObject $object, bool $home, bool $includePageStyles = true): array
+	private function prepareRenderState(Request $request, ?DbObject $object, bool $home, bool $includePageStyles = true, bool $forFragment = false): array
 	{
 		$site = SiteRegistry::hasCurrent() ? SiteRegistry::getCurrent() : null;
 		$resolutionContext = new TemplateResolutionContext(
@@ -180,9 +182,13 @@ final class PageRendering
 		$user = $this->security->getUser();
 		$canEdit = $user instanceof User && $this->configProvider->canEdit($user);
 		$editorMode = $canEdit && $request->query->has('edit');
-		$resolvedOptimization = $this->resolveOptimizationSettings($site, $editorMode);
-		$settingsContext = $canEdit ? $this->settingsContext($object, $template, $user, $home, $site, $request, $resolvedOptimization) : null;
-		$config = $canEdit ?
+		$resolvedOptimization = $forFragment
+			? ['defaults' => [], 'overrides' => [], 'effective' => []]
+			: $this->resolveOptimizationSettings($site, $editorMode);
+		$settingsContext = !$forFragment && $canEdit
+			? $this->settingsContext($object, $template, $user, $home, $site, $request, $resolvedOptimization)
+			: null;
+		$config = !$forFragment && $canEdit ?
 			$this->configProvider->build(
 				contextId: (int) ($template->getId() ?? 0),
 				contextType: 'template',
@@ -195,13 +201,13 @@ final class PageRendering
 			null;
 		$regionTrees = ($editorMode && $template->getBlocksDraft() ? $template->getBlocksDraft() : ($template->getBlocks() ?: []));
 		$customCss = new CustomCssCollector();
-		$pageSettings = $object instanceof Page ?
+		$pageSettings = !$forFragment && $object instanceof Page ?
 			($editorMode && 'page' === ($settingsContext['type'] ?? null) ?
 				$settingsContext['values'] :
 				$this->settingsManager->publishedSettings($object)) :
 			[];
-		$publishedPageSettings = $object instanceof Page && !$editorMode ? $pageSettings : [];
-		$publishedHomeSettings = $home && null === $object && null !== $site && !$editorMode ?
+		$publishedPageSettings = !$forFragment && $object instanceof Page && !$editorMode ? $pageSettings : [];
+		$publishedHomeSettings = !$forFragment && $home && null === $object && null !== $site && !$editorMode ?
 			$this->seoPageSettings($this->settingsManager->publishedSettings($site)) :
 			[];
 		if ($includePageStyles) {
@@ -236,7 +242,7 @@ final class PageRendering
 
 		$this->twig->addGlobal('iikiti_can_edit', $canEdit);
 		$this->twig->addGlobal('iikiti_editor_mode', $editorMode);
-		$this->twig->addGlobal('iikiti_config', $config);
+		$this->twig->addGlobal('iikiti_config', $forFragment ? null : $config);
 
 		return [
 			'template' => $template,
@@ -270,8 +276,11 @@ final class PageRendering
 		return sprintf('Page "%s" | Template "%s" | Twig "%s"', $request->getPathInfo(), $title, $template->getLayout());
 	}
 
-	/** @param array<string,mixed> $state */
-	private function baseLayout(Request $request, array $state): string
+	/**
+	 * @param array<string,mixed> $state
+	 * @param array<string,mixed> $overrides
+	 */
+	private function baseLayout(Request $request, array $state, array $overrides = []): string
 	{
 		$consentBanner = $this->consentBanner($request, $state);
 		$consentProviderActive = '' !== $consentBanner;
@@ -306,7 +315,7 @@ final class PageRendering
 			$context['iikiti_consent_banner'] = $consentBanner;
 		}
 
-		return $this->twig->render('base/layout.twig', $context);
+		return $this->twig->render('base/layout.twig', array_replace($context, $overrides));
 	}
 
 	/** @param array<string,mixed> $state */

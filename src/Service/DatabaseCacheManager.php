@@ -99,8 +99,19 @@ class DatabaseCacheManager
 		$siteId = $this->currentSiteId();
 		$generation = $this->getGeneration($entityClass);
 		$hashContext = $context;
-		unset($hashContext['options'], $hashContext['cache']);
-		$hash = hash('xxh3', serialize($hashContext));
+		$dependentClasses = $hashContext['dependentClasses'] ?? null;
+		unset($hashContext['options'], $hashContext['cache'], $hashContext['dependentClasses']);
+		if (is_array($dependentClasses) && [] !== $dependentClasses) {
+			$depGenerations = [];
+			foreach ($dependentClasses as $dependentClass) {
+				if (is_string($dependentClass) && '' !== $dependentClass) {
+					$depGenerations[$dependentClass] = $this->getGeneration($dependentClass);
+				}
+			}
+			ksort($depGenerations);
+			$hashContext['_dep_generations'] = $depGenerations;
+		}
+		$hash = hash('sha256', serialize($hashContext));
 		$operation = preg_replace('/[^A-Za-z0-9_.-]/', '_', $operation) ?? 'query';
 
 		return sprintf(

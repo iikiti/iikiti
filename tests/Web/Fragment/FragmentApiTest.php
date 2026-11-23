@@ -111,6 +111,25 @@ final class FragmentApiTest extends TestCase
 		$plan->serverDescriptors();
 	}
 
+	public function testInlinePlacementStripsSatisfiedDependenciesFromServerDescriptorsAndRejectsServerDependencies(): void
+	{
+		$plan = new FragmentPlanCollector();
+		self::assertSame('', $plan->declare('sample-plugin.styles', [], ['delivery' => 'inline', 'key' => 'styles']));
+		$plan->declare('sample-plugin.card', [], ['delivery' => 'server', 'key' => 'card', 'dependsOn' => ['styles']]);
+
+		$descriptors = $plan->serverDescriptors();
+		self::assertCount(1, $descriptors);
+		self::assertSame('card', $descriptors[0]['key']);
+		self::assertSame([], $descriptors[0]['dependsOn']);
+
+		$invalid = new FragmentPlanCollector();
+		$invalid->declare('sample-plugin.card', [], ['delivery' => 'server', 'key' => 'card']);
+		$invalid->declare('sample-plugin.styles', [], ['delivery' => 'inline', 'key' => 'styles', 'dependsOn' => ['card']]);
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('cannot depend on server fragment');
+		$invalid->serverDescriptors();
+	}
+
 	private function provider(string $name): FragmentProviderInterface
 	{
 		return new class($name) implements FragmentProviderInterface {

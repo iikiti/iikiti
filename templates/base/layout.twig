@@ -33,7 +33,7 @@
             {% if iikiti_can_edit %}
                 {{ encore_entry_link_tags('editor') }}
             {% endif %}
-            {% if iikiti_use_fragment_composer|default(false) %}
+            {% if iikiti_use_fragment_composer|default(false) or iikiti_custom_css_placeholder|default(false) %}
                 <template data-iikiti-fragment="custom-css"></template>
             {% elseif iikiti_custom_css|default('') is not empty %}
                 {% if iikiti_editor_mode|default(false) %}

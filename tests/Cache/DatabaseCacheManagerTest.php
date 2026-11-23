@@ -84,6 +84,34 @@ final class DatabaseCacheManagerTest extends TestCase
 		$this->assertStringStartsWith('db_cache_v2_', $after);
 	}
 
+	public function testGenerateCacheKeyTracksDependentClassesRegardlessOfOrder(): void
+	{
+		$manager = $this->createManager();
+		$depA = 'iikiti\CMS\Entity\ObjectProperty';
+		$depB = 'iikiti\CMS\Entity\Object\Site';
+
+		$plain = $manager->generateCacheKey(self::ENTITY, 'findWithProperties', ['id' => 1]);
+		$withDeps = $manager->generateCacheKey(self::ENTITY, 'findWithProperties', [
+			'id' => 1,
+			'dependentClasses' => [$depA, $depB],
+		]);
+		$reversedDeps = $manager->generateCacheKey(self::ENTITY, 'findWithProperties', [
+			'id' => 1,
+			'dependentClasses' => [$depB, $depA],
+		]);
+
+		$this->assertNotSame($plain, $withDeps);
+		$this->assertSame($withDeps, $reversedDeps);
+
+		$manager->invalidate($depA);
+		$afterDepInvalidation = $manager->generateCacheKey(self::ENTITY, 'findWithProperties', [
+			'id' => 1,
+			'dependentClasses' => [$depA, $depB],
+		]);
+
+		$this->assertNotSame($withDeps, $afterDepInvalidation);
+	}
+
 	public function testDecorateQueryAppliesCacheWhenEnabled(): void
 	{
 		$manager = $this->createManager();

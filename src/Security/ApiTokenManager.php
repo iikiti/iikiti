@@ -73,4 +73,39 @@ class ApiTokenManager
 
 		return $token;
 	}
+
+	/**
+	 * Revokes all ephemeral session/admin API tokens belonging to the given user
+	 * (e.g. on logout) so separate consumer runtimes cannot reuse cached tokens.
+	 */
+	public function revokeForUser(User $user): void
+	{
+		/** @var \iikiti\CMS\Repository\Object\ApiTokenRepository $repository */
+		$repository = $this->entityManager->getRepository(ApiToken::class);
+		/** @var list<ApiToken> $tokens */
+		$tokens = $repository->findBy(['user' => $user], options: ['cache' => false]);
+		if ([] === $tokens) {
+			return;
+		}
+
+		$tokenIds = [];
+		foreach ($tokens as $token) {
+			$tokenIds[] = $token->getId();
+			$this->entityManager->remove($token);
+		}
+		$this->entityManager->flush();
+
+		$username = $user->getUserIdentifier();
+		foreach ($tokenIds as $tokenId) {
+			$this->recorder->record(
+				sprintf('Revoked API token on logout for %s', $username),
+				'deleted_api_token',
+				'ApiToken',
+				$tokenId,
+				null,
+				null,
+				['userId' => $user->getId()],
+			);
+		}
+	}
 }

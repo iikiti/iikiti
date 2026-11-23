@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace iikiti\Extension\Forma2026\Fragment;
 
 use iikiti\CMS\Web\Fragment\FragmentContext;
-use iikiti\CMS\Web\Fragment\FragmentProviderInterface;
 use iikiti\CMS\Web\Fragment\FragmentResult;
+use iikiti\CMS\Web\Fragment\InlineableFragmentProviderInterface;
 
 /** Supplies this plugin's static theme stylesheet through the shared Fragment API. */
-final class ThemeStylesFragment implements FragmentProviderInterface
+final class ThemeStylesFragment implements InlineableFragmentProviderInterface
 {
 	private readonly string $stylesheet;
 

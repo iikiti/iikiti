@@ -68,6 +68,10 @@ final class WidgetFragmentPlanner
 		array &$entriesById,
 		array &$descriptorsByPath,
 	): void {
+		$eligibleTopLevelCount = 0 === $widgetDepth
+			? $this->countEligibleTopLevelNodes($nodes, $context)
+			: 0;
+
 		foreach ($nodes as $index => $node) {
 			$type = (string) ($node['type'] ?? '');
 			if (0 === $widgetDepth && !$context->editorMode && !RootContainerRule::isAllowedAtRoot($type)) {
@@ -84,8 +88,14 @@ final class WidgetFragmentPlanner
 			if (!in_array($mode, ['default', 'always', 'never'], true)) {
 				$mode = 'default';
 			}
+			$cacheMode = $node['cacheMode'] ?? 'none';
+			$usesCache = in_array($cacheMode, ['global', 'user_group'], true);
 			$eligible = null !== $blockType->renderTemplate && (
-				'always' === $mode || ('default' === $mode && 0 === $widgetDepth)
+				'always' === $mode || (
+					'default' === $mode
+					&& 0 === $widgetDepth
+					&& ($eligibleTopLevelCount >= 2 || $usesCache)
+				)
 			);
 
 			if ($eligible && $remaining > 0) {
@@ -129,6 +139,37 @@ final class WidgetFragmentPlanner
 				);
 			}
 		}
+	}
+
+	/**
+	 * Counts renderable top-level nodes whose renderMode allows fragment splitting
+	 * (`default` or `always`), so single-widget regions stay inline instead of
+	 * forcing an extra sequential HTTP round-trip with zero parallelism.
+	 *
+	 * @param list<array<string,mixed>> $nodes
+	 */
+	private function countEligibleTopLevelNodes(array $nodes, BlockRenderContext $context): int
+	{
+		$count = 0;
+		foreach ($nodes as $node) {
+			$type = (string) ($node['type'] ?? '');
+			if (!$context->editorMode && !RootContainerRule::isAllowedAtRoot($type)) {
+				continue;
+			}
+			$blockType = $this->registry->get($type);
+			if (null === $blockType || null === $blockType->renderTemplate) {
+				continue;
+			}
+			$mode = $node['renderMode'] ?? 'default';
+			if (!in_array($mode, ['default', 'always', 'never'], true)) {
+				$mode = 'default';
+			}
+			if ('never' !== $mode) {
+				++$count;
+			}
+		}
+
+		return $count;
 	}
 
 	/** @return array{kind:string,id:string,role:string,slot:string,depth:int} */

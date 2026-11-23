@@ -38,4 +38,13 @@ final readonly class FragmentRuntime
 			is_string($pluginSlug) &&
 			in_array($pluginSlug, $site->getEnabledPlugins(), true);
 	}
+
+	public function isInlineable(string $name, ?\iikiti\CMS\Entity\Object\Site $site): bool
+	{
+		if (!$this->isAvailable($name, $site)) {
+			return false;
+		}
+
+		return $this->providers->get($name) instanceof InlineableFragmentProviderInterface;
+	}
 }

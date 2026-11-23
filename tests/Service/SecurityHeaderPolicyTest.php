@@ -89,8 +89,10 @@ final class SecurityHeaderPolicyTest extends TestCase
 	public function testDefaultHeadersProd(): void
 	{
 		$policy = new SecurityHeaderPolicy('prod');
-		$headers = $policy->renderHeaders([], 'on');
+		$headers = $policy->renderHeaders([], 'on', 'prod-nonce-123');
 		self::assertArrayHasKey(SecurityHeaderPolicy::HEADER_CSP, $headers);
+		self::assertStringContainsString('nonce-prod-nonce-123', $headers[SecurityHeaderPolicy::HEADER_CSP]);
+		self::assertStringNotContainsString('__IIKITI_CSP_NONCE__', $headers[SecurityHeaderPolicy::HEADER_CSP]);
 		self::assertArrayHasKey(SecurityHeaderPolicy::HEADER_HSTS, $headers);
 		self::assertStringContainsString('includeSubDomains', $headers[SecurityHeaderPolicy::HEADER_HSTS]);
 		self::assertStringContainsString('preload', $headers[SecurityHeaderPolicy::HEADER_HSTS]);

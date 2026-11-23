@@ -140,6 +140,44 @@ final class RenderedFragmentCacheTest extends TestCase
 		self::assertSame('<p>uncached</p>', $result['html']);
 	}
 
+	public function testGlobalCacheIsIsolatedByRequestLocale(): void
+	{
+		$service = $this->cacheService(null);
+		$node = ['cacheMode' => 'global'];
+		$renderCount = 0;
+
+		$enRequest = Request::create('https://example.test/page');
+		$enRequest->setLocale('en');
+		$frRequest = Request::create('https://example.test/page');
+		$frRequest->setLocale('fr');
+
+		$site = new Site();
+		$this->setId($site, 11);
+		$enContext = new BlockRenderContext(editorMode: false, canEdit: false, site: $site, request: $enRequest);
+		$frContext = new BlockRenderContext(editorMode: false, canEdit: false, site: $site, request: $frRequest);
+
+		$en = $service->remember($node, $enContext, str_repeat('a', 64), str_repeat('b', 64), static function () use (&$renderCount): array {
+			++$renderCount;
+
+			return ['html' => '<p>Hello</p>', 'styles' => []];
+		});
+		$fr = $service->remember($node, $frContext, str_repeat('a', 64), str_repeat('b', 64), static function () use (&$renderCount): array {
+			++$renderCount;
+
+			return ['html' => '<p>Bonjour</p>', 'styles' => []];
+		});
+		$enAgain = $service->remember($node, $enContext, str_repeat('a', 64), str_repeat('b', 64), static function () use (&$renderCount): array {
+			++$renderCount;
+
+			return ['html' => '<p>Should not render</p>', 'styles' => []];
+		});
+
+		self::assertSame('<p>Hello</p>', $en['html']);
+		self::assertSame('<p>Bonjour</p>', $fr['html']);
+		self::assertSame($en, $enAgain);
+		self::assertSame(2, $renderCount);
+	}
+
 	private function cacheService(?Security $security, ?EntityManagerInterface $entityManager = null): RenderedFragmentCache
 	{
 		$security ??= $this->createStub(Security::class);

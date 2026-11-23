@@ -4,9 +4,6 @@ namespace iikiti\CMS\Event\Subscriber;
 
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\Object\User;
-use iikiti\CMS\Filters\HtmlFilter;
-use iikiti\CMS\Filters\InlineCssFilter;
-use iikiti\CMS\Filters\InlineJavaScriptFilter;
 use iikiti\CMS\Registry\ApplicationRegistry;
 use iikiti\CMS\Registry\RouteContextClassifier;
 use iikiti\CMS\Registry\SiteRegistry;
@@ -16,30 +13,23 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ControllerEvent;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
-use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
-use Symfony\Component\Stopwatch\Stopwatch;
 
 /**
  * Runs early to initialize the application.
  */
 class Initializer implements EventSubscriberInterface
 {
-	protected static bool $hasInitialized = false;
-
 	/**
 	 * Import necessary services.
 	 */
 	public function __construct(
 		protected ManagerRegistry $registry,
-		private Stopwatch $stopwatch,
 		private Security $security,
 		private SiteRegistry $siteRegistry,
 		private ApplicationRegistry $appRegistry,
-		private InlineCssFilter $inlineCssFilter,
-		private InlineJavaScriptFilter $inlineJavaScriptFilter,
 		#[Autowire('%application_role%')]
 		private string $applicationRole,
 		#[Autowire('%public_page_render_via_api%')]
@@ -77,8 +67,6 @@ class Initializer implements EventSubscriberInterface
 
 		$this->siteRegistry->initializeForRequest();
 
-		$stopwatch = $this->stopwatch;
-
 		$route = $event->getRequest()->attributes->get('_route');
 		$routeName = is_string($route) ? $route : null;
 		$path = $event->getRequest()->getPathInfo();
@@ -96,15 +84,6 @@ class Initializer implements EventSubscriberInterface
 		} elseif (!$siteIndependentRoute && !RouteContextClassifier::isInternalWorkerRoute($routeName)) {
 			$this->appRegistry->getCurrent();
 			$this->siteRegistry::getCurrent();
-		}
-
-		if (!static::$hasInitialized) {
-			OutputParser::appendFilter(function (ResponseEvent $event) use ($stopwatch) {
-				HtmlFilter::filterHtml($event, $stopwatch);
-			});
-			OutputParser::appendFilter($this->inlineCssFilter->filter(...));
-			OutputParser::appendFilter($this->inlineJavaScriptFilter->filter(...));
-			static::$hasInitialized = true;
 		}
 
 		// TODO: Extensions::setInitialSiteId($site->getId() ?? 0);

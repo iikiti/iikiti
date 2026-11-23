@@ -61,4 +61,36 @@ final class HtmlFragmentComposerTest extends TestCase
 		self::assertSame('head', strtolower($document->querySelector('#font')->parentNode->nodeName));
 		self::assertSame('head', strtolower($document->querySelector('#custom')->parentNode->nodeName));
 	}
+
+	public function testTableAndSelectFragmentsPreserveContextSensitiveElements(): void
+	{
+		$composer = new HtmlFragmentComposer(
+			'<!DOCTYPE html><html><body><table><tbody><template id="rows"></template></tbody></table><select><template id="opts"></template></select><template id="empty"></template></body></html>',
+		);
+		$composer->insertIntoPlaceholder('#rows', '<tr><td id="cell">Row 1</td></tr>');
+		$composer->insertIntoPlaceholder('#opts', '<option value="a">Alpha</option>');
+		$composer->insertIntoPlaceholder('#empty', '');
+
+		$document = $composer->document();
+		self::assertSame('Row 1', $document->querySelector('table tbody tr td#cell')?->textContent);
+		self::assertSame('Alpha', $document->querySelector('select option[value="a"]')?->textContent);
+		self::assertNull($document->querySelector('#empty'));
+	}
+
+	public function testDomHtmlResponseSerializesLazilyAndPreservesExplicitSetContent(): void
+	{
+		$composer = new HtmlFragmentComposer('<!DOCTYPE html><html><body><p id="msg">Initial</p></body></html>');
+		$response = new DomHtmlResponse($composer->document());
+
+		// Mutate the retained DOM before first getContent() — lazy serialization captures it.
+		$response->document()->querySelector('#msg')->textContent = 'Mutated';
+		self::assertStringContainsString('<p id="msg">Mutated</p>', (string) $response->getContent());
+
+		// Explicit setContent() (e.g. CSP nonce injection or WDT) must not be overwritten on sendContent().
+		$response->setContent('<html><body><script nonce="abc"></script></body></html>');
+		ob_start();
+		$response->sendContent();
+		$sent = ob_get_clean();
+		self::assertSame('<html><body><script nonce="abc"></script></body></html>', $sent);
+	}
 }

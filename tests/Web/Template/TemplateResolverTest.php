@@ -85,4 +85,25 @@ final class TemplateResolverTest extends TestCase
 
 		$this->assertNull($resolver->resolve(new TemplateResolutionContext(objectType: 'Post')));
 	}
+
+	public function testResolveUsesTemplateRepositoryFindBySiteWithPropertiesWhenProvided(): void
+	{
+		$site = $this->createStub(\iikiti\CMS\Entity\Object\Site::class);
+		$site->method('getId')->willReturn(7);
+		$expected = $this->template('Cached site template', [['rule' => 'site', 'config' => ['site_id' => 7], 'priority' => 10]]);
+
+		$templateRepository = $this->createMock(\iikiti\CMS\Repository\Object\TemplateRepository::class);
+		$templateRepository->expects($this->once())
+			->method('findBySiteWithProperties')
+			->with($site)
+			->willReturn([$expected]);
+
+		$em = $this->createMock(EntityManagerInterface::class);
+		$em->expects($this->never())->method('createQuery');
+
+		$resolver = new TemplateResolver($em, [new SiteRule()], $templateRepository);
+		$resolved = $resolver->resolve(new TemplateResolutionContext(site: $site));
+
+		$this->assertSame($expected, $resolved);
+	}
 }

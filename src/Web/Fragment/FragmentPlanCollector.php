@@ -29,8 +29,8 @@ final class FragmentPlanCollector
 			throw new \InvalidArgumentException('A page cannot declare more than 128 fragments.');
 		}
 		$delivery = $options['delivery'] ?? 'server';
-		if (!in_array($delivery, ['server', 'browser'], true)) {
-			throw new \InvalidArgumentException('Fragment delivery must be "server" or "browser".');
+		if (!in_array($delivery, ['server', 'browser', 'inline'], true)) {
+			throw new \InvalidArgumentException('Fragment delivery must be "server", "browser", or "inline".');
 		}
 		$key = $options['key'] ?? 'fragment-'.bin2hex(random_bytes(8));
 		$dependsOn = $options['dependsOn'] ?? [];
@@ -58,21 +58,53 @@ final class FragmentPlanCollector
 		if ('browser' === $delivery) {
 			return $this->browserPlaceholder($provider, $params, $key, $dependsOn);
 		}
+		if ('inline' === $delivery) {
+			return '';
+		}
 
 		$slot = $this->placements[$key]['slot'];
 
 		return sprintf('<template data-iikiti-provider-slot="%s"></template>', $slot);
 	}
 
+	/**
+	 * Whether an auto-inlineable provider with the given dependencies can safely
+	 * execute inline now (all declared prerequisites were already inlined).
+	 *
+	 * @param list<mixed> $dependsOn
+	 */
+	public function canInline(array $dependsOn): bool
+	{
+		foreach ($dependsOn as $dependency) {
+			if (!is_string($dependency) || 'inline' !== ($this->placements[$dependency]['delivery'] ?? null)) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
 	/** @return list<array{kind:string,id:string,role:string,slot:string,depth:int,key:string,dependsOn:list<string>,params:array<array-key,mixed>}> */
 	public function serverDescriptors(): array
 	{
 		$this->validate();
+		$inlineKeys = [];
+		foreach ($this->placements as $key => $placement) {
+			if ('inline' === $placement['delivery']) {
+				$inlineKeys[$key] = true;
+			}
+		}
 		$descriptors = [];
 		foreach ($this->placements as $placement) {
 			if ('server' !== $placement['delivery']) {
 				continue;
 			}
+			// Inline placements have already completed during manifest rendering, so
+			// omit their satisfied keys from the consumer's server-fragment DAG.
+			$serverDependsOn = array_values(array_filter(
+				$placement['dependsOn'],
+				static fn (string $dependency): bool => !isset($inlineKeys[$dependency]),
+			));
 			$descriptors[] = [
 				'kind' => 'provider',
 				'id' => $placement['provider'],
@@ -80,7 +112,7 @@ final class FragmentPlanCollector
 				'slot' => (string) $placement['slot'],
 				'depth' => 0,
 				'key' => $placement['key'],
-				'dependsOn' => $placement['dependsOn'],
+				'dependsOn' => $serverDependsOn,
 				'params' => $placement['params'],
 			];
 		}
@@ -127,6 +159,9 @@ final class FragmentPlanCollector
 				}
 				if ('server' === $placement['delivery'] && 'browser' === $dependency['delivery']) {
 					throw new \InvalidArgumentException(sprintf('Server fragment "%s" cannot depend on browser fragment "%s".', $placement['key'], $dependencyKey));
+				}
+				if ('inline' === $placement['delivery'] && 'inline' !== $dependency['delivery']) {
+					throw new \InvalidArgumentException(sprintf('Inline fragment "%s" cannot depend on %s fragment "%s".', $placement['key'], $dependency['delivery'], $dependencyKey));
 				}
 			}
 		}

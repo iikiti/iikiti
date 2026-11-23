@@ -35,7 +35,7 @@ final readonly class ResponseHeaderResolver
 		}
 		$application = null === $site ? null : $sites->getApplicationBySite($site);
 		if (null === $application && $this->defaultApplicationId > 0) {
-			$application = $this->em->getRepository(Application::class)->find($this->defaultApplicationId);
+			$application = $this->em->getRepository(Application::class)->findByIdWithProperties($this->defaultApplicationId);
 			$site = null;
 		}
 		if (!$application instanceof Application) {
@@ -47,7 +47,7 @@ final readonly class ResponseHeaderResolver
 		}
 		$appRules = $this->store->getPolicy($application)['rules'];
 		$siteRules = null === $site ? [] : $this->store->getPolicy($site)['rules'];
-		$rules = $this->policy->resolve($appRules, $siteRules, $request, $response);
+		$rules = $this->policy->resolveValidated($appRules, $siteRules, $request, $response);
 
 		return ['rules' => $rules, 'siteMode' => $mode, 'vary' => self::varyForRules($appRules, $siteRules)];
 	}

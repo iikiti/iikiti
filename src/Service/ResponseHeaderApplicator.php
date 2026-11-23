@@ -38,7 +38,6 @@ final readonly class ResponseHeaderApplicator
 		$nonce = 'on' === $mode ? base64_encode(random_bytes(16)) : null;
 		if (null !== $nonce) {
 			foreach ($this->security->renderHeaders([], $mode, $nonce) as $name => $value) {
-				$value = $this->security->renderHeaders([['name' => $name, 'mode' => 'on', 'value' => $value]], $mode, $nonce)[$name] ?? $value;
 				$response->headers->set($name, $value);
 			}
 		}

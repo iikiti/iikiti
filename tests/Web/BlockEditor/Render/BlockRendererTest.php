@@ -176,6 +176,7 @@ final class BlockRendererTest extends TestCase
 		$tree = [[
 			'id' => 'root',
 			'type' => 'container',
+			'renderMode' => 'always',
 			'children' => [
 				['id' => 'inline', 'type' => 'text', 'content' => ['content' => 'Inline child']],
 				['id' => 'async', 'type' => 'text', 'content' => ['content' => 'Async child'], 'renderMode' => 'always'],

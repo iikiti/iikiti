@@ -198,6 +198,7 @@ final class TemplateRendererTest extends TestCase
 			['id' => 'main', 'role' => 'main', 'name' => 'Main', 'allowed_types' => []],
 		]);
 		$context = new BlockRenderContext(editorMode: false);
+		// Single default top-level container stays inline inside the `main` region fragment.
 		$trees = ['main' => [[
 			'id' => 'container-1',
 			'type' => 'container',
@@ -209,35 +210,76 @@ final class TemplateRendererTest extends TestCase
 		$manifest = $renderer->renderManifest($template, $context, $trees);
 		$fragment = $renderer->renderFragment($template, $context, $trees, 'region', 'main');
 
-		self::assertCount(3, $manifest['fragments']);
-		self::assertSame(['main', 'header'], array_column(array_slice($manifest['fragments'], 0, 2), 'id'));
+		self::assertCount(2, $manifest['fragments']);
+		self::assertSame(['main', 'header'], array_column($manifest['fragments'], 'id'));
 		self::assertMatchesRegularExpression('/^[a-f0-9]{32}$/D', $manifest['fragments'][0]['slot']);
 		self::assertStringContainsString($manifest['fragments'][1]['slot'], $manifest['html']);
 		self::assertNotNull($fragment);
 		self::assertSame($manifest['revision'], $fragment->metadata['revision']);
-		self::assertStringContainsString($manifest['fragments'][2]['slot'], $fragment->fragment->html);
-		self::assertStringNotContainsString('API fragment', $fragment->fragment->html);
-		$widget = $renderer->renderFragment($template, $context, $trees, 'widget', $manifest['fragments'][2]['id']);
+		self::assertStringContainsString('API fragment', $fragment->fragment->html);
+		self::assertNull($renderer->renderFragment($template, $context, $trees, 'region', 'unknown'));
+
+		// Multiple top-level containers split into widget fragments and inline their
+		// widget slots directly into the manifest layout (omitting the empty region stub).
+		$multiTrees = ['main' => [
+			[
+				'id' => 'container-1',
+				'type' => 'container',
+				'content' => [],
+				'style' => ['base' => []],
+				'children' => [['type' => 'text', 'content' => ['content' => '<p>First widget</p>'], 'style' => ['base' => []]]],
+			],
+			[
+				'id' => 'container-2',
+				'type' => 'container',
+				'content' => [],
+				'style' => ['base' => []],
+				'children' => [['type' => 'text', 'content' => ['content' => '<p>Second widget</p>'], 'style' => ['base' => []]]],
+			],
+		]];
+		$multiManifest = $renderer->renderManifest($template, $context, $multiTrees);
+		self::assertCount(3, $multiManifest['fragments']);
+		self::assertSame(['region', 'widget', 'widget'], array_column($multiManifest['fragments'], 'kind'));
+		self::assertSame('header', $multiManifest['fragments'][0]['id']);
+		self::assertStringContainsString('data-iikiti-widget-slot="'.$multiManifest['fragments'][1]['slot'].'"', $multiManifest['html']);
+		self::assertStringContainsString('data-iikiti-widget-slot="'.$multiManifest['fragments'][2]['slot'].'"', $multiManifest['html']);
+
+		$widget = $renderer->renderFragment($template, $context, $multiTrees, 'widget', $multiManifest['fragments'][1]['id']);
 		self::assertNotNull($widget);
-		self::assertSame($manifest['revision'], $widget->metadata['revision']);
-		self::assertStringContainsString('API fragment', $widget->fragment->html);
+		self::assertSame($multiManifest['revision'], $widget->metadata['revision']);
+		self::assertStringContainsString('First widget', $widget->fragment->html);
+
 		$staleWidget = $renderer->renderFragment(
 			$template,
 			$context,
-			$trees,
+			$multiTrees,
 			'widget',
-			$manifest['fragments'][2]['id'],
+			$multiManifest['fragments'][1]['id'],
 			expectedRevision: str_repeat('f', 64),
 		);
 		self::assertNotNull($staleWidget);
 		self::assertFalse($staleWidget->metadata['found']);
-		self::assertSame($manifest['revision'], $staleWidget->metadata['revision']);
-		self::assertNull($renderer->renderFragment($template, $context, $trees, 'region', 'unknown'));
+		self::assertSame($multiManifest['revision'], $staleWidget->metadata['revision']);
 
 		$template->setLayout('changed.twig');
 		$changed = $renderer->renderFragment($template, $context, $trees, 'region', 'main');
 		self::assertNotNull($changed);
 		self::assertNotSame($manifest['revision'], $changed->metadata['revision']);
+	}
+
+	public function testRenderRevisionVariesWithRequestLocale(): void
+	{
+		$renderer = $this->renderer();
+		$template = $this->template([['id' => 'main', 'role' => 'main', 'name' => 'Main', 'allowed_types' => []]]);
+		$enRequest = \Symfony\Component\HttpFoundation\Request::create('https://example.test/');
+		$enRequest->setLocale('en');
+		$frRequest = \Symfony\Component\HttpFoundation\Request::create('https://example.test/');
+		$frRequest->setLocale('fr');
+
+		$enManifest = $renderer->renderManifest($template, new BlockRenderContext(editorMode: false, request: $enRequest), []);
+		$frManifest = $renderer->renderManifest($template, new BlockRenderContext(editorMode: false, request: $frRequest), []);
+
+		self::assertNotSame($enManifest['revision'], $frManifest['revision']);
 	}
 
 	public function testManifestOmitsConfiguredRegionsThatTheLayoutDoesNotRender(): void
@@ -288,5 +330,84 @@ final class TemplateRendererTest extends TestCase
 		$html = $this->renderer($layout, $extension)->render($template, $context, []);
 		self::assertStringContainsString('<aside>Twig card</aside>', $html);
 		self::assertSame([['id' => null, 'css' => '.sample-card{}']], $customCss->fragments(false));
+	}
+
+	public function testInlineablePluginProviderExecutesInManifestWithoutAddingServerFragment(): void
+	{
+		$provider = new class implements \iikiti\CMS\Web\Fragment\InlineableFragmentProviderInterface {
+			public function getName(): string
+			{
+				return 'sample-plugin.theme';
+			}
+
+			public function render(FragmentContext $context): FragmentResult
+			{
+				return new FragmentResult('', [['id' => 'sample-plugin.theme', 'css' => '.theme{color:teal}']]);
+			}
+		};
+		$site = $this->createStub(Site::class);
+		$site->method('getEnabledPlugins')->willReturn(['sample-plugin']);
+		$runtime = new FragmentRuntime(new FragmentProviderRegistry([$provider]));
+		$extension = new FragmentTwigExtension(static fn (): FragmentRuntime => $runtime, new RequestStack());
+		$layout = '<main>{{ region_main|raw }}{{ iikiti_fragment("sample-plugin.theme") }}</main>';
+		$renderer = $this->renderer($layout, $extension);
+		$template = $this->template([['id' => 'main', 'role' => 'main', 'name' => 'Main', 'allowed_types' => []]]);
+		$customCss = new CustomCssCollector();
+		$context = new BlockRenderContext(editorMode: false, site: $site, customCssCollector: $customCss);
+
+		$manifest = $renderer->renderManifest($template, $context, []);
+		self::assertCount(1, $manifest['fragments']);
+		self::assertSame('region', $manifest['fragments'][0]['kind']);
+		self::assertStringNotContainsString('data-iikiti-provider-slot', $manifest['html']);
+		self::assertSame([['id' => null, 'css' => '.theme{color:teal}']], $customCss->fragments(false));
+	}
+
+	public function testExplicitInlineFragmentWithInvalidDependencyFailsBeforeRenderingOrAppendingStyles(): void
+	{
+		$serverProvider = new class implements FragmentProviderInterface {
+			public function getName(): string
+			{
+				return 'sample-plugin.first';
+			}
+
+			public function render(FragmentContext $context): FragmentResult
+			{
+				return new FragmentResult('<p>first</p>');
+			}
+		};
+		$inlineProvider = new class implements FragmentProviderInterface {
+			public bool $rendered = false;
+
+			public function getName(): string
+			{
+				return 'sample-plugin.second';
+			}
+
+			public function render(FragmentContext $context): FragmentResult
+			{
+				$this->rendered = true;
+
+				return new FragmentResult('<p>second</p>', [['id' => 'sample-plugin.second', 'css' => '.leaked{}']]);
+			}
+		};
+		$site = $this->createStub(Site::class);
+		$site->method('getEnabledPlugins')->willReturn(['sample-plugin']);
+		$runtime = new FragmentRuntime(new FragmentProviderRegistry([$serverProvider, $inlineProvider]));
+		$extension = new FragmentTwigExtension(static fn (): FragmentRuntime => $runtime, new RequestStack());
+		$layout = '<main>{{ region_main|raw }}'
+			.'{{ iikiti_fragment("sample-plugin.first", {}, {key: "first"}) }}'
+			.'{{ iikiti_fragment("sample-plugin.second", {}, {delivery: "inline", key: "second", dependsOn: ["first"]}) }}'
+			.'</main>';
+		$renderer = $this->renderer($layout, $extension);
+		$template = $this->template([['id' => 'main', 'role' => 'main', 'name' => 'Main', 'allowed_types' => []]]);
+		$customCss = new CustomCssCollector();
+		$context = new BlockRenderContext(editorMode: false, site: $site, customCssCollector: $customCss);
+
+		$manifest = $renderer->renderManifest($template, $context, []);
+
+		self::assertFalse($inlineProvider->rendered);
+		self::assertSame([], $customCss->fragments(false));
+		self::assertStringContainsString('iikiti-error', $manifest['html']);
+		self::assertSame([], $manifest['fragments']);
 	}
 }

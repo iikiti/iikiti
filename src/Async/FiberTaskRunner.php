@@ -147,14 +147,18 @@ final class FiberTaskRunner
 		$fibers = [];
 		/** @var array<string,ResponseInterface> $pending */
 		$pending = [];
+		/** @var array<int,string> $pendingByObjectId */
+		$pendingByObjectId = [];
 		/** @var array<string,Promise> $pendingPromises */
 		$pendingPromises = [];
 		/** @var array<string,mixed> $results */
 		$results = [];
 		/** @var array<string,Throwable> $errors */
 		$errors = [];
+		$streamState = new \stdClass();
+		$streamState->pendingAdded = false;
 
-		$advance = function (string $key, ?Throwable $failure = null) use (&$fibers, &$pending, &$pendingPromises, &$results, &$errors): void {
+		$advance = function (string $key, ?Throwable $failure = null) use (&$fibers, &$pending, &$pendingByObjectId, &$pendingPromises, &$results, &$errors, $streamState): void {
 			$fiber = $fibers[$key];
 			try {
 				if (!$fiber->isStarted()) {
@@ -165,14 +169,20 @@ final class FiberTaskRunner
 					$suspended = $fiber->resume();
 				}
 			} catch (Throwable $exception) {
-				unset($pending[$key]);
+				if (isset($pending[$key])) {
+					unset($pendingByObjectId[spl_object_id($pending[$key])]);
+				}
+				unset($pending[$key], $pendingPromises[$key]);
 				$errors[$key] = $exception;
 
 				return;
 			}
 
 			if ($fiber->isTerminated()) {
-				unset($pending[$key]);
+				if (isset($pending[$key])) {
+					unset($pendingByObjectId[spl_object_id($pending[$key])]);
+				}
+				unset($pending[$key], $pendingPromises[$key]);
 				$results[$key] = $fiber->getReturn();
 
 				return;
@@ -191,12 +201,15 @@ final class FiberTaskRunner
 				} catch (Throwable $taskException) {
 					$exception = $taskException;
 				}
+				unset($pendingPromises[$key]);
 				$errors[$key] = $exception;
 
 				return;
 			}
 
 			$pending[$key] = $suspended;
+			$pendingByObjectId[spl_object_id($suspended)] = $key;
+			$streamState->pendingAdded = true;
 		};
 		$resumeSettledPromises = function () use (&$pendingPromises, &$advance): void {
 			do {
@@ -235,44 +248,53 @@ final class FiberTaskRunner
 		$waitStartedAt = hrtime(true);
 
 		while (([] !== $pending || [] !== $pendingPromises) && !$stopped) {
+			$remaining = $deadline - microtime(true);
+			if ($remaining <= 0) {
+				$this->failPending($pending, $pendingByObjectId, $advance, new TimeoutException('The Fiber task group timed out.'));
+				foreach (array_keys($pendingPromises) as $key) {
+					unset($pendingPromises[$key]);
+					$advance($key, new TimeoutException('The Fiber task group timed out.'));
+				}
+				$resumeSettledPromises();
+				break;
+			}
 			if ([] === $pending) {
 				foreach (array_keys($pendingPromises) as $key) {
+					unset($pendingPromises[$key]);
 					$advance($key, new LogicException('A Promise awaited by this task group has no active resolver.'));
 				}
 				$resumeSettledPromises();
 
 				continue;
 			}
-			$remaining = $deadline - microtime(true);
-			if ($remaining <= 0) {
-				$this->failPending($pending, $advance, new TimeoutException('The Fiber task group timed out.'));
-				foreach (array_keys($pendingPromises) as $key) {
-					$advance($key, new TimeoutException('The Fiber task group timed out.'));
-				}
-				$resumeSettledPromises();
-				break;
-			}
 
 			try {
 				foreach ($this->httpClient->stream($pending, $remaining) as $response => $chunk) {
-					$key = array_search($response, $pending, true);
-					if (false === $key) {
+					$responseId = spl_object_id($response);
+					$key = $pendingByObjectId[$responseId] ?? false;
+					if (false === $key || ($pending[$key] ?? null) !== $response) {
 						continue;
 					}
 
+					$streamState->pendingAdded = false;
 					try {
 						if (null !== $chunk->getError()) {
 							$chunk->isLast();
+						}
+						if ($chunk->isFirst()) {
+							// Clear Symfony HttpClient's initializer non-blockingly so 4xx/5xx
+							// statuses are handled by the owning Fiber instead of aborting siblings.
+							$response->getHeaders(false);
 						}
 						if (!$chunk->isLast()) {
 							continue;
 						}
 
-						unset($pending[$key]);
+						unset($pending[$key], $pendingByObjectId[$responseId]);
 						$advance($key);
 						$resumeSettledPromises();
 					} catch (Throwable $exception) {
-						unset($pending[$key]);
+						unset($pending[$key], $pendingByObjectId[$responseId]);
 						$advance($key, $exception);
 						$resumeSettledPromises();
 					}
@@ -280,9 +302,13 @@ final class FiberTaskRunner
 						$stopped = true;
 						break;
 					}
+					if ($streamState->pendingAdded) {
+						// Re-enter stream() immediately so newly suspended HTTP requests are polled.
+						break;
+					}
 				}
 			} catch (Throwable $exception) {
-				$this->failPending($pending, $advance, $exception);
+				$this->failPending($pending, $pendingByObjectId, $advance, $exception);
 			}
 		}
 		if ($stopped) {
@@ -291,12 +317,23 @@ final class FiberTaskRunner
 			}
 			$cancelled = new TimeoutException('The Promise group completed before this task.');
 			foreach (array_keys($pending) as $key) {
-				$advance($key, $cancelled);
+				unset($pendingByObjectId[spl_object_id($pending[$key])], $pending[$key]);
+				try {
+					$fibers[$key]->throw($cancelled);
+				} catch (Throwable) {
+					// Cancellation is expected once the stop predicate is satisfied.
+				}
 			}
 			foreach (array_keys($pendingPromises) as $key) {
-				$advance($key, $cancelled);
+				unset($pendingPromises[$key]);
+				try {
+					$fibers[$key]->throw($cancelled);
+				} catch (Throwable) {
+					// Cancellation is expected once the stop predicate is satisfied.
+				}
 			}
 			$pending = [];
+			$pendingByObjectId = [];
 			$pendingPromises = [];
 		}
 		$this->profiler?->recordFiberGroup(count($tasks), $workTimeMs, (hrtime(true) - $waitStartedAt) / 1_000_000, count($errors));
@@ -323,12 +360,13 @@ final class FiberTaskRunner
 
 	/**
 	 * @param array<string,ResponseInterface> $pending
+	 * @param array<int,string> $pendingByObjectId
 	 * @param callable(string,?Throwable):void $advance
 	 */
-	private function failPending(array &$pending, callable $advance, Throwable $exception): void
+	private function failPending(array &$pending, array &$pendingByObjectId, callable $advance, Throwable $exception): void
 	{
 		foreach ($pending as $key => $response) {
-			unset($pending[$key]);
+			unset($pending[$key], $pendingByObjectId[spl_object_id($response)]);
 			$response->cancel();
 			$advance($key, $exception);
 		}

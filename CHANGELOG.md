@@ -75,6 +75,8 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Fixed
 
+- 2026-11-22: Fixed `FiberTaskRunner` infinite loop on unresolved pending Promises, HTTP 4xx/5xx sibling-Fiber cancellation, chained-request starvation in `stream()`, and `FiberHttpClient` deadline clamping (including zero-timeout override).
+- 2026-11-22: Fixed missing request `locale` in `TemplateRenderer::renderRevision()` and `RenderedFragmentCache` keys, self-closing `<img ... />` corruption in `PublicPageApiProxy::rewriteAssetUrls()`, context-sensitive HTML5 fragment parsing for table/select parents in `HtmlFragmentComposer`, process-static core filter leakage in `Initializer`/`OutputParser`, and default CSP nonce substitution in `SecurityHeaderPolicy::renderHeaders()`.
 - 2026-11-22: Replaced `ts-loader` (incompatible with TypeScript 7's native compiler) with a zero-dependency TypeScript stripping webpack loader (`assets/build/strip-ts-loader.cjs`) and fixed Svelte 5 `state_referenced_locally` warnings in `Tabs.svelte`.
 - 2026-11-22: Fixed `Initializer` returning 404 on `/api/admin/applications/{applicationId}/content-optimization/settings` by aligning site-independent route classification with `SiteRegistry`.
 - 2026-11-22: Fixed `ContentOptimizationSettings::stripInvalidStoredConnectors()` converting persisted connector maps to arrays (breaking reload) and mishandling partial/corrupt overrides, and fixed `ReferenceError: connectorHasConfiguration is not defined` and hidden `loadError` banner in `ContentOptimization.svelte`.
@@ -98,6 +100,8 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Changed
 
+- 2026-11-22: Optimized async public page rendering to keep single uncached top-level widgets inline in Wave 1, omit fully-slotted region/shell stubs from manifests, inline pure-static providers (`InlineableFragmentProviderInterface`, including `forma-2026.theme-styles`), skip manifest-only state and redundant API-side DOM parsing during fragment/manifest rendering, and cache short-lived session API tokens (60s TTL, 401 refresh, logout revocation).
+- 2026-11-22: Added lazy single-pass `DomHtmlResponse` serialization through `OutputParser`, `cache.app` content-hash caching for `InlineCssFilter`, `InlineJavaScriptFilter`, and `ResponseHeaderStore`, `resolveValidated()` in `ResponseHeaderResolver`, recursive DOM traversal in `HtmlFilter`, and cached eager-loaded property queries in `TemplateRepository`, `SiteRepository`, `ApplicationRepository`, and `ShellRepository`.
 - 2026-11-22: Lazily load `analytics-loader.js` only on pages emitting `#iikiti-analytics-config`, upgrade Clarity consent calls to `consentv2`, and forward `X-Forwarded-Proto` from `PublicPageApiProxy` so TLS-terminating Consumer proxies preserve `https://` canonicals via `TRUSTED_PROXIES`.
 - 2026-11-22: Restrict page SEO URLs to `https://` or root-relative paths, re-normalize valid legacy page SEO drafts on publish, skip and log malformed/spoofed third-party analytics connectors at boot, and route per-site Content Optimization activation toggles through `PluginLifecycleHandler` with audit recording.
 - 2026-11-15: Preserve the Content Optimization settings form after validation/save errors and bind cross-site requests to the selected Site host.

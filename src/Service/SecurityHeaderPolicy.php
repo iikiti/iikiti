@@ -112,20 +112,26 @@ final class SecurityHeaderPolicy
 		}
 
 		$headers = $this->defaultHeadersForEnvironment();
-		if ([] !== $configuredHeaders) {
-			$headers = [];
-			foreach ($configuredHeaders as $header) {
-				$name = $header['name'];
-				if ('' === $name || !in_array($name, $this->knownHeaders, true)) {
-					continue;
-				}
-				$modeValue = $header['mode'];
-				$value = $header['value'];
-				if ('off' === $modeValue || '' === $value) {
-					continue;
-				}
+		if ([] === $configuredHeaders) {
+			foreach ($headers as $name => $value) {
 				$headers[$name] = $this->substituteNonce($value, $nonce, $name);
 			}
+
+			return $headers;
+		}
+
+		$headers = [];
+		foreach ($configuredHeaders as $header) {
+			$name = $header['name'];
+			if ('' === $name || !in_array($name, $this->knownHeaders, true)) {
+				continue;
+			}
+			$modeValue = $header['mode'];
+			$value = $header['value'];
+			if ('off' === $modeValue || '' === $value) {
+				continue;
+			}
+			$headers[$name] = $this->substituteNonce($value, $nonce, $name);
 		}
 
 		return $headers;

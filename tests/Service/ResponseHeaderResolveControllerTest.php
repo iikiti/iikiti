@@ -37,7 +37,7 @@ final class ResponseHeaderResolveControllerTest extends TestCase
 		$sites = $this->createStub(SiteRepository::class);
 		$sites->method('findByDomain')->willReturn([]);
 		$apps = $this->createStub(ApplicationRepository::class);
-		$apps->method('find')->willReturn($app);
+		$apps->method('findByIdWithProperties')->willReturn($app);
 		$em = $this->createStub(EntityManagerInterface::class);
 		$em->method('getRepository')->willReturnCallback(static fn (string $class) => Site::class === $class ? $sites : $apps);
 		$resolver = new ResponseHeaderResolver($em, $store, $policy, 7);
@@ -68,7 +68,7 @@ final class ResponseHeaderResolveControllerTest extends TestCase
 		$sites = $this->createMock(SiteRepository::class);
 		$sites->expects(self::once())->method('findByDomain')->with('unknown.test')->willReturn([]);
 		$apps = $this->createMock(ApplicationRepository::class);
-		$apps->expects(self::once())->method('find')->with(7)->willReturn($app);
+		$apps->expects(self::once())->method('findByIdWithProperties')->with(7)->willReturn($app);
 		$em = $this->createMock(EntityManagerInterface::class);
 		$em->expects(self::exactly(2))->method('getRepository')->willReturnCallback(static fn (string $class) => Site::class === $class ? $sites : $apps);
 		$controller = new ResponseHeaderResolveController(new ResponseHeaderResolver($em, $store, $policy, 7), 'secret', ['unknown.test']);

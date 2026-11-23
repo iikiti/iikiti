@@ -146,7 +146,7 @@ final class PublicPageApiProxyTest extends TestCase
 		$request = Request::create('https://www.example.test/about');
 		$session = $this->createMock(SessionInterface::class);
 		$session->method('getName')->willReturn('APPSESSID');
-		$session->expects(self::once())
+		$session->expects(self::atLeastOnce())
 			->method('save')
 			->willReturnCallback(function (): void {
 				$this->sessionSaved = true;
@@ -230,6 +230,251 @@ final class PublicPageApiProxyTest extends TestCase
 		self::assertStringContainsString('https://api.example.test/api/public/sites/www.example.test/assets/'.$token.'/thumbnail', (string) $response->getContent());
 		self::assertStringContainsString('https://api.example.test/api/public/sites/www.example.test/assets/'.$token.'/small 1x', (string) $response->getContent());
 		self::assertStringContainsString('crossorigin="use-credentials"', (string) $response->getContent());
+	}
+
+	public function testRewritesSelfClosingImgAssetTagsWithoutCorruptingMarkup(): void
+	{
+		$token = str_repeat('e', 64);
+		$client = new MockHttpClient(static function (string $method, string $url) use ($token): MockResponse {
+			if (str_ends_with((string) parse_url($url, PHP_URL_PATH), '/manifest')) {
+				return new MockResponse(self::manifest());
+			}
+
+			return new MockResponse(self::fragment('<img src="/assets/'.$token.'/preview" alt="Preview" />'));
+		});
+		$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
+		$proxy = new PublicPageApiProxy(
+			$api,
+			new ApiSessionTokenProvider($api),
+			new FiberTaskRunner($client),
+			new GuestApiTokenManager('test-secret'),
+		);
+
+		$response = $proxy->home(Request::create('https://www.example.test/'));
+		$html = (string) $response->getContent();
+
+		self::assertStringContainsString('crossorigin="use-credentials"', $html);
+		self::assertStringNotContainsString('/ crossorigin', $html);
+	}
+
+	public function testAppliesCrossOriginViaDomWhenAttributesContainAngleBracketsAndVideoSources(): void
+	{
+		$token = str_repeat('f', 64);
+		$client = new MockHttpClient(static function (string $method, string $url) use ($token): MockResponse {
+			if (str_ends_with((string) parse_url($url, PHP_URL_PATH), '/manifest')) {
+				return new MockResponse(self::manifest());
+			}
+
+			return new MockResponse(self::fragment(
+				'<img alt="a > b" src="/assets/'.$token.'/preview">'
+				.'<video><source src="/assets/'.$token.'/clip"></video>',
+			));
+		});
+		$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
+		$proxy = new PublicPageApiProxy(
+			$api,
+			new ApiSessionTokenProvider($api),
+			new FiberTaskRunner($client),
+			new GuestApiTokenManager('test-secret'),
+		);
+
+		$response = $proxy->home(Request::create('https://www.example.test/'));
+		$html = (string) $response->getContent();
+
+		self::assertSame(2, substr_count($html, 'crossorigin="use-credentials"'));
+		self::assertStringContainsString('alt="a > b"', $html);
+		self::assertStringNotContainsString('crossorigin="use-credentials" b"', $html);
+	}
+
+	public function testFragmentEndpointRefreshesCachedTokenOnceAndStopsOnDoubleUnauthorized(): void
+	{
+		/** @var array<string,mixed> $sessionData */
+		$sessionData = [];
+		$session = $this->createStub(SessionInterface::class);
+		$session->method('getName')->willReturn('APPSESSID');
+		$session->method('get')->willReturnCallback(static fn (string $key): mixed => $sessionData[$key] ?? null);
+		$session->method('set')->willReturnCallback(static function (string $key, mixed $value) use (&$sessionData): void {
+			$sessionData[$key] = $value;
+		});
+		$session->method('remove')->willReturnCallback(static function (string $key) use (&$sessionData): mixed {
+			$old = $sessionData[$key] ?? null;
+			unset($sessionData[$key]);
+
+			return $old;
+		});
+
+		$state = new class {
+			public int $exchanges = 0;
+			public bool $alwaysUnauthorized = false;
+		};
+		$client = new MockHttpClient(static function (string $method, string $url, array $options) use ($state): MockResponse {
+			$path = (string) parse_url($url, PHP_URL_PATH);
+			if ('/api/auth/session-token' === $path) {
+				++$state->exchanges;
+
+				return new MockResponse(json_encode(['token' => 'frag-token-'.$state->exchanges], JSON_THROW_ON_ERROR));
+			}
+			$token = self::header($options['headers'], 'X-AUTH-TOKEN');
+			if ($state->alwaysUnauthorized || 'stale-cached-token' === $token) {
+				return new MockResponse('{"message":"unauthorized"}', ['http_code' => 401]);
+			}
+
+			return new MockResponse(json_encode(['html' => '<aside>'.$token.'</aside>', 'styles' => []], JSON_THROW_ON_ERROR));
+		});
+		$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
+		$proxy = new PublicPageApiProxy(
+			$api,
+			new ApiSessionTokenProvider($api),
+			new FiberTaskRunner($client),
+			new GuestApiTokenManager('test-secret'),
+		);
+
+		$request = Request::create('https://www.example.test/_iikiti/fragments/sample.card');
+		$request->setSession($session);
+		$request->cookies->set('APPSESSID', 'frag-sess');
+		$sessionData[ApiSessionTokenProvider::SESSION_CACHE_KEY] = [
+			'www.example.test:'.hash('sha256', 'frag-sess') => [
+				'token' => 'stale-cached-token',
+				'expires_at' => time() + 60,
+			],
+		];
+
+		$recovered = $proxy->fragment($request, 'sample.card');
+		self::assertSame(200, $recovered->getStatusCode());
+		self::assertSame(1, $state->exchanges);
+		self::assertStringContainsString('frag-token-1', (string) $recovered->getContent());
+
+		// Double 401: cached token fails, refresh succeeds, refreshed token also 401 -> stops with 502 (no retry loop).
+		$state->alwaysUnauthorized = true;
+		$failed = $proxy->fragment($request, 'sample.card');
+		self::assertSame(502, $failed->getStatusCode());
+		self::assertSame(2, $state->exchanges);
+	}
+
+	public function testComposesManifestWhenMainRegionIsInlinedAsTopLevelWidgetSlots(): void
+	{
+		$widgetA = str_repeat('1', 64);
+		$widgetB = str_repeat('2', 64);
+		$slotA = str_repeat('a', 32);
+		$slotB = str_repeat('b', 32);
+		$manifestJson = json_encode([
+			'html' => '<!DOCTYPE html><html><head><template data-iikiti-fragment="custom-css"></template></head><body><main>'
+				.'<template data-iikiti-widget-slot="'.$slotA.'"></template>'
+				.'<template data-iikiti-widget-slot="'.$slotB.'"></template>'
+				.'</main></body></html>',
+			'styles' => [],
+			'editor_mode' => false,
+			'revision' => str_repeat('a', 64),
+			'fragments' => [
+				['kind' => 'widget', 'id' => $widgetA, 'role' => 'widget', 'slot' => $slotA, 'depth' => 1],
+				['kind' => 'widget', 'id' => $widgetB, 'role' => 'widget', 'slot' => $slotB, 'depth' => 1],
+			],
+			'inline_asset_minification' => ['css_minify' => true, 'js_minify' => true, 'js_uglify' => false],
+		], JSON_THROW_ON_ERROR);
+
+		$client = new MockHttpClient(static function (string $method, string $url) use ($manifestJson, $widgetA, $widgetB): MockResponse {
+			$path = (string) parse_url($url, PHP_URL_PATH);
+			if (str_ends_with($path, '/manifest')) {
+				return new MockResponse($manifestJson);
+			}
+			$id = self::query($url)['_iikiti_fragment_id'] ?? null;
+			if ('@main' === $id) {
+				// Speculative @main request still succeeds on the API, though manifest has no main region descriptor.
+				return new MockResponse(self::fragment('<template data-iikiti-widget-slot="unused"></template>'));
+			}
+			if ($widgetA === $id) {
+				return new MockResponse(self::fragment('<section>Hero</section>', [], $widgetA));
+			}
+			self::assertSame($widgetB, $id);
+
+			return new MockResponse(self::fragment('<section>Features</section>', [], $widgetB));
+		});
+		$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
+		$proxy = new PublicPageApiProxy(
+			$api,
+			new ApiSessionTokenProvider($api),
+			new FiberTaskRunner($client),
+			new GuestApiTokenManager('test-secret'),
+		);
+
+		$response = $proxy->home(Request::create('https://www.example.test/'));
+		$html = (string) $response->getContent();
+
+		self::assertSame(200, $response->getStatusCode());
+		self::assertStringContainsString('<section>Hero</section><section>Features</section>', $html);
+		self::assertStringNotContainsString('data-iikiti-widget-slot', $html);
+	}
+
+	public function testCachedSessionTokenSkipsWaveZeroAndRefreshesOnUnauthorized(): void
+	{
+		/** @var array<string,mixed> $sessionData */
+		$sessionData = [];
+		$session = $this->createStub(SessionInterface::class);
+		$session->method('getName')->willReturn('APPSESSID');
+		$session->method('get')->willReturnCallback(static function (string $key) use (&$sessionData): mixed {
+			return $sessionData[$key] ?? null;
+		});
+		$session->method('set')->willReturnCallback(static function (string $key, mixed $value) use (&$sessionData): void {
+			$sessionData[$key] = $value;
+		});
+		$session->method('remove')->willReturnCallback(static function (string $key) use (&$sessionData): mixed {
+			$old = $sessionData[$key] ?? null;
+			unset($sessionData[$key]);
+
+			return $old;
+		});
+
+		$tokenExchanges = 0;
+		$state = new class {
+			public bool $rejectFirstCachedToken = false;
+		};
+		$client = new MockHttpClient(static function (string $method, string $url, array $options) use (&$tokenExchanges, $state): MockResponse {
+			$path = (string) parse_url($url, PHP_URL_PATH);
+			if ('/api/auth/session-token' === $path) {
+				++$tokenExchanges;
+
+				return new MockResponse(json_encode(['token' => 'user-token-'.$tokenExchanges], JSON_THROW_ON_ERROR));
+			}
+			$token = self::header($options['headers'], 'X-AUTH-TOKEN');
+			if ($state->rejectFirstCachedToken && 'user-token-1' === $token) {
+				return new MockResponse('{"message":"expired"}', ['http_code' => 401]);
+			}
+			if (str_ends_with($path, '/manifest')) {
+				return new MockResponse(self::manifest());
+			}
+
+			return new MockResponse(self::fragment('<p>token='.$token.'</p>'));
+		});
+		$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
+		$proxy = new PublicPageApiProxy(
+			$api,
+			new ApiSessionTokenProvider($api),
+			new FiberTaskRunner($client),
+			new GuestApiTokenManager('test-secret'),
+		);
+
+		$request = Request::create('https://www.example.test/');
+		$request->setSession($session);
+		$request->cookies->set('APPSESSID', 'sess-123');
+
+		// 1st request exchanges session token once and caches it.
+		$first = $proxy->home($request);
+		self::assertSame(200, $first->getStatusCode());
+		self::assertSame(1, $tokenExchanges);
+		self::assertStringContainsString('token=user-token-1', (string) $first->getContent());
+
+		// 2nd request reuses the cached session token without calling /api/auth/session-token.
+		$second = $proxy->home($request);
+		self::assertSame(200, $second->getStatusCode());
+		self::assertSame(1, $tokenExchanges);
+		self::assertStringContainsString('token=user-token-1', (string) $second->getContent());
+
+		// 3rd request simulates a revoked token -> 401 invalidates cache and refreshes automatically.
+		$state->rejectFirstCachedToken = true;
+		$third = $proxy->home($request);
+		self::assertSame(200, $third->getStatusCode());
+		self::assertSame(2, $tokenExchanges);
+		self::assertStringContainsString('token=user-token-2', (string) $third->getContent());
 	}
 
 	public function testRewritesInteractiveFormActionsToTheRemoteApiOrigin(): void

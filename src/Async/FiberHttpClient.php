@@ -71,10 +71,12 @@ final class FiberHttpClient
 			throw new \Symfony\Component\HttpClient\Exception\TimeoutException('The Fiber task group deadline has elapsed.');
 		}
 
-		$options += [
-			'timeout' => $remaining,
-			'max_duration' => $remaining,
-		];
+		foreach (['timeout', 'max_duration'] as $key) {
+			$callerLimit = $options[$key] ?? null;
+			$options[$key] = is_numeric($callerLimit) && (float) $callerLimit > 0.0
+				? min((float) $callerLimit, $remaining)
+				: $remaining;
+		}
 		$this->profiler?->recordHttpRequest();
 		$startedAt = hrtime(true);
 		$response = null;
