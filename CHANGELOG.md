@@ -75,6 +75,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Fixed
 
+- 2026-11-22: Replaced `ts-loader` (incompatible with TypeScript 7's native compiler) with a zero-dependency TypeScript stripping webpack loader (`assets/build/strip-ts-loader.cjs`) and fixed Svelte 5 `state_referenced_locally` warnings in `Tabs.svelte`.
 - 2026-11-22: Fixed `Initializer` returning 404 on `/api/admin/applications/{applicationId}/content-optimization/settings` by aligning site-independent route classification with `SiteRegistry`.
 - 2026-11-22: Fixed `ContentOptimizationSettings::stripInvalidStoredConnectors()` converting persisted connector maps to arrays (breaking reload) and mishandling partial/corrupt overrides, and fixed `ReferenceError: connectorHasConfiguration is not defined` and hidden `loadError` banner in `ContentOptimization.svelte`.
 - 2026-11-22: Fixed Svelte 5 `unmount()` lifecycle crash in `consent-banner.js`, `consent-manager.js` `applyConsent()`/`initialize()` race condition and concurrent banner mount/retry bugs, `ConsentService::getState()` authenticated user lookup, and `ConsentRecordRepository` explicit site filtering.

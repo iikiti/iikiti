@@ -135,19 +135,17 @@ for (const condition of ['import', 'svelte', 'browser']) {
 	}
 }
 
+const stripTsLoader = path.resolve(__dirname, 'assets/build/strip-ts-loader.cjs');
+
 webpackConfig.module.rules.push(
     {
         test: /\.svelte\.ts$/,
-        use: [ "svelte-loader", { loader: "ts-loader", options: { transpileOnly: true, configFile: path.resolve(__dirname, 'tsconfig.json') } }],
+        use: ['svelte-loader', stripTsLoader],
     },
     // This is the config for other .ts files - the regex makes sure to not process .svelte.ts files twice
     {
         test: /(?<!\.svelte)\.ts$/,
-        loader: "ts-loader",
-        options: {
-            transpileOnly: true, // you should use svelte-check for type checking
-            configFile: path.resolve(__dirname, 'tsconfig.json'),
-        }
+        use: stripTsLoader,
     },
     {
     	test: /\.(svelte|svelte\.js)$/,

@@ -13,17 +13,26 @@
 
 	let { tabs, activeValue, onSelect }: Props = $props();
 
-	let active = $state(activeValue ?? tabs.find(t => !t.disabled)?.value ?? tabs[0]?.value);
+	let selectedValue = $state<string | number | undefined>(undefined);
+	const fallbackValue = $derived(
+		tabs.find((tab) => !tab.disabled)?.value
+		?? tabs.find((tab) => !tab.disabled)?.label
+		?? tabs[0]?.value
+		?? tabs[0]?.label,
+	);
+	const active = $derived(activeValue ?? selectedValue ?? fallbackValue);
 </script>
 
 <div class="border-b border-border">
 	<nav class="-mb-px flex gap-4 overflow-x-auto">
 		{#each tabs as tab (tab.value ?? tab.label)}
+			{@const tabValue = tab.value ?? tab.label}
 			<button
+				type="button"
 				class="admin-tab"
-				class:active={active === (tab.value ?? tab.label)}
+				class:active={active === tabValue}
 				class:disabled={tab.disabled}
-				onclick={() => { if (!tab.disabled) { active = tab.value ?? tab.label; onSelect?.(active); } }}
+				onclick={() => { if (!tab.disabled) { selectedValue = tabValue; onSelect?.(tabValue); } }}
 			>
 				{tab.label}
 			</button>
