@@ -20,7 +20,6 @@
 import { writable, get } from 'svelte/store';
 import { markReady } from '../../js/iikiti/ready.js';
 import { getGroups, groupSectionNodes, registerGroup as registerGroupDefinition } from './sidebarGroups.js';
-import { registerCssAutocompleteProvider } from './cssAutocomplete.js';
 import {
 	activeSettingsSectionId,
 	buildSettingsSectionNodes,
@@ -32,7 +31,32 @@ import {
 } from './settingsExtensions.js';
 
 export { getGroups, groupSectionNodes };
-export { registerCssAutocompleteProvider };
+
+/** @type {Array<{provider:Function,priority:number,seq:number}>} */
+const cssAutocompleteProviders = [];
+let cssAutocompleteSeq = 0;
+
+/**
+ * Register a provider of CodeMirror CSS completion options.
+ *
+ * @param {(context:any)=>Array<Record<string,unknown>>|Promise<Array<Record<string,unknown>>>} provider
+ * @param {{priority?:number}} [options]
+ * @returns {()=>void} Unregisters this provider.
+ */
+export function registerCssAutocompleteProvider(provider, options = {}) {
+	if (typeof provider !== 'function') return () => {};
+	const entry = { provider, priority: Number(options.priority ?? 0), seq: ++cssAutocompleteSeq };
+	cssAutocompleteProviders.push(entry);
+	return () => {
+		const index = cssAutocompleteProviders.indexOf(entry);
+		if (index >= 0) cssAutocompleteProviders.splice(index, 1);
+	};
+}
+
+/** @returns {Array<{provider:Function,priority:number,seq:number}>} */
+export function getCssAutocompleteProviders() {
+	return [...cssAutocompleteProviders];
+}
 export {
 	activeSettingsSectionId,
 	buildSettingsSectionNodes,
@@ -196,6 +220,50 @@ export function resolveFieldDecorators(fieldNode, ctx) {
 		.map((d) => d.decorator);
 }
 
+/**
+ * Resolve the registered preview renderer/component for a block type, if any.
+ *
+ * @param {string} type
+ * @returns {any | null}
+ */
+const blockPreviews = [];
+let blockPreviewSeq = 0;
+
+/**
+ * Register (or override) an editor canvas preview Svelte component for a block type.
+ *
+ * The component receives `{ node, regionId, readonly, parentId, widgetClass, elementId, targetStyle }`.
+ *
+ * @param {string} type Block type key (e.g. `'icon'`, `'video_embed'`, `'form'`)
+ * @param {any} component Svelte 5 component or render helper
+ * @param {{ priority?: number }} [opts] higher priority wins; last wins on ties
+ */
+export function registerBlockPreview(type, component, opts = {}) {
+	if (!type || !component) return;
+	blockPreviews.push({
+		type,
+		component,
+		priority: Number(opts.priority ?? 0),
+		seq: ++blockPreviewSeq,
+	});
+	bump();
+}
+
+/**
+ * @param {string} type
+ * @returns {any | null}
+ */
+export function resolveBlockPreview(type) {
+	let best = null;
+	for (const entry of blockPreviews) {
+		if (entry.type !== type) continue;
+		if (!best || entry.priority > best.priority || (entry.priority === best.priority && entry.seq > best.seq)) {
+			best = entry;
+		}
+	}
+	return best?.component ?? null;
+}
+
 /** Reactive version counter — the sidebar re-renders when registrations change. */
 const versionStore = writable(0);
 function bump() {
@@ -248,6 +316,8 @@ export function installSidebarApi() {
 		activeSectionId,
 		version: sidebarVersion,
 	};
+	w.iikiti.editor.registerBlockPreview = registerBlockPreview;
+	w.iikiti.editor.resolveBlockPreview = resolveBlockPreview;
 	// Convenience alias documented for plugin authors.
 	w.iikiti.editor.registerSidebar = w.iikiti.editor.sidebar;
 	markReady('editor.sidebar');

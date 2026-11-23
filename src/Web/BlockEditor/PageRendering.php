@@ -12,25 +12,17 @@ use iikiti\CMS\Entity\Object\Template;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Filters\InlineAssetMinificationOptionsResolver;
 use iikiti\CMS\Profiler\ProfilerQueryDiagnostics;
-use iikiti\CMS\Registry\ApplicationRegistry;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Response\Composition\DomHtmlResponse;
 use iikiti\CMS\Response\Composition\HtmlFragmentComposer;
-use iikiti\CMS\Service\LocalizedPropertyResolver;
-use iikiti\CMS\Value\LocaleTag;
+use iikiti\CMS\Web\Fragment\PageFragmentResult;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderContext;
 use iikiti\CMS\Web\BlockEditor\Render\CustomCssCollector;
-use iikiti\CMS\Web\Fragment\FragmentContext;
-use iikiti\CMS\Web\Fragment\FragmentRuntime;
-use iikiti\CMS\Web\Fragment\PageFragmentResult;
 use iikiti\CMS\Web\Template\TemplateRenderer;
 use iikiti\CMS\Web\Template\TemplateResolutionContext;
 use iikiti\CMS\Web\Template\TemplateResolver;
-use iikiti\CMS\Workflow\Policy\WorkflowAccessPolicy;
-use iikiti\Extension\ContentOptimization\Analytics\AnalyticsDescriptorResolver;
-use iikiti\Extension\ContentOptimization\Service\ContentOptimizationSettings;
-use iikiti\Extension\ContentOptimization\Service\SeoMetadataResolver;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Twig\Environment;
@@ -46,24 +38,24 @@ use Twig\Environment;
  */
 final class PageRendering
 {
+	/**
+	 * @param iterable<PageRenderContributorInterface>          $renderContributors
+	 * @param iterable<EditorSettingsContextContributorInterface> $settingsContributors
+	 */
 	public function __construct(
 		private readonly \iikiti\CMS\Web\Icon\IconFontAssets $iconFontAssets,
 		private readonly TemplateResolver $resolver,
 		private readonly TemplateRenderer $templateRenderer,
 		private readonly FrontendConfigProvider $configProvider,
 		private readonly EditorSettingsManager $settingsManager,
-		private readonly CustomCssCompiler $customCssCompiler,
+		private readonly CustomCssCompilerInterface $customCssCompiler,
 		private readonly Security $security,
 		private readonly Environment $twig,
 		private readonly InlineAssetMinificationOptionsResolver $inlineAssetOptions,
-		private readonly ApplicationRegistry $applications,
-		private readonly ?FragmentRuntime $fragmentRuntime = null,
-		private readonly ?AnalyticsDescriptorResolver $analyticsDescriptorResolver = null,
-		private readonly ?WorkflowAccessPolicy $workflowAccessPolicy = null,
-		private readonly ?LocalizedPropertyResolver $localizedPropertyResolver = null,
-		private readonly ?ContentOptimizationSettings $contentOptimizationSettings = null,
-		private readonly ?SeoMetadataResolver $seoMetadataResolver = null,
-		private readonly ?HomepageSeoAccessPolicy $homepageSeoAccessPolicy = null,
+		#[AutowireIterator('iikiti.cms.page_render_contributor')]
+		private readonly iterable $renderContributors = [],
+		#[AutowireIterator('iikiti.cms.editor_settings_contributor')]
+		private readonly iterable $settingsContributors = [],
 	) {
 	}
 
@@ -84,9 +76,12 @@ final class PageRendering
 			resolutionContext: $state['resolution_context'],
 		);
 
-		$iconFont = $this->iconFontAssets->shouldLink($state['can_edit']) ?
-			$this->twig->render('base/_icon_font_link.twig') :
-			'';
+		$fontPaths = $this->iconFontAssets->shouldLink($state['can_edit'])
+			? $this->iconFontAssets->getStylesheetPaths()
+			: [];
+		$iconFont = [] !== $fontPaths
+			? $this->twig->render('base/_icon_font_link.twig', ['iikiti_icon_font_paths' => $fontPaths])
+			: '';
 		$composer->insertIntoPlaceholder('[data-iikiti-fragment="icon-font"]', $iconFont);
 
 		$composer->insertIntoPlaceholder('[data-iikiti-fragment="custom-css"]', $this->customCssHtml($customCss, $state['editor_mode']));
@@ -108,13 +103,17 @@ final class PageRendering
 			$state['region_trees'],
 			$state['resolution_context'],
 		);
+		$fontPaths = $this->iconFontAssets->shouldLink($state['can_edit'])
+			? $this->iconFontAssets->getStylesheetPaths()
+			: [];
 		// Render the layout skeleton directly with Twig instead of parsing and
 		// re-serializing a temporary HTMLDocument on the API side.
 		$html = $this->baseLayout($request, $state, [
 			'iikiti_use_fragment_composer' => false,
 			'iikiti_custom_css_placeholder' => true,
 			'iikiti_page_body' => $manifest['html'],
-			'iikiti_icon_font' => $this->iconFontAssets->shouldLink($state['can_edit']),
+			'iikiti_icon_font' => [] !== $fontPaths,
+			'iikiti_icon_font_paths' => $fontPaths,
 		]);
 
 		return [
@@ -182,11 +181,8 @@ final class PageRendering
 		$user = $this->security->getUser();
 		$canEdit = $user instanceof User && $this->configProvider->canEdit($user);
 		$editorMode = $canEdit && $request->query->has('edit');
-		$resolvedOptimization = $forFragment
-			? ['defaults' => [], 'overrides' => [], 'effective' => []]
-			: $this->resolveOptimizationSettings($site, $editorMode);
 		$settingsContext = !$forFragment && $canEdit
-			? $this->settingsContext($object, $template, $user, $home, $site, $request, $resolvedOptimization)
+			? $this->settingsContext($object, $template, $user, $home, $site, $request)
 			: null;
 		$config = !$forFragment && $canEdit ?
 			$this->configProvider->build(
@@ -208,7 +204,7 @@ final class PageRendering
 			[];
 		$publishedPageSettings = !$forFragment && $object instanceof Page && !$editorMode ? $pageSettings : [];
 		$publishedHomeSettings = !$forFragment && $home && null === $object && null !== $site && !$editorMode ?
-			$this->seoPageSettings($this->settingsManager->publishedSettings($site)) :
+			$this->settingsManager->publishedSettings($site) :
 			[];
 		if ($includePageStyles) {
 			$templateSettings = $editorMode && 'template' === ($settingsContext['type'] ?? null) ?
@@ -258,7 +254,6 @@ final class PageRendering
 			'home' => $home,
 			'published_page_settings' => $publishedPageSettings,
 			'published_home_settings' => $publishedHomeSettings,
-			'resolved_optimization' => $resolvedOptimization,
 			'scope_classes' => array_values(array_filter([
 				$this->scopeClass('template', $template->getId()),
 				$object instanceof Page ? $this->scopeClass('page', $object->getId()) : null,
@@ -282,16 +277,12 @@ final class PageRendering
 	 */
 	private function baseLayout(Request $request, array $state, array $overrides = []): string
 	{
-		$consentBanner = $this->consentBanner($request, $state);
-		$consentProviderActive = '' !== $consentBanner;
-		$seo = $this->seoMetadata($request, $state, $consentProviderActive);
 		$config = $state['config'];
 		$context = [
-			'doc' => ['title' => $seo['title']],
+			'doc' => ['title' => $state['template']->getTitle() ?? 'iikiti'],
 			'iikiti_page_locale' => $this->publicLocale($request),
 			'iikiti_page_body' => '',
 			'iikiti_editor_noindex' => $state['editor_mode'],
-			'iikiti_forma_theme' => in_array($state['template']->getLayout(), [Template::DEFAULT_LAYOUT, Template::LEGACY_DEFAULT_LAYOUT], true),
 			'iikiti_use_fragment_composer' => true,
 			'iikiti_editor_mode' => $state['editor_mode'],
 			'iikiti_can_edit' => $state['can_edit'],
@@ -301,238 +292,70 @@ final class PageRendering
 				JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT,
 			) : null,
 			'iikiti_icon_font' => false,
+			'iikiti_icon_font_paths' => [],
 			'iikiti_scope_classes' => $state['scope_classes'],
 			'iikiti_custom_css' => '',
-			'iikiti_consent_enabled' => $consentProviderActive,
 		];
-		if ($seo['enabled']) {
-			$context['iikiti_seo'] = $seo;
-			if (isset($seo['analyticsConfigJson'])) {
-				$context['iikiti_analytics_config_json'] = $seo['analyticsConfigJson'];
-			}
-		}
-		if ($consentProviderActive) {
-			$context['iikiti_consent_banner'] = $consentBanner;
-		}
 
-		return $this->twig->render('base/layout.twig', array_replace($context, $overrides));
-	}
-
-	/** @param array<string,mixed> $state */
-	private function consentBanner(Request $request, array $state): string
-	{
-		$site = $state['site'];
-		if (
-			$state['editor_mode'] ||
-			!$site instanceof Site ||
-			!isset($this->fragmentRuntime) ||
-			!$this->fragmentRuntime->isAvailable('consent-management.banner', $site)
-		) {
-			return '';
-		}
-
-		return $this->fragmentRuntime->render(
-			'consent-management.banner',
-			new FragmentContext($site, $request->getLocale()),
-		)->html;
-	}
-
-	/**
-	 * @param array<string,mixed> $state
-	 *
-	 * @return array<string,mixed>
-	 */
-	private function seoMetadata(Request $request, array $state, bool $consentProviderActive = false): array
-	{
-		$site = $state['site'];
-		if (
-			null === $site ||
-			!isset($this->contentOptimizationSettings, $this->seoMetadataResolver) ||
-			!in_array(HomepageSeoAccessPolicy::CONTENT_OPTIMIZATION_PLUGIN_SLUG, $site->getEnabledPlugins(), true)
-		) {
-			return [
-				'enabled' => false,
-				'title' => $state['template']->getTitle() ?? 'iikiti',
-			];
-		}
-		$siteName = $this->siteName($site, $request);
-		$object = $state['object'];
-		$pageTitle = $object instanceof Page ?
-			$this->pageTitle($object, $request, $this->pageTitle($state['template'], $request, $siteName)) :
-			$this->pageTitle($state['template'], $request, $siteName);
-		$pageUrl = $this->pageUrl($request, $site);
-		$editorMode = (bool) $state['editor_mode'];
-
-		$resolvedOptimization = is_array($state['resolved_optimization'] ?? null)
-			? $state['resolved_optimization']
-			: $this->resolveOptimizationSettings($site, $editorMode);
-		$applicationDefaults = $resolvedOptimization['defaults'];
-		$siteOverrides = $resolvedOptimization['overrides'];
-		$effectiveSettings = $resolvedOptimization['effective'];
-		$pageSettings = $editorMode ? [] : (
-			$object instanceof Page ?
-				$state['published_page_settings'] :
-				(true === ($state['home'] ?? false) ? ($state['published_home_settings'] ?? []) : [])
-		);
-
-		$metadata = $this->seoMetadataResolver->resolve(
-			$applicationDefaults,
-			$siteOverrides,
-			$pageSettings,
-			$pageTitle,
-			$pageUrl,
-			$siteName,
-		);
-		$openGraphLocale = $this->openGraphLocale($request);
-		if (null !== $openGraphLocale) {
-			$metadata['locale'] = $openGraphLocale;
-		}
-		if ($editorMode) {
-			$metadata['robots'] = ['index' => 'noindex', 'follow' => 'nofollow'];
-		}
-		if (isset($this->analyticsDescriptorResolver)) {
-			$analyticsConfig = $this->analyticsDescriptorResolver->resolve(
-				$site,
-				$effectiveSettings,
-				$consentProviderActive,
-				$editorMode,
+		$headHtml = [];
+		$bodyClasses = [];
+		$bodyBefore = [];
+		$bodyAfter = [];
+		$jsonBlocks = [];
+		$extraTemplateVars = [];
+		$contributorState = $state;
+		foreach ($this->renderContributors as $contributor) {
+			$contribution = $contributor->contribute(
+				$request,
+				$state['site'],
+				$state['object'],
+				$state['template'],
+				(bool) $state['editor_mode'],
+				$contributorState,
 			);
-			if ([] !== $analyticsConfig['connectors']) {
-				$metadata['analyticsConfigJson'] = json_encode(
-					$analyticsConfig,
-					JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT,
-				);
+			if (null === $contribution) {
+				continue;
 			}
-		}
-		$metadata['enabled'] = true;
-		$metadata['structuredDataJson'] = json_encode(
-			$metadata['structuredData'],
-			JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT,
-		);
-
-		return $metadata;
-	}
-
-	/**
-	 * @return array{defaults:array<string,mixed>,overrides:array<string,mixed>,effective:array<string,mixed>}
-	 */
-	private function resolveOptimizationSettings(?Site $site, bool $editorMode): array
-	{
-		if (!isset($this->contentOptimizationSettings) || null === $site || !in_array(HomepageSeoAccessPolicy::CONTENT_OPTIMIZATION_PLUGIN_SLUG, $site->getEnabledPlugins(), true)) {
-			return ['defaults' => [], 'overrides' => [], 'effective' => []];
-		}
-
-		if ($editorMode) {
-			$defaults = $this->contentOptimizationSettings->defaults();
-
-			return ['defaults' => $defaults, 'overrides' => [], 'effective' => $defaults];
-		}
-
-		$application = $this->applications->hasCurrentApplication() ? $this->applications->getCurrent() : null;
-		$defaults = null === $application ?
-			$this->contentOptimizationSettings->defaults() :
-			$this->contentOptimizationSettings->applicationDefaults($application);
-		$overrides = $this->contentOptimizationSettings->siteOverrides($site);
-		$effective = $this->contentOptimizationSettings->resolve($defaults, $overrides)['effective'];
-
-		return ['defaults' => $defaults, 'overrides' => $overrides, 'effective' => $effective];
-	}
-
-	private function openGraphLocale(Request $request): ?string
-	{
-		$locale = $this->localeTag($request);
-		if (null === $locale) {
-			return null;
-		}
-		$parsed = \Locale::parseLocale($locale->getTag());
-		if (!is_array($parsed)) {
-			return null;
-		}
-		$language = $parsed['language'] ?? null;
-		$region = $parsed['region'] ?? null;
-		if (!is_string($language) || !is_string($region) || 1 !== preg_match('/^[A-Za-z]{2}$/D', $region)) {
-			return null;
+			if (null !== $contribution->title && '' !== trim($contribution->title)) {
+				$context['doc']['title'] = $contribution->title;
+			}
+			array_push($headHtml, ...$contribution->headHtml);
+			array_push($bodyClasses, ...$contribution->bodyClasses);
+			array_push($bodyBefore, ...$contribution->bodyBefore);
+			array_push($bodyAfter, ...$contribution->bodyAfter);
+			foreach ($contribution->jsonBlocks as $blockId => $payload) {
+				if (is_string($payload)) {
+					$jsonBlocks[$blockId] = $payload;
+				} else {
+					$jsonBlocks[$blockId] = json_encode(
+						$payload,
+						JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT,
+					);
+				}
+			}
+			foreach ($contribution->templateVars as $key => $value) {
+				$extraTemplateVars[$key] = $value;
+				$contributorState[$key] = $value;
+			}
+			$contributorState['body_before'] = $bodyBefore;
 		}
 
-		return strtolower($language).'_'.strtoupper($region);
-	}
+		$context['iikiti_head_html'] = $headHtml;
+		$context['iikiti_body_classes'] = array_values(array_unique($bodyClasses));
+		$context['iikiti_body_before'] = $bodyBefore;
+		$context['iikiti_body_after'] = $bodyAfter;
+		$context['iikiti_json_blocks'] = $jsonBlocks;
 
-	private function pageTitle(DbObject $object, Request $request, string $fallback): string
-	{
-		$title = $this->localizedProperty($object, 'title', $request);
-
-		return $title ?? $fallback;
-	}
-
-	private function siteName(?Site $site, Request $request): string
-	{
-		if (null === $site) {
-			return 'iikiti';
-		}
-
-		$name = $this->localizedProperty($site, 'name', $request);
-		$domain = $site->getProperties()->get(Site::DOMAIN_PROPERTY_KEY)?->getValue();
-
-		return $name ?? (is_string($domain) && '' !== trim($domain) ? trim($domain) : 'iikiti');
-	}
-
-	private function localizedProperty(DbObject $object, string $name, Request $request): ?string
-	{
-		$property = $object->getProperties()->get($name);
-		if (null === $property) {
-			return null;
-		}
-
-		$value = $property->getValue();
-		if (isset($this->localizedPropertyResolver) && null !== $locale = $this->localeTag($request)) {
-			$value = $this->localizedPropertyResolver->resolve($object, $property, $locale)->value ?? $value;
-		}
-
-		return is_string($value) && '' !== trim($value) ? trim($value) : null;
-	}
-
-	private function localeTag(Request $request): ?LocaleTag
-	{
-		try {
-			return LocaleTag::tryFromString(str_replace('_', '-', $request->getLocale()));
-		} catch (\InvalidArgumentException) {
-			return null;
-		}
+		return $this->twig->render('base/layout.twig', array_replace($context, $extraTemplateVars, $overrides));
 	}
 
 	private function publicLocale(Request $request): string
 	{
-		return $this->localeTag($request)?->getTag() ?? 'en';
-	}
-
-	private function pageUrl(Request $request, ?Site $site): string
-	{
-		if (null === $site) {
-			return '';
+		try {
+			return \iikiti\CMS\Value\LocaleTag::tryFromString(str_replace('_', '-', $request->getLocale()))?->getTag() ?? 'en';
+		} catch (\InvalidArgumentException) {
+			return 'en';
 		}
-
-		$domain = $site->getProperties()->get(Site::DOMAIN_PROPERTY_KEY)?->getValue();
-		$domainUrl = is_string($domain) ? 'https://'.$domain : '';
-		$parsedDomain = '' !== $domainUrl ? parse_url($domainUrl) : false;
-		if (
-			!is_string($domain) ||
-			1 !== preg_match('/^(?:\[[0-9a-f:]+\]|[a-z0-9.-]+)(?::[0-9]{1,5})?$/iD', $domain) ||
-			false === $parsedDomain ||
-			false === filter_var($domainUrl, FILTER_VALIDATE_URL)
-		) {
-			return '';
-		}
-
-		$scheme = $request->getScheme();
-		if (!in_array($scheme, ['http', 'https'], true)) {
-			$scheme = 'https';
-		}
-		$path = $request->getPathInfo();
-		if (!str_starts_with($path, '/')) {
-			$path = '/'.$path;
-		}
-
-		return $scheme.'://'.$domain.$path;
 	}
 
 	private function customCssHtml(CustomCssCollector $customCss, bool $editorMode): string
@@ -576,8 +399,6 @@ final class PageRendering
 	}
 
 	/**
-	 * @param array{defaults:array<string,mixed>,overrides:array<string,mixed>,effective:array<string,mixed>}|null $resolvedOptimization
-	 *
 	 * @return array{type:string,id:int,label:string,values:array<string,mixed>,version:int,hasDraft:bool,options:list<array<string,mixed>>,seoPreviewDefaults:array<string,mixed>}
 	 */
 	private function settingsContext(
@@ -587,93 +408,36 @@ final class PageRendering
 		bool $home,
 		?Site $site,
 		Request $request,
-		?array $resolvedOptimization = null,
 	): array {
-		$persistedTemplate = null !== $template->getId() ? $template : null;
-		$canEditSiteHome = false;
-		if ($home && null === $object && null !== $site && null !== $user) {
-			if (isset($this->homepageSeoAccessPolicy)) {
-				$canEditSiteHome = $this->homepageSeoAccessPolicy->canEdit($user, $site, $persistedTemplate);
-			} elseif (isset($this->workflowAccessPolicy)) {
-				$canEditSiteHome = in_array(HomepageSeoAccessPolicy::CONTENT_OPTIMIZATION_PLUGIN_SLUG, $site->getEnabledPlugins(), true)
-					&& $this->workflowAccessPolicy->canManageSite($user, $site)
-					&& $this->configProvider->canAccess($user, 'Template', 'publish', $persistedTemplate);
-			}
-		}
-		$target = $canEditSiteHome ?
-			$site :
-			($object instanceof Page && $this->configProvider->canAccess($user, 'Page', 'write', $object) ? $object : $template);
-		$targetType = $canEditSiteHome ? 'site_home' : ($target instanceof Page ? 'page' : 'template');
+		$target = $object instanceof Page && $this->configProvider->canAccess($user, 'Page', 'write', $object) ? $object : $template;
+		$targetType = $target instanceof Page ? 'page' : 'template';
 		$state = $this->settingsManager->state($target);
-		$values = 'site_home' === $targetType ? $this->seoPageSettings($state['values']) : $state['values'];
-		$options = [];
-		if ($canEditSiteHome) {
-			$templateState = $this->settingsManager->state($template);
-			$options = [
-				[
-					'type' => 'site_home',
-					'id' => (int) ($site->getId() ?? 0),
-					'label' => 'Homepage SEO Settings',
-					'values' => $values,
-					'version' => $state['version'],
-					'hasDraft' => $state['hasDraft'],
-				],
-				[
-					'type' => 'template',
-					'id' => (int) ($template->getId() ?? 0),
-					'label' => 'Shared Template Settings',
-					'values' => $templateState['values'],
-					'version' => $templateState['version'],
-					'hasDraft' => $templateState['hasDraft'],
-				],
-			];
-		}
-		$seoPreviewDefaults = [];
-		if (
-			$site instanceof Site
-			&& isset($this->contentOptimizationSettings)
-			&& in_array(HomepageSeoAccessPolicy::CONTENT_OPTIMIZATION_PLUGIN_SLUG, $site->getEnabledPlugins(), true)
-			&& in_array($targetType, ['page', 'site_home'], true)
-		) {
-			$effective = (null !== $resolvedOptimization && [] !== $resolvedOptimization['effective']
-				? $resolvedOptimization
-				: $this->resolveOptimizationSettings($site, false))['effective'];
-			$seo = is_array($effective['seo'] ?? null) ? $effective['seo'] : [];
-			$siteName = $this->siteName($site, $request);
-			$baseTitle = $this->pageTitle($template, $request, $siteName);
-			$seoPreviewDefaults = [
-				'pageTitle' => $object instanceof Page ? $this->pageTitle($object, $request, $baseTitle) : $baseTitle,
-				'siteName' => $siteName,
-				'titleTemplate' => $seo['titleTemplate'] ?? '{pageTitle} | {siteName}',
-				'description' => $seo['defaultDescription'] ?? '',
-				'image' => $seo['defaultSocialImage'] ?? '',
-			];
-		}
 
-		return [
+		$context = [
 			'type' => $targetType,
 			'id' => (int) ($target->getId() ?? 0),
-			'label' => 'page' === $targetType ? 'Page Settings' : ('site_home' === $targetType ? 'Homepage SEO Settings' : 'Template Settings'),
-			'values' => $values,
+			'label' => 'page' === $targetType ? 'Page Settings' : 'Template Settings',
+			'values' => $state['values'],
 			'version' => $state['version'],
 			'hasDraft' => $state['hasDraft'],
-			'options' => $options,
-			'seoPreviewDefaults' => $seoPreviewDefaults,
+			'options' => [],
+			'seoPreviewDefaults' => [],
 		];
-	}
 
-	/**
-	 * @param array<string,mixed> $settings
-	 *
-	 * @return array<string,mixed>
-	 */
-	private function seoPageSettings(array $settings): array
-	{
-		return array_filter(
-			$settings,
-			static fn ($value, string $key): bool => str_starts_with($key, 'iikiti_content_optimization_'),
-			ARRAY_FILTER_USE_BOTH,
-		);
+		foreach ($this->settingsContributors as $contributor) {
+			$context = $contributor->contributeSettingsContext(
+				$context,
+				$object,
+				$template,
+				$user,
+				$home,
+				$site,
+				$request,
+				['target' => $target, 'state' => $state],
+			);
+		}
+
+		return $context;
 	}
 
 	/** @param array<string,mixed> $settings */

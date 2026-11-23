@@ -95,7 +95,9 @@ readonly class SearchActionProvider implements ProviderInterface
 
 		foreach ($this->entityManager->getMetadataFactory()->getAllMetadata() as $metadata) {
 			$className = $metadata->getName();
-			if (!is_subclass_of($className, \iikiti\CMS\Entity\DbObject::class)) {
+			if (!is_subclass_of($className, \iikiti\CMS\Entity\DbObject::class)
+				|| is_subclass_of($className, \iikiti\CMS\Entity\UnknownDbObject::class)
+			) {
 				continue;
 			}
 

@@ -35,6 +35,16 @@ abstract class PluginBundle extends AbstractBundle implements PluginBundleInterf
 		return $this->pluginManifest;
 	}
 
+	/**
+	 * Optional dependent Symfony bundle classes required by this plugin.
+	 *
+	 * @return list<class-string<\Symfony\Component\HttpKernel\Bundle\BundleInterface>>
+	 */
+	public static function getRequiredBundles(): array
+	{
+		return [];
+	}
+
 	public function getPluginSlug(): string
 	{
 		if (null !== $this->pluginManifest) {
@@ -82,6 +92,60 @@ abstract class PluginBundle extends AbstractBundle implements PluginBundleInterf
 		}
 
 		return is_file($path.'/'.PluginManifest::FILENAME) ? $path : $this->getPath();
+	}
+
+	/**
+	 * Auto-register plugin Doctrine ORM entity mappings, API Platform resource
+	 * paths, and Doctrine migration directories when present.
+	 */
+	public function prependExtension(ContainerConfigurator $container, ContainerBuilder $builder): void
+	{
+		$pluginPath = $this->getPluginPath();
+		$manifest = $this->getPluginManifest();
+		$namespace = null !== $manifest ? $manifest->namespace : (new \ReflectionClass($this))->getNamespaceName();
+		$slug = $this->getPluginSlug();
+
+		$allowDoctrineMappings = null !== $manifest ? ($manifest->capabilities['doctrine_mappings'] ?? true) : true;
+		$entityDir = $pluginPath.'/src/Entity';
+		if (false !== $allowDoctrineMappings && is_dir($entityDir) && $builder->hasExtension('doctrine')) {
+			$mappingName = 'plugin_'.preg_replace('/[^a-zA-Z0-9_]/', '_', $slug);
+			$builder->prependExtensionConfig('doctrine', [
+				'orm' => [
+					'mappings' => [
+						$mappingName => [
+							'is_bundle' => false,
+							'type' => 'attribute',
+							'dir' => $entityDir,
+							'prefix' => $namespace.'\\Entity',
+						],
+					],
+				],
+			]);
+		}
+
+		if ($builder->hasExtension('api_platform')) {
+			$apiPaths = array_values(array_filter([
+				$pluginPath.'/src/ApiResource',
+				false !== $allowDoctrineMappings ? $entityDir : '',
+			], static fn (string $path): bool => '' !== $path && is_dir($path)));
+
+			if ([] !== $apiPaths) {
+				$builder->prependExtensionConfig('api_platform', [
+					'mapping' => [
+						'paths' => $apiPaths,
+					],
+				]);
+			}
+		}
+
+		$migrationsDir = $pluginPath.'/migrations';
+		if (is_dir($migrationsDir) && $builder->hasExtension('doctrine_migrations')) {
+			$builder->prependExtensionConfig('doctrine_migrations', [
+				'migrations_paths' => [
+					$namespace.'\\Migrations' => $migrationsDir,
+				],
+			]);
+		}
 	}
 
 	/**

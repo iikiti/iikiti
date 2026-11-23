@@ -1,0 +1,10 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    iikiti\Extension\CspReporting\:
+        resource: '../src/'
+        exclude:
+            - '../src/CspReportingBundle.php'
+            - '../src/Entity/'

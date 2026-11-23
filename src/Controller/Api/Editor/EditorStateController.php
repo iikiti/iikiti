@@ -13,18 +13,18 @@ use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Security\PermissionChecker;
 use iikiti\CMS\Web\BlockEditor\BlockEditorComponent;
-use iikiti\CMS\Web\BlockEditor\CustomCssCompiler;
+use iikiti\CMS\Web\BlockEditor\CustomCssCompilerInterface;
+use iikiti\CMS\Web\BlockEditor\EditorSettingsHandlerInterface;
 use iikiti\CMS\Web\BlockEditor\EditorSettingsManager;
-use iikiti\CMS\Web\BlockEditor\HomepageSeoAccessPolicy;
 use iikiti\CMS\Web\BlockEditor\Query\QueryFieldCatalog;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderContext;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderer;
 use iikiti\CMS\Web\BlockEditor\Workflow\SaveWorkflowRegistry;
 use iikiti\CMS\Web\Icon\IconResolver;
-use iikiti\CMS\Web\Template\TemplateResolutionContext;
-use iikiti\CMS\Web\Template\TemplateResolver;
 use iikiti\CMS\Workflow\Policy\WorkflowAccessPolicy;
-use iikiti\Extension\ContentOptimization\Service\PageSeoSettingsNormalizer;
+use Psr\Container\ContainerInterface;
+use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -40,8 +40,20 @@ use Symfony\Component\Security\Core\User\UserInterface;
 #[AsController]
 class EditorStateController extends AppController
 {
+	/**
+	 * @param iterable<EditorSettingsHandlerInterface> $settingsHandlers
+	 */
+	public function __construct(
+		Security $security,
+		ContainerInterface $container,
+		#[AutowireIterator('iikiti.cms.editor_settings_handler')]
+		private readonly iterable $settingsHandlers = [],
+	) {
+		parent::__construct($security, $container);
+	}
+
 	#[Route('/api/editor/css/validate', name: 'api_editor_css_validate', methods: ['POST'])]
-	public function validateCustomCss(Request $request, PermissionChecker $permissionChecker, CustomCssCompiler $cssCompiler): JsonResponse
+	public function validateCustomCss(Request $request, PermissionChecker $permissionChecker, CustomCssCompilerInterface $cssCompiler): JsonResponse
 	{
 		$user = $this->getUser();
 		if (!$user instanceof User || !$this->can($user, $permissionChecker, 'template', 'write')) {
@@ -163,8 +175,6 @@ class EditorStateController extends AppController
 		PermissionChecker $permissionChecker,
 		EditorSettingsManager $settingsManager,
 		WorkflowAccessPolicy $workflowAccessPolicy,
-		?PageSeoSettingsNormalizer $pageSeoSettingsNormalizer = null,
-		?TemplateResolver $templateResolver = null,
 		?AuditRecorder $auditRecorder = null,
 	): JsonResponse {
 		$user = $this->getUser();
@@ -176,12 +186,14 @@ class EditorStateController extends AppController
 		if (null !== $badRequest) {
 			return $badRequest;
 		}
+		$customHandler = $this->findHandlerForTarget($targetType);
+		if (!in_array($targetType, ['page', 'template'], true) && null === $customHandler) {
+			return $this->json(['error' => 'Settings target provider is unavailable'], Response::HTTP_SERVICE_UNAVAILABLE);
+		}
 		[$target, $targetError] = $this->authorizeAndLoadSettingsTarget(
 			$user,
 			$permissionChecker,
 			$settingsManager,
-			$workflowAccessPolicy,
-			$templateResolver,
 			$targetType,
 			$targetId,
 			'write',
@@ -189,19 +201,14 @@ class EditorStateController extends AppController
 		if (null !== $targetError || null === $target) {
 			return $targetError ?? $this->json(['error' => 'Settings target not found'], Response::HTTP_NOT_FOUND);
 		}
-		if ('site_home' === $targetType && null === $pageSeoSettingsNormalizer) {
-			return $this->json(['error' => 'Homepage SEO validation is unavailable'], Response::HTTP_SERVICE_UNAVAILABLE);
-		}
 		$values = $payload['settings'] ?? null;
 		if (!is_array($values)) {
 			return $this->json(['error' => 'Settings must be an object'], Response::HTTP_BAD_REQUEST);
 		}
-		if (null !== $pageSeoSettingsNormalizer) {
+		$currentState = $settingsManager->state($target);
+		foreach ($this->settingsHandlers as $handler) {
 			try {
-				$normalizedSeo = $pageSeoSettingsNormalizer->normalize($values);
-				$values = 'site_home' === $targetType
-					? array_merge($settingsManager->state($target)['values'], $normalizedSeo)
-					: array_merge($values, $normalizedSeo);
+				$values = $handler->prepareSaveValues($targetType, $target, $values, $currentState);
 			} catch (\InvalidArgumentException $exception) {
 				return $this->json(['error' => $exception->getMessage()], Response::HTTP_BAD_REQUEST);
 			}
@@ -231,8 +238,6 @@ class EditorStateController extends AppController
 		PermissionChecker $permissionChecker,
 		EditorSettingsManager $settingsManager,
 		WorkflowAccessPolicy $workflowAccessPolicy,
-		?PageSeoSettingsNormalizer $pageSeoSettingsNormalizer = null,
-		?TemplateResolver $templateResolver = null,
 		?AuditRecorder $auditRecorder = null,
 	): JsonResponse {
 		$user = $this->getUser();
@@ -244,12 +249,14 @@ class EditorStateController extends AppController
 		if (null !== $badRequest) {
 			return $badRequest;
 		}
+		$customHandler = $this->findHandlerForTarget($targetType);
+		if (!in_array($targetType, ['page', 'template'], true) && null === $customHandler) {
+			return $this->json(['error' => 'Settings target provider is unavailable'], Response::HTTP_SERVICE_UNAVAILABLE);
+		}
 		[$target, $targetError] = $this->authorizeAndLoadSettingsTarget(
 			$user,
 			$permissionChecker,
 			$settingsManager,
-			$workflowAccessPolicy,
-			$templateResolver,
 			$targetType,
 			$targetId,
 			'publish',
@@ -257,36 +264,16 @@ class EditorStateController extends AppController
 		if (null !== $targetError || null === $target) {
 			return $targetError ?? $this->json(['error' => 'Settings target not found'], Response::HTTP_NOT_FOUND);
 		}
-		if ('site_home' === $targetType && null === $pageSeoSettingsNormalizer) {
-			return $this->json(['error' => 'Homepage SEO validation is unavailable'], Response::HTTP_SERVICE_UNAVAILABLE);
-		}
 		$version = $payload['version'] ?? $request->headers->get('If-Match');
 		if (null !== $version && (!is_scalar($version) || !ctype_digit((string) $version))) {
 			return $this->json(['error' => 'Invalid settings version'], Response::HTTP_BAD_REQUEST);
 		}
 		$ifMatch = null === $version ? null : (string) $version;
 		$state = $settingsManager->state($target);
-		if ('site_home' === $targetType) {
-			$draft = $state['values'];
-			try {
-				$normalizedDraft = $pageSeoSettingsNormalizer->normalize($draft);
-			} catch (\InvalidArgumentException $exception) {
-				return $this->json(['error' => $exception->getMessage()], Response::HTTP_BAD_REQUEST);
-			}
-			$storedSeoFields = array_intersect_key($draft, $normalizedDraft);
-			if ($normalizedDraft !== $storedSeoFields) {
-				return $this->json(['error' => 'Homepage SEO settings are not normalized'], Response::HTTP_BAD_REQUEST);
-			}
-		} elseif ('page' === $targetType && $state['hasDraft'] && null !== $pageSeoSettingsNormalizer) {
-			$draft = $state['values'];
-			try {
-				$normalizedSeo = $pageSeoSettingsNormalizer->normalize($draft);
-			} catch (\InvalidArgumentException $exception) {
-				return $this->json(['error' => $exception->getMessage()], Response::HTTP_BAD_REQUEST);
-			}
-			$storedSeoFields = array_intersect_key($draft, $normalizedSeo);
-			if ($normalizedSeo !== $storedSeoFields && (null === $ifMatch || (string) $state['version'] === $ifMatch)) {
-				$target->setProperty('settings_draft', array_merge($draft, $normalizedSeo));
+		foreach ($this->settingsHandlers as $handler) {
+			$errorResponse = $handler->validateAndPreparePublish($targetType, $target, $state, $ifMatch);
+			if (null !== $errorResponse) {
+				return $errorResponse;
 			}
 		}
 
@@ -388,40 +375,20 @@ class EditorStateController extends AppController
 		User $user,
 		PermissionChecker $pc,
 		EditorSettingsManager $settingsManager,
-		WorkflowAccessPolicy $workflowAccessPolicy,
-		?TemplateResolver $templateResolver,
 		string $targetType,
 		int $targetId,
 		string $action,
 	): array {
-		if ('site_home' === $targetType) {
-			if (!SiteRegistry::isInitialized() || !SiteRegistry::hasCurrent()) {
-				return [null, $this->json(['error' => 'Settings target not found'], Response::HTTP_NOT_FOUND)];
-			}
-			$currentSite = SiteRegistry::getCurrent();
-			// Check site-manager authority before revealing target ID or plugin status (prevents 404/403 enumeration).
-			if (!$workflowAccessPolicy->canManageSite($user, $currentSite)) {
-				return [null, $this->json(['error' => 'Forbidden'], Response::HTTP_FORBIDDEN)];
-			}
-			if (
-				(int) $currentSite->getId() !== $targetId ||
-				!in_array(HomepageSeoAccessPolicy::CONTENT_OPTIMIZATION_PLUGIN_SLUG, $currentSite->getEnabledPlugins(), true)
-			) {
-				return [null, $this->json(['error' => 'Settings target not found'], Response::HTTP_NOT_FOUND)];
-			}
-			$homepageTemplate = $templateResolver?->resolve(new TemplateResolutionContext(site: $currentSite, home: true));
-			if (!$this->canSettingsTarget($user, $pc, $workflowAccessPolicy, $targetType, $action, $currentSite, $homepageTemplate)) {
-				return [null, $this->json(['error' => 'Forbidden'], Response::HTTP_FORBIDDEN)];
-			}
-
-			return [$currentSite, null];
+		$handler = $this->findHandlerForTarget($targetType);
+		if (null !== $handler) {
+			return $handler->authorizeAndLoadTarget($targetType, $targetId, $user, $action);
 		}
 
 		$target = $settingsManager->findTarget($targetType, $targetId);
 		if (null === $target) {
 			return [null, $this->json(['error' => 'Settings target not found'], Response::HTTP_NOT_FOUND)];
 		}
-		if (!$this->canSettingsTarget($user, $pc, $workflowAccessPolicy, $targetType, $action, $target)) {
+		if (!$this->canSettingsTarget($user, $pc, $targetType, $action, $target)) {
 			return [null, $this->json(['error' => 'Forbidden'], Response::HTTP_FORBIDDEN)];
 		}
 
@@ -431,16 +398,10 @@ class EditorStateController extends AppController
 	private function canSettingsTarget(
 		User $user,
 		PermissionChecker $pc,
-		WorkflowAccessPolicy $workflowAccessPolicy,
 		string $type,
 		string $action,
 		DbObject $target,
-		?Template $homepageTemplate = null,
 	): bool {
-		if ('site_home' === $type) {
-			return $target instanceof Site
-				&& (new HomepageSeoAccessPolicy($pc, $workflowAccessPolicy))->canEdit($user, $target, $homepageTemplate);
-		}
 		if ('template' === $type) {
 			return $pc->canAccess($user, 'Template', $action, $target) ||
 				$pc->canAccess($user, 'Page', $action, $target);
@@ -451,11 +412,29 @@ class EditorStateController extends AppController
 
 	private function auditObjectType(string $targetType): string
 	{
+		$handler = $this->findHandlerForTarget($targetType);
+		if (null !== $handler) {
+			$type = $handler->auditObjectType($targetType);
+			if (null !== $type && '' !== $type) {
+				return $type;
+			}
+		}
+
 		return match ($targetType) {
-			'site_home' => 'Site',
 			'template' => 'Template',
 			default => 'Page',
 		};
+	}
+
+	private function findHandlerForTarget(string $targetType): ?EditorSettingsHandlerInterface
+	{
+		foreach ($this->settingsHandlers as $handler) {
+			if ($handler->supportsTarget($targetType)) {
+				return $handler;
+			}
+		}
+
+		return null;
 	}
 
 	/**
@@ -498,7 +477,11 @@ class EditorStateController extends AppController
 		$validatedId = is_int($id) || is_string($id) ?
 			filter_var((string) $id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) :
 			false;
-		if (!in_array($type, ['page', 'template', 'site_home'], true) || false === $validatedId) {
+		$supportedTypes = ['page', 'template'];
+		if (is_string($type) && null !== $this->findHandlerForTarget($type)) {
+			$supportedTypes[] = $type;
+		}
+		if (!in_array($type, $supportedTypes, true) || false === $validatedId) {
 			return ['', 0, $this->json(['error' => 'Invalid settings target'], Response::HTTP_BAD_REQUEST)];
 		}
 

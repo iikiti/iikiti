@@ -5,14 +5,16 @@
  * sections through the same public API plugins use. Also installs
  * `window.iikiti.editor.sidebar`.
  */
-import { registerFieldControl, registerFieldDecorator, registerGroup, registerSection, registerSettingsSection, installSidebarApi } from './extensions.js';
+import { get } from 'svelte/store';
+import { registerFieldControl, registerFieldDecorator, registerGroup, registerSection, registerSettingsSection, installSidebarApi, getCssAutocompleteProviders } from './extensions.js';
+import { editorSettings, searchNode, selected, validateEditorCss } from './state.js';
+import { styleTargetSelector } from './styleValues.js';
 import TextControl from './controls/TextControl.svelte';
 import TextareaControl from './controls/TextareaControl.svelte';
 import SelectControl from './controls/SelectControl.svelte';
 import ToggleControl from './controls/ToggleControl.svelte';
 import CssLengthControl from './controls/CssLengthControl.svelte';
 import ColorControl from './controls/ColorControl.svelte';
-import CssCodeControl from './controls/CssCodeControl.svelte';
 import { queryBindingDecorator } from './queryBinding.js';
 
 let registered = false;
@@ -162,6 +164,16 @@ export function registerCoreSidebar() {
 	registered = true;
 
 	installSidebarApi();
+	if (typeof window !== 'undefined' && window.iikiti?.editor) {
+		window.iikiti.editor.css = {
+			validateEditorCss,
+			getSelectedBlockId: () => get(selected),
+			getBlock: (id) => searchNode(id),
+			getEditorSettings: () => get(editorSettings),
+			styleTargetSelector,
+			getAutocompleteProviders: getCssAutocompleteProviders,
+		};
+	}
 
 	registerFieldControl('text', TextControl);
 	registerFieldControl('url', TextControl);
@@ -173,7 +185,7 @@ export function registerCoreSidebar() {
 	registerFieldControl('number', TextControl);
 	registerFieldControl('textarea', TextareaControl);
 	registerFieldControl('richtext', TextareaControl);
-	registerFieldControl('css', CssCodeControl);
+	registerFieldControl('css', TextareaControl, { priority: 0 });
 	registerFieldControl('select', SelectControl);
 	registerFieldControl('align', SelectControl);
 	registerFieldControl('toggle', ToggleControl);

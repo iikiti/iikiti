@@ -5,6 +5,7 @@ namespace iikiti\CMS\Admin;
 use iikiti\CMS\ApiResource\AdminApiResource;
 use iikiti\CMS\ApiResource\AdminMenuItem;
 use iikiti\CMS\ApiResource\AdminScreen;
+use iikiti\CMS\Plugin\PluginActivationChecker;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 /**
@@ -21,6 +22,7 @@ class AdminMenuRegistry
 	public function __construct(
 		#[AutowireIterator('iikiti.admin.extension')]
 		private iterable $adminExtensions,
+		private readonly ?PluginActivationChecker $activationChecker = null,
 	) {
 	}
 
@@ -32,6 +34,9 @@ class AdminMenuRegistry
 		$items = [];
 
 		foreach ($this->adminExtensions as $extension) {
+			if (!$this->isExtensionActive($extension)) {
+				continue;
+			}
 			foreach ($extension->getMenuItems() as $item) {
 				$items[] = $item;
 			}
@@ -50,6 +55,9 @@ class AdminMenuRegistry
 		$resources = [];
 
 		foreach ($this->adminExtensions as $extension) {
+			if (!$this->isExtensionActive($extension)) {
+				continue;
+			}
 			foreach ($extension->getResources() as $resource) {
 				$resources[] = $resource;
 			}
@@ -72,6 +80,9 @@ class AdminMenuRegistry
 		$screens = [];
 
 		foreach ($this->adminExtensions as $extension) {
+			if (!$this->isExtensionActive($extension)) {
+				continue;
+			}
 			foreach ($extension->getAdminScreens() as $screen) {
 				$screens[] = $screen;
 			}
@@ -80,5 +91,26 @@ class AdminMenuRegistry
 		usort($screens, static fn (AdminScreen $a, AdminScreen $b): int => $a->path <=> $b->path);
 
 		return $screens;
+	}
+
+	private function isExtensionActive(AdminExtensionInterface $extension): bool
+	{
+		if (null === $this->activationChecker) {
+			return true;
+		}
+
+		$pluginSlug = null;
+		if ($extension instanceof PluginOwnedAdminExtensionInterface) {
+			$pluginSlug = $extension->getPluginSlug();
+		} elseif (method_exists($extension, 'getPluginSlug')) {
+			$resolved = $extension->getPluginSlug();
+			$pluginSlug = is_string($resolved) && '' !== $resolved ? $resolved : null;
+		}
+
+		if (null === $pluginSlug) {
+			return true;
+		}
+
+		return $this->activationChecker->isActiveForAdmin($pluginSlug);
 	}
 }

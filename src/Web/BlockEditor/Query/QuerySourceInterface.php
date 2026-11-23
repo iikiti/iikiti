@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Web\BlockEditor\Query;
 
+use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
+
 /**
  * Executes a {@see QueryDefinition} against a configured data source.
  *
@@ -14,6 +16,7 @@ namespace iikiti\CMS\Web\BlockEditor\Query;
  * Safety: sources must never accept raw SQL — they translate the structured
  * definition into parameterized ORM/SQL via whitelisted expressions only.
  */
+#[AutoconfigureTag('iikiti.cms.query_source')]
 interface QuerySourceInterface
 {
 	/**

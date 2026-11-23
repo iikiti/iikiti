@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace iikiti\Extension\ContentOptimization\Analytics;
 
 use iikiti\CMS\Entity\Object\Site;
+use iikiti\CMS\Plugin\PluginActivationChecker;
 use iikiti\CMS\Plugin\PluginRegistry;
 use iikiti\Extension\ContentOptimization\Service\ContentOptimizationSettings;
 use Psr\Log\LoggerInterface;
@@ -39,6 +40,7 @@ final class AnalyticsConnectorRegistry
 		#[AutowireIterator('iikiti.analytics_connector')] iterable $connectors,
 		?PluginRegistry $plugins = null,
 		?LoggerInterface $logger = null,
+		private readonly ?PluginActivationChecker $activationChecker = null,
 	) {
 		foreach ($connectors as $connector) {
 			$isBuiltIn = $connector instanceof BuiltInAnalyticsConnectorInterface
@@ -120,11 +122,14 @@ final class AnalyticsConnectorRegistry
 	/** @return array<string,AnalyticsConnectorInterface> Connectors enabled on the site, keyed by connector key. */
 	public function forSite(Site $site): array
 	{
-		$enabledPlugins = $site->getEnabledPlugins();
+		$enabledPlugins = null === $this->activationChecker ? $site->getEnabledPlugins() : null;
 		$connectors = [];
 		foreach ($this->connectors as $key => $connector) {
 			[$pluginSlug] = explode('.', $key, 2);
-			if (in_array($pluginSlug, $enabledPlugins, true)) {
+			$isActive = null !== $this->activationChecker
+				? $this->activationChecker->isActiveForSite($pluginSlug, $site)
+				: in_array($pluginSlug, $enabledPlugins, true);
+			if ($isActive) {
 				$connectors[$key] = $connector;
 			}
 		}

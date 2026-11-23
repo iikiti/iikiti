@@ -7,9 +7,10 @@ namespace iikiti\CMS\Web\BlockEditor\Twig;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Service\LocalizedPropertyResolver;
-use iikiti\CMS\Web\BlockEditor\Embed\EmbedResolver;
+use iikiti\CMS\Web\BlockEditor\Embed\EmbedResolverInterface;
 use iikiti\CMS\Web\BlockEditor\Query\QueryDefinition;
 use iikiti\CMS\Web\BlockEditor\Query\QueryExecutor;
+use iikiti\CMS\Web\Icon\FontIconSetInterface;
 use iikiti\CMS\Web\Icon\IconFontAssets;
 use iikiti\CMS\Web\Icon\IconResolver;
 use Twig\Environment;
@@ -29,7 +30,7 @@ final class BlockTwigExtension extends AbstractExtension
 	public const ICON_RENDERERS = ['svg', 'font'];
 
 	public function __construct(
-		private readonly EmbedResolver $embedResolver,
+		private readonly ?EmbedResolverInterface $embedResolver,
 		private readonly QueryExecutor $queryExecutor,
 		private readonly IconResolver $iconResolver,
 		private readonly IconFontAssets $iconFontAssets,
@@ -91,19 +92,21 @@ final class BlockTwigExtension extends AbstractExtension
 		}
 
 		if ('font' === $renderer) {
-			// Only the bundled set has font glyphs; admin sets fall through to nothing.
+			// Only font-backed bundled sets have font glyphs; admin sets fall through to nothing.
 			$glyph = $resolved['set']->glyph($resolved['name']);
-			if (null === $glyph) {
+			$fontFamily = $resolved['set'] instanceof FontIconSetInterface ? $resolved['set']->fontFamily() : null;
+			if (null === $glyph || null === $fontFamily || '' === trim($fontFamily)) {
 				return '';
 			}
 			// The layout links the font stylesheet only when this is set.
 			$this->iconFontAssets->markUsed();
 
 			return sprintf(
-				// The wrapper names the Lucide family itself, so the glyph renders in the icon font
-				// wherever it appears (public page or canvas) without relying on a class map.
-				'<span class="iikiti-icon-font" data-icon="%s" aria-hidden="true" style="font-family:lucide;font-style:normal;line-height:1;">%s</span>',
+				// The wrapper names the set's font family directly so the glyph renders
+				// wherever it appears (public page or canvas) without a separate class map.
+				'<span class="iikiti-icon-font" data-icon="%s" aria-hidden="true" style="font-family:%s;font-style:normal;line-height:1;">%s</span>',
 				htmlspecialchars($name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+				htmlspecialchars($fontFamily, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
 				$glyph,
 			);
 		}
@@ -120,6 +123,9 @@ final class BlockTwigExtension extends AbstractExtension
 		$prefetched = $context['iikiti_prefetched_embeds'][$url] ?? null;
 		if ([] === $options && is_string($prefetched)) {
 			return $prefetched;
+		}
+		if (null === $this->embedResolver) {
+			return '';
 		}
 
 		return $this->embedResolver->resolve($url, $options);

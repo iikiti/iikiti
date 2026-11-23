@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Tests\Web\Icon;
 
-use iikiti\CMS\Web\Icon\LucideIconSet;
+use iikiti\Extension\IconsLucide\Icon\LucideIconSet;
 use PHPUnit\Framework\TestCase;
 
 final class LucideIconSetTest extends TestCase

@@ -3,6 +3,7 @@
 namespace iikiti\CMS\Plugin;
 
 use Doctrine\ORM\EntityManagerInterface;
+use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Plugin\PluginRecord;
 use iikiti\CMS\ORM\QueryBuilder as OrmQueryBuilder;
@@ -25,7 +26,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  */
 class PluginManager
 {
-	/** @var array<string,array{manifest:PluginManifest,path:string,installInfo:?PluginInstallInfo}>|null */
+	/** @var array<string,array{manifest:PluginManifest,path:string,installInfo:?PluginInstallInfo,builtIn?:bool}>|null */
 	private ?array $installedCache = null;
 
 	public function __construct(
@@ -46,9 +47,10 @@ class PluginManager
 	}
 
 	/**
-	 * Plugins installed on disk.
+	 * Plugins installed on disk (built-in plugins under `plugins/` plus
+	 * store/manual plugins under `cms/extensions/installed/`).
 	 *
-	 * @return array<string,array{manifest: PluginManifest, path: string, installInfo: ?PluginInstallInfo}>
+	 * @return array<string,array{manifest: PluginManifest, path: string, installInfo: ?PluginInstallInfo, builtIn?: bool}>
 	 */
 	public function getInstalled(): array
 	{
@@ -56,17 +58,27 @@ class PluginManager
 			return $this->installedCache;
 		}
 
+		$installed = [];
+		foreach ($this->loader->discoverBundled() as $bundled) {
+			$manifest = $bundled['manifest'];
+			$installed[$manifest->slug] = [
+				'manifest' => $manifest,
+				'path' => $bundled['path'],
+				'installInfo' => $bundled['installInfo'],
+				'builtIn' => true,
+			];
+		}
+
 		$installedPath = $this->loader->getInstalledPath();
 		if (!is_dir($installedPath)) {
-			return $this->installedCache = [];
+			return $this->installedCache = $installed;
 		}
 
 		$entries = scandir($installedPath);
 		if (false === $entries) {
-			return $this->installedCache = [];
+			return $this->installedCache = $installed;
 		}
 
-		$installed = [];
 		foreach ($entries as $entry) {
 			if ('.' === $entry || '..' === $entry) {
 				continue;
@@ -83,14 +95,27 @@ class PluginManager
 				continue;
 			}
 
+			// Built-ins take precedence if a colliding directory exists on disk.
+			if (isset($installed[$manifest->slug])) {
+				continue;
+			}
+
 			$installed[$manifest->slug] = [
 				'manifest' => $manifest,
 				'path' => $path,
 				'installInfo' => PluginInstallInfo::fromDirectory($path) ?? PluginInstallInfo::manual($manifest),
+				'builtIn' => false,
 			];
 		}
 
 		return $this->installedCache = $installed;
+	}
+
+	public function isBuiltIn(string $slug): bool
+	{
+		$installed = $this->getInstalled();
+
+		return isset($installed[$slug]) && true === ($installed[$slug]['builtIn'] ?? false);
 	}
 
 	public function isInstalled(string $slug): bool
@@ -120,6 +145,9 @@ class PluginManager
 			if ($manifest->slug !== $package->slug) {
 				throw new PluginException(sprintf('Package slug "%s" does not match manifest slug "%s".', $package->slug, $manifest->slug));
 			}
+			if ($this->isBuiltIn($manifest->slug)) {
+				throw new PluginException(sprintf('Built-in plugin "%s" is managed with the application and cannot be installed from the store.', $manifest->slug));
+			}
 			$activeSiteIds = $activate ? [] : array_map(
 				static fn (Site $site): string => (string) $site->getId(),
 				$this->getActiveSites($manifest->slug),
@@ -145,6 +173,7 @@ class PluginManager
 
 			$this->lifecycle->install($this->contextFor($manifest, null, $package), $this->createBundle($manifest, $target));
 			$this->recordInstall($manifest, $package);
+			$this->syncDiscriminators($manifest);
 		} finally {
 			if (is_dir($temp)) {
 				$this->deleteDirectory($temp);
@@ -167,7 +196,7 @@ class PluginManager
 		$manifest = $this->requireInstalled($slug);
 		$this->assertStateAllowed($manifest);
 		$sites = $this->getSites();
-		$sitesToEnable = $this->sitesNeedingActivation($slug, $sites);
+		$sitesToEnable = $this->sitesNeedingActivation($manifest, $sites);
 		$siteIds = array_map(static fn (Site $site): string => (string) $site->getId(), $sitesToEnable);
 		$this->assertCanActivateForSites($manifest, $siteIds, $overrideConflicts);
 
@@ -179,9 +208,12 @@ class PluginManager
 		}
 
 		$this->entityManager->flush();
-		$this->syncSymlink($slug);
-		$this->rebuilder->schedule();
-		$this->rebuilder->flush();
+		$this->syncDiscriminators($manifest);
+		if (!$this->isBuiltIn($slug)) {
+			$this->syncSymlink($slug);
+			$this->rebuilder->schedule();
+			$this->rebuilder->flush();
+		}
 
 		return $count;
 	}
@@ -198,7 +230,7 @@ class PluginManager
 		$manifest = $this->requireInstalled($slug);
 		$this->assertStateAllowed($manifest);
 		$sites = $this->resolveSites($siteIds);
-		$sitesToEnable = $this->sitesNeedingActivation($slug, $sites);
+		$sitesToEnable = $this->sitesNeedingActivation($manifest, $sites);
 		$targetSiteIds = array_map(static fn (Site $site): string => (string) $site->getId(), $sitesToEnable);
 		$this->assertCanActivateForSites($manifest, $targetSiteIds, $overrideConflicts);
 
@@ -210,9 +242,12 @@ class PluginManager
 		}
 
 		$this->entityManager->flush();
-		$this->syncSymlink($slug);
-		$this->rebuilder->schedule();
-		$this->rebuilder->flush();
+		$this->syncDiscriminators($manifest);
+		if (!$this->isBuiltIn($slug)) {
+			$this->syncSymlink($slug);
+			$this->rebuilder->schedule();
+			$this->rebuilder->flush();
+		}
 
 		return $count;
 	}
@@ -229,7 +264,7 @@ class PluginManager
 		$this->assertStateAllowed($manifest);
 
 		$site = $this->findSite($siteId);
-		if ($site->getConfiguration()->isPluginActive($slug)) {
+		if ($this->isManifestActiveOnConfiguration($manifest, $site->getConfiguration())) {
 			return false;
 		}
 		$this->assertCanActivateForSites($manifest, [$siteId], $overrideConflicts);
@@ -242,11 +277,16 @@ class PluginManager
 		$slug = $manifest->slug;
 		$siteId = (string) $site->getId();
 		$configuration = $site->getConfiguration();
-		if ($configuration->isPluginActive($slug)) {
+		if ($this->isManifestActiveOnConfiguration($manifest, $configuration)) {
 			return false;
 		}
 
-		$configuration->enablePlugin($slug);
+		$defaultActive = $this->isDefaultActiveManifest($manifest);
+		if ($defaultActive) {
+			$configuration->enablePlugin($slug, true);
+		} else {
+			$configuration->enablePlugin($slug);
+		}
 		$site->setConfiguration($configuration);
 
 		$this->lifecycle->activate($this->contextFor($manifest, $siteId), $this->createBundleFromInstalled($slug));
@@ -273,6 +313,9 @@ class PluginManager
 	 */
 	public function disableForAllSites(string $slug): int
 	{
+		$manifest = $this->requireInstalled($slug);
+		$this->assertDisableAllowed($manifest);
+
 		$count = 0;
 		foreach ($this->getActiveSites($slug) as $site) {
 			if ($this->disableForSite($slug, (string) $site->getId())) {
@@ -281,9 +324,12 @@ class PluginManager
 		}
 
 		$this->entityManager->flush();
-		$this->syncSymlink($slug);
-		$this->rebuilder->schedule();
-		$this->rebuilder->flush();
+		$this->syncDiscriminatorsForSlug($slug);
+		if (!$this->isBuiltIn($slug)) {
+			$this->syncSymlink($slug);
+			$this->rebuilder->schedule();
+			$this->rebuilder->flush();
+		}
 
 		return $count;
 	}
@@ -297,6 +343,9 @@ class PluginManager
 	 */
 	public function disableForSites(string $slug, array $siteIds): int
 	{
+		$manifest = $this->requireInstalled($slug);
+		$this->assertDisableAllowed($manifest);
+
 		$count = 0;
 		foreach ($siteIds as $siteId) {
 			if ($this->disableForSite($slug, (string) $siteId)) {
@@ -305,9 +354,12 @@ class PluginManager
 		}
 
 		$this->entityManager->flush();
-		$this->syncSymlink($slug);
-		$this->rebuilder->schedule();
-		$this->rebuilder->flush();
+		$this->syncDiscriminatorsForSlug($slug);
+		if (!$this->isBuiltIn($slug)) {
+			$this->syncSymlink($slug);
+			$this->rebuilder->schedule();
+			$this->rebuilder->flush();
+		}
 
 		return $count;
 	}
@@ -321,14 +373,15 @@ class PluginManager
 	public function disableForSite(string $slug, string $siteId): bool
 	{
 		$manifest = $this->requireInstalled($slug);
+		$this->assertDisableAllowed($manifest);
 
 		$site = $this->findSite($siteId);
 		$configuration = $site->getConfiguration();
-		if (!$configuration->isPluginActive($slug)) {
+		if (!$this->isManifestActiveOnConfiguration($manifest, $configuration)) {
 			return false;
 		}
 
-		$configuration->disablePlugin($slug);
+		$configuration->disablePlugin($slug, $this->isDefaultActiveManifest($manifest));
 		$site->setConfiguration($configuration);
 
 		$this->lifecycle->deactivate($this->contextFor($manifest, $siteId), $this->createBundleFromInstalled($slug));
@@ -355,6 +408,9 @@ class PluginManager
 		if (!isset($installed[$package->slug])) {
 			throw new PluginNotFoundException(sprintf('Plugin "%s" is not installed.', $package->slug));
 		}
+		if (true === ($installed[$package->slug]['builtIn'] ?? false)) {
+			throw new PluginException(sprintf('Built-in plugin "%s" is managed with the application and cannot be updated from the store.', $package->slug));
+		}
 
 		$fromVersion = $installed[$package->slug]['manifest']->version;
 		$activeSiteIds = array_map(
@@ -367,6 +423,9 @@ class PluginManager
 		try {
 			if ($manifest->slug !== $package->slug) {
 				throw new PluginException(sprintf('Package slug "%s" does not match manifest slug "%s".', $package->slug, $manifest->slug));
+			}
+			if ($this->isBuiltIn($manifest->slug)) {
+				throw new PluginException(sprintf('Built-in plugin "%s" is managed with the application and cannot be installed from the store.', $manifest->slug));
 			}
 
 			$this->assertStateAllowed($manifest);
@@ -394,6 +453,7 @@ class PluginManager
 			}
 
 			$this->recordInstall($manifest, $package);
+			$this->syncDiscriminators($manifest);
 		} finally {
 			if (is_dir($temp)) {
 				$this->deleteDirectory($temp);
@@ -415,11 +475,14 @@ class PluginManager
 	public function remove(string $slug): void
 	{
 		$manifest = $this->requireInstalled($slug);
+		if ($this->isBuiltIn($slug)) {
+			throw new PluginException(sprintf('Built-in plugin "%s" is managed with the application and cannot be removed.', $slug));
+		}
 
 		foreach ($this->getActiveSites($slug) as $site) {
 			$siteId = (string) $site->getId();
 			$configuration = $site->getConfiguration();
-			$configuration->disablePlugin($slug);
+			$configuration->disablePlugin($slug, $this->isDefaultActiveManifest($manifest));
 			$site->setConfiguration($configuration);
 			$this->entityManager->flush();
 
@@ -449,9 +512,15 @@ class PluginManager
 	 */
 	public function getActiveSites(string $slug): array
 	{
+		$installed = $this->getInstalled();
+		$manifest = $installed[$slug]['manifest'] ?? null;
 		$active = [];
 		foreach ($this->getSites() as $site) {
-			if ($site->getConfiguration()->isPluginActive($slug)) {
+			$configuration = $site->getConfiguration();
+			$isActive = null !== $manifest
+				? $this->isManifestActiveOnConfiguration($manifest, $configuration)
+				: $configuration->isPluginActive($slug);
+			if ($isActive) {
 				$active[] = $site;
 			}
 		}
@@ -486,13 +555,26 @@ class PluginManager
 	 */
 	public function getActiveSiteIdsByPlugin(?array $slugs = null): array
 	{
+		$installed = $this->getInstalled();
 		$map = [];
 		foreach ($this->getSites() as $site) {
 			$siteId = (string) $site->getId();
-			foreach ($site->getConfiguration()->getActivePlugins() as $activeSlug) {
-				if (null === $slugs || in_array($activeSlug, $slugs, true)) {
-					$map[$activeSlug][] = $siteId;
+			$configuration = $site->getConfiguration();
+			$seen = [];
+			foreach ($installed as $installedSlug => $plugin) {
+				if (null !== $slugs && !in_array($installedSlug, $slugs, true)) {
+					continue;
 				}
+				if ($this->isManifestActiveOnConfiguration($plugin['manifest'], $configuration)) {
+					$map[$installedSlug][] = $siteId;
+					$seen[$installedSlug] = true;
+				}
+			}
+			foreach ($configuration->getActivePlugins() as $activeSlug) {
+				if (isset($seen[$activeSlug]) || (null !== $slugs && !in_array($activeSlug, $slugs, true))) {
+					continue;
+				}
+				$map[$activeSlug][] = $siteId;
 			}
 		}
 
@@ -517,13 +599,14 @@ class PluginManager
 
 		$conflicts = [];
 		foreach ($sites as $site) {
-			if ($onlyInactiveSites && $site->getConfiguration()->isPluginActive($candidate->slug)) {
+			$configuration = $site->getConfiguration();
+			if ($onlyInactiveSites && $this->isManifestActiveOnConfiguration($candidate, $configuration)) {
 				continue;
 			}
 			$active = [];
-			foreach ($site->getConfiguration()->getActivePlugins() as $activeSlug) {
-				if (isset($installed[$activeSlug])) {
-					$active[] = $installed[$activeSlug];
+			foreach ($installed as $activeSlug => $installedManifest) {
+				if ($this->isManifestActiveOnConfiguration($installedManifest, $configuration)) {
+					$active[] = $installedManifest;
 				}
 			}
 
@@ -583,12 +666,43 @@ class PluginManager
 	 *
 	 * @return list<Site>
 	 */
-	private function sitesNeedingActivation(string $slug, array $sites): array
+	private function sitesNeedingActivation(PluginManifest $manifest, array $sites): array
 	{
 		return array_values(array_filter(
 			$sites,
-			static fn (Site $site): bool => !$site->getConfiguration()->isPluginActive($slug),
+			fn (Site $site): bool => !$this->isManifestActiveOnConfiguration($manifest, $site->getConfiguration()),
 		));
+	}
+
+	private function isDefaultActiveManifest(PluginManifest $manifest): bool
+	{
+		return PluginManifest::ACTIVATION_DEFAULT_ON === $manifest->activationMode
+			|| PluginManifest::ACTIVATION_REQUIRED === $manifest->activationMode;
+	}
+
+	private function isManifestActiveOnConfiguration(PluginManifest $manifest, \iikiti\CMS\Service\Configuration $configuration): bool
+	{
+		if (PluginManifest::ACTIVATION_REQUIRED === $manifest->activationMode) {
+			return true;
+		}
+
+		$inactive = $configuration->getInactivePlugins();
+		if (in_array($manifest->slug, $inactive, true)) {
+			return false;
+		}
+
+		if (PluginManifest::ACTIVATION_DEFAULT_ON === $manifest->activationMode) {
+			return true;
+		}
+
+		return in_array($manifest->slug, $configuration->getActivePlugins(), true);
+	}
+
+	private function assertDisableAllowed(PluginManifest $manifest): void
+	{
+		if (PluginManifest::ACTIVATION_REQUIRED === $manifest->activationMode) {
+			throw new PluginException(sprintf('Built-in plugin "%s" is required and cannot be disabled.', $manifest->slug));
+		}
 	}
 
 	private function findSite(string $siteId): Site
@@ -618,6 +732,10 @@ class PluginManager
 	 */
 	private function assertStateAllowed(PluginManifest $manifest, ?PluginPackage $package = null): void
 	{
+		if ($this->isBuiltIn($manifest->slug)) {
+			return;
+		}
+
 		$installInfo = PluginInstallInfo::fromDirectory($this->loader->getInstalledPath().'/'.$manifest->slug) ??
 			PluginInstallInfo::manual($manifest);
 		$state = $installInfo->state;
@@ -647,6 +765,17 @@ class PluginManager
 
 	private function contextFor(PluginManifest $manifest, ?string $siteId, ?PluginPackage $package = null): PluginContext
 	{
+		if ($this->isBuiltIn($manifest->slug)) {
+			return new PluginContext(
+				slug: $manifest->slug,
+				version: $manifest->version,
+				siteId: $siteId,
+				environment: $this->environment,
+				source: PluginSource::BuiltIn->value,
+				state: PluginState::Published,
+			);
+		}
+
 		$installInfo = PluginInstallInfo::fromDirectory($this->loader->getInstalledPath().'/'.$manifest->slug);
 
 		$source = PluginSource::Manual->value;
@@ -888,6 +1017,89 @@ class PluginManager
 				'exception' => $exception,
 			]);
 		}
+	}
+
+	/**
+	 * Persist any DbObject STI discriminator keys owned by a plugin onto its
+	 * system-level `plugin_registry` row so unloaded discriminators stay known.
+	 * Best-effort: failures are logged and swallowed.
+	 */
+	private function syncDiscriminatorsForSlug(string $slug): void
+	{
+		$installed = $this->getInstalled();
+		if (isset($installed[$slug])) {
+			$this->syncDiscriminators($installed[$slug]['manifest']);
+		}
+	}
+
+	private function syncDiscriminators(PluginManifest $manifest): void
+	{
+		$connection = $this->entityManager->getConnection();
+		$useSavepoint = false;
+		$savepoint = '';
+
+		try {
+			$discriminators = $this->collectPluginDiscriminators($manifest);
+			if ([] === $discriminators) {
+				return;
+			}
+
+			$useSavepoint = $connection->isTransactionActive() && $connection->getDatabasePlatform()->supportsSavepoints();
+			if ($useSavepoint) {
+				$savepoint = 'iikiti_sync_disc_'.bin2hex(random_bytes(4));
+				$connection->createSavepoint($savepoint);
+			}
+
+			$table = $this->registryTableName();
+			$select = $this->queryBuilderFactory->create();
+			$existing = $select->select('id')->
+				from($table)->
+				where($select->expr()->eq('slug', $select->parameter($manifest->slug)))->
+				andWhere($select->expr()->isNull('site_id'))->
+				executeQuery()->
+				fetchOne();
+
+			if (false !== $existing) {
+				$update = $this->queryBuilderFactory->create();
+				$update->update($table)->
+					set('discriminators', $update->parameter(json_encode($discriminators, JSON_THROW_ON_ERROR)))->
+					where($update->expr()->eq('id', $existing))->
+					executeStatement();
+			}
+
+			if ($useSavepoint) {
+				$connection->releaseSavepoint($savepoint);
+			}
+		} catch (\Throwable $exception) {
+			if ($useSavepoint && '' !== $savepoint) {
+				try {
+					$connection->rollbackSavepoint($savepoint);
+				} catch (\Throwable) {
+					// Best-effort cleanup; ignore savepoint teardown failures.
+				}
+			}
+			$this->logger?->warning('Could not record plugin discriminators.', [
+				'plugin' => $manifest->slug,
+				'exception' => $exception,
+			]);
+		}
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	private function collectPluginDiscriminators(PluginManifest $manifest): array
+	{
+		$prefix = trim($manifest->namespace, '\\').'\\';
+		$metadata = $this->entityManager->getClassMetadata(DbObject::class);
+		$keys = [];
+		foreach ($metadata->discriminatorMap as $discriminator => $class) {
+			if (str_starts_with($class, $prefix)) {
+				$keys[] = (string) $discriminator;
+			}
+		}
+
+		return array_values(array_unique($keys));
 	}
 
 	private function recordRemove(string $slug): void

@@ -6,9 +6,11 @@ namespace iikiti\CMS\Controller\Api\Workflow;
 
 use iikiti\CMS\Controller\AppController;
 use iikiti\CMS\Web\Workflow\WorkflowSchemaExtractor;
+use iikiti\CMS\Workflow\FlowProviderInterface;
 use iikiti\CMS\Workflow\FormStepInterface;
 use iikiti\CMS\Workflow\MultiStepFormRunner;
 use iikiti\CMS\Workflow\RuntimeWorkflowInterface;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\AsController;
@@ -20,21 +22,24 @@ use Symfony\Component\Routing\Attribute\Route;
  *
  * Served from the main (session) firewall — not the /api token firewall — so it
  * is reachable during an in-progress MFA challenge. Plugins can register
- * additional flows via the flow map (a tagged `WorkflowProviderInterface` is the
- * planned extension point).
+ * additional flows via tagged {@see FlowProviderInterface} services.
  */
 #[AsController]
 class WorkflowController extends AppController
 {
 	/** Flow name => session key holding the persisted workflow state. */
-	private const FLOWS = [
+	private const BASE_FLOWS = [
 		'mfa' => 'mfa_challenge',
-		'multistep' => 'multistep_form',
 	];
 
+	/**
+	 * @param iterable<FlowProviderInterface> $flowProviders
+	 */
 	public function __construct(
 		private readonly MultiStepFormRunner $runner,
 		private readonly WorkflowSchemaExtractor $extractor,
+		#[AutowireIterator('iikiti.workflow.flow_provider')]
+		private readonly iterable $flowProviders = [],
 	) {
 	}
 
@@ -45,7 +50,14 @@ class WorkflowController extends AppController
 			return $this->json(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
 		}
 
-		$sessionKey = self::FLOWS[$flow] ?? null;
+		$flows = self::BASE_FLOWS;
+		foreach ($this->flowProviders as $provider) {
+			foreach ($provider->getFlows() as $name => $sessionKey) {
+				$flows[$name] = $sessionKey;
+			}
+		}
+
+		$sessionKey = $flows[$flow] ?? null;
 		if (null === $sessionKey) {
 			return $this->json(['error' => 'Unknown workflow'], Response::HTTP_NOT_FOUND);
 		}

@@ -1,0 +1,13 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    iikiti\Extension\MfaEmail\:
+        resource: '../src/'
+        exclude:
+            - '../src/MfaEmailBundle.php'
+            - '../src/Step/'
+
+    iikiti\CMS\Authentication\Mail\MfaCodeMailerInterface:
+        alias: iikiti\Extension\MfaEmail\Mail\MfaCodeMailer

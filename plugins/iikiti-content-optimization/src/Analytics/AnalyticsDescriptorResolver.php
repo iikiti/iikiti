@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace iikiti\Extension\ContentOptimization\Analytics;
 
 use iikiti\CMS\Entity\Object\Site;
+use iikiti\CMS\Plugin\PluginActivationChecker;
 use iikiti\Extension\ContentOptimization\Service\ContentOptimizationSettings;
 
 /** Resolves consent-gated, inert analytics client configuration for a site. */
@@ -12,8 +13,10 @@ final class AnalyticsDescriptorResolver
 {
 	private const CONSENT_PLUGIN_SLUG = 'consent-management';
 
-	public function __construct(private readonly AnalyticsConnectorRegistry $connectors)
-	{
+	public function __construct(
+		private readonly AnalyticsConnectorRegistry $connectors,
+		private readonly ?PluginActivationChecker $activationChecker = null,
+	) {
 	}
 
 	/**
@@ -28,9 +31,14 @@ final class AnalyticsDescriptorResolver
 	public function resolve(Site $site, array $effectiveSettings, bool $consentProviderActive, bool $editorMode): array
 	{
 		$result = ['requireConsent' => true, 'category' => 'analytics', 'connectors' => []];
-		$enabledPlugins = $site->getEnabledPlugins();
-		if (!in_array(ContentOptimizationSettings::PLUGIN_SLUG, $enabledPlugins, true) ||
-			!in_array(self::CONSENT_PLUGIN_SLUG, $enabledPlugins, true) ||
+		$optimizationActive = null !== $this->activationChecker
+			? $this->activationChecker->isActiveForSite(ContentOptimizationSettings::PLUGIN_SLUG, $site)
+			: in_array(ContentOptimizationSettings::PLUGIN_SLUG, $site->getEnabledPlugins(), true);
+		$consentActive = null !== $this->activationChecker
+			? $this->activationChecker->isActiveForSite(self::CONSENT_PLUGIN_SLUG, $site)
+			: in_array(self::CONSENT_PLUGIN_SLUG, $site->getEnabledPlugins(), true);
+		if (!$optimizationActive ||
+			!$consentActive ||
 			!$consentProviderActive ||
 			$editorMode
 		) {

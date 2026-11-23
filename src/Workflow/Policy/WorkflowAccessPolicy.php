@@ -7,7 +7,7 @@ namespace iikiti\CMS\Workflow\Policy;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Entity\Workflow\WorkflowDefinition;
-use iikiti\CMS\Manager\UserRoleManager;
+use iikiti\CMS\Security\SiteAccessPolicy;
 use iikiti\CMS\Service\DigitalAssetAccessPolicy;
 use Symfony\Component\Security\Core\Role\RoleHierarchyInterface;
 
@@ -16,16 +16,22 @@ final class WorkflowAccessPolicy
 	public function __construct(
 		private readonly DigitalAssetAccessPolicy $siteAccess,
 		private readonly RoleHierarchyInterface $roleHierarchy,
+		private readonly ?SiteAccessPolicy $siteAccessPolicy = null,
 	) {
 	}
 
 	public function isGlobalAdmin(User $user): bool
 	{
-		return $this->siteAccess->isGlobalAdmin($user);
+		return null !== $this->siteAccessPolicy ?
+			$this->siteAccessPolicy->isGlobalAdmin($user) :
+			$this->siteAccess->isGlobalAdmin($user);
 	}
 
 	public function canManageSite(User $user, Site $site): bool
 	{
+		if (null !== $this->siteAccessPolicy) {
+			return $this->siteAccessPolicy->canManageSite($user, $site, ['ROLE_SITE_MANAGER', 'ROLE_ADMIN', 'ROLE_SYSTEM']);
+		}
 		if ($this->isGlobalAdmin($user)) {
 			return true;
 		}
@@ -33,7 +39,7 @@ final class WorkflowAccessPolicy
 		if (null === $siteId) {
 			return false;
 		}
-		$roles = UserRoleManager::convertEnumsToStrings($user->getRegistrationRoles($siteId));
+		$roles = \iikiti\CMS\Manager\UserRoleManager::convertEnumsToStrings($user->getRegistrationRoles($siteId));
 		$reachableRoles = $this->roleHierarchy->getReachableRoleNames(array_values($roles));
 
 		return in_array('ROLE_SITE_MANAGER', $reachableRoles, true) ||
@@ -74,11 +80,14 @@ final class WorkflowAccessPolicy
 
 	public function canActAsSiteRole(User $user, Site $site, string $roleKey): bool
 	{
+		if (null !== $this->siteAccessPolicy) {
+			return $this->siteAccessPolicy->hasSiteRole($user, $site, $roleKey);
+		}
 		$siteId = $site->getId();
 		if (null === $siteId) {
 			return false;
 		}
-		$roles = UserRoleManager::convertEnumsToStrings($user->getRegistrationRoles($siteId));
+		$roles = \iikiti\CMS\Manager\UserRoleManager::convertEnumsToStrings($user->getRegistrationRoles($siteId));
 		$reachableRoles = $this->roleHierarchy->getReachableRoleNames(array_values($roles));
 
 		return in_array($roleKey, $reachableRoles, true);

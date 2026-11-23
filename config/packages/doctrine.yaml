@@ -19,6 +19,11 @@ doctrine:
                 type: attribute
                 dir: '%kernel.project_dir%/src/Search/Entity'
                 prefix: 'iikiti\CMS\Search\Entity'
+            iikiti_unknown_objects:
+                is_bundle: false
+                type: attribute
+                dir: '%kernel.cache_dir%/iikiti_unknown_objects'
+                prefix: 'iikiti\CMS\Generated\UnknownDbObject'
         dql:
             string_functions:
               JSON_EXTRACT_PATH: Scienta\DoctrineJsonFunctions\Query\AST\Functions\Postgresql\JsonExtractPath

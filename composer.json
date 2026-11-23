@@ -106,7 +106,18 @@
     },
     "autoload": {
         "psr-4": {
-            "iikiti\\CMS\\": "src/"
+            "iikiti\\CMS\\": "src/",
+            "iikiti\\Extension\\Forma2026\\": "plugins/forma-2026/src/",
+            "iikiti\\Extension\\ConsentManagement\\": "plugins/consent-management/src/",
+            "iikiti\\Extension\\ContentOptimization\\": "plugins/iikiti-content-optimization/src/",
+            "iikiti\\Extension\\CspReporting\\": "plugins/iikiti-csp-reporting/src/",
+            "iikiti\\Extension\\MfaTotp\\": "plugins/iikiti-mfa-totp/src/",
+            "iikiti\\Extension\\MfaEmail\\": "plugins/iikiti-mfa-email/src/",
+            "iikiti\\Extension\\MfaBackupCodes\\": "plugins/iikiti-mfa-backup-codes/src/",
+            "iikiti\\Extension\\IconsLucide\\": "plugins/iikiti-icons-lucide/src/",
+            "iikiti\\Extension\\Embeds\\": "plugins/iikiti-embeds/src/",
+            "iikiti\\Extension\\CustomCss\\": "plugins/iikiti-custom-css/src/",
+            "iikiti\\Extension\\Forms\\": "plugins/iikiti-forms/src/"
         },
 		"classmap": ["config/"]
     },

@@ -14,6 +14,7 @@ use iikiti\CMS\Entity\Workflow\WorkflowInstance;
 use iikiti\CMS\Entity\Workflow\WorkflowInstanceEvent;
 use iikiti\CMS\Entity\Workflow\WorkflowTask;
 use iikiti\CMS\Event\WorkflowInstanceResumedEvent;
+use iikiti\CMS\Plugin\PluginActivationChecker;
 use iikiti\CMS\Service\DigitalAssetProcessorRegistry;
 use iikiti\CMS\Workflow\Action\WorkflowActionContext;
 use iikiti\CMS\Workflow\Action\WorkflowTransitionActionRegistry;
@@ -40,6 +41,7 @@ final class WorkflowInstanceManager implements WorkflowInstanceManagerInterface
 		private readonly WorkflowAccessPolicy $accessPolicy,
 		private readonly DigitalAssetProcessorRegistry $assetProcessors,
 		private readonly EventDispatcherInterface $eventDispatcher,
+		private readonly ?PluginActivationChecker $activationChecker = null,
 	) {
 	}
 
@@ -436,7 +438,7 @@ final class WorkflowInstanceManager implements WorkflowInstanceManagerInterface
 			throw new \LogicException('Only the enabled current workflow definition version can start new instances.');
 		}
 		if ('plugin' === $definition->getOwnerType() &&
-			(null === $site || !$site->getConfiguration()->isPluginActive($definition->getOwnerKey()))) {
+			(null === $site || !($this->activationChecker?->isActiveForSite($definition->getOwnerKey(), $site) ?? $site->getConfiguration()->isPluginActive($definition->getOwnerKey())))) {
 			throw new AccessDeniedHttpException('The workflow plugin is not active for this site.');
 		}
 		if (null === $site) {
@@ -557,7 +559,7 @@ final class WorkflowInstanceManager implements WorkflowInstanceManagerInterface
 		$site = $instance->getSite();
 
 		return null !== $site &&
-			$site->getConfiguration()->isPluginActive($definition->getOwnerKey());
+			($this->activationChecker?->isActiveForSite($definition->getOwnerKey(), $site) ?? $site->getConfiguration()->isPluginActive($definition->getOwnerKey()));
 	}
 
 	private function isFinalMarking(WorkflowInstance $instance): bool

@@ -14,10 +14,34 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ## [Unreleased]
 
-> Last updated: 2026-11-22
+> Last updated: 2026-11-23
+
+### Security
+
+- 2026-11-23: Hardened plugin asset serving (`PublicPluginAssetController`, `PluginAssetController`, `PublicAssetApiProxy`) with strict relative path segment validation and a static asset extension/MIME allowlist.
+- 2026-11-23: Hardened `iikiti-embeds` (`EmbedResolver`, `GenericVideoProvider`, `video_embed.twig`, and editor preview components) against non-`http(s)` URL schemes, host suffix spoofing, and unbounded synchronous oEmbed responses.
+- 2026-11-23: Bounded and sanitized untrusted inputs in `CspReportController` (16 KB payload limit and field clamping), `SecurityHeaderPolicy::applyCspContributors()`, `UnknownDbObjectClassGenerator`, `DynamicDiscriminatorMapListener`, `CustomCssCompiler`/`PlainCssCompiler`, `PublicPageApiProxy::renderStyles()`, and `PrivacyConfigController` (paired with `#[RequiresPlugin('consent-management')]` and elevated `RequiresPluginSubscriber` priority).
+
+### Changed
+
+- 2026-11-23: Switched workflow and Content Optimization activation checks (`DigitalAssetWorkflowManager`, `MfaWorkflowDefinitionResolver`, `WorkflowInteractiveDefinitionResolver`, `WorkflowInstanceManager`, `AnalyticsConnectorRegistry`, `AnalyticsDescriptorResolver`, `ContentOptimizationSettingsController`, `PublicDiscoveryDocumentGenerator`) to `PluginActivationChecker`; moved `HomepageSeoAccessPolicy` into `plugins/iikiti-content-optimization/`.
+- 2026-11-23: Returned the generic `icon` block type, `templates/blocks/icon.twig`, and `IconPreview.svelte` to Core while keeping Lucide icon/webfont assets in `plugins/iikiti-icons-lucide/`, made `BlockTypeRegistry` lazy and resettable (`ResetInterface`), and replaced the hardcoded `'forma-2026'` check in `TemplateRenderer::resolveLayoutTemplate()` with dynamic plugin-namespace matching.
+- 2026-11-23: Documented in `AGENTS.md` that `vendor/bin/phpunit` and DB-connecting Doctrine commands must be executed outside the sandbox (`BypassSandbox: true`) so integration tests can reach local PostgreSQL (`127.0.0.1:5432`).
+
+### Fixed
+
+- 2026-11-23: Fixed the PostgreSQL `CREATE SEQUENCE` / `nextval()` syntax in `migrations/Version20261114120000.php`.
+- 2026-11-23: Tightened `ContentOptimizationPageRenderContributor` consent detection so unrelated `body_before` fragments do not imply `consent-management` banner availability.
+- 2026-11-23: Preserved block `widgetClass` and `elementId` on `checkbox`/`radio` previews in `FormFieldPreview.svelte`, moved `cssFormat.test.js` to `tests/js/cssFormat.test.mjs`, added `Version20261123010000.php` to `phpstan.neon`, and updated `docs/core-vs-plugins.md`, `docs/database-objects.md`, and `docs/mfa-workflow.md`.
+- 2026-11-23: Wrapped speculative discriminator queries in `DynamicDiscriminatorMapListener` and `PluginManager::syncDiscriminators()` in database savepoints (and parameterized the `slug` lookup) so pre-migration schemas never abort active PostgreSQL transactions (`SQLSTATE[25P02]`).
+- 2026-11-23: Updated `McpApiRegistryWiringTest` to assert form endpoints under `iikiti.plugin.iikiti-forms.read_forms.*` after moving `MultiStepFormController` into `plugins/iikiti-forms/`.
 
 ### Added
 
+- 2026-11-22: Documented the Core-vs-Plugins boundary, extension point matrix, activation modes/scopes, and ESM import map architecture in `docs/core-vs-plugins.md`.
+- 2026-11-22: Added plugin extensibility contracts across persistence (`#[DbObjectDiscriminator]`, `DbObjectSubtypeProviderInterface`, `UnknownDbObject` proxy fallback), lifecycle (`activation_mode`, `scope`, `#[RequiresPlugin]`, `PluginActivationChecker`, `PluginOwnedAdminExtensionInterface`), routing (`RouteContextContributorInterface`), security/crypto (`SiteAccessPolicy`, `ApplicationKeyRotatorInterface`, `CspDirectiveContributorInterface`, `AuditActionProviderInterface`), rendering/editor (`PageRenderContributorInterface`, `EditorSettingsContextContributorInterface`, `EditorSettingsHandlerInterface`, `FrontendConfigContributorInterface`, `TemplateRenderPrefetchInterface`, `BlockTreeValidatorInterface`, `ResponseFilterInterface`, `CommonBlockFields`, `registerBlockPreview`), icons/CSS (`FontIconSetInterface`, `IconFontStylesheetProviderInterface`, `PluginCustomCssCompilerInterface`, `DelegatingCustomCssCompiler`, `PlainCssCompiler`), and workflows (`FlowProviderInterface`).
+- 2026-11-22: Added native ES module Svelte 5 import map builds (`assets/build/build-esm.mjs`, `ImportMapTwigExtension`) and public plugin asset serving (`PublicPluginAssetController` at `/plugin-assets/{slug}/{path}` with Consumer API proxy support).
+- 2026-11-22: Extracted first-party monorepo plugins under `plugins/` for CSP reporting (`iikiti-csp-reporting`), MFA factors (`iikiti-mfa-totp`, `iikiti-mfa-email`, `iikiti-mfa-backup-codes`), Lucide icons (`iikiti-icons-lucide`), media/social embeds (`iikiti-embeds`), custom CSS/SCSS (`iikiti-custom-css`), and form blocks/workflows (`iikiti-forms`).
 - 2026-11-22: Added `RouteContextClassifier` to centralize route-classification rules shared by `Initializer` and `SiteRegistry`, and `HomepageSeoAccessPolicy` to unify homepage SEO authorization between `PageRendering` and `EditorStateController`.
 - 2026-11-22: Added `PageRepository::findSitemapBatchForSite()` keyset-paginated DBAL query and `cache.rendered_fragments` caching for `robots.txt` and `sitemap.xml`, plus `HEAD` support and `Cache-Control: public, max-age=300`.
 - 2026-11-22: Added kernel wiring, discovery controller, consent banner, and content optimization editor unit/integration tests.
@@ -100,6 +124,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Changed
 
+- 2026-11-22: Decoupled Core (`src/`, `assets/`, `templates/`) from `forma-2026`, `consent-management`, `iikiti-content-optimization`, CSP reporting, MFA factor implementations, Lucide icons, media/social embeds, SCSS compilation/CodeMirror CSS editor UI, and form blocks/multi-step workflow UI; removed legacy webpack dependencies (`ts-loader`, `sass`, `sass-loader`, `autoprefixer`, `cash-dom`, `@hotwired/stimulus`, `purgecss-webpack-plugin`, `file-loader`) and dead `TestController`.
 - 2026-11-22: Optimized async public page rendering to keep single uncached top-level widgets inline in Wave 1, omit fully-slotted region/shell stubs from manifests, inline pure-static providers (`InlineableFragmentProviderInterface`, including `forma-2026.theme-styles`), skip manifest-only state and redundant API-side DOM parsing during fragment/manifest rendering, and cache short-lived session API tokens (60s TTL, 401 refresh, logout revocation).
 - 2026-11-22: Added lazy single-pass `DomHtmlResponse` serialization through `OutputParser`, `cache.app` content-hash caching for `InlineCssFilter`, `InlineJavaScriptFilter`, and `ResponseHeaderStore`, `resolveValidated()` in `ResponseHeaderResolver`, recursive DOM traversal in `HtmlFilter`, and cached eager-loaded property queries in `TemplateRepository`, `SiteRepository`, `ApplicationRepository`, and `ShellRepository`.
 - 2026-11-22: Lazily load `analytics-loader.js` only on pages emitting `#iikiti-analytics-config`, upgrade Clarity consent calls to `consentv2`, and forward `X-Forwarded-Proto` from `PublicPageApiProxy` so TLS-terminating Consumer proxies preserve `https://` canonicals via `TRUSTED_PROXIES`.

@@ -14,7 +14,7 @@
 {% endblock %}
 
 {% block head_js %}
-    {{ encore_entry_script_tags('admin', attributes={ defer: true }) }}
+    <script type="module" src="{{ iikiti_esm_entry('admin')|escape('html_attr') }}"></script>
 {% endblock %}
 
 {% block body %}

@@ -1,0 +1,14 @@
+{
+  "name": "iikiti MFA TOTP",
+  "slug": "iikiti-mfa-totp",
+  "namespace": "iikiti\\Extension\\MfaTotp",
+  "bundle_class": "iikiti\\Extension\\MfaTotp\\MfaTotpBundle",
+  "version": "1.0.0",
+  "iikiti_version": "^1.0",
+  "activation_mode": "default_on",
+  "scope": "both",
+  "description": "Authenticator app (RFC 6238 TOTP) multi-factor authentication provider.",
+  "authors": [{ "name": "iikiti" }],
+  "license": "MIT",
+  "edition": "standard"
+}

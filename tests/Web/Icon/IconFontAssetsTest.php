@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace iikiti\CMS\Tests\Web\Icon;
 
 use iikiti\CMS\Web\Icon\IconFontAssets;
+use iikiti\CMS\Web\Icon\IconFontStylesheetProviderInterface;
+use iikiti\Extension\IconsLucide\Icon\LucideIconFontProvider;
 use PHPUnit\Framework\TestCase;
 
 final class IconFontAssetsTest extends TestCase
@@ -35,8 +37,26 @@ final class IconFontAssetsTest extends TestCase
 		self::assertTrue($assets->shouldLink(true));
 	}
 
-	public function testStylesheetPathIsRelativeToBuildOutput(): void
+	public function testCollectsStylesheetPathsFromTaggedProviders(): void
 	{
-		self::assertSame('build/vendor/lucide-font/lucide.css', IconFontAssets::STYLESHEET_PATH);
+		$custom = new class implements IconFontStylesheetProviderInterface {
+			public function getFontStylesheetPath(): string
+			{
+				return '/plugin-assets/custom/font.css';
+			}
+		};
+		$inactive = new class implements IconFontStylesheetProviderInterface {
+			public function getFontStylesheetPath(): ?string
+			{
+				return null;
+			}
+		};
+
+		$assets = new IconFontAssets(true, [new LucideIconFontProvider(), $inactive, $custom, new LucideIconFontProvider()]);
+
+		self::assertSame([
+			'/plugin-assets/iikiti-icons-lucide/font/lucide.css',
+			'/plugin-assets/custom/font.css',
+		], $assets->getStylesheetPaths());
 	}
 }

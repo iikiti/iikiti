@@ -3,6 +3,7 @@
 namespace iikiti\CMS\Security;
 
 use iikiti\CMS\Entity\Object\ApiToken;
+use iikiti\CMS\Registry\RouteContextClassifier;
 use iikiti\CMS\Repository\Object\ApiTokenRepository;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -17,10 +18,14 @@ use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPasspor
 
 class ApiTokenAuthenticator extends AbstractAuthenticator
 {
+	private readonly RouteContextClassifier $routeClassifier;
+
 	public function __construct(
 		private ApiTokenRepository $apiTokenRepository,
 		private GuestApiTokenManager $guestTokens,
+		?RouteContextClassifier $routeClassifier = null,
 	) {
+		$this->routeClassifier = $routeClassifier ?? new RouteContextClassifier();
 	}
 
 	public function supports(Request $request): ?bool
@@ -37,12 +42,7 @@ class ApiTokenAuthenticator extends AbstractAuthenticator
 		if (str_starts_with($apiToken, 'guest1.') || str_starts_with($apiToken, 'guest2.')) {
 			$guest = $this->guestTokens->decode($apiToken);
 			$path = $request->getPathInfo();
-			$isPublicRenderPath = str_starts_with($path, '/api/public/render/') ||
-				str_starts_with($path, '/api/public/assets/') ||
-				in_array($path, [
-					'/api/public/content-optimization/robots',
-					'/api/public/content-optimization/sitemap',
-				], true);
+			$isPublicRenderPath = $this->routeClassifier->isGuestTokenAllowedPath($path);
 			if (null === $guest ||
 				!in_array($request->getMethod(), ['GET', 'HEAD'], true) ||
 				!$isPublicRenderPath) {

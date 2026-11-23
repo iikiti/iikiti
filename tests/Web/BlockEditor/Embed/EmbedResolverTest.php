@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace iikiti\CMS\Tests\Web\BlockEditor\Embed;
 
 use iikiti\CMS\Async\FiberTaskRunner;
-use iikiti\CMS\Web\BlockEditor\Embed\EmbedResolver;
-use iikiti\CMS\Web\BlockEditor\Embed\Provider\GenericVideoProvider;
-use iikiti\CMS\Web\BlockEditor\Embed\Provider\VimeoProvider;
-use iikiti\CMS\Web\BlockEditor\Embed\Provider\YouTubeProvider;
+use iikiti\Extension\Embeds\Embed\EmbedResolver;
+use iikiti\Extension\Embeds\Embed\Provider\GenericVideoProvider;
+use iikiti\Extension\Embeds\Embed\Provider\VimeoProvider;
+use iikiti\Extension\Embeds\Embed\Provider\YouTubeProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
@@ -121,5 +121,28 @@ final class EmbedResolverTest extends TestCase
 		$html = $resolver->resolve('https://twitter.com/example/status/1');
 
 		self::assertStringContainsString('fiber', $html);
+	}
+
+	public function testRejectsDangerousLinkCardSchemesAndLookalikeHosts(): void
+	{
+		$requested = [];
+		$http = new MockHttpClient(static function (string $method, string $url, array $options) use (&$requested): MockResponse {
+			$requested[] = [$url, $options['max_redirects'] ?? null];
+
+			return new MockResponse(json_encode(['html' => '<blockquote cite="https://twitter.com/example/status/9">ok</blockquote>'], JSON_THROW_ON_ERROR));
+		});
+		$resolver = new EmbedResolver([], $http, new ArrayAdapter());
+
+		$jsCard = $resolver->resolve('javascript:alert(1)');
+		self::assertStringStartsWith('<span ', $jsCard);
+		self::assertStringNotContainsString('href=', $jsCard);
+
+		$lookalike = $resolver->resolve('https://eviltwitter.com/example/status/1');
+		self::assertStringContainsString('<a href="https://eviltwitter.com/example/status/1"', $lookalike);
+		self::assertSame([], $requested);
+
+		$syncOembed = $resolver->resolve('https://twitter.com/example/status/9', ['width' => 500]);
+		self::assertStringContainsString('blockquote', $syncOembed);
+		self::assertSame([0], array_column($requested, 1));
 	}
 }

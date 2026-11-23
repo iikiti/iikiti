@@ -1,0 +1,14 @@
+{
+  "name": "iikiti CSP Reporting",
+  "slug": "iikiti-csp-reporting",
+  "namespace": "iikiti\\Extension\\CspReporting",
+  "bundle_class": "iikiti\\Extension\\CspReporting\\CspReportingBundle",
+  "version": "1.0.0",
+  "iikiti_version": "^1.0",
+  "activation_mode": "default_on",
+  "scope": "application",
+  "description": "Collects browser Content-Security-Policy violation reports and advertises the default report-uri directive.",
+  "authors": [{ "name": "iikiti" }],
+  "license": "MIT",
+  "edition": "standard"
+}

@@ -16,6 +16,8 @@
 ###> symfony/webpack-encore-bundle ###
 /node_modules/
 /public/build/
+/plugins/*/public/dist/
+/plugins/iikiti-icons-lucide/public/font/
 npm-debug.log
 yarn-error.log
 ###< symfony/webpack-encore-bundle ###

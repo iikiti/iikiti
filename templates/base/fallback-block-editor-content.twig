@@ -1,0 +1,42 @@
+{#
+  Theme-agnostic structural fallback used when no theme plugin supplies
+  `@Forma2026/default-block-editor-content.twig`.
+#}
+{% set headers = iikiti_shells.header|default([]) %}
+{% set sidebars = iikiti_shells.aside|default([]) %}
+{% set footers = iikiti_shells.footer|default([]) %}
+{% set dialogs = iikiti_shells.dialog|default([]) %}
+
+<div class="iikiti-page-shell">
+    {% if headers is not empty %}
+        <header data-iikiti-bar="top" data-iikiti-bar-order="1">
+            {% for html in headers %}
+                {{ iikiti_region('header-' ~ loop.index, 'header', 'Header', [], html|raw) }}
+            {% endfor %}
+        </header>
+    {% endif %}
+
+    <main id="main-content" tabindex="-1">
+        {{ iikiti_region('main', 'main', 'Main content', [], region_main|default('')) }}
+    </main>
+
+    {% if sidebars is not empty %}
+        <aside aria-label="Additional content">
+            {% for html in sidebars %}
+                {{ iikiti_region('aside-' ~ loop.index, 'sidebar', 'Sidebar', [], html|raw) }}
+            {% endfor %}
+        </aside>
+    {% endif %}
+
+    {% if footers is not empty %}
+        <footer data-iikiti-bar="bottom">
+            {% for html in footers %}
+                {{ iikiti_region('footer-' ~ loop.index, 'footer', 'Footer', [], html|raw) }}
+            {% endfor %}
+        </footer>
+    {% endif %}
+
+    {% for html in dialogs %}
+        {{ html|raw }}
+    {% endfor %}
+</div>

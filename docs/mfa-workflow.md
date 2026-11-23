@@ -111,8 +111,8 @@ The same mechanism powers any form flow, not only MFA.
   a policy fingerprint, not a durable `WorkflowInstance` row.
 - `MultiStepFormRunner` — shared orchestration (`submitRequest()` returns a
   `FormSubmissionResult`).
-- `MultiStepFormController` (`/forms/{workflow}`) — code/provider-defined form
-  flows; `/forms/db/{workflow}` runs a site-assigned, version-pinned DB graph
+- `MultiStepFormController` (`/api/forms/{workflow}`, provided by `plugins/iikiti-forms/`) — code/provider-defined form
+  flows; `/api/forms/db/{workflow}` runs a site-assigned, version-pinned DB graph
   with session-backed markings.
 
 ### Dynamic (user-built) forms
@@ -140,7 +140,7 @@ contains:
 }
 ```
 
-The generic routes `/forms/{workflow}` and `/forms/db/{workflow}` are gated by
+The generic routes `/api/forms/{workflow}` and `/api/forms/db/{workflow}` are gated by
 `IS_AUTHENTICATED_FULLY`. MFA-specific graphs are selected by the site and persisted as immutable
 definition versions. Definition updates create new versions; an in-flight MFA
 challenge is discarded and restarted if either the graph version or effective

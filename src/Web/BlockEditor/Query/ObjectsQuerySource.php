@@ -7,6 +7,7 @@ namespace iikiti\CMS\Web\BlockEditor\Query;
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Entity\ObjectProperty;
+use iikiti\CMS\Entity\UnknownDbObject;
 use Psr\Cache\CacheItemPoolInterface;
 use iikiti\CMS\Service\DatabaseCacheManager;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -128,7 +129,10 @@ final class ObjectsQuerySource implements QuerySourceInterface
 
 		$qb->setMaxResults($definition->getLimit());
 
-		return $qb->getQuery()->getResult();
+		return array_values(array_filter(
+			$qb->getQuery()->getResult(),
+			static fn (DbObject $row): bool => !$row instanceof UnknownDbObject,
+		));
 	}
 
 	private function aliasFor(string $field): string

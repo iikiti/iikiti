@@ -30,10 +30,18 @@ final readonly class PluginActionRegistry
 	public function getActivePluginsForSite(Site $site): array
 	{
 		$installed = $this->getInstalledPlugins();
+		$configuration = $site->getConfiguration();
+		$activeSlugs = $configuration->getActivePlugins();
+		$inactiveSlugs = $configuration->getInactivePlugins();
 		$active = [];
-		foreach ($site->getConfiguration()->getActivePlugins() as $slug) {
-			if (isset($installed[$slug])) {
-				$active[$slug] = $installed[$slug];
+		foreach ($installed as $slug => $manifest) {
+			$isActive = match ($manifest->activationMode) {
+				PluginManifest::ACTIVATION_REQUIRED => true,
+				PluginManifest::ACTIVATION_DEFAULT_ON => !in_array($slug, $inactiveSlugs, true),
+				default => in_array($slug, $activeSlugs, true) && !in_array($slug, $inactiveSlugs, true),
+			};
+			if ($isActive) {
+				$active[$slug] = $manifest;
 			}
 		}
 

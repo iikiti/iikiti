@@ -11,6 +11,7 @@ use iikiti\CMS\Async\FiberHttpClient;
 use iikiti\CMS\Async\FiberTaskRunner;
 use iikiti\CMS\Filters\InlineAssetMinificationOptions;
 use iikiti\CMS\Profiler\AsyncResponseDataCollector;
+use iikiti\CMS\Registry\RouteContextClassifier;
 use iikiti\CMS\Response\Composition\DomHtmlResponse;
 use iikiti\CMS\Response\Composition\HtmlFragmentComposer;
 use iikiti\CMS\Security\GuestApiTokenManager;
@@ -25,6 +26,8 @@ final readonly class PublicPageApiProxy
 {
 	private const MAX_PROVIDER_BYTES_PER_PAGE = 8_388_608;
 
+	private readonly RouteContextClassifier $routeClassifier;
+
 	public function __construct(
 		private BusinessApiClient $api,
 		private ApiSessionTokenProvider $sessionTokens,
@@ -33,7 +36,9 @@ final readonly class PublicPageApiProxy
 		private ?AsyncResponseDataCollector $profiler = null,
 		private ?LoggerInterface $logger = null,
 		private ?HttpErrorPageRenderer $errorPages = null,
+		?RouteContextClassifier $routeClassifier = null,
 	) {
+		$this->routeClassifier = $routeClassifier ?? new RouteContextClassifier();
 	}
 
 	public function home(Request $request): Response
@@ -46,22 +51,9 @@ final readonly class PublicPageApiProxy
 		return $this->render($request, '/api/public/render/pages/'.rawurlencode($slug));
 	}
 
-	public function robots(Request $request): Response
+	public function proxyJsonDocument(Request $request, string $apiPath, string $expectedContentType): Response
 	{
-		return $this->proxyDiscoveryDocument(
-			$request,
-			'/api/public/content-optimization/robots',
-			'text/plain; charset=UTF-8',
-		);
-	}
-
-	public function sitemap(Request $request): Response
-	{
-		return $this->proxyDiscoveryDocument(
-			$request,
-			'/api/public/content-optimization/sitemap',
-			'application/xml; charset=UTF-8',
-		);
+		return $this->proxyDiscoveryDocument($request, $apiPath, $expectedContentType);
 	}
 
 	public function fragment(Request $request, string $provider): Response
@@ -179,6 +171,9 @@ final readonly class PublicPageApiProxy
 				InlineAssetMinificationOptions::REQUEST_ATTRIBUTE,
 				$manifest['inline_asset_minification'],
 			);
+			if ([] !== $manifest['filter_options']) {
+				$request->attributes->set('_iikiti_response_filter_options', $manifest['filter_options']);
+			}
 
 			$renderedFragments = [];
 			$mainDescriptor = null;
@@ -408,12 +403,16 @@ final readonly class PublicPageApiProxy
 		return false;
 	}
 
-	/** @return array{html:string,styles:list<array{id:?string,css:string}>,editor_mode:bool,revision:string,fragments:list<array<string,mixed>>,inline_asset_minification:array{css_minify:bool,js_minify:bool,js_uglify:bool}}|null */
+	/** @return array{html:string,styles:list<array{id:?string,css:string}>,editor_mode:bool,revision:string,fragments:list<array<string,mixed>>,inline_asset_minification:array{css_minify:bool,js_minify:bool,js_uglify:bool},filter_options:array<string,mixed>} */
 	private function normalizeManifest(mixed $manifest): ?array
 	{
-		$inlineAssetOptions = is_array($manifest) ?
-			InlineAssetMinificationOptions::fromArray($manifest['inline_asset_minification'] ?? null) :
+		$filterOptions = is_array($manifest) && is_array($manifest['filter_options'] ?? null) ?
+			$manifest['filter_options'] :
+			[];
+		$rawInlineAssetMinification = is_array($manifest) ?
+			($manifest['inline_asset_minification'] ?? ($filterOptions['inline_asset_minification'] ?? null)) :
 			null;
+		$inlineAssetOptions = InlineAssetMinificationOptions::fromArray($rawInlineAssetMinification);
 		if (!is_array($manifest) ||
 			!is_string($manifest['html'] ?? null) ||
 			!is_bool($manifest['editor_mode'] ?? null) ||
@@ -545,6 +544,7 @@ final readonly class PublicPageApiProxy
 			'revision' => $manifest['revision'],
 			'fragments' => $fragments,
 			'inline_asset_minification' => $inlineAssetOptions->toArray(),
+			'filter_options' => $filterOptions,
 		];
 	}
 
@@ -662,7 +662,7 @@ final readonly class PublicPageApiProxy
 		$stylesById = [];
 		$seenCss = [];
 		foreach ($styles as $style) {
-			$css = $this->rewriteAssetUrls($style['css'], $siteHost);
+			$css = str_ireplace('</style', '\\3C /style', $this->rewriteAssetUrls($style['css'], $siteHost));
 			$key = $editorMode ? (string) $style['id'] : '';
 			if (!isset($stylesById[$key])) {
 				$stylesById[$key] = [];
@@ -739,7 +739,15 @@ final readonly class PublicPageApiProxy
 
 	private function rewriteAssetUrls(string $html, string $siteHost): string
 	{
-		if (false === stripos($html, '/assets/') && false === stripos($html, '/api/forms/')) {
+		$prefixes = $this->routeClassifier->getConsumerUrlRewritePrefixes();
+		$hasPrefix = false;
+		foreach ($prefixes as $prefix) {
+			if (false !== stripos($html, $prefix)) {
+				$hasPrefix = true;
+				break;
+			}
+		}
+		if (false === stripos($html, '/assets/') && !$hasPrefix) {
 			return $html;
 		}
 
@@ -753,14 +761,17 @@ final readonly class PublicPageApiProxy
 				$html,
 			) ?? $html;
 		}
-		if (false !== stripos($html, '/api/forms/')) {
-			$html = preg_replace_callback(
-				'~(?<prefix>["\'=(\s])(/api/forms/[a-z0-9_./-]+(?:\?[^"\'\s>]*)?)~i',
-				function (array $match): string {
-					return $match['prefix'].$this->api->getBaseUrl().$match[2];
-				},
-				$html,
-			) ?? $html;
+		foreach ($prefixes as $prefix) {
+			if (false !== stripos($html, $prefix)) {
+				$quotedPrefix = preg_quote(rtrim($prefix, '/').'/', '~');
+				$html = preg_replace_callback(
+					'~(?<prefix>["\'=(\s])('.$quotedPrefix.'[a-z0-9_./-]+(?:\?[^"\'\s>]*)?)~i',
+					function (array $match): string {
+						return $match['prefix'].$this->api->getBaseUrl().$match[2];
+					},
+					$html,
+				) ?? $html;
+			}
 		}
 
 		return $html;

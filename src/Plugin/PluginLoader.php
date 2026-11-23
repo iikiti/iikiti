@@ -161,6 +161,16 @@ class PluginLoader
 	}
 
 	/**
+	 * Public accessor for built-in plugins shipped under `plugins/`.
+	 *
+	 * @return list<array{manifest: PluginManifest, path: string, installInfo: PluginInstallInfo, allowReservedNamespace: bool}>
+	 */
+	public function discoverBundled(): array
+	{
+		return $this->discoverBundledPlugins();
+	}
+
+	/**
 	 * Load first-party plugin packages shipped with the application. These are
 	 * always active core components and do not use the install/activation symlink
 	 * lifecycle reserved for downloaded plugins.

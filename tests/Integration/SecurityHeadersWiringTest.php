@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace iikiti\CMS\Tests\Integration;
 
 use iikiti\CMS\Controller\Api\Admin\ResponseHeadersController;
-use iikiti\CMS\Controller\Api\Internal\CspReportController;
 use iikiti\CMS\Event\Subscriber\SecurityHeadersSubscriber;
+use iikiti\Extension\CspReporting\Controller\Api\Internal\CspReportController;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class SecurityHeadersWiringTest extends KernelTestCase

@@ -29,14 +29,6 @@ Encore
             from: './node_modules/@js-temporal/polyfill/dist/',
             to: 'vendor/temporal-polyfill/[name].[ext]',
         },
-        {
-            // Lucide icon font (ISC, lucide-static). Copied whole so the relative
-            // font URLs in lucide.css still resolve; linked only when a page uses
-            // an icon block with renderer=font (see IconFontAssets).
-            from: './node_modules/lucide-static/font/',
-            to: 'vendor/lucide-font/[name].[ext]',
-            pattern: /\.(css|woff2?|ttf)$/,
-        },
     ])
 
     /*
@@ -47,12 +39,10 @@ Encore
      */
     .addStyleEntry('tailwind', './assets/styles/app.css')
     .addEntry('iikiti', './assets/js/iikiti/index.js')
-    .addEntry('consent-manager', './plugins/consent-management/assets/consent-manager.js')
-    .addEntry('consent-banner', './plugins/consent-management/assets/consent-banner.js')
-    // `admin` is the standalone admin SPA (loaded on /admin). The front-end
-    // editor chunk is produced on demand by webpack code-splitting when
-    // `iikiti` dynamically imports `./svelte/editor/mount`.
-    .addEntry('admin', './assets/admin.js')
+    // `admin` JS and the front-end `editor` mount build as native ESM via
+    // assets/build/build-esm.mjs (sharing the Svelte 5 runtime via import map);
+    // Encore compiles the admin CSS bundle and base runtime entries here.
+    .addStyleEntry('admin', './assets/styles/admin.css')
     .addStyleEntry('editor', './assets/svelte/editor/editor.css')
 
     // When enabled, Webpack "splits" your files into smaller pieces for greater optimization.

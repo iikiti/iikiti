@@ -26,6 +26,32 @@ final readonly class PublicAssetApiProxy
 
 	public function file(Request $request, string $publicToken, string $variant): Response
 	{
+		return $this->proxyPath($request, '/api/public/assets/'.$publicToken.'/'.$variant);
+	}
+
+	public function pluginAsset(Request $request, string $slug, string $path): Response
+	{
+		if (1 !== preg_match('/^[a-z0-9][a-z0-9-]{0,63}$/D', $slug)) {
+			return new Response('', Response::HTTP_NOT_FOUND);
+		}
+		if ('' === $path || str_starts_with($path, '/') || 1 === preg_match('/[\x00-\x1f\x7f\\\\?#]/', $path)) {
+			return new Response('', Response::HTTP_NOT_FOUND);
+		}
+
+		$segments = explode('/', $path);
+		$encodedSegments = [];
+		foreach ($segments as $segment) {
+			if ('' === $segment || '.' === $segment || '..' === $segment || str_starts_with($segment, '.')) {
+				return new Response('', Response::HTTP_NOT_FOUND);
+			}
+			$encodedSegments[] = rawurlencode($segment);
+		}
+
+		return $this->proxyPath($request, '/api/public/plugin-assets/'.$slug.'/'.implode('/', $encodedSegments));
+	}
+
+	private function proxyPath(Request $request, string $apiPath): Response
+	{
 		$siteHost = strtolower($request->getHost());
 		$guestToken = $this->guestTokens->issue($siteHost);
 		$headers = [
@@ -35,16 +61,16 @@ final readonly class PublicAssetApiProxy
 
 		try {
 			$result = $this->tasks->run([
-				'asset' => function (FiberHttpClient $http) use ($request, $publicToken, $variant, $siteHost, $guestToken, $headers): array {
+				'asset' => function (FiberHttpClient $http) use ($request, $apiPath, $siteHost, $guestToken, $headers): array {
 					$token = $this->sessionTokens->tokenFor($http, $request, $siteHost) ?? $guestToken;
 
 					return $this->api->requestRawAsync(
 						$http,
 						'GET',
-						'/api/public/assets/'.$publicToken.'/'.$variant,
+						$apiPath,
 						$token,
 						headers: $headers,
-					timeout: 30.0,
+						timeout: 30.0,
 					);
 				},
 			], 30.0)['asset'];
@@ -60,7 +86,7 @@ final readonly class PublicAssetApiProxy
 		}
 
 		$responseHeaders = [];
-		foreach (['content-type', 'content-disposition', 'cache-control', 'x-content-type-options', 'content-length', 'location', 'etag', 'last-modified'] as $name) {
+		foreach (['content-type', 'content-disposition', 'cache-control', 'x-content-type-options', 'content-security-policy', 'content-length', 'location', 'etag', 'last-modified'] as $name) {
 			$value = $result['headers'][$name][0] ?? null;
 			if (is_string($value)) {
 				$responseHeaders[$name] = $value;

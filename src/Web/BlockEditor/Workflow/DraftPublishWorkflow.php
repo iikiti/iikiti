@@ -7,10 +7,12 @@ namespace iikiti\CMS\Web\BlockEditor\Workflow;
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Entity\Object\Template;
+use iikiti\CMS\Entity\UnknownDbObject;
 use iikiti\CMS\Entity\Object\User;
-use iikiti\CMS\Web\BlockEditor\Render\FormBlockRule;
+use iikiti\CMS\Web\BlockEditor\Render\BlockTreeValidatorInterface;
 use iikiti\CMS\Web\BlockEditor\Render\RootContainerRule;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 /**
  * Default workflow: autosave writes a draft + bumps a draft version; publish
@@ -21,8 +23,22 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 #[AutoconfigureTag('iikiti.cms.save_workflow')]
 final class DraftPublishWorkflow implements SaveWorkflowInterface
 {
-	public function __construct(private readonly EntityManagerInterface $em)
-	{
+	/** @var list<BlockTreeValidatorInterface> */
+	private readonly array $treeValidators;
+
+	/**
+	 * @param iterable<BlockTreeValidatorInterface> $treeValidators
+	 */
+	public function __construct(
+		private readonly EntityManagerInterface $em,
+		#[AutowireIterator('iikiti.cms.block_tree_validator')]
+		iterable $treeValidators = [],
+	) {
+		$validators = [];
+		foreach ($treeValidators as $validator) {
+			$validators[] = $validator;
+		}
+		$this->treeValidators = $validators;
 	}
 
 	public function getName(): string
@@ -42,13 +58,15 @@ final class DraftPublishWorkflow implements SaveWorkflowInterface
 			];
 		}
 
-		$formViolation = FormBlockRule::firstViolation($tree);
-		if (null !== $formViolation) {
-			return [
-				'conflict' => false,
-				'error' => 'Form, fieldset, and legend blocks must follow the allowed form hierarchy.',
-				'violations' => [['region' => $formViolation->region, 'index' => $formViolation->index, 'type' => $formViolation->type]],
-			];
+		foreach ($this->treeValidators as $validator) {
+			$violation = $validator->validate($tree);
+			if (null !== $violation) {
+				return [
+					'conflict' => false,
+					'error' => $violation->message,
+					'violations' => [$violation->toArray()],
+				];
+			}
 		}
 
 		$object = $this->load($this->em, $contextType, $contextId);
@@ -104,7 +122,7 @@ final class DraftPublishWorkflow implements SaveWorkflowInterface
 		$repo = $em->getRepository($class);
 		$object = $repo->find($contextId);
 
-		return $object instanceof DbObject ? $object : null;
+		return ($object instanceof DbObject && !$object instanceof UnknownDbObject) ? $object : null;
 	}
 
 	private function currentVersion(DbObject $object, string $contextType): int

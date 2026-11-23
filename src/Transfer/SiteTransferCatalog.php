@@ -11,6 +11,7 @@ use Doctrine\ORM\Mapping\ClassMetadata;
 use iikiti\CMS\Doctrine\DatabaseTableNameResolver;
 use iikiti\CMS\Entity\AbstractDigitalAsset;
 use iikiti\CMS\Entity\DbObject;
+use iikiti\CMS\Entity\UnknownDbObject;
 use iikiti\CMS\Entity\Object\ApiToken;
 use iikiti\CMS\Entity\Object\Application;
 use iikiti\CMS\Entity\Object\Site;
@@ -157,7 +158,8 @@ final class SiteTransferCatalog
 
 	private function isExcludedType(string $class): bool
 	{
-		return in_array($class, [DbObject::class, User::class, ApiToken::class, UserGroup::class, SiteGroup::class, Application::class], true);
+		return is_subclass_of($class, UnknownDbObject::class)
+			|| in_array($class, [DbObject::class, User::class, ApiToken::class, UserGroup::class, SiteGroup::class, Application::class], true);
 	}
 
 	/** @param list<int> $objectIds

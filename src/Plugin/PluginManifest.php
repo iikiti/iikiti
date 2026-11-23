@@ -20,6 +20,14 @@ final class PluginManifest
 	public const EDITION_STANDARD = 'standard';
 	public const EDITION_PRO = 'pro';
 
+	public const ACTIVATION_REQUIRED = 'required';
+	public const ACTIVATION_DEFAULT_ON = 'default_on';
+	public const ACTIVATION_OPT_IN = 'opt_in';
+
+	public const SCOPE_SITE = 'site';
+	public const SCOPE_APPLICATION = 'application';
+	public const SCOPE_BOTH = 'both';
+
 	public function __construct(
 		public readonly string $name,
 		public readonly string $slug,
@@ -48,6 +56,10 @@ final class PluginManifest
 		public readonly array $actions = [],
 		/** @var list<string> action identifiers incompatible with this plugin */
 		public readonly array $actionConflicts = [],
+		public readonly string $activationMode = self::ACTIVATION_OPT_IN,
+		public readonly string $scope = self::SCOPE_SITE,
+		/** @var list<string> dependent Symfony bundle FQCNs */
+		public readonly array $requiredBundles = [],
 	) {
 	}
 
@@ -131,6 +143,9 @@ final class PluginManifest
 			}
 		}
 		[$actions, $actionConflicts] = self::parseActions($data['actions'] ?? null);
+		$activationMode = self::parseActivationMode($data['activation_mode'] ?? null);
+		$scope = self::parseScope($data['scope'] ?? null);
+		$requiredBundles = self::parseRequiredBundles($data['required_bundles'] ?? null);
 
 		return new self(
 			name: trim($data['name']),
@@ -151,7 +166,60 @@ final class PluginManifest
 			siteUi: self::parseUi($data['site_ui'] ?? null),
 			actions: $actions,
 			actionConflicts: $actionConflicts,
+			activationMode: $activationMode,
+			scope: $scope,
+			requiredBundles: $requiredBundles,
 		);
+	}
+
+	private static function parseActivationMode(mixed $value): string
+	{
+		if (null === $value) {
+			return self::ACTIVATION_OPT_IN;
+		}
+		if (!is_string($value) || !in_array($value, [self::ACTIVATION_REQUIRED, self::ACTIVATION_DEFAULT_ON, self::ACTIVATION_OPT_IN], true)) {
+			throw new InvalidManifestException('Plugin "activation_mode" must be one of "required", "default_on", or "opt_in".');
+		}
+
+		return $value;
+	}
+
+	private static function parseScope(mixed $value): string
+	{
+		if (null === $value) {
+			return self::SCOPE_SITE;
+		}
+		if (!is_string($value) || !in_array($value, [self::SCOPE_SITE, self::SCOPE_APPLICATION, self::SCOPE_BOTH], true)) {
+			throw new InvalidManifestException('Plugin "scope" must be one of "site", "application", or "both".');
+		}
+
+		return $value;
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	private static function parseRequiredBundles(mixed $value): array
+	{
+		if (null === $value) {
+			return [];
+		}
+		if (!is_array($value) || !array_is_list($value)) {
+			throw new InvalidManifestException('Plugin "required_bundles" must be a list of bundle class names.');
+		}
+		$bundles = [];
+		foreach ($value as $bundleClass) {
+			if (!is_string($bundleClass)) {
+				throw new InvalidManifestException('Plugin "required_bundles" entries must be valid PHP class names.');
+			}
+			$trimmed = ltrim($bundleClass, '\\');
+			if (1 !== preg_match('/^[A-Za-z_][A-Za-z0-9_]*(\\\\[A-Za-z_][A-Za-z0-9_]*)*$/', $trimmed)) {
+				throw new InvalidManifestException(sprintf('Plugin required bundle "%s" is not a valid PHP class name.', $bundleClass));
+			}
+			$bundles[] = $trimmed;
+		}
+
+		return array_values(array_unique($bundles));
 	}
 
 	/**
@@ -277,6 +345,9 @@ final class PluginManifest
 				'claims' => $this->actions,
 				'conflicts' => $this->actionConflicts,
 			],
+			'activation_mode' => $this->activationMode,
+			'scope' => $this->scope,
+			'required_bundles' => $this->requiredBundles,
 		];
 	}
 

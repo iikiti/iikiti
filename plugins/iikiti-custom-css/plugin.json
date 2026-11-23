@@ -1,0 +1,17 @@
+{
+  "name": "iikiti Custom CSS",
+  "slug": "iikiti-custom-css",
+  "namespace": "iikiti\\Extension\\CustomCss",
+  "bundle_class": "iikiti\\Extension\\CustomCss\\CustomCssBundle",
+  "version": "1.0.0",
+  "iikiti_version": "^1.0",
+  "activation_mode": "default_on",
+  "scope": "site",
+  "editor_ui": {
+    "entry": "/admin-plugins/iikiti-custom-css/dist/editor.js"
+  },
+  "description": "Scoped SCSS/CSS compiler and CodeMirror CSS editor control with plugin autocomplete.",
+  "authors": [{ "name": "iikiti" }],
+  "license": "MIT",
+  "edition": "standard"
+}

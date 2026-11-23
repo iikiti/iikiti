@@ -248,14 +248,15 @@ readonly class PluginProcessor implements ProcessorInterface
 	{
 		$plugin = $this->pluginManager->getInstalled()[$slug];
 		$manifest = $plugin['manifest'];
+		$builtIn = true === ($plugin['builtIn'] ?? false);
 
-		$this->validator->validateManifest($manifest, $plugin['installInfo']?->source->isTrusted() ?? false);
+		$this->validator->validateManifest($manifest, $builtIn || ($plugin['installInfo']?->source->isTrusted() ?? false));
 		PluginAutoloader::registerPlugin($manifest, $plugin['path']);
 		$this->validator->validateBundleClass($manifest, $plugin['path']);
 
 		$linkPath = $this->loader->getActivePath().'/'.$slug;
-		$active = is_link($linkPath);
-		if ($active) {
+		$active = $builtIn ? true : is_link($linkPath);
+		if (!$builtIn && $active) {
 			$this->validator->resolveSymlinkTarget($linkPath, $this->loader->getInstalledPath());
 		}
 

@@ -3,8 +3,8 @@
 namespace iikiti\CMS\Tests\Workflow\Step\Mfa;
 
 use iikiti\CMS\Authentication\Mail\MfaCodeMailerInterface;
-use iikiti\CMS\Authentication\Strategy\EmailTokenStrategy;
-use iikiti\CMS\Workflow\Step\Mfa\EmailVerificationStep;
+use iikiti\Extension\MfaEmail\Step\EmailVerificationStep;
+use iikiti\Extension\MfaEmail\Strategy\EmailTokenStrategy;
 use PHPUnit\Framework\TestCase;
 
 final class EmailVerificationStepTest extends TestCase

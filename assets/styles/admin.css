@@ -14,6 +14,7 @@
    the source roots explicitly (v4 respects @source before auto-scan). */
 @source "../svelte/admin/**/*.{svelte,ts}";
 @source "../admin.js";
+@source "../../plugins/*/assets/admin/**/*.{svelte,ts}";
 @source "../../templates/admin/**/*.twig";
 
 /* Class-based dark mode (manual toggle + localStorage + system default). */

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Tests\Web\BlockEditor\Render;
 
-use iikiti\CMS\Web\BlockEditor\Render\FormBlockRule;
+use iikiti\Extension\Forms\BlockEditor\FormBlockRule;
 use PHPUnit\Framework\TestCase;
 
 final class FormBlockRuleTest extends TestCase

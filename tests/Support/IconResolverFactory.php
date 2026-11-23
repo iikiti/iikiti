@@ -7,7 +7,7 @@ namespace iikiti\CMS\Tests\Support;
 use iikiti\CMS\Repository\IconRepository;
 use iikiti\CMS\Repository\IconSetRepository;
 use iikiti\CMS\Web\Icon\IconResolver;
-use iikiti\CMS\Web\Icon\LucideIconSet;
+use iikiti\Extension\IconsLucide\Icon\LucideIconSet;
 
 /**
  * Builds an {@see IconResolver} over the bundled Lucide set with no stored icon sets,

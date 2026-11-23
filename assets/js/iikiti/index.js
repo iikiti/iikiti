@@ -71,14 +71,6 @@ if (!window.iikiti.analytics) {
 	};
 }
 
-if (document.getElementById('iikiti-analytics-config')) {
-	import('../../../plugins/iikiti-content-optimization/assets/js/analytics-loader.js')
-		.then(({ installAnalyticsLoader }) => installAnalyticsLoader(window, document))
-		.catch((error) => {
-			console.error('iikiti analytics loader failed to load', error);
-		});
-}
-
 // Tour/spotlight framework (registers built-in actions + window.iikiti.tour).
 installTour();
 
@@ -126,20 +118,7 @@ domReady.then(() => {
 			void launchEditor();
 		}
 	}
-
-	wireWorkflows();
 });
-
-async function wireWorkflows() {
-	const host = document.querySelector('[data-flow]');
-	if (!host) return;
-	try {
-		const mod = await import('../../svelte/editor/workflows/mount.js');
-		mod.launchWorkflow(host);
-	} catch (e) {
-		console.error('iikti workflow engine failed to load', e);
-	}
-}
 
 function wireEditIcons() {
 	const regions = document.querySelectorAll('[data-component="BlockEditorComponent"][data-region-id]');
@@ -175,7 +154,7 @@ async function launchEditor() {
 	// editor.css is already injected server-side for every page where the
 	// editor can run (encore_entry_link_tags('editor') in layout.twig —
 	// hashed in production builds), so no dynamic stylesheet load here.
-	const mod = await import('../../svelte/editor/mount.js');
+	const mod = await import(/* webpackIgnore: true */ '@iikiti/editor');
 	await mod.launchEditor(document.body, config);
 }
 

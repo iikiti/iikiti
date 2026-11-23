@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace iikiti\CMS\Web\BlockEditor\Workflow;
 
 use iikiti\CMS\Entity\Object\User;
+use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 
 /**
  * Pluggable save workflow for editor state (draft/publish lifecycle).
@@ -13,6 +14,7 @@ use iikiti\CMS\Entity\Object\User;
  * and plugins can register additional workflows by implementing this interface
  * and the `iikiti.cms.save_workflow` tag.
  */
+#[AutoconfigureTag('iikiti.cms.save_workflow')]
 interface SaveWorkflowInterface
 {
 	public function getName(): string;

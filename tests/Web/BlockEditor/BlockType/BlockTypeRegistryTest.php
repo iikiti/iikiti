@@ -9,13 +9,25 @@ use iikiti\CMS\Web\BlockEditor\BlockType\BlockType;
 use iikiti\CMS\Web\BlockEditor\BlockType\BlockTypeInterface;
 use iikiti\CMS\Web\BlockEditor\BlockType\BlockTypeRegistry;
 use iikiti\CMS\Web\BlockEditor\BlockType\CoreBlockTypeProvider;
+use iikiti\Extension\Embeds\BlockType\EmbedBlockTypeProvider;
+use iikiti\Extension\Forms\BlockType\FormBlockTypeProvider;
 use PHPUnit\Framework\TestCase;
 
 final class BlockTypeRegistryTest extends TestCase
 {
+	private function registry(BlockTypeInterface ...$extra): BlockTypeRegistry
+	{
+		return new BlockTypeRegistry([
+			new CoreBlockTypeProvider(IconResolverFactory::bundledOnly()),
+			new EmbedBlockTypeProvider(),
+			new FormBlockTypeProvider(),
+			...$extra,
+		]);
+	}
+
 	public function testCoreTypesAreRegistered(): void
 	{
-		$registry = new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly())]);
+		$registry = $this->registry();
 
 		$types = array_keys($registry->all());
 
@@ -42,7 +54,7 @@ final class BlockTypeRegistryTest extends TestCase
 
 	public function testFormBlockSchemasExposeDefaultsAndNativeChildRules(): void
 	{
-		$registry = new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly())]);
+		$registry = $this->registry();
 
 		$form = $registry->get('form');
 		$button = $registry->get('button');
@@ -68,7 +80,7 @@ final class BlockTypeRegistryTest extends TestCase
 
 	public function testCoreTypesExposeOrderedStyleGroupMetadata(): void
 	{
-		$registry = new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly())]);
+		$registry = $this->registry();
 
 		foreach ($registry->all() as $type) {
 			$fields = [];
@@ -90,14 +102,14 @@ final class BlockTypeRegistryTest extends TestCase
 
 	public function testGetReturnsNullForUnknownType(): void
 	{
-		$registry = new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly())]);
+		$registry = $this->registry();
 
 		$this->assertNull($registry->get('nonexistent'));
 	}
 
 	public function testContainerAcceptsAnyChildrenAndOthersDoNot(): void
 	{
-		$registry = new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly())]);
+		$registry = $this->registry();
 
 		$container = $registry->get('container');
 		$this->assertNotNull($container);
@@ -112,7 +124,7 @@ final class BlockTypeRegistryTest extends TestCase
 
 	public function testGetAllowedChildrenForContainerReturnsAllTypes(): void
 	{
-		$registry = new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly())]);
+		$registry = $this->registry();
 
 		$allowed = $registry->getAllowedChildrenFor('container');
 
@@ -121,7 +133,7 @@ final class BlockTypeRegistryTest extends TestCase
 
 	public function testGetAllowedChildrenForNonContainerReturnsEmpty(): void
 	{
-		$registry = new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly())]);
+		$registry = $this->registry();
 
 		$this->assertSame([], $registry->getAllowedChildrenFor('image'));
 	}
@@ -140,9 +152,49 @@ final class BlockTypeRegistryTest extends TestCase
 			}
 		};
 
-		$registry = new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly()), $plugin]);
+		$registry = $this->registry($plugin);
 
 		$this->assertNotNull($registry->get('plugin_hero'));
+		$this->assertSame('core', $registry->get('icon')?->source);
+		$this->assertSame('iikiti-embeds', $registry->get('video_embed')?->source);
+		$this->assertSame('iikiti-embeds', $registry->get('social_embed')?->source);
+		$this->assertSame('iikiti-forms', $registry->get('form')?->source);
 		$this->assertCount(21, $registry->all());
+	}
+
+	public function testProvidersLoadLazilyAndClearOnReset(): void
+	{
+		$calls = 0;
+		$provider = new class($calls) implements BlockTypeInterface {
+			public function __construct(private int &$calls)
+			{
+			}
+
+			public function getBlockTypes(): array
+			{
+				++$this->calls;
+
+				return [new BlockType(
+					type: 'lazy_block',
+					label: 'Lazy '.$this->calls,
+					category: 'content',
+				)];
+			}
+		};
+
+		$registry = new BlockTypeRegistry([$provider]);
+		self::assertSame(0, $calls);
+
+		$first = $registry->get('lazy_block');
+		self::assertSame('Lazy 1', $first?->label);
+		self::assertSame(1, $calls);
+		$cached = $registry->get('lazy_block');
+		self::assertSame('Lazy 1', $cached?->label);
+		self::assertSame(1, $calls);
+
+		$registry->reset();
+		$reloaded = $registry->get('lazy_block');
+		self::assertSame('Lazy 2', $reloaded?->label);
+		self::assertSame(2, $calls);
 	}
 }

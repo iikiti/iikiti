@@ -1,0 +1,36 @@
+import { mount } from 'svelte';
+import Workflow from './Workflow.svelte';
+
+/**
+ * Mounts the front-end workflow engine onto a [data-flow] element. The element
+ * must carry `data-flow` (flow name), `data-flow-action` (form action) and
+ * `data-flow-csrf` (CSRF token).
+ */
+export function launchWorkflow(host) {
+	if (!host || host.dataset.flowMounted === '1') return;
+	const flow = host.getAttribute('data-flow') || '';
+	const action = host.getAttribute('data-flow-action') || window.location.pathname;
+	const csrf = host.getAttribute('data-flow-csrf') || '';
+	if (!flow) return;
+
+	host.dataset.flowMounted = '1';
+	mount(Workflow, {
+		target: host,
+		props: { flow, action, csrf },
+	});
+}
+
+function mountAll() {
+	if (typeof document === 'undefined') return;
+	for (const host of document.querySelectorAll('[data-flow]')) {
+		launchWorkflow(host);
+	}
+}
+
+if (typeof document !== 'undefined') {
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', mountAll, { once: true });
+	} else {
+		mountAll();
+	}
+}

@@ -31,22 +31,37 @@ trait PluginConfigurationTrait
 	}
 
 	/**
+	 * @param list<string> $defaultActivePlugins
+	 *
 	 * @return array<int,string>
 	 */
-	public function getActivePlugins(): array
+	public function getActivePlugins(array $defaultActivePlugins = self::DEFAULT_ACTIVE_PLUGINS): array
 	{
 		$data = $this->_pluginConfigArray();
 		$active = $data['active'] ?? [];
 		$active = is_array($active) ? $active : [];
-		$inactive = $data['inactive'] ?? [];
-		$inactive = is_array($inactive) ? $inactive : [];
+		$inactive = $this->getInactivePlugins();
 
-		$active = array_values(array_unique([...self::DEFAULT_ACTIVE_PLUGINS, ...$active]));
+		$active = array_values(array_unique([...$defaultActivePlugins, ...$active]));
 
 		return array_values(array_filter(
 			$active,
 			static fn ($slug): bool => !in_array($slug, $inactive, true),
 		));
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	public function getInactivePlugins(): array
+	{
+		$data = $this->_pluginConfigArray();
+		$inactive = $data['inactive'] ?? [];
+		if (!is_array($inactive)) {
+			return [];
+		}
+
+		return array_values(array_unique(array_map('strval', $inactive)));
 	}
 
 	public function getPluginConfiguration(?string $pluginSlug): object
@@ -74,18 +89,23 @@ trait PluginConfigurationTrait
 		$this->set('plugins', $data);
 	}
 
-	public function isPluginActive(string $pluginSlug): bool
+	public function isPluginActive(string $pluginSlug, bool $defaultActive = false): bool
 	{
-		return in_array($pluginSlug, $this->getActivePlugins(), true);
+		$inactive = $this->getInactivePlugins();
+		if (in_array($pluginSlug, $inactive, true)) {
+			return false;
+		}
+
+		return $defaultActive || in_array($pluginSlug, $this->getActivePlugins(), true);
 	}
 
-	public function enablePlugin(string $pluginSlug): void
+	public function enablePlugin(string $pluginSlug, bool $defaultActive = false): void
 	{
 		$data = $this->_pluginConfigArray();
 		$inactive = $data['inactive'] ?? [];
 		$inactive = is_array($inactive) ? $inactive : [];
 		$updatedInactive = array_values(array_filter($inactive, static fn ($slug): bool => $slug !== $pluginSlug));
-		if (in_array($pluginSlug, self::DEFAULT_ACTIVE_PLUGINS, true)) {
+		if ($defaultActive || in_array($pluginSlug, self::DEFAULT_ACTIVE_PLUGINS, true)) {
 			if ($updatedInactive !== $inactive) {
 				$data['inactive'] = $updatedInactive;
 				$this->set('plugins', $data);
@@ -104,10 +124,10 @@ trait PluginConfigurationTrait
 		$this->set('plugins', $data);
 	}
 
-	public function disablePlugin(string $pluginSlug): void
+	public function disablePlugin(string $pluginSlug, bool $defaultActive = false): void
 	{
 		$data = $this->_pluginConfigArray();
-		if (in_array($pluginSlug, self::DEFAULT_ACTIVE_PLUGINS, true)) {
+		if ($defaultActive || in_array($pluginSlug, self::DEFAULT_ACTIVE_PLUGINS, true)) {
 			$inactive = $data['inactive'] ?? [];
 			$inactive = is_array($inactive) ? $inactive : [];
 			$inactive[] = $pluginSlug;

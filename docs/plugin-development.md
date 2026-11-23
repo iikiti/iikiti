@@ -13,6 +13,10 @@ and Fragment API conventions.
 > **Terminology:** "plugin" is the primary term. "Extension" is a legacy alias
 > retained for backward compatibility (for example `getEnabledExtensions()`), and
 > is accepted by search/discovery.
+>
+> **Core vs. Plugins:** See [`core-vs-plugins.md`](core-vs-plugins.md) for the
+> architectural decision framework, extension point contracts, `activation_mode` /
+> `scope` lifecycle, and the Svelte 5 ESM import map.
 
 ## Directory layout
 

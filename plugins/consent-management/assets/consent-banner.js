@@ -76,6 +76,7 @@ function registerLibrary() {
 
 registerLibrary();
 
-if (typeof window !== 'undefined' && window.iikiti) {
+if (typeof window !== 'undefined') {
+	window.iikiti = window.iikiti || {};
 	window.iikiti.consentBanner = { mount: createBannerMounter() };
 }

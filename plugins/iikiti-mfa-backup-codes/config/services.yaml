@@ -1,0 +1,10 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    iikiti\Extension\MfaBackupCodes\:
+        resource: '../src/'
+        exclude:
+            - '../src/MfaBackupCodesBundle.php'
+            - '../src/Step/'

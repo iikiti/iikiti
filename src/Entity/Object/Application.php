@@ -26,6 +26,11 @@ class Application extends DbObject
 	public const SITE_SPECIFIC = false;
 
 	/**
+	 * Returns stored active plugin slugs for this application.
+	 *
+	 * Runtime manifest-aware activation checks (honoring `activation_mode` and
+	 * `scope`) should prefer {@see \iikiti\CMS\Plugin\PluginActivationChecker}.
+	 *
 	 * @return string[]
 	 */
 	public function getEnabledPlugins(): array

@@ -4,10 +4,22 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Tests\Admin;
 
+use Doctrine\Persistence\ManagerRegistry;
+use iikiti\CMS\Admin\AdminExtensionInterface;
+use iikiti\CMS\Admin\AdminExtensionTrait;
 use iikiti\CMS\Admin\AdminMenuRegistry;
 use iikiti\CMS\Admin\CoreAdminExtension;
+use iikiti\CMS\Admin\PluginOwnedAdminExtensionInterface;
+use iikiti\CMS\ApiResource\AdminMenuItem;
 use iikiti\CMS\ApiResource\AdminScreen;
+use iikiti\CMS\Entity\Object\Site;
+use iikiti\CMS\Plugin\PluginActivationChecker;
+use iikiti\CMS\Plugin\PluginManifest;
+use iikiti\CMS\Plugin\PluginRegistry;
+use iikiti\CMS\Registry\SiteRegistry;
+use iikiti\CMS\Security\GuestApiTokenManager;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 final class AdminMenuRegistryTest extends TestCase
 {
@@ -122,5 +134,49 @@ final class AdminMenuRegistryTest extends TestCase
 		$sorted = $paths;
 		sort($sorted);
 		self::assertSame($sorted, $paths);
+	}
+
+	public function testFiltersPluginOwnedAdminExtensionsByActivation(): void
+	{
+		$registry = new PluginRegistry();
+		$registry->add(new PluginManifest('Inactive', 'inactive-plugin', 'Acme\\Inactive', 'Acme\\Inactive\\InactiveBundle', '1.0.0', '^1.0', activationMode: PluginManifest::ACTIVATION_OPT_IN));
+		$registry->add(new PluginManifest('Active', 'active-plugin', 'Acme\\Active', 'Acme\\Active\\ActiveBundle', '1.0.0', '^1.0', activationMode: PluginManifest::ACTIVATION_DEFAULT_ON));
+
+		$siteRegistry = new SiteRegistry(
+			new RequestStack(),
+			$this->createStub(ManagerRegistry::class),
+			new GuestApiTokenManager('test-secret'),
+			'api',
+		);
+		SiteRegistry::pushSite(new Site());
+		try {
+			$checker = new PluginActivationChecker($registry, $siteRegistry);
+
+			$inactiveExt = new class implements PluginOwnedAdminExtensionInterface {
+				use AdminExtensionTrait;
+
+				public function getPluginSlug(): string { return 'inactive-plugin'; }
+				public function getMenuItems(): array { return [AdminMenuItem::create('Inactive', '/inactive')]; }
+				public function getResources(): array { return []; }
+				public function getAdminScreens(): array { return [new AdminScreen('/inactive', 'Inactive')]; }
+			};
+
+			$activeExt = new class implements PluginOwnedAdminExtensionInterface {
+				use AdminExtensionTrait;
+
+				public function getPluginSlug(): string { return 'active-plugin'; }
+				public function getMenuItems(): array { return [AdminMenuItem::create('Active', '/active')]; }
+				public function getResources(): array { return []; }
+				public function getAdminScreens(): array { return [new AdminScreen('/active', 'Active')]; }
+			};
+
+			$menuRegistry = new AdminMenuRegistry([$inactiveExt, $activeExt], $checker);
+			self::assertCount(1, $menuRegistry->getMenu());
+			self::assertSame('/active', $menuRegistry->getMenu()[0]->path);
+			self::assertCount(1, $menuRegistry->getScreens());
+			self::assertSame('/active', $menuRegistry->getScreens()[0]->path);
+		} finally {
+			SiteRegistry::popSite();
+		}
 	}
 }

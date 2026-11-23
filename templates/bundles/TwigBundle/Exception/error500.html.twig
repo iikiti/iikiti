@@ -1,4 +1,4 @@
-{% include '@Forma2026/errors/page.html.twig' with {
+{% include ['@Forma2026/errors/page.html.twig', 'base/fallback-error.html.twig'] with {
     status_code: 500,
     title: 'Something went wrong',
     message: 'We could not complete your request. Please try again later.',

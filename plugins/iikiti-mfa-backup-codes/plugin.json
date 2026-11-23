@@ -1,0 +1,14 @@
+{
+  "name": "iikiti MFA Backup Codes",
+  "slug": "iikiti-mfa-backup-codes",
+  "namespace": "iikiti\\Extension\\MfaBackupCodes",
+  "bundle_class": "iikiti\\Extension\\MfaBackupCodes\\MfaBackupCodesBundle",
+  "version": "1.0.0",
+  "iikiti_version": "^1.0",
+  "activation_mode": "default_on",
+  "scope": "both",
+  "description": "Single-use backup recovery codes multi-factor authentication provider.",
+  "authors": [{ "name": "iikiti" }],
+  "license": "MIT",
+  "edition": "standard"
+}

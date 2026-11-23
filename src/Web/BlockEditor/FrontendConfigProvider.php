@@ -7,6 +7,7 @@ namespace iikiti\CMS\Web\BlockEditor;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Event\Subscriber\RequestLocaleSubscriber;
+use iikiti\CMS\Plugin\PluginActivationChecker;
 use iikiti\CMS\Plugin\PluginRegistry;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\Object\UserGroupRepository;
@@ -15,6 +16,7 @@ use iikiti\CMS\Security\ApiTokenManager;
 use iikiti\CMS\Security\PermissionChecker;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Security\Core\User\UserInterface;
 
@@ -26,7 +28,8 @@ use Symfony\Component\Security\Core\User\UserInterface;
 final class FrontendConfigProvider
 {
 	/**
-	 * @param array<string,mixed> $notificationDefaults
+	 * @param array<string,mixed>                         $notificationDefaults
+	 * @param iterable<FrontendConfigContributorInterface> $configContributors
 	 */
 	public function __construct(
 		private readonly Security $security,
@@ -39,6 +42,9 @@ final class FrontendConfigProvider
 		private readonly string $apiBaseUrl = '',
 		private readonly ?RequestStack $requestStack = null,
 		private readonly ?UserGroupRepository $userGroups = null,
+		#[AutowireIterator('iikiti.cms.frontend_config_contributor')]
+		private readonly iterable $configContributors = [],
+		private readonly ?PluginActivationChecker $activationChecker = null,
 	) {
 	}
 
@@ -92,11 +98,6 @@ final class FrontendConfigProvider
 		], order: 30);
 		$composer->add([
 			'plugins' => $this->pluginEditorUis(),
-			'contentOptimizationEnabled' => in_array(
-				'iikiti-content-optimization',
-				$this->enabledPluginsForCurrentSite(),
-				true,
-			),
 		], order: 40);
 		$composer->add([
 			'settingsContextType' => $settingsContext['type'] ?? $contextType,
@@ -106,8 +107,16 @@ final class FrontendConfigProvider
 			'settingsVersion' => $settingsContext['version'] ?? 0,
 			'settingsHasDraft' => $settingsContext['hasDraft'] ?? false,
 			'settingsContextOptions' => $settingsContext['options'] ?? [],
-			'seoPreviewDefaults' => $settingsContext['seoPreviewDefaults'] ?? [],
 		], order: 50);
+
+		$order = 60;
+		foreach ($this->configContributors as $contributor) {
+			$contributed = $contributor->contributeConfig($contextId, $contextType, $user, $settingsContext);
+			if ([] !== $contributed) {
+				$composer->add($contributed, order: $order);
+				$order += 10;
+			}
+		}
 
 		return $composer->compose();
 	}
@@ -169,9 +178,19 @@ final class FrontendConfigProvider
 	private function pluginEditorUis(): array
 	{
 		$uis = [];
-		$enabledPlugins = $this->enabledPluginsForCurrentSite();
+		$site = SiteRegistry::isInitialized() && SiteRegistry::hasCurrent()
+			? SiteRegistry::getCurrent()
+			: null;
+		if (null === $site) {
+			return [];
+		}
+
+		$enabledPlugins = null === $this->activationChecker ? $site->getEnabledPlugins() : null;
 		foreach ($this->plugins->getManifests() as $manifest) {
-			if (!in_array($manifest->slug, $enabledPlugins, true)) {
+			$isActive = null !== $this->activationChecker
+				? $this->activationChecker->isActiveForSite($manifest->slug, $site)
+				: in_array($manifest->slug, $enabledPlugins, true);
+			if (!$isActive) {
 				continue;
 			}
 			$editorUi = $manifest->getEditorUi();
@@ -186,16 +205,6 @@ final class FrontendConfigProvider
 		}
 
 		return $uis;
-	}
-
-	/** @return list<string> */
-	private function enabledPluginsForCurrentSite(): array
-	{
-		if (!SiteRegistry::isInitialized() || !SiteRegistry::hasCurrent()) {
-			return [];
-		}
-
-		return SiteRegistry::getCurrent()->getEnabledPlugins();
 	}
 
 	private function apiSiteHost(): string

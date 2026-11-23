@@ -1,0 +1,15 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    iikiti\Extension\Embeds\:
+        resource: '../src/'
+        exclude:
+            - '../src/EmbedsBundle.php'
+
+    iikiti\Extension\Embeds\Embed\EmbedResolver:
+        arguments:
+            $cache: '@cache.database'
+
+    iikiti\CMS\Web\BlockEditor\Embed\EmbedResolverInterface: '@iikiti\Extension\Embeds\Embed\EmbedResolver'

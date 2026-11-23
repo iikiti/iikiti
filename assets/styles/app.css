@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@source "../../plugins/*/assets/svelte/**/*.{svelte,ts,js}";
 @import "./app-dark.css";
 @import "./ui.css";
 

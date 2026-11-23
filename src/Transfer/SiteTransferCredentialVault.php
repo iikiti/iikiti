@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace iikiti\CMS\Transfer;
 
 use Doctrine\DBAL\Connection;
+use iikiti\CMS\Crypto\ApplicationKeyRotatorInterface;
 use iikiti\CMS\Crypto\TransferCredentialKeyring;
 use iikiti\CMS\Doctrine\DatabaseTableNameResolver;
 
-final class SiteTransferCredentialVault
+final class SiteTransferCredentialVault implements ApplicationKeyRotatorInterface
 {
 	private readonly ?string $legacyKey;
 
@@ -45,6 +46,16 @@ final class SiteTransferCredentialVault
 		}
 
 		return $this->decrypt($jobId, $stored);
+	}
+
+	public function getLabel(): string
+	{
+		return 'transfer credentials';
+	}
+
+	public function rotate(): int
+	{
+		return $this->reencryptAll();
 	}
 
 	/** Re-encrypts legacy and old-key credentials with the active key. */

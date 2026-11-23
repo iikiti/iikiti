@@ -27,19 +27,23 @@ class Site extends DbObject
 	public const DOMAIN_PROPERTY_KEY = 'domain';
 
 	/**
+	 * Returns stored active plugin slugs merged with core defaults.
+	 *
+	 * Runtime manifest-aware activation checks (honoring `activation_mode` and
+	 * `scope`) should prefer {@see \iikiti\CMS\Plugin\PluginActivationChecker}.
+	 *
 	 * @return string[]
 	 */
 	public function getEnabledPlugins(): array
 	{
-		$requiredPlugins = [
-			'iikiti/components',
-			'forma-2026',
-		];
+		$configuration = $this->getConfiguration();
+		$requiredPlugins = ['iikiti/components'];
+		$defaultActive = ['iikiti-content-optimization', 'forma-2026'];
 
-		return array_merge(
+		return array_values(array_unique(array_merge(
 			$requiredPlugins,
-			$this->getConfiguration()->getActivePlugins()
-		);
+			$configuration->getActivePlugins($defaultActive),
+		)));
 	}
 
 	/**

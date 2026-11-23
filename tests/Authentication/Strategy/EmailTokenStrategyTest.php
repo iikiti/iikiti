@@ -3,7 +3,7 @@
 namespace iikiti\CMS\Tests\Authentication\Strategy;
 
 use iikiti\CMS\Authentication\ChallengeInterface;
-use iikiti\CMS\Authentication\Strategy\EmailTokenStrategy;
+use iikiti\Extension\MfaEmail\Strategy\EmailTokenStrategy;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 

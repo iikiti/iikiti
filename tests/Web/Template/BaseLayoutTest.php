@@ -14,10 +14,7 @@ final class BaseLayoutTest extends TestCase
 {
 	public function testLegacyBodiesAndDomFragmentPageModeBothRender(): void
 	{
-		$twig = new Environment(new FilesystemLoader(dirname(__DIR__, 3).'/templates'));
-		$twig->addFunction(new TwigFunction('asset', static fn (string $path): string => '/'.$path));
-		$twig->addFunction(new TwigFunction('encore_entry_link_tags', static fn (string $entry): string => 'entry:'.$entry));
-		$twig->addFunction(new TwigFunction('encore_entry_script_tags', static fn (string $entry): string => ''));
+		$twig = $this->createTwig();
 
 		$legacyHtml = $twig->render('base/layout.twig', $this->layoutContext([
 			'iikiti_page_body' => '<main>Legacy body</main>',
@@ -27,7 +24,11 @@ final class BaseLayoutTest extends TestCase
 		$fragmentLayout = $twig->render('base/layout.twig', $this->layoutContext([
 			'iikiti_page_body' => '',
 			'iikiti_use_fragment_composer' => true,
-			'iikiti_seo' => $this->seoContext(),
+			'iikiti_head_html' => [
+				'<link rel="canonical" href="https://example.test/page">',
+				'<script type="application/ld+json">[{"name":"\\u003C\\/script\\u003E\\u003Cscript\\u003E"}]</script>',
+			],
+			'iikiti_body_classes' => ['forma-theme'],
 		]));
 		$composer = new HtmlFragmentComposer($fragmentLayout);
 		$composer->insertIntoPlaceholder('[data-iikiti-fragment="page"]', '<main>Fragment body</main>');
@@ -42,41 +43,33 @@ final class BaseLayoutTest extends TestCase
 		self::assertSame(1, substr_count($composed, '<link rel="canonical"'));
 		self::assertStringContainsString('https://example.test/page', $composed);
 		self::assertStringContainsString('application/ld+json', $composed);
-
-		$formaLayout = $twig->render('base/layout.twig', $this->layoutContext([
-			'iikiti_forma_theme' => true,
-		]));
-		self::assertStringContainsString('forma-theme', $formaLayout);
-		self::assertStringNotContainsString('entry:forma-2026', $formaLayout);
+		self::assertStringContainsString('forma-theme', $composed);
+		self::assertStringNotContainsString('entry:forma-2026', $composed);
 	}
 
-	public function testSeoHeadEscapesHtmlAndKeepsJsonLdInert(): void
+	public function testImportMapEmittedBeforeEntryScriptsAndGenericJsonBlocksSupported(): void
 	{
-		$twig = new Environment(new FilesystemLoader(dirname(__DIR__, 3).'/templates'));
-		$twig->addFunction(new TwigFunction('asset', static fn (string $path): string => '/'.$path));
-		$twig->addFunction(new TwigFunction('encore_entry_link_tags', static fn (string $entry): string => 'entry:'.$entry));
-		$twig->addFunction(new TwigFunction('encore_entry_script_tags', static fn (string $entry): string => ''));
-		$twig->addGlobal('app', (object) ['request' => (object) ['locale' => 'en']]);
+		$twig = $this->createTwig();
 
 		$html = $twig->render('base/layout.twig', $this->layoutContext([
 			'doc' => ['title' => '<script>alert("title")</script>'],
-			'iikiti_seo' => $this->seoContext('<script>alert("description")</script>'),
+			'iikiti_json_blocks' => [
+				'iikiti-custom-block' => '{"ok":true}',
+			],
 		]));
 
 		self::assertStringContainsString('&lt;script&gt;alert(&quot;title&quot;)&lt;/script&gt;', $html);
-		self::assertStringContainsString('&lt;script&gt;alert&#x28;&quot;description&quot;&#x29;&lt;&#x2F;script&gt;', $html);
-		self::assertStringNotContainsString('<script>alert("description")</script>', $html);
-		self::assertStringContainsString('\\u003C\\/script\\u003E\\u003Cscript\\u003E', $html);
-		self::assertStringContainsString('<script type="application/ld+json">', $html);
+		self::assertStringContainsString('<script type="importmap">{"imports":{"svelte":"/build/esm/svelte.mjs"}}</script>', $html);
+		self::assertLessThan(
+			strpos($html, '<script src="/build/iikiti.js"></script>'),
+			strpos($html, '<script type="importmap">'),
+		);
+		self::assertStringContainsString('<script id="iikiti-custom-block" type="application/json">{"ok":true}</script>', $html);
 	}
 
 	public function testIikitiConfigScriptTagHexEscapesHtmlBreakoutSequences(): void
 	{
-		$twig = new Environment(new FilesystemLoader(dirname(__DIR__, 3).'/templates'));
-		$twig->addFunction(new TwigFunction('asset', static fn (string $path): string => '/'.$path));
-		$twig->addFunction(new TwigFunction('encore_entry_link_tags', static fn (string $entry): string => 'entry:'.$entry));
-		$twig->addFunction(new TwigFunction('encore_entry_script_tags', static fn (string $entry): string => ''));
-		$twig->addGlobal('app', (object) ['request' => (object) ['locale' => 'en']]);
+		$twig = $this->createTwig();
 
 		$config = [
 			'seoPreviewDefaults' => [
@@ -95,6 +88,18 @@ final class BaseLayoutTest extends TestCase
 		self::assertStringContainsString('\\u003C!--\\u003Cscript\\u003E', $html);
 	}
 
+	private function createTwig(): Environment
+	{
+		$twig = new Environment(new FilesystemLoader(dirname(__DIR__, 3).'/templates'));
+		$twig->addFunction(new TwigFunction('asset', static fn (string $path): string => '/'.$path));
+		$twig->addFunction(new TwigFunction('encore_entry_link_tags', static fn (string $entry): string => 'entry:'.$entry));
+		$twig->addFunction(new TwigFunction('encore_entry_script_tags', static fn (string $entry): string => '<script src="/build/'.$entry.'.js"></script>', ['is_safe' => ['html']]));
+		$twig->addFunction(new TwigFunction('iikiti_import_map_json', static fn (): string => '{"imports":{"svelte":"/build/esm/svelte.mjs"}}', ['is_safe' => ['html']]));
+		$twig->addGlobal('app', (object) ['request' => (object) ['locale' => 'en']]);
+
+		return $twig;
+	}
+
 	/**
 	 * @param array<string,mixed> $overrides
 	 *
@@ -110,35 +115,6 @@ final class BaseLayoutTest extends TestCase
 			'iikiti_icon_font' => false,
 			'iikiti_config' => null,
 			'iikiti_scope_classes' => [],
-		];
-	}
-
-	/** @return array<string,mixed> */
-	private function seoContext(string $description = 'A description'): array
-	{
-		return [
-			'title' => 'Example | Site',
-			'description' => $description,
-			'canonicalUrl' => 'https://example.test/page',
-			'robots' => ['index' => 'index', 'follow' => 'follow'],
-			'openGraph' => [
-				'title' => 'Example | Site',
-				'description' => $description,
-				'type' => 'website',
-				'image' => 'https://example.test/image.png',
-				'url' => 'https://example.test/page',
-			],
-			'twitter' => [
-				'card' => 'summary_large_image',
-				'title' => 'Example | Site',
-				'description' => $description,
-				'image' => 'https://example.test/image.png',
-			],
-			'structuredData' => [['@context' => 'https://schema.org', '@type' => 'WebSite']],
-			'structuredDataJson' => json_encode(
-				[['name' => '</script><script>&"\'']],
-				JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT,
-			),
 		];
 	}
 }

@@ -48,6 +48,11 @@ class PluginInfo
 		public array $capabilities = [],
 		public array $actions = [],
 		public array $actionConflicts = [],
+		public bool $builtIn = false,
+		public bool $required = false,
+		public bool $removable = true,
+		public string $activationMode = 'opt_in',
+		public string $scope = 'site',
 	) {
 	}
 }

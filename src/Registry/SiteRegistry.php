@@ -24,6 +24,8 @@ class SiteRegistry
 	protected static bool $initialized = false;
 	protected static bool $populated = false;
 
+	private readonly RouteContextClassifier $routeClassifier;
+
 	public function __construct(
 		private readonly RequestStack $requestStack,
 		private readonly ManagerRegistry $registry,
@@ -32,7 +34,9 @@ class SiteRegistry
 		private readonly string $applicationRole,
 		#[Autowire('%public_page_render_via_api%')]
 		private readonly bool $publicPageRenderViaApi = false,
+		?RouteContextClassifier $routeClassifier = null,
 	) {
+		$this->routeClassifier = $routeClassifier ?? new RouteContextClassifier();
 		self::initialize();
 	}
 
@@ -55,7 +59,7 @@ class SiteRegistry
 		static::$siteStack = new \SplStack();
 		static::$initialized = true;
 		static::$populated = false;
-		static::populate($this->requestStack, $this->registry, $this->guestTokens, $this->applicationRole, $this->publicPageRenderViaApi);
+		static::populate($this->requestStack, $this->registry, $this->guestTokens, $this->applicationRole, $this->publicPageRenderViaApi, $this->routeClassifier);
 	}
 
 	public static function isInitialized(): bool
@@ -69,11 +73,13 @@ class SiteRegistry
 		GuestApiTokenManager $guestTokens,
 		string $applicationRole,
 		bool $publicPageRenderViaApi,
+		?RouteContextClassifier $routeClassifier = null,
 	): void {
+		$routeClassifier ??= new RouteContextClassifier();
 		$route = $requestStack->getCurrentRequest()?->attributes->get('_route');
 		$routeName = is_string($route) ? $route : null;
 		$path = $requestStack->getCurrentRequest()?->getPathInfo() ?? '';
-		$siteIndependentRoute = RouteContextClassifier::isSiteIndependentRoute(
+		$siteIndependentRoute = $routeClassifier->matchesSiteIndependentRoute(
 			$routeName,
 			$path,
 			$applicationRole,
@@ -92,7 +98,7 @@ class SiteRegistry
 			// site still receive a clear error from getCurrent().
 			return;
 		}
-		if (RouteContextClassifier::isInternalWorkerRoute($routeName)) {
+		if ($routeClassifier->matchesInternalWorkerRoute($routeName)) {
 			static::$populated = true;
 
 			return;
@@ -113,14 +119,14 @@ class SiteRegistry
 				$host = $loginHost;
 			}
 		}
-		$isStatelessForwarded = RouteContextClassifier::isStatelessForwardedHostRoute($routeName, $path);
-		$isSessionForwarded = RouteContextClassifier::isSessionForwardedHostRoute($routeName, $path);
+		$isStatelessForwarded = $routeClassifier->matchesStatelessForwardedHostRoute($routeName, $path);
+		$isSessionForwarded = $routeClassifier->matchesSessionForwardedHostRoute($routeName, $path);
 		if ($isStatelessForwarded || $isSessionForwarded) {
 			$forwardedHost = $request->headers->get('X-SITE-HOST');
 			if (is_string($forwardedHost) && '' !== $forwardedHost) {
 				if ($isStatelessForwarded) {
 					$token = (string) $request->headers->get('X-AUTH-TOKEN', '');
-					$isPublicRenderOrAsset = RouteContextClassifier::isPublicRenderOrAssetRoute($routeName);
+					$isPublicRenderOrAsset = $routeClassifier->matchesPublicRenderOrAssetRoute($routeName);
 					$isGuestToken = str_starts_with($token, 'guest1.') || str_starts_with($token, 'guest2.');
 					if ($isGuestToken) {
 						$guest = $guestTokens->decode($token);
@@ -136,7 +142,7 @@ class SiteRegistry
 				} else {
 					$host = $forwardedHost;
 				}
-			} elseif ($isStatelessForwarded && RouteContextClassifier::isPublicRenderOrAssetRoute($routeName)) {
+			} elseif ($isStatelessForwarded && $routeClassifier->matchesPublicRenderOrAssetRoute($routeName)) {
 				$token = (string) $request->headers->get('X-AUTH-TOKEN', '');
 				if ('' === $token) {
 					throw new AccessDeniedHttpException('A site-scoped API credential is required.');
@@ -146,7 +152,7 @@ class SiteRegistry
 			if (is_string($siteHost) && '' !== $siteHost) {
 				$host = $siteHost;
 			}
-			if (str_starts_with($path, '/api/forms/')) {
+			if ($routeClassifier->isSessionFormPath($path)) {
 				$formHost = $request->query->get('_site_host') ?? $request->request->get('_site_host');
 				if ((!is_string($formHost) || '' === $formHost) && $request->hasSession()) {
 					$formHost = $request->getSession()->get('auth_site_host');

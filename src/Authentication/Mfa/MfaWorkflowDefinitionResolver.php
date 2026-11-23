@@ -7,9 +7,11 @@ namespace iikiti\CMS\Authentication\Mfa;
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Authentication\MfaPreferenceResolver;
 use iikiti\CMS\Authentication\MfaUserConfiguration;
+use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Entity\Workflow\WorkflowDefinition;
 use iikiti\CMS\Entity\Workflow\WorkflowDefinitionVersion;
+use iikiti\CMS\Plugin\PluginActivationChecker;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Workflow\Graph\WorkflowGraphCompiler;
 use iikiti\CMS\Workflow\StepProvider\MfaStepProvider;
@@ -23,6 +25,7 @@ final class MfaWorkflowDefinitionResolver
 		private readonly MfaProofPolicy $proofPolicy,
 		private readonly MfaGraphProofValidator $proofValidator,
 		private readonly WorkflowGraphCompiler $graphCompiler,
+		private readonly ?PluginActivationChecker $activationChecker = null,
 	) {
 	}
 
@@ -113,9 +116,9 @@ final class MfaWorkflowDefinitionResolver
 		$site = SiteRegistry::getCurrent();
 		$definitions = $this->entityManager->getRepository(WorkflowDefinition::class)->findAssignedToSite($site, true);
 		$definitions = array_values(array_filter($definitions, static fn (WorkflowDefinition $definition): bool => MfaStepProvider::WORKFLOW_NAME === $definition->getKey()));
-		$choices = array_values(array_filter($definitions, static fn (WorkflowDefinition $definition): bool => 'site' === $definition->getOwnerType() && $definition->getOwnerKey() === (string) $site->getId() ||
+		$choices = array_values(array_filter($definitions, fn (WorkflowDefinition $definition): bool => 'site' === $definition->getOwnerType() && $definition->getOwnerKey() === (string) $site->getId() ||
 			'core' === $definition->getOwnerType() ||
-			('plugin' === $definition->getOwnerType() && $site->getConfiguration()->isPluginActive($definition->getOwnerKey()))
+			('plugin' === $definition->getOwnerType() && $this->isPluginActiveForSite($definition->getOwnerKey(), $site))
 		));
 		usort($choices, static fn (WorkflowDefinition $left, WorkflowDefinition $right): int => match (true) {
 			$left->getOwnerType() === $right->getOwnerType() => 0,
@@ -140,5 +143,10 @@ final class MfaWorkflowDefinitionResolver
 		]);
 
 		return $version instanceof WorkflowDefinitionVersion ? $version : throw new \LogicException('MFA workflow definition has no current version.');
+	}
+
+	private function isPluginActiveForSite(string $slug, Site $site): bool
+	{
+		return $this->activationChecker?->isActiveForSite($slug, $site) ?? $site->getConfiguration()->isPluginActive($slug);
 	}
 }

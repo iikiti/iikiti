@@ -42,6 +42,10 @@ class PluginRecord
 	#[ORM\Column(name: 'installed_at', type: Types::DATETIME_IMMUTABLE)]
 	private \DateTimeImmutable $installedAt;
 
+	/** @var list<string>|null */
+	#[ORM\Column(type: Types::JSON, nullable: true)]
+	private ?array $discriminators = null;
+
 	public function __construct(
 		string $slug,
 		string $version,
@@ -110,5 +114,21 @@ class PluginRecord
 	public function touchInstalledAt(): void
 	{
 		$this->installedAt = new \DateTimeImmutable();
+	}
+
+	/**
+	 * @return list<string>|null
+	 */
+	public function getDiscriminators(): ?array
+	{
+		return $this->discriminators;
+	}
+
+	/**
+	 * @param list<string>|null $discriminators
+	 */
+	public function setDiscriminators(?array $discriminators): void
+	{
+		$this->discriminators = null === $discriminators ? null : array_values(array_unique(array_map('strval', $discriminators)));
 	}
 }

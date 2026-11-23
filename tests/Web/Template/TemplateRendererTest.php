@@ -11,8 +11,10 @@ use iikiti\CMS\Async\FiberTaskRunner;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\Template;
-use iikiti\CMS\Web\BlockEditor\Embed\EmbedResolver;
-use iikiti\CMS\Web\BlockEditor\CustomCssCompiler;
+use iikiti\Extension\Embeds\BlockType\EmbedBlockTypeProvider;
+use iikiti\Extension\Embeds\Embed\EmbedResolver;
+use iikiti\Extension\Embeds\Template\EmbedTemplateRenderPrefetcher;
+use iikiti\Extension\CustomCss\Css\CustomCssCompiler;
 use iikiti\CMS\Web\BlockEditor\BlockType\BlockTypeRegistry;
 use iikiti\CMS\Web\BlockEditor\BlockType\CoreBlockTypeProvider;
 use iikiti\CMS\Web\BlockEditor\Query\QueryExecutor;
@@ -56,7 +58,7 @@ final class TemplateRendererTest extends TestCase
 		]);
 		$blockTwig->addExtension(new LocalizedTextExtension());
 		$blockRenderer = new BlockRenderer(
-			new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly())]),
+			new BlockTypeRegistry([new CoreBlockTypeProvider()]),
 			$blockTwig,
 			new QueryExecutor([]),
 			new QueryFieldCatalog($this->createStub(EntityManagerInterface::class)),
@@ -119,7 +121,9 @@ final class TemplateRendererTest extends TestCase
 		$layoutEnv = new Environment(new ArrayLoader([
 			'layout.twig' => '<main>{{ region_main|raw }}</main>',
 		]), ['strict_variables' => false]);
-		$blockTwig = new Environment(new FilesystemLoader(__DIR__.'/../../../templates'), [
+		$blockLoader = new FilesystemLoader(__DIR__.'/../../../templates');
+		$blockLoader->addPath(__DIR__.'/../../../plugins/iikiti-embeds/templates', 'Embeds');
+		$blockTwig = new Environment($blockLoader, [
 			'strict_variables' => false,
 		]);
 		$blockTwig->addExtension(new LocalizedTextExtension());
@@ -130,7 +134,7 @@ final class TemplateRendererTest extends TestCase
 			new IconFontAssets(),
 		));
 		$blockRenderer = new BlockRenderer(
-			new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly())]),
+			new BlockTypeRegistry([new CoreBlockTypeProvider(), new EmbedBlockTypeProvider()]),
 			$blockTwig,
 			new QueryExecutor([]),
 			new QueryFieldCatalog($this->createStub(EntityManagerInterface::class)),
@@ -140,7 +144,7 @@ final class TemplateRendererTest extends TestCase
 			$blockRenderer,
 			$layoutEnv,
 			fiberTaskRunner: new FiberTaskRunner($http),
-			embedResolver: $embedResolver,
+			renderPrefetchers: [new EmbedTemplateRenderPrefetcher($embedResolver)],
 		);
 		$template = $this->template([
 			['id' => 'main', 'role' => 'main', 'name' => 'Main', 'allowed_types' => []],
@@ -188,6 +192,67 @@ final class TemplateRendererTest extends TestCase
 
 		$this->assertStringContainsString('no_main_region', $html);
 		$this->assertStringContainsString('main content area must be provided', $html);
+	}
+
+	public function testDefaultLayoutFallsBackToCoreFallbackWhenThemeTemplateIsMissing(): void
+	{
+		$layoutEnv = new Environment(new ArrayLoader([
+			'base/fallback-block-editor-content.twig' => '<div class="core-fallback">{{ region_main|raw }}</div>',
+		]), ['strict_variables' => false]);
+		$blockTwig = new Environment(new ArrayLoader([]), ['strict_variables' => false]);
+		$blockRenderer = new BlockRenderer(
+			new BlockTypeRegistry([new CoreBlockTypeProvider()]),
+			$blockTwig,
+			new QueryExecutor([]),
+			new QueryFieldCatalog($this->createStub(EntityManagerInterface::class)),
+			new CustomCssCompiler(),
+		);
+		$renderer = new TemplateRenderer($blockRenderer, $layoutEnv);
+		$template = $this->template([
+			['id' => 'main', 'role' => 'main', 'name' => 'Main', 'allowed_types' => []],
+		]);
+		$template->setLayout(Template::DEFAULT_LAYOUT);
+
+		$html = $renderer->render($template, new BlockRenderContext(editorMode: false), []);
+
+		self::assertStringContainsString('<div class="core-fallback">', $html);
+
+		$registry = new \iikiti\CMS\Plugin\PluginRegistry();
+		$registry->add(\iikiti\CMS\Plugin\PluginManifest::fromArray([
+			'name' => 'Custom Theme',
+			'slug' => 'custom-theme',
+			'namespace' => 'Vendor\\CustomTheme',
+			'bundle_class' => 'Vendor\\CustomTheme\\CustomThemeBundle',
+			'version' => '1.0.0',
+			'iikiti_version' => '^1.0',
+			'activation_mode' => \iikiti\CMS\Plugin\PluginManifest::ACTIVATION_OPT_IN,
+			'scope' => \iikiti\CMS\Plugin\PluginManifest::SCOPE_SITE,
+		]));
+		$siteRegistry = new \iikiti\CMS\Registry\SiteRegistry(
+			new \Symfony\Component\HttpFoundation\RequestStack(),
+			$this->createStub(\Doctrine\Persistence\ManagerRegistry::class),
+			new \iikiti\CMS\Security\GuestApiTokenManager('test-secret'),
+			'api',
+		);
+		$activationChecker = new \iikiti\CMS\Plugin\PluginActivationChecker($registry, $siteRegistry);
+		$themedEnv = new Environment(new ArrayLoader([
+			'@CustomTheme/layout.twig' => '<div class="custom-theme">{{ region_main|raw }}</div>',
+			'base/fallback-block-editor-content.twig' => '<div class="core-fallback">{{ region_main|raw }}</div>',
+		]), ['strict_variables' => false]);
+		$themedRenderer = new TemplateRenderer(
+			$blockRenderer,
+			$themedEnv,
+			activationChecker: $activationChecker,
+			pluginRegistry: $registry,
+		);
+		$template->setLayout('@CustomTheme/layout.twig');
+		$site = new \iikiti\CMS\Entity\Object\Site();
+		self::assertStringContainsString('<div class="core-fallback">', $themedRenderer->render($template, new BlockRenderContext(editorMode: false, site: $site), []));
+
+		$config = $site->getConfiguration();
+		$config->enablePlugin('custom-theme');
+		$site->setConfiguration($config);
+		self::assertStringContainsString('<div class="custom-theme">', $themedRenderer->render($template, new BlockRenderContext(editorMode: false, site: $site), []));
 	}
 
 	public function testManifestContainsFixedSlotsAndRegionFragmentsShareItsRevision(): void

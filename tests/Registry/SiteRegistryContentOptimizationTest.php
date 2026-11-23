@@ -7,10 +7,12 @@ namespace iikiti\CMS\Tests\Registry;
 use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\Object\ApiToken;
 use iikiti\CMS\Entity\Object\Site;
+use iikiti\CMS\Registry\RouteContextClassifier;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\Object\ApiTokenRepository;
 use iikiti\CMS\Repository\Object\SiteRepository;
 use iikiti\CMS\Security\GuestApiTokenManager;
+use iikiti\Extension\ContentOptimization\RouteContext\ContentOptimizationRouteContextContributor;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -51,7 +53,8 @@ final class SiteRegistryContentOptimizationTest extends TestCase
 		$request->headers->set('X-AUTH-TOKEN', ApiToken::TOKEN_PREFIX.'valid-admin-token');
 		$requestStack = new RequestStack();
 		$requestStack->push($request);
-		$siteRegistry = new SiteRegistry($requestStack, $registry, new GuestApiTokenManager('test-secret'), 'api');
+		$classifier = new RouteContextClassifier([new ContentOptimizationRouteContextContributor()]);
+		$siteRegistry = new SiteRegistry($requestStack, $registry, new GuestApiTokenManager('test-secret'), 'api', false, $classifier);
 
 		$siteRegistry->initializeForRequest();
 
@@ -82,7 +85,8 @@ final class SiteRegistryContentOptimizationTest extends TestCase
 		$request->headers->set('X-AUTH-TOKEN', ApiToken::TOKEN_PREFIX.'forged-token');
 		$requestStack = new RequestStack();
 		$requestStack->push($request);
-		$siteRegistry = new SiteRegistry($requestStack, $registry, new GuestApiTokenManager('test-secret'), 'api');
+		$classifier = new RouteContextClassifier([new ContentOptimizationRouteContextContributor()]);
+		$siteRegistry = new SiteRegistry($requestStack, $registry, new GuestApiTokenManager('test-secret'), 'api', false, $classifier);
 
 		$siteRegistry->initializeForRequest();
 
@@ -100,7 +104,8 @@ final class SiteRegistryContentOptimizationTest extends TestCase
 		$request->headers->set('X-AUTH-TOKEN', $guestManager->issue('tenant-b.example.test'));
 		$requestStack = new RequestStack();
 		$requestStack->push($request);
-		$siteRegistry = new SiteRegistry($requestStack, $registry, $guestManager, 'api');
+		$classifier = new RouteContextClassifier([new ContentOptimizationRouteContextContributor()]);
+		$siteRegistry = new SiteRegistry($requestStack, $registry, $guestManager, 'api', false, $classifier);
 
 		$this->expectException(AccessDeniedHttpException::class);
 		$siteRegistry->initializeForRequest();
@@ -114,7 +119,8 @@ final class SiteRegistryContentOptimizationTest extends TestCase
 		$request->attributes->set('_route', 'api_admin_application_content_optimization_settings_get');
 		$requestStack = new RequestStack();
 		$requestStack->push($request);
-		$siteRegistry = new SiteRegistry($requestStack, $registry, new GuestApiTokenManager('test-secret'), 'api');
+		$classifier = new RouteContextClassifier([new ContentOptimizationRouteContextContributor()]);
+		$siteRegistry = new SiteRegistry($requestStack, $registry, new GuestApiTokenManager('test-secret'), 'api', false, $classifier);
 
 		$siteRegistry->initializeForRequest();
 

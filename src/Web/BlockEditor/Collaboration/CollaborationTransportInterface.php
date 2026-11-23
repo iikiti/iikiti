@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Web\BlockEditor\Collaboration;
 
+use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
+
 /**
  * Pluggable realtime transport for collaboration.
  *
@@ -15,6 +17,7 @@ namespace iikiti\CMS\Web\BlockEditor\Collaboration;
  *
  * Plugins register an implementation to add alternative transports.
  */
+#[AutoconfigureTag('iikiti.cms.collaboration_transport')]
 interface CollaborationTransportInterface
 {
 	/**

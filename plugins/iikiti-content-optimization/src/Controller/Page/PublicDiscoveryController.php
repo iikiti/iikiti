@@ -27,7 +27,7 @@ final readonly class PublicDiscoveryController
 	public function robots(Request $request): Response
 	{
 		return 'consumer' === $this->applicationRole ?
-			$this->apiProxy->robots($request) :
+			$this->apiProxy->proxyJsonDocument($request, '/api/public/content-optimization/robots', 'text/plain; charset=UTF-8') :
 			$this->response($this->documents->robots($request));
 	}
 
@@ -35,7 +35,7 @@ final readonly class PublicDiscoveryController
 	public function sitemap(Request $request): Response
 	{
 		return 'consumer' === $this->applicationRole ?
-			$this->apiProxy->sitemap($request) :
+			$this->apiProxy->proxyJsonDocument($request, '/api/public/content-optimization/sitemap', 'application/xml; charset=UTF-8') :
 			$this->response($this->documents->sitemap($request));
 	}
 

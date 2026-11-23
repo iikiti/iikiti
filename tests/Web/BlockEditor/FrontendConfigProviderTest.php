@@ -10,6 +10,7 @@ use iikiti\CMS\Entity\Object\ApiToken;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Entity\Object\UserGroup;
+use iikiti\CMS\Plugin\PluginActivationChecker;
 use iikiti\CMS\Plugin\PluginManifest;
 use iikiti\CMS\Plugin\PluginRegistry;
 use iikiti\CMS\Registry\SiteRegistry;
@@ -18,6 +19,7 @@ use iikiti\CMS\Security\ApiTokenManager;
 use iikiti\CMS\Security\GuestApiTokenManager;
 use iikiti\CMS\Security\PermissionChecker;
 use iikiti\CMS\Web\BlockEditor\FrontendConfigProvider;
+use iikiti\Extension\ContentOptimization\Web\ContentOptimizationFrontendConfigContributor;
 use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Request;
@@ -220,7 +222,20 @@ final class FrontendConfigProviderTest extends TestCase
 			'bundle_class' => 'Vendor\\Active\\ActiveBundle',
 			'version' => '1.0.0',
 			'iikiti_version' => '^1.0',
+			'activation_mode' => 'opt_in',
+			'scope' => 'site',
 			'editor_ui' => ['entry' => 'editor.js'],
+		]);
+		$defaultOnManifest = PluginManifest::fromArray([
+			'name' => 'Default on plugin',
+			'slug' => 'iikiti-icons-lucide',
+			'namespace' => 'iikiti\\Extension\\IconsLucide',
+			'bundle_class' => 'iikiti\\Extension\\IconsLucide\\IconsLucideBundle',
+			'version' => '1.0.0',
+			'iikiti_version' => '^1.0',
+			'activation_mode' => 'default_on',
+			'scope' => 'site',
+			'editor_ui' => ['entry' => '/admin-plugins/iikiti-icons-lucide/dist/editor.js'],
 		]);
 		$inactiveManifest = PluginManifest::fromArray([
 			'name' => 'Inactive plugin',
@@ -229,28 +244,40 @@ final class FrontendConfigProviderTest extends TestCase
 			'bundle_class' => 'Vendor\\Inactive\\InactiveBundle',
 			'version' => '1.0.0',
 			'iikiti_version' => '^1.0',
+			'activation_mode' => 'opt_in',
+			'scope' => 'site',
 			'editor_ui' => ['entry' => 'editor.js'],
 		]);
 		$plugins = new PluginRegistry();
 		$plugins->add($activeManifest);
+		$plugins->add($defaultOnManifest);
 		$plugins->add($inactiveManifest);
 
 		$site = new Site();
 		$configuration = $site->getConfiguration();
 		$configuration->enablePlugin('active-plugin');
 		$site->setConfiguration($configuration);
-		new SiteRegistry(new RequestStack(), $this->createStub(ManagerRegistry::class), new GuestApiTokenManager('test-secret'), 'api');
+		$siteRegistry = new SiteRegistry(new RequestStack(), $this->createStub(ManagerRegistry::class), new GuestApiTokenManager('test-secret'), 'api');
 		SiteRegistry::pushSite($site);
+		$activationChecker = new PluginActivationChecker($plugins, $siteRegistry);
 
 		try {
-			$provider = new FrontendConfigProvider($security, $checker, $tokenManager, $plugins);
+			$provider = new FrontendConfigProvider(
+				$security,
+				$checker,
+				$tokenManager,
+				$plugins,
+				configContributors: [new ContentOptimizationFrontendConfigContributor()],
+				activationChecker: $activationChecker,
+			);
 			$config = $provider->build(7, 'template', $user);
 			self::assertNotNull($config);
 			self::assertTrue($config['contentOptimizationEnabled']);
-			self::assertSame(['active-plugin'], array_column($config['plugins'], 'slug'));
+			self::assertSame(['active-plugin', 'iikiti-icons-lucide'], array_column($config['plugins'], 'slug'));
 
 			$configuration = $site->getConfiguration();
 			$configuration->disablePlugin('iikiti-content-optimization');
+			$configuration->disablePlugin('iikiti-icons-lucide', defaultActive: true);
 			$site->setConfiguration($configuration);
 			$disabledConfig = $provider->build(7, 'template', $user);
 			self::assertNotNull($disabledConfig);

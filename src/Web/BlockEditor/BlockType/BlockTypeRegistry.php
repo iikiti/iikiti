@@ -4,16 +4,19 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Web\BlockEditor\BlockType;
 
+use iikiti\CMS\Entity\Object\Site;
+use iikiti\CMS\Plugin\PluginActivationChecker;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Registry of all available block types, aggregated from all tagged
  * {@see BlockTypeInterface} implementations (core + plugins).
  */
-final class BlockTypeRegistry
+final class BlockTypeRegistry implements ResetInterface
 {
-	/** @var array<string,BlockType> */
-	private array $byType = [];
+	/** @var array<string,BlockType>|null */
+	private ?array $byType = null;
 
 	/**
 	 * @param iterable<BlockTypeInterface> $providers
@@ -21,18 +24,24 @@ final class BlockTypeRegistry
 	public function __construct(
 		#[AutowireIterator('iikiti.cms.block_type')]
 		private readonly iterable $providers,
+		private readonly ?PluginActivationChecker $activationChecker = null,
 	) {
-		// Force collection at construction so tagging errors surface early.
-		foreach ($this->providers as $provider) {
-			foreach ($provider->getBlockTypes() as $blockType) {
-				$this->byType[$blockType->type] = $blockType;
-			}
-		}
+	}
+
+	#[\Override]
+	public function reset(): void
+	{
+		$this->byType = null;
 	}
 
 	public function get(string $type): ?BlockType
 	{
-		return $this->byType[$type] ?? null;
+		$blockType = $this->loadBlockTypes()[$type] ?? null;
+		if (null === $blockType) {
+			return null;
+		}
+
+		return $this->isBlockTypeActive($blockType) ? $blockType : null;
 	}
 
 	/**
@@ -40,7 +49,46 @@ final class BlockTypeRegistry
 	 */
 	public function all(): array
 	{
-		return $this->byType;
+		return $this->allForSite();
+	}
+
+	/**
+	 * @return array<string,BlockType>
+	 */
+	public function allForSite(?Site $site = null): array
+	{
+		$byType = $this->loadBlockTypes();
+		if (null === $this->activationChecker) {
+			return $byType;
+		}
+
+		$active = [];
+		foreach ($byType as $key => $blockType) {
+			if ($this->isBlockTypeActive($blockType, $site)) {
+				$active[$key] = $blockType;
+			}
+		}
+
+		return $active;
+	}
+
+	/**
+	 * @return array<string,BlockType>
+	 */
+	private function loadBlockTypes(): array
+	{
+		if (null !== $this->byType) {
+			return $this->byType;
+		}
+
+		$loaded = [];
+		foreach ($this->providers as $provider) {
+			foreach ($provider->getBlockTypes() as $blockType) {
+				$loaded[$blockType->type] = $blockType;
+			}
+		}
+
+		return $this->byType = $loaded;
 	}
 
 	/**
@@ -48,7 +96,7 @@ final class BlockTypeRegistry
 	 */
 	public function allList(): array
 	{
-		return array_values($this->byType);
+		return array_values($this->all());
 	}
 
 	/**
@@ -57,14 +105,14 @@ final class BlockTypeRegistry
 	 */
 	public function getAllowedChildTypes(string $parentType): ?array
 	{
-		$type = $this->byType[$parentType] ?? null;
+		$type = $this->get($parentType);
 
 		return $type?->allowedChildTypes;
 	}
 
 	/**
 	 * @return list<BlockType> types that are allowed as a child of `$parentType`,
-	 *                         filtered to those registered
+	 *                         filtered to those registered and active
 	 */
 	public function getAllowedChildrenFor(string $parentType): array
 	{
@@ -73,16 +121,17 @@ final class BlockTypeRegistry
 			return [];
 		}
 
+		$active = $this->all();
 		$out = [];
 		foreach ($allowed as $childType) {
-			if (isset($this->byType[$childType])) {
-				$out[] = $this->byType[$childType];
+			if (isset($active[$childType])) {
+				$out[] = $active[$childType];
 			}
 		}
 
-		// Empty array = any block type may be a child.
+		// Empty array = any active block type may be a child.
 		return [] === $out && [] === $allowed ?
-			array_values($this->byType) :
+			array_values($active) :
 			$out;
 	}
 
@@ -94,7 +143,7 @@ final class BlockTypeRegistry
 	public function byCategory(): array
 	{
 		$byCategory = [];
-		foreach ($this->byType as $blockType) {
+		foreach ($this->all() as $blockType) {
 			$byCategory[$blockType->category][] = $blockType;
 		}
 		foreach ($byCategory as &$list) {
@@ -102,5 +151,14 @@ final class BlockTypeRegistry
 		}
 
 		return $byCategory;
+	}
+
+	private function isBlockTypeActive(BlockType $blockType, ?Site $site = null): bool
+	{
+		if (null === $this->activationChecker || 'core' === $blockType->source || '' === $blockType->source) {
+			return true;
+		}
+
+		return $this->activationChecker->isActiveForSite($blockType->source, $site);
 	}
 }

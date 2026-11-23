@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Tests\Web\BlockEditor\Render;
 
-use iikiti\CMS\Tests\Support\IconResolverFactory;
 use iikiti\CMS\Web\BlockEditor\BlockType\BlockTypeRegistry;
 use iikiti\CMS\Web\BlockEditor\BlockType\CoreBlockTypeProvider;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderContext;
@@ -18,7 +17,7 @@ final class WidgetFragmentPlannerTest extends TestCase
 	protected function setUp(): void
 	{
 		$this->planner = new WidgetFragmentPlanner(
-			new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly())]),
+			new BlockTypeRegistry([new CoreBlockTypeProvider()]),
 		);
 	}
 
@@ -146,7 +145,7 @@ final class WidgetFragmentPlannerTest extends TestCase
 		]];
 		$context = new BlockRenderContext(editorMode: false);
 		$revision = str_repeat('r', 64);
-		$registry = new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly())]);
+		$registry = new BlockTypeRegistry([new CoreBlockTypeProvider()]);
 		$first = (new WidgetFragmentPlanner($registry, str_repeat('a', 32)))->plan($roots, $context, $revision, 10);
 		$again = (new WidgetFragmentPlanner($registry, str_repeat('a', 32)))->plan($roots, $context, $revision, 10);
 		$rotated = (new WidgetFragmentPlanner($registry, str_repeat('b', 32)))->plan($roots, $context, $revision, 10);

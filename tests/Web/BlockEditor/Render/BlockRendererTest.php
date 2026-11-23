@@ -19,9 +19,10 @@ use iikiti\CMS\Service\LocalizedPropertyResolver;
 use iikiti\CMS\Tests\Support\IconResolverFactory;
 use iikiti\CMS\Value\LocaleTag;
 use iikiti\CMS\Value\LocalizedValue;
-use iikiti\CMS\Web\BlockEditor\CustomCssCompiler;
+use iikiti\Extension\CustomCss\Css\CustomCssCompiler;
 use iikiti\CMS\Web\BlockEditor\BlockType\BlockTypeRegistry;
 use iikiti\CMS\Web\BlockEditor\BlockType\CoreBlockTypeProvider;
+use iikiti\Extension\Forms\BlockType\FormBlockTypeProvider;
 use iikiti\CMS\Web\BlockEditor\Query\QueryDefinition;
 use iikiti\CMS\Web\BlockEditor\Query\QueryExecutor;
 use iikiti\CMS\Web\BlockEditor\Query\QueryFieldCatalog;
@@ -47,7 +48,9 @@ final class BlockRendererTest extends TestCase
 
 	private function makeRenderer(?QuerySourceInterface $source = null, ?QueryFieldCatalog $queryFields = null): BlockRenderer
 	{
-		$twig = new Environment(new FilesystemLoader(__DIR__.'/../../../../templates'), [
+		$loader = new FilesystemLoader(__DIR__.'/../../../../templates');
+		$loader->addPath(__DIR__.'/../../../../plugins/iikiti-forms/templates', 'Forms');
+		$twig = new Environment($loader, [
 			'strict_variables' => false,
 		]);
 		// The app registers BlockTwigExtension globally; the bare test environment
@@ -60,7 +63,10 @@ final class BlockRendererTest extends TestCase
 		$twig->addExtension(new LocalizedTextExtension());
 
 		return new BlockRenderer(
-			new BlockTypeRegistry([new CoreBlockTypeProvider(IconResolverFactory::bundledOnly())]),
+			new BlockTypeRegistry([
+				new CoreBlockTypeProvider(IconResolverFactory::bundledOnly()),
+				new FormBlockTypeProvider(),
+			]),
 			$twig,
 			new QueryExecutor(null !== $source ? [$source] : []),
 			$queryFields ?? new QueryFieldCatalog($this->createStub(EntityManagerInterface::class)),

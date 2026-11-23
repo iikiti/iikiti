@@ -1,0 +1,14 @@
+{
+  "name": "iikiti Lucide Icons",
+  "slug": "iikiti-icons-lucide",
+  "namespace": "iikiti\\Extension\\IconsLucide",
+  "bundle_class": "iikiti\\Extension\\IconsLucide\\IconsLucideBundle",
+  "version": "1.0.0",
+  "iikiti_version": "^1.0",
+  "activation_mode": "default_on",
+  "scope": "site",
+  "description": "Bundled Lucide icon set and icon font stylesheet assets.",
+  "authors": [{ "name": "iikiti" }],
+  "license": "ISC",
+  "edition": "standard"
+}

@@ -48,6 +48,7 @@ class ConsentRecord extends DbObject
 		];
 	}
 
+	/** @param array{necessary?: bool, analytics?: bool, marketing?: bool} $categories */
 	public function setCategories(array $categories): void
 	{
 		$this->setProperty(self::PROP_CATEGORIES, [
@@ -95,6 +96,7 @@ class ConsentRecord extends DbObject
 		return is_array($value) ? $value : null;
 	}
 
+	/** @param array{gpc?: bool, dnt?: bool}|null $signals */
 	public function setSignals(?array $signals): void
 	{
 		$this->setProperty(self::PROP_SIGNALS, $signals);

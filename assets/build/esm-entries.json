@@ -1,0 +1,56 @@
+[
+	{
+		"entry": "./plugins/iikiti-content-optimization/assets/admin/index.ts",
+		"outputPath": "plugins/iikiti-content-optimization/public/dist",
+		"filename": "admin.js"
+	},
+	{
+		"entry": "./plugins/iikiti-content-optimization/assets/editor/index.js",
+		"outputPath": "plugins/iikiti-content-optimization/public/dist",
+		"filename": "editor.js"
+	},
+	{
+		"entry": "./plugins/iikiti-content-optimization/assets/js/analytics-loader.js",
+		"outputPath": "plugins/iikiti-content-optimization/public/dist",
+		"filename": "analytics-loader.js"
+	},
+	{
+		"entry": "./plugins/consent-management/assets/consent-manager.js",
+		"outputPath": "plugins/consent-management/public/dist",
+		"filename": "consent-manager.js"
+	},
+	{
+		"entry": "./plugins/consent-management/assets/consent-banner.js",
+		"outputPath": "plugins/consent-management/public/dist",
+		"filename": "consent-banner.js"
+	},
+	{
+		"copy": [
+			{
+				"from": "node_modules/lucide-static/font",
+				"to": "plugins/iikiti-icons-lucide/public/font",
+				"pattern": "\\.(css|woff2?|ttf)$"
+			}
+		]
+	},
+	{
+		"entry": "./plugins/iikiti-embeds/assets/editor/index.js",
+		"outputPath": "plugins/iikiti-embeds/public/dist",
+		"filename": "editor.js"
+	},
+	{
+		"entry": "./plugins/iikiti-custom-css/assets/editor/index.js",
+		"outputPath": "plugins/iikiti-custom-css/public/dist",
+		"filename": "editor.js"
+	},
+	{
+		"entry": "./plugins/iikiti-forms/assets/editor/index.js",
+		"outputPath": "plugins/iikiti-forms/public/dist",
+		"filename": "editor.js"
+	},
+	{
+		"entry": "./plugins/iikiti-forms/assets/workflow/mount.js",
+		"outputPath": "plugins/iikiti-forms/public/dist",
+		"filename": "workflow.js"
+	}
+]

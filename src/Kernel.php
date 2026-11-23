@@ -3,6 +3,8 @@
 namespace iikiti\CMS;
 
 use iikiti\CMS\DependencyInjection\Compiler\DynamicRoleHierarchyPass;
+use iikiti\CMS\Doctrine\UnknownDbObjectClassGenerator;
+use iikiti\CMS\Plugin\PluginAutoloader;
 use iikiti\CMS\Plugin\PluginInstallInfo;
 use iikiti\CMS\Plugin\PluginLoader;
 use iikiti\CMS\Plugin\PluginManifest;
@@ -82,6 +84,15 @@ class Kernel extends BaseKernel implements CompilerPassInterface
 	{
 		parent::build($container);
 
+		$cacheDir = $container->getParameter('kernel.cache_dir');
+		if (is_string($cacheDir) && '' !== $cacheDir) {
+			$unknownObjectsDir = $cacheDir.'/'.UnknownDbObjectClassGenerator::CACHE_SUBDIR;
+			if (!is_dir($unknownObjectsDir)) {
+				@mkdir($unknownObjectsDir, 0o775, true);
+			}
+			PluginAutoloader::register(UnknownDbObjectClassGenerator::NAMESPACE_PREFIX, $unknownObjectsDir);
+		}
+
 		$container->addCompilerPass(new DynamicRoleHierarchyPass());
 	}
 
@@ -92,6 +103,12 @@ class Kernel extends BaseKernel implements CompilerPassInterface
 	 */
 	protected function initializeBundles(): void
 	{
+		$unknownObjectsDir = $this->getCacheDir().'/'.UnknownDbObjectClassGenerator::CACHE_SUBDIR;
+		if (!is_dir($unknownObjectsDir)) {
+			@mkdir($unknownObjectsDir, 0o775, true);
+		}
+		PluginAutoloader::register(UnknownDbObjectClassGenerator::NAMESPACE_PREFIX, $unknownObjectsDir);
+
 		$this->discoverPlugins();
 
 		parent::initializeBundles();
@@ -159,7 +176,11 @@ class Kernel extends BaseKernel implements CompilerPassInterface
 	 */
 	public function registerBundles(): iterable
 	{
-		yield from $this->__kernelRegisterBundles();
+		$yieldedBundles = [];
+		foreach ($this->__kernelRegisterBundles() as $bundle) {
+			$yieldedBundles[$bundle::class] = true;
+			yield $bundle;
+		}
 
 		$this->discoverPlugins();
 
@@ -169,7 +190,22 @@ class Kernel extends BaseKernel implements CompilerPassInterface
 		);
 
 		foreach ($this->discoveredPlugins as $plugin) {
-			yield $loader->instantiate($plugin);
+			$bundle = $loader->instantiate($plugin);
+			$requiredBundles = array_unique(array_merge(
+				$plugin['manifest']->requiredBundles,
+				$bundle::getRequiredBundles(),
+			));
+			foreach ($requiredBundles as $requiredBundleClass) {
+				if (!isset($yieldedBundles[$requiredBundleClass]) && class_exists($requiredBundleClass)) {
+					$yieldedBundles[$requiredBundleClass] = true;
+					yield new $requiredBundleClass();
+				}
+			}
+
+			if (!isset($yieldedBundles[$bundle::class])) {
+				$yieldedBundles[$bundle::class] = true;
+				yield $bundle;
+			}
 		}
 	}
 

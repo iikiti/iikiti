@@ -9,7 +9,9 @@
 		searchNode,
 	} from './state';
 	import type { BlockNode } from './state';
+	import { resolveBlockPreview, sidebarVersion } from './extensions';
 	import Icon from '$components/Icon.svelte';
+	import IconPreview from './previews/IconPreview.svelte';
 	import BlockView from './BlockView.svelte';
 
 	let {
@@ -33,6 +35,10 @@
 	const schema = $derived($blockTypes[node.type] as Record<string, unknown> | undefined);
 	const acceptsChildren = $derived(Boolean(schema?.acceptsChildren));
 	const childTypes = $derived.by(() => allowedChildTypes(node.type, $blockTypes ?? {}));
+	const PluginPreview = $derived.by(() => {
+		void $sidebarVersion;
+		return resolveBlockPreview(node.type);
+	});
 
 	const inlineTags = ['span', 'em', 'strong', 'b', 'u', 'i', 'small', 'code', 'mark'];
 
@@ -54,25 +60,6 @@
 		event.stopPropagation();
 		event.preventDefault();
 		addChild();
-	}
-
-	function iconRootMarkup(markup: string, name: string, style: string, blockClass: string, id: string): string {
-		const openingTag = markup.match(/^\s*<([a-z][a-z0-9-]*)\b[^>]*>/i);
-		if (!openingTag) return markup;
-
-		let decorated = openingTag[0];
-		const escapeAttribute = (value: string) => value.replace(/[&"<>]/g, (character) => ({
-			'&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;',
-		}[character] ?? character));
-		const classAttribute = decorated.match(/\sclass="([^"]*)"/i);
-		if (classAttribute) {
-			decorated = decorated.replace(classAttribute[0], ` class="${classAttribute[1]} iikiti-icon-block ${escapeAttribute(blockClass)}"`);
-		} else {
-			decorated = decorated.replace(/>$/, ` class="iikiti-icon-block ${escapeAttribute(blockClass)}">`);
-		}
-		decorated = decorated.replace(/>$/, ` data-block-icon="${escapeAttribute(name)}"${id ? ` id="${escapeAttribute(id)}"` : ''}${style ? ` style="${escapeAttribute(style)}"` : ''}>`);
-
-		return markup.replace(openingTag[0], decorated);
 	}
 </script>
 
@@ -103,7 +90,10 @@
 	{/if}
 {/snippet}
 
-{#if node.type === 'text'}
+{#if PluginPreview}
+	{@const PreviewComponent = PluginPreview}
+	<PreviewComponent {node} {regionId} {readonly} {parentId} {widgetClass} {elementId} {targetStyle} {childBlocks} iconSvgs={$iconSvgs} iconGlyphs={$iconGlyphs} />
+{:else if node.type === 'text'}
 	<div class="{widgetClass} iikiti-text" id={elementId || undefined}>{@html node.content?.content ?? ''}</div>
 {:else if node.type === 'heading'}
 	<svelte:element this={'h' + headingLevel()} class="{widgetClass} iikiti-heading-preview" id={elementId || undefined} data-block-children>
@@ -149,6 +139,8 @@
 	{:else}
 		<em class="{widgetClass} iikiti-block--placeholder" id={elementId || undefined}>Image URL missing</em>
 	{/if}
+{:else if node.type === 'icon'}
+	<IconPreview {node} {widgetClass} {elementId} {targetStyle} iconSvgs={$iconSvgs} iconGlyphs={$iconGlyphs} />
 {:else if node.type === 'container'}
 	<div class="{widgetClass} iikiti-container" id={elementId || undefined} data-block-children style={targetStyle || undefined}>
 		{#each node.children ?? [] as child, index (child.id)}
@@ -176,57 +168,6 @@
 			</button>
 		{/if}
 	</div>
-{:else if node.type === 'form'}
-	<form class="{widgetClass} iikiti-form-preview" id={elementId || undefined} data-block-children onsubmit={(event) => event.preventDefault()}>
-		{@render childBlocks()}
-	</form>
-{:else if node.type === 'fieldset'}
-	<fieldset class="{widgetClass} iikiti-fieldset-preview" id={elementId || undefined} data-block-children>
-		{@render childBlocks()}
-	</fieldset>
-{:else if node.type === 'button'}
-	{@const configuredButtonType = String(node.content?.type ?? 'button')}
-	{@const buttonType = ['button', 'submit'].includes(configuredButtonType) ? configuredButtonType : 'button'}
-<button class="{widgetClass} iikiti-button-preview" id={elementId || undefined} type={buttonType} disabled>{String(node.content?.text ?? 'Button')}</button>
-{:else if node.type === 'input'}
-	{@const configuredType = String(node.content?.type ?? 'text')}
-	{@const inputType = ['text', 'password', 'email', 'number'].includes(configuredType) ? configuredType : 'text'}
-	<label class="{widgetClass} iikiti-form-control-preview" id={elementId || undefined}>
-		{#if node.content?.label}<span>{node.content.label}</span>{/if}
-		<input type={inputType} value={String(node.content?.value ?? '')} disabled />
-	</label>
-{:else if node.type === 'textarea'}
-	<label class="{widgetClass} iikiti-form-control-preview" id={elementId || undefined}>
-		{#if node.content?.label}<span>{node.content.label}</span>{/if}
-		<textarea rows={Number(node.content?.rows ?? 4) || 4} disabled>{String(node.content?.value ?? '')}</textarea>
-	</label>
-{:else if node.type === 'select'}
-	<label class="{widgetClass} iikiti-form-control-preview" id={elementId || undefined}>
-		{#if node.content?.label}<span>{node.content.label}</span>{/if}
-		<select disabled>
-			{#each Array.isArray(node.content?.options) ? node.content.options : [] as option, index (`${index}-${String(option?.value ?? '')}`)}
-				<option value={String(option?.value ?? '')} selected={String(option?.value ?? '') === String(node.content?.value ?? '')}>{String(option?.label ?? option?.value ?? '')}</option>
-			{/each}
-		</select>
-	</label>
-{:else if node.type === 'range'}
-	<label class="{widgetClass} iikiti-form-control-preview" id={elementId || undefined}>
-		{#if node.content?.label}<span>{node.content.label}</span>{/if}
-		<input type="range" min={node.content?.min ?? 0} max={node.content?.max ?? 100} step={node.content?.step ?? 1} value={node.content?.value ?? 50} disabled />
-	</label>
-{:else if node.type === 'checkbox' || node.type === 'radio'}
-	<label class="iikiti-form-control-preview">
-		<input type={node.type} value={String(node.content?.value ?? '')} checked={Boolean(node.content?.checked)} disabled />
-		{#if node.content?.label}<span>{node.content.label}</span>{/if}
-	</label>
-{:else if node.type === 'legend'}
-	<strong class="{widgetClass} iikiti-legend-preview" id={elementId || undefined}>{node.content?.text ?? ''}</strong>
-{:else if node.type === 'video_embed'}
-	<iframe src={node.content?.url} title="Embedded content" class="{widgetClass} iikiti-embed__iframe" id={elementId || undefined} allowfullscreen loading="lazy"></iframe>
-{:else if node.type === 'social_embed'}
-	{#if node.content?.url}
-		<a href={node.content.url} class="{widgetClass} iikiti-embed--link-card" id={elementId || undefined}>{node.content.url}</a>
-	{/if}
 {:else if node.type === 'query'}
 	<div class="{widgetClass} iikiti-query-preview" id={elementId || undefined} data-block-children style={targetStyle || undefined}>
 		{#each node.children ?? [] as child, index (child.id)}
@@ -261,9 +202,6 @@
 	</div>
 {:else if node.type === 'dynamic'}
 	<em class="{widgetClass} iikti-block--placeholder" id={elementId || undefined}>Dynamic content region</em>
-{:else if node.type === 'icon'}
-	{@const iconRef = String(node.content?.name ?? '')}
-	{@html iconRootMarkup((node.content?.renderer === 'font' ? $iconGlyphs[iconRef] : $iconSvgs[iconRef]) ?? '', iconRef, targetStyle, widgetClass, elementId)}
 {:else}
 	<em class="{widgetClass} iikiti-block--placeholder" id={elementId || undefined}>Unknown block type</em>
 {/if}

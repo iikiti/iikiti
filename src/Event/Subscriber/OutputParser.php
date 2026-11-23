@@ -6,7 +6,9 @@ use iikiti\CMS\Filters\AbstractFilter;
 use iikiti\CMS\Filters\HtmlFilter;
 use iikiti\CMS\Filters\InlineCssFilter;
 use iikiti\CMS\Filters\InlineJavaScriptFilter;
+use iikiti\CMS\Filters\ResponseFilterInterface;
 use Override;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\Stopwatch\Stopwatch;
@@ -20,11 +22,25 @@ class OutputParser implements EventSubscriberInterface
 	/** @var array<int,mixed> */
 	protected static array $filters = [];
 
+	/** @var list<ResponseFilterInterface> */
+	private readonly array $responseFilters;
+
+	/**
+	 * @param iterable<ResponseFilterInterface> $responseFilters
+	 */
 	public function __construct(
 		private readonly ?Stopwatch $stopwatch = null,
 		private readonly ?InlineCssFilter $inlineCssFilter = null,
 		private readonly ?InlineJavaScriptFilter $inlineJavaScriptFilter = null,
+		#[AutowireIterator('iikiti.cms.response_filter')]
+		iterable $responseFilters = [],
 	) {
+		$filters = [];
+		foreach ($responseFilters as $filter) {
+			$filters[] = $filter;
+		}
+		usort($filters, static fn (ResponseFilterInterface $left, ResponseFilterInterface $right): int => $right->getPriority() <=> $left->getPriority());
+		$this->responseFilters = $filters;
 	}
 
 	/**
@@ -58,6 +74,9 @@ class OutputParser implements EventSubscriberInterface
 			HtmlFilter::filterHtml($event, $this->stopwatch);
 			$this->inlineCssFilter?->filter($event);
 			$this->inlineJavaScriptFilter?->filter($event);
+			foreach ($this->responseFilters as $responseFilter) {
+				$responseFilter->filter($event);
+			}
 		} finally {
 			$request->attributes->remove(AbstractFilter::DEFER_HTML_SAVE_ATTRIBUTE);
 			AbstractFilter::flushHtmlDocument($event);

@@ -7,11 +7,13 @@ namespace iikiti\CMS\Web\Icon;
 use iikiti\CMS\Entity\IconSetEntity;
 use iikiti\CMS\Repository\IconRepository;
 use iikiti\CMS\Repository\IconSetRepository;
+use Symfony\Component\DependencyInjection\Attribute\Exclude;
 
 /**
  * Read-only {@see IconSet} over one admin-managed set (stored, sanitised SVG).
  * Icons are addressed by their bare name within the set.
  */
+#[Exclude]
 final class StoredIconSet implements IconSet
 {
 	/** @var array<string, string>|null name => sanitised svg, loaded lazily */

@@ -52,13 +52,14 @@ readonly class PluginProvider implements ProviderInterface
 	}
 
 	/**
-	 * @param array{manifest: PluginManifest, path: string, installInfo: ?PluginInstallInfo} $plugin
-	 * @param list<string>                                                                   $activeSiteIds
+	 * @param array{manifest: PluginManifest, path: string, installInfo: ?PluginInstallInfo, builtIn?: bool} $plugin
+	 * @param list<string>                                                                                   $activeSiteIds
 	 */
 	private function toPluginInfo(array $plugin, array $activeSiteIds): PluginInfo
 	{
 		$manifest = $plugin['manifest'];
 		$installInfo = $plugin['installInfo'];
+		$builtIn = true === ($plugin['builtIn'] ?? false);
 
 		return new PluginInfo(
 			slug: $manifest->slug,
@@ -74,6 +75,11 @@ readonly class PluginProvider implements ProviderInterface
 			capabilities: $manifest->capabilities,
 			actions: $manifest->actions,
 			actionConflicts: $manifest->actionConflicts,
+			builtIn: $builtIn,
+			required: $builtIn && PluginManifest::ACTIVATION_REQUIRED === $manifest->activationMode,
+			removable: !$builtIn,
+			activationMode: $manifest->activationMode,
+			scope: $manifest->scope,
 		);
 	}
 }

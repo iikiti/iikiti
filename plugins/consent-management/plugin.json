@@ -5,10 +5,15 @@
   "bundle_class": "iikiti\\Extension\\ConsentManagement\\ConsentManagementBundle",
   "version": "1.0.0",
   "iikiti_version": "^1.0",
+  "activation_mode": "opt_in",
+  "scope": "site",
   "description": "Consent banner, cookie consent management, and proof-of-consent API with geo-targeted legal frameworks.",
   "authors": [{ "name": "iikiti", "email": "jimbo2150@gmail.com" }],
   "license": "MIT",
   "edition": "standard",
+  "actions": {
+    "claims": ["privacy.consent.banner"]
+  },
   "permissions": {
     "manage_consent": { "description": "Manage consent banner configuration and view consent log", "default_roles": ["ROLE_ADMIN"] }
   }

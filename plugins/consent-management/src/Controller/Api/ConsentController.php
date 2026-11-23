@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace iikiti\Extension\ConsentManagement\Controller\Api;
 
 use iikiti\CMS\Entity\Object\Site;
+use iikiti\CMS\Plugin\Attribute\RequiresPlugin;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\Extension\ConsentManagement\Service\ConsentService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -23,6 +24,7 @@ use Symfony\Component\Routing\Attribute\Route;
  * client-generated session id.
  */
 #[AsController]
+#[RequiresPlugin('consent-management')]
 final class ConsentController extends AbstractController
 {
 	public function __construct(private readonly ConsentService $service)

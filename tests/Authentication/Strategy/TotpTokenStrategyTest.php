@@ -2,7 +2,7 @@
 
 namespace iikiti\CMS\Tests\Authentication\Strategy;
 
-use iikiti\CMS\Authentication\Strategy\TotpTokenStrategy;
+use iikiti\Extension\MfaTotp\Strategy\TotpTokenStrategy;
 use OTPHP\TOTP;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;

@@ -6,6 +6,7 @@ namespace iikiti\Extension\ContentOptimization\Service;
 
 use iikiti\CMS\Entity\Object\Application;
 use iikiti\CMS\Entity\Object\Site;
+use iikiti\CMS\Plugin\PluginActivationChecker;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\Object\PageRepository;
 use iikiti\CMS\Repository\Object\SiteRepository;
@@ -55,6 +56,7 @@ final class PublicDiscoveryDocumentGenerator
 		private readonly ?ResponseHeaderPolicy $responseHeaderPolicy = null,
 		#[Autowire(service: 'cache.rendered_fragments')]
 		private readonly ?TagAwareCacheInterface $cache = null,
+		private readonly ?PluginActivationChecker $activationChecker = null,
 	) {
 		$this->pageSeoNormalizer = $pageSeoNormalizer ?? new PageSeoSettingsNormalizer();
 	}
@@ -328,7 +330,10 @@ final class PublicDiscoveryDocumentGenerator
 	private function siteAndApplication(): array
 	{
 		$site = SiteRegistry::getCurrent();
-		if (!in_array(ContentOptimizationSettings::PLUGIN_SLUG, $site->getEnabledPlugins(), true)) {
+		$isActive = null !== $this->activationChecker
+			? $this->activationChecker->isActiveForSite(ContentOptimizationSettings::PLUGIN_SLUG, $site)
+			: in_array(ContentOptimizationSettings::PLUGIN_SLUG, $site->getEnabledPlugins(), true);
+		if (!$isActive) {
 			throw new NotFoundHttpException('Content Optimization is not active for this site.');
 		}
 		$application = $this->sites->getApplicationBySite($site);

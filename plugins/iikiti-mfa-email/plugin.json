@@ -1,0 +1,14 @@
+{
+  "name": "iikiti MFA Email",
+  "slug": "iikiti-mfa-email",
+  "namespace": "iikiti\\Extension\\MfaEmail",
+  "bundle_class": "iikiti\\Extension\\MfaEmail\\MfaEmailBundle",
+  "version": "1.0.0",
+  "iikiti_version": "^1.0",
+  "activation_mode": "default_on",
+  "scope": "both",
+  "description": "One-time email code multi-factor authentication provider.",
+  "authors": [{ "name": "iikiti" }],
+  "license": "MIT",
+  "edition": "standard"
+}

@@ -1,0 +1,17 @@
+{
+  "name": "iikiti Embeds",
+  "slug": "iikiti-embeds",
+  "namespace": "iikiti\\Extension\\Embeds",
+  "bundle_class": "iikiti\\Extension\\Embeds\\EmbedsBundle",
+  "version": "1.0.0",
+  "iikiti_version": "^1.0",
+  "activation_mode": "default_on",
+  "scope": "site",
+  "editor_ui": {
+    "entry": "/admin-plugins/iikiti-embeds/dist/editor.js"
+  },
+  "description": "YouTube, Vimeo, direct media, and allowlisted social oEmbed providers and blocks.",
+  "authors": [{ "name": "iikiti" }],
+  "license": "MIT",
+  "edition": "standard"
+}

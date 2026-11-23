@@ -23,11 +23,6 @@ Keep the changelog split in separate files (per day) or per version in the works
 Keep only the latest 5 sections (dated or versioned) in the top level CHANGELOG.md.
 Older sections are archived in `changelog/<date>.md`.
 
-## Testing
-
-You can access the database and run queries through the doctrine CLI commands. For a list, use command `php bin/console list doctrine`.
-You can use action `dbal:run-sql` ro run SQL directly on the database. Use this only on local or development environments.
-
 ## Documentation
 
 For changes made that require configuration changes or user interaction, make sure to add or update existing documentation under /docs and include description of the feature, a walkthrough of any relevant workflows, and installation or configuration steps required to be completed.
@@ -57,7 +52,7 @@ Business logic should be handled by API methods. For instance, a controller for 
   Third-party plugins use their own vendor namespace.
 - Themes are plugin functionality, not a separate package type or registry. A
   plugin may contain only a theme, only application code, or both.
-- Every plugin ships a `plugin.json` manifest; see `docs/plugin-development.md`.
+- Every plugin ships a `plugin.json` manifest (including `activation_mode` and `scope`); see `docs/plugin-development.md` and `docs/core-vs-plugins.md`.
 - Store-managed plugin installation/updates enforce checksum, Ed25519 signature,
   namespace and review-state checks; core-bundled plugins ship with the
   application release. See `docs/plugin-security.md`.

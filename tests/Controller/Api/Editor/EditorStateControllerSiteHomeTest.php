@@ -17,11 +17,12 @@ use iikiti\CMS\Repository\Object\SiteRepository;
 use iikiti\CMS\Security\PermissionChecker;
 use iikiti\CMS\Service\DigitalAssetAccessPolicy;
 use iikiti\CMS\Web\BlockEditor\EditorSettingsManager;
-use iikiti\CMS\Web\BlockEditor\HomepageSeoAccessPolicy;
 use iikiti\CMS\Web\Template\TemplateResolver;
 use iikiti\CMS\Workflow\Policy\WorkflowAccessPolicy;
+use iikiti\Extension\ContentOptimization\Security\HomepageSeoAccessPolicy;
 use iikiti\Extension\ContentOptimization\Service\ContentOptimizationSettings;
 use iikiti\Extension\ContentOptimization\Service\PageSeoSettingsNormalizer;
+use iikiti\Extension\ContentOptimization\Web\ContentOptimizationEditorSettingsHandler;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -91,7 +92,7 @@ final class EditorStateControllerSiteHomeTest extends TestCase
 		$audit->expects(self::once())->method('record');
 		$user = new User();
 
-		$response = $this->controller($user)->saveSettings(
+		$response = $this->controller($user, $checker = $this->permissionChecker(static fn (string $type, string $action): bool => 'Template' === $type && 'publish' === $action), $this->globalAdminPolicy(), $settingsManager)->saveSettings(
 			$this->request('/api/editor/settings/save', [
 				'targetType' => 'site_home',
 				'targetId' => 42,
@@ -102,11 +103,9 @@ final class EditorStateControllerSiteHomeTest extends TestCase
 					'iikiti_content_optimization_description' => '  Homepage description  ',
 				],
 			]),
-			$this->permissionChecker(static fn (string $type, string $action): bool => 'Template' === $type && 'publish' === $action),
+			$checker,
 			$settingsManager,
 			$this->globalAdminPolicy(),
-			new PageSeoSettingsNormalizer(),
-			null,
 			$audit,
 		);
 
@@ -125,17 +124,19 @@ final class EditorStateControllerSiteHomeTest extends TestCase
 		$entityManager = $this->createMock(EntityManagerInterface::class);
 		$entityManager->expects(self::never())->method('persist');
 		$entityManager->expects(self::never())->method('flush');
+		$checker = $this->permissionChecker(static fn (string $type, string $action): bool => true);
+		$settingsManager = new EditorSettingsManager($entityManager);
+		$workflow = $this->globalAdminPolicy();
 
-		$response = $this->controller(new User())->saveSettings(
+		$response = $this->controller(new User(), $checker, $workflow, $settingsManager)->saveSettings(
 			$this->request('/api/editor/settings/save', [
 				'targetType' => 'site_home',
 				'targetId' => 43,
 				'settings' => [],
 			]),
-			$this->permissionChecker(static fn (string $type, string $action): bool => true),
-			new EditorSettingsManager($entityManager),
-			$this->globalAdminPolicy(),
-			new PageSeoSettingsNormalizer(),
+			$checker,
+			$settingsManager,
+			$workflow,
 		);
 
 		self::assertSame(404, $response->getStatusCode());
@@ -153,13 +154,14 @@ final class EditorStateControllerSiteHomeTest extends TestCase
 		$entityManager = $this->createMock(EntityManagerInterface::class);
 		$entityManager->expects(self::never())->method('persist');
 		$entityManager->expects(self::never())->method('flush');
+		$checker = $this->permissionChecker(static fn (string $type, string $action): bool => false);
+		$settingsManager = new EditorSettingsManager($entityManager);
 
-		$response = $this->controller($user)->publishSettings(
+		$response = $this->controller($user, $checker, $workflow, $settingsManager)->publishSettings(
 			$this->request('/api/editor/settings/publish', ['targetType' => 'site_home', 'targetId' => 42]),
-			$this->permissionChecker(static fn (string $type, string $action): bool => false),
-			new EditorSettingsManager($entityManager),
+			$checker,
+			$settingsManager,
 			$workflow,
-			new PageSeoSettingsNormalizer(),
 		);
 
 		self::assertSame(403, $response->getStatusCode());
@@ -179,13 +181,19 @@ final class EditorStateControllerSiteHomeTest extends TestCase
 		$emptyContainer->method('get')->willReturnCallback(static fn (string $id): mixed => 'security.token_storage' === $id ? $emptyTokenStorage : null);
 		$security = $this->createStub(Security::class);
 		$security->method('getUser')->willReturn(null);
-		$unauthController = new EditorStateController($security, $emptyContainer);
+		$checker = $this->permissionChecker(static fn (): bool => true);
+		$settingsManager = new EditorSettingsManager($entityManager);
+		$workflow = $this->globalAdminPolicy();
+		$unauthController = new EditorStateController(
+			$security,
+			$emptyContainer,
+			[new ContentOptimizationEditorSettingsHandler(new PageSeoSettingsNormalizer(), $checker, $workflow, $settingsManager)],
+		);
 		$unauthResponse = $unauthController->saveSettings(
 			$this->request('/api/editor/settings/save', ['targetType' => 'site_home', 'targetId' => 999, 'settings' => []]),
-			$this->permissionChecker(static fn (): bool => true),
-			new EditorSettingsManager($entityManager),
-			$this->globalAdminPolicy(),
-			new PageSeoSettingsNormalizer(),
+			$checker,
+			$settingsManager,
+			$workflow,
 		);
 		self::assertSame(403, $unauthResponse->getStatusCode());
 
@@ -193,12 +201,12 @@ final class EditorStateControllerSiteHomeTest extends TestCase
 		$regularUser = new User();
 		$roleHierarchy = $this->createStub(RoleHierarchyInterface::class);
 		$roleHierarchy->method('getReachableRoleNames')->willReturn(['ROLE_USER']);
-		$nonManagerResponse = $this->controller($regularUser)->saveSettings(
+		$nonManagerWorkflow = $this->workflowPolicy($roleHierarchy);
+		$nonManagerResponse = $this->controller($regularUser, $checker, $nonManagerWorkflow, $settingsManager)->saveSettings(
 			$this->request('/api/editor/settings/save', ['targetType' => 'site_home', 'targetId' => 999, 'settings' => []]),
-			$this->permissionChecker(static fn (): bool => true),
-			new EditorSettingsManager($entityManager),
-			$this->workflowPolicy($roleHierarchy),
-			new PageSeoSettingsNormalizer(),
+			$checker,
+			$settingsManager,
+			$nonManagerWorkflow,
 		);
 		self::assertSame(403, $nonManagerResponse->getStatusCode());
 	}
@@ -221,14 +229,14 @@ final class EditorStateControllerSiteHomeTest extends TestCase
 		$settingsManager = new EditorSettingsManager($entityManager);
 		$audit = $this->createMock(AuditRecorder::class);
 		$audit->expects(self::once())->method('record');
+		$checker = $this->permissionChecker(static fn (string $type, string $action): bool => 'Page' === $type && 'publish' === $action);
+		$workflow = $this->globalAdminPolicy();
 
-		$okResponse = $this->controller(new User())->publishSettings(
+		$okResponse = $this->controller(new User(), $checker, $workflow, $settingsManager)->publishSettings(
 			$this->request('/api/editor/settings/publish', ['targetType' => 'page', 'targetId' => 77]),
-			$this->permissionChecker(static fn (string $type, string $action): bool => 'Page' === $type && 'publish' === $action),
+			$checker,
 			$settingsManager,
-			$this->globalAdminPolicy(),
-			new PageSeoSettingsNormalizer(),
-			null,
+			$workflow,
 			$audit,
 		);
 		self::assertSame(200, $okResponse->getStatusCode());
@@ -246,13 +254,13 @@ final class EditorStateControllerSiteHomeTest extends TestCase
 		$em2 = $this->createMock(EntityManagerInterface::class);
 		$em2->method('getRepository')->willReturnCallback(static fn (string $class) => Page::class === $class ? $badPageRepo : null);
 		$em2->expects(self::never())->method('flush');
+		$badSettingsManager = new EditorSettingsManager($em2);
 
-		$badResponse = $this->controller(new User())->publishSettings(
+		$badResponse = $this->controller(new User(), $checker, $workflow, $badSettingsManager)->publishSettings(
 			$this->request('/api/editor/settings/publish', ['targetType' => 'page', 'targetId' => 78]),
-			$this->permissionChecker(static fn (string $type, string $action): bool => 'Page' === $type && 'publish' === $action),
-			new EditorSettingsManager($em2),
-			$this->globalAdminPolicy(),
-			new PageSeoSettingsNormalizer(),
+			$checker,
+			$badSettingsManager,
+			$workflow,
 		);
 		self::assertSame(400, $badResponse->getStatusCode());
 	}
@@ -295,8 +303,12 @@ final class EditorStateControllerSiteHomeTest extends TestCase
 		return $site;
 	}
 
-	private function controller(User $user): EditorStateController
-	{
+	private function controller(
+		User $user,
+		PermissionChecker $checker,
+		WorkflowAccessPolicy $workflow,
+		EditorSettingsManager $settingsManager,
+	): EditorStateController {
 		$tokenStorage = $this->createStub(TokenStorageInterface::class);
 		$tokenStorage->method('getToken')->willReturn(new UsernamePasswordToken($user, 'main', []));
 		$container = $this->createStub(ContainerInterface::class);
@@ -305,7 +317,11 @@ final class EditorStateControllerSiteHomeTest extends TestCase
 		$security = $this->createStub(Security::class);
 		$security->method('getUser')->willReturn($user);
 
-		return new EditorStateController($security, $container);
+		return new EditorStateController(
+			$security,
+			$container,
+			[new ContentOptimizationEditorSettingsHandler(new PageSeoSettingsNormalizer(), $checker, $workflow, $settingsManager)],
+		);
 	}
 
 	/** @param array<string,mixed> $payload */

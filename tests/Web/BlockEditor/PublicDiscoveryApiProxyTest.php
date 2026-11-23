@@ -26,7 +26,11 @@ final class PublicDiscoveryApiProxyTest extends TestCase
 		});
 		$proxy = $this->proxy($client);
 
-		$response = $proxy->robots(Request::create('https://www.example.test/robots.txt'));
+		$response = $proxy->proxyJsonDocument(
+			Request::create('https://www.example.test/robots.txt'),
+			'/api/public/content-optimization/robots',
+			'text/plain; charset=UTF-8',
+		);
 
 		self::assertSame(200, $response->getStatusCode());
 		self::assertSame('GET', $observed['method']);
@@ -53,7 +57,11 @@ final class PublicDiscoveryApiProxyTest extends TestCase
 				'contentType' => 'application/xml; charset=UTF-8',
 			], JSON_THROW_ON_ERROR));
 		});
-		$response = $this->proxy($client)->sitemap(Request::create('https://www.example.test/sitemap.xml'));
+		$response = $this->proxy($client)->proxyJsonDocument(
+			Request::create('https://www.example.test/sitemap.xml'),
+			'/api/public/content-optimization/sitemap',
+			'application/xml; charset=UTF-8',
+		);
 
 		self::assertSame(200, $response->getStatusCode());
 		self::assertSame('application/xml; charset=UTF-8', $response->headers->get('Content-Type'));
@@ -66,7 +74,11 @@ final class PublicDiscoveryApiProxyTest extends TestCase
 			'body' => '<html>unexpected</html>',
 			'contentType' => 'text/html; charset=UTF-8',
 		], JSON_THROW_ON_ERROR)));
-		$response = $this->proxy($client)->sitemap(Request::create('https://www.example.test/sitemap.xml'));
+		$response = $this->proxy($client)->proxyJsonDocument(
+			Request::create('https://www.example.test/sitemap.xml'),
+			'/api/public/content-optimization/sitemap',
+			'application/xml; charset=UTF-8',
+		);
 
 		self::assertSame(502, $response->getStatusCode());
 		self::assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));

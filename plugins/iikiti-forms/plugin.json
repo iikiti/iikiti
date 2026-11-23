@@ -1,0 +1,17 @@
+{
+  "name": "iikiti Forms",
+  "slug": "iikiti-forms",
+  "namespace": "iikiti\\Extension\\Forms",
+  "bundle_class": "iikiti\\Extension\\Forms\\FormsBundle",
+  "version": "1.0.0",
+  "iikiti_version": "^1.0",
+  "activation_mode": "default_on",
+  "scope": "site",
+  "editor_ui": {
+    "entry": "/admin-plugins/iikiti-forms/dist/editor.js"
+  },
+  "description": "Form and form-control blocks, form hierarchy validator, and multi-step interactive form runtime.",
+  "authors": [{ "name": "iikiti" }],
+  "license": "MIT",
+  "edition": "standard"
+}

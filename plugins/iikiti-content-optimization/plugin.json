@@ -5,6 +5,11 @@
   "bundle_class": "iikiti\\Extension\\ContentOptimization\\ContentOptimizationBundle",
   "version": "1.0.0",
   "iikiti_version": "^1.0",
+  "activation_mode": "default_on",
+  "scope": "both",
+  "editor_ui": {
+    "entry": "/admin-plugins/iikiti-content-optimization/dist/editor.js"
+  },
   "description": "SEO, GEO, AIO metadata, indexing controls, and privacy-aware analytics connectors.",
   "authors": [{ "name": "iikiti" }],
   "license": "MIT",

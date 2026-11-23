@@ -26,8 +26,8 @@ final class ConsentBannerFragmentTest extends TestCase
 		$result = $fragment->render(new FragmentContext(new Site(), 'en'));
 
 		self::assertStringContainsString('<div id="iikiti-consent-banner" hidden></div>', $result->html);
-		self::assertStringContainsString('/build/consent-manager.js', $result->html);
-		self::assertStringContainsString('/build/consent-banner.js', $result->html);
+		self::assertStringContainsString('<script type="module" src="/plugin-assets/consent-management/dist/consent-manager.js"></script>', $result->html);
+		self::assertStringContainsString('<script type="module" src="/plugin-assets/consent-management/dist/consent-banner.js"></script>', $result->html);
 		self::assertStringNotContainsString('style=', $result->html);
 		self::assertSame([], $result->styles);
 	}

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Tests\Web\BlockEditor\Render;
 
-use iikiti\CMS\Web\BlockEditor\Embed\EmbedResolver;
+use iikiti\Extension\Embeds\Embed\EmbedResolver;
 use iikiti\CMS\Web\BlockEditor\Query\QueryExecutor;
 use iikiti\CMS\Web\BlockEditor\Twig\BlockTwigExtension;
 use iikiti\CMS\Web\Icon\IconFontAssets;

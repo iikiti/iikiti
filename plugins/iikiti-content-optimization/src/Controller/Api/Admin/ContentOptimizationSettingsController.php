@@ -11,6 +11,7 @@ use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Manager\UserRoleManager;
 use iikiti\CMS\Plugin\Lifecycle\PluginLifecycleHandler;
+use iikiti\CMS\Plugin\PluginActivationChecker;
 use iikiti\CMS\Plugin\PluginContext;
 use iikiti\CMS\Plugin\PluginRegistry;
 use iikiti\CMS\Plugin\PluginSource;
@@ -48,6 +49,7 @@ final class ContentOptimizationSettingsController
 		private readonly ?PluginRegistry $plugins = null,
 		#[Autowire('%kernel.environment%')]
 		private readonly string $environment = 'prod',
+		private readonly ?PluginActivationChecker $activationChecker = null,
 	) {
 	}
 
@@ -79,7 +81,7 @@ final class ContentOptimizationSettingsController
 			'effective' => $resolved['effective'],
 			'sources' => $resolved['sources'],
 			'availableConnectors' => $this->settings->availableConnectors($owner),
-			'pluginEnabled' => in_array(ContentOptimizationSettings::PLUGIN_SLUG, $owner->getEnabledPlugins(), true),
+			'pluginEnabled' => $this->isPluginEnabledOnSite($owner),
 			'responseHeaderRules' => $this->xRobotsTagRules($application, $owner),
 		]);
 	}
@@ -141,18 +143,18 @@ final class ContentOptimizationSettingsController
 			return new JsonResponse(['error' => $exception->getMessage()], JsonResponse::HTTP_BAD_REQUEST);
 		}
 
-		$wasEnabled = in_array(ContentOptimizationSettings::PLUGIN_SLUG, $owner->getEnabledPlugins(), true);
+		$wasEnabled = $this->isPluginEnabledOnSite($owner);
 		$configuration = $owner->getConfiguration();
 		if ($input->enabled) {
-			$configuration->enablePlugin(ContentOptimizationSettings::PLUGIN_SLUG);
+			$configuration->enablePlugin(ContentOptimizationSettings::PLUGIN_SLUG, true);
 		} else {
-			$configuration->disablePlugin(ContentOptimizationSettings::PLUGIN_SLUG);
+			$configuration->disablePlugin(ContentOptimizationSettings::PLUGIN_SLUG, true);
 		}
 		$owner->setConfiguration($configuration);
 		$this->entityManager->persist($owner);
 		$this->entityManager->flush();
 
-		$isEnabled = in_array(ContentOptimizationSettings::PLUGIN_SLUG, $owner->getEnabledPlugins(), true);
+		$isEnabled = $this->isPluginEnabledOnSite($owner);
 		if ($isEnabled !== $wasEnabled) {
 			$this->recordActivationTransition($owner, $isEnabled);
 		}
@@ -160,6 +162,13 @@ final class ContentOptimizationSettingsController
 		return new JsonResponse([
 			'enabled' => $isEnabled,
 		]);
+	}
+
+	private function isPluginEnabledOnSite(Site $site): bool
+	{
+		return null !== $this->activationChecker
+			? $this->activationChecker->isActiveForSite(ContentOptimizationSettings::PLUGIN_SLUG, $site)
+			: in_array(ContentOptimizationSettings::PLUGIN_SLUG, $site->getEnabledPlugins(), true);
 	}
 
 	private function recordActivationTransition(Site $site, bool $enabled): void

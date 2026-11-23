@@ -6,10 +6,12 @@ namespace iikiti\CMS\Tests\Security;
 
 use iikiti\CMS\Entity\Object\ApiToken;
 use iikiti\CMS\Entity\Object\User;
+use iikiti\CMS\Registry\RouteContextClassifier;
 use iikiti\CMS\Repository\Object\ApiTokenRepository;
 use iikiti\CMS\Security\ApiTokenAuthenticator;
 use iikiti\CMS\Security\GuestApiTokenManager;
 use iikiti\CMS\Security\GuestApiUser;
+use iikiti\Extension\ContentOptimization\RouteContext\ContentOptimizationRouteContextContributor;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Core\Exception\CustomUserMessageAuthenticationException;
@@ -32,7 +34,8 @@ final class ApiTokenAuthenticatorGuestTest extends TestCase
 	public function testGuestCredentialCanReadSiteScopedRobotsAndSitemapDocuments(): void
 	{
 		$manager = new GuestApiTokenManager('test-secret');
-		$authenticator = new ApiTokenAuthenticator($this->createStub(ApiTokenRepository::class), $manager);
+		$classifier = new RouteContextClassifier([new ContentOptimizationRouteContextContributor()]);
+		$authenticator = new ApiTokenAuthenticator($this->createStub(ApiTokenRepository::class), $manager, $classifier);
 
 		foreach (['robots', 'sitemap'] as $document) {
 			$request = Request::create('/api/public/content-optimization/'.$document, 'GET');

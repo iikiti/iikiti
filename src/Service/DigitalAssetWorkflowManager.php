@@ -14,6 +14,7 @@ use iikiti\CMS\Entity\Workflow\WorkflowDefinitionVersion;
 use iikiti\CMS\Entity\Workflow\WorkflowInstance;
 use iikiti\CMS\Event\DigitalAssetEvent;
 use iikiti\CMS\Event\DigitalAssetEvents;
+use iikiti\CMS\Plugin\PluginActivationChecker;
 use iikiti\CMS\Repository\DigitalAssetRepository;
 use iikiti\CMS\Repository\Workflow\WorkflowDefinitionRepository;
 use iikiti\CMS\StateMachine\AssetProcessingStateMachine;
@@ -30,6 +31,7 @@ final class DigitalAssetWorkflowManager
 		private readonly WorkflowInstanceManagerInterface $instances,
 		private readonly EventDispatcherInterface $eventDispatcher,
 		private readonly AssetProcessingStateMachine $assetProcessingStateMachine,
+		private readonly ?PluginActivationChecker $activationChecker = null,
 	) {
 	}
 
@@ -269,7 +271,7 @@ final class DigitalAssetWorkflowManager
 			if ('site' === $definition->getOwnerType() && ($definition->getOwnerKey() !== (string) $site->getId() || !$assigned)) {
 				continue;
 			}
-			if ('plugin' === $definition->getOwnerType() && (!$assigned || !$site->getConfiguration()->isPluginActive($definition->getOwnerKey()))) {
+			if ('plugin' === $definition->getOwnerType() && (!$assigned || !$this->isPluginActiveForSite($definition->getOwnerKey(), $site))) {
 				continue;
 			}
 			if ('core' === $definition->getOwnerType() && !$allSites && !$assigned) {
@@ -281,6 +283,11 @@ final class DigitalAssetWorkflowManager
 		}
 
 		return false;
+	}
+
+	private function isPluginActiveForSite(string $slug, Site $site): bool
+	{
+		return $this->activationChecker?->isActiveForSite($slug, $site) ?? $site->getConfiguration()->isPluginActive($slug);
 	}
 
 	private function idempotencyKey(UploadedDigitalAsset $asset, WorkflowDefinition $definition): string

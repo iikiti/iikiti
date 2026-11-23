@@ -1,0 +1,11 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    iikiti\Extension\IconsLucide\:
+        resource: '../src/'
+        exclude:
+            - '../src/IconsLucideBundle.php'
+
+    iikiti\CMS\Web\Icon\IconSet: '@iikiti\Extension\IconsLucide\Icon\LucideIconSet'

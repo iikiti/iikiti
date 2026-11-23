@@ -53,6 +53,41 @@ class PluginRegistry
 		return isset($this->manifests[$slug]);
 	}
 
+	public function get(string $slug): ?PluginManifest
+	{
+		return $this->manifests[$slug] ?? null;
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	public function getDefaultActiveSlugs(): array
+	{
+		$slugs = [];
+		foreach ($this->manifests as $manifest) {
+			if (in_array($manifest->activationMode, [PluginManifest::ACTIVATION_REQUIRED, PluginManifest::ACTIVATION_DEFAULT_ON], true)) {
+				$slugs[] = $manifest->slug;
+			}
+		}
+
+		return $slugs;
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	public function getRequiredSlugs(): array
+	{
+		$slugs = [];
+		foreach ($this->manifests as $manifest) {
+			if (PluginManifest::ACTIVATION_REQUIRED === $manifest->activationMode) {
+				$slugs[] = $manifest->slug;
+			}
+		}
+
+		return $slugs;
+	}
+
 	public function count(): int
 	{
 		return count($this->manifests);

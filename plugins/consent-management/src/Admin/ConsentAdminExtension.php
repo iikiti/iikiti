@@ -6,12 +6,18 @@ namespace iikiti\Extension\ConsentManagement\Admin;
 
 use iikiti\CMS\Admin\AdminExtensionInterface;
 use iikiti\CMS\Admin\AdminExtensionTrait;
+use iikiti\CMS\Admin\PluginOwnedAdminExtensionInterface;
 use iikiti\CMS\ApiResource\AdminMenuItem;
 use iikiti\CMS\ApiResource\AdminScreen;
 
-final class ConsentAdminExtension implements AdminExtensionInterface
+final class ConsentAdminExtension implements AdminExtensionInterface, PluginOwnedAdminExtensionInterface
 {
 	use AdminExtensionTrait;
+
+	public function getPluginSlug(): string
+	{
+		return 'consent-management';
+	}
 
 	public function getMenuItems(): array
 	{

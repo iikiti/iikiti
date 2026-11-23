@@ -22,6 +22,8 @@ use Symfony\Component\Security\Core\Exception\AuthenticationException;
  */
 class Initializer implements EventSubscriberInterface
 {
+	private readonly RouteContextClassifier $routeClassifier;
+
 	/**
 	 * Import necessary services.
 	 */
@@ -34,7 +36,9 @@ class Initializer implements EventSubscriberInterface
 		private string $applicationRole,
 		#[Autowire('%public_page_render_via_api%')]
 		private bool $publicPageRenderViaApi = false,
+		?RouteContextClassifier $routeClassifier = null,
 	) {
+		$this->routeClassifier = $routeClassifier ?? new RouteContextClassifier();
 	}
 
 	/**
@@ -70,8 +74,8 @@ class Initializer implements EventSubscriberInterface
 		$route = $event->getRequest()->attributes->get('_route');
 		$routeName = is_string($route) ? $route : null;
 		$path = $event->getRequest()->getPathInfo();
-		$consumerProxyRoute = RouteContextClassifier::isConsumerProxyRoute($routeName);
-		$siteIndependentRoute = RouteContextClassifier::isSiteIndependentRoute(
+		$consumerProxyRoute = $this->routeClassifier->matchesConsumerProxyRoute($routeName);
+		$siteIndependentRoute = $this->routeClassifier->matchesSiteIndependentRoute(
 			$routeName,
 			$path,
 			$this->applicationRole,
@@ -81,7 +85,7 @@ class Initializer implements EventSubscriberInterface
 			if (!$consumerProxyRoute) {
 				throw new ServiceUnavailableHttpException(null, 'This consumer runtime only supports API-backed page, asset, and admin shell routes.');
 			}
-		} elseif (!$siteIndependentRoute && !RouteContextClassifier::isInternalWorkerRoute($routeName)) {
+		} elseif (!$siteIndependentRoute && !$this->routeClassifier->matchesInternalWorkerRoute($routeName)) {
 			$this->appRegistry->getCurrent();
 			$this->siteRegistry::getCurrent();
 		}
@@ -102,7 +106,7 @@ class Initializer implements EventSubscriberInterface
 	 */
 	protected function _verifyUserHasSiteAccess(Request $request): void
 	{
-		if (RouteContextClassifier::isSiteAccessCheckExempt($request, $this->applicationRole)) {
+		if ($this->routeClassifier->matchesSiteAccessCheckExempt($request, $this->applicationRole)) {
 			return;
 		}
 

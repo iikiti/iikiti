@@ -11,6 +11,7 @@ use iikiti\CMS\Entity\Object\Template;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Repository\Object\TemplateRepository;
 use iikiti\CMS\Web\BlockEditor\Workflow\DraftPublishWorkflow;
+use iikiti\Extension\Forms\BlockEditor\FormBlockTreeValidator;
 use PHPUnit\Framework\TestCase;
 
 final class DraftPublishWorkflowTest extends TestCase
@@ -33,7 +34,7 @@ final class DraftPublishWorkflowTest extends TestCase
 		$em = $this->createStub(EntityManagerInterface::class);
 		$em->method('getRepository')->willReturn($repo);
 
-		return new DraftPublishWorkflow($em);
+		return new DraftPublishWorkflow($em, [new FormBlockTreeValidator()]);
 	}
 
 	private function user(): User

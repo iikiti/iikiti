@@ -8,10 +8,11 @@ use Dom\DocumentFragment;
 use iikiti\CMS\Async\FiberTaskRunner;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Entity\Object\Template;
+use iikiti\CMS\Plugin\PluginActivationChecker;
+use iikiti\CMS\Plugin\PluginRegistry;
 use iikiti\CMS\Profiler\AsyncResponseDataCollector;
 use iikiti\CMS\Profiler\ProfilerQueryDiagnostics;
 use iikiti\CMS\Response\Composition\HtmlFragmentComposer;
-use iikiti\CMS\Web\BlockEditor\Embed\EmbedResolver;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderContext;
 use iikiti\CMS\Web\BlockEditor\Render\BlockRenderer;
 use iikiti\CMS\Web\BlockEditor\Render\RenderCacheTagCollector;
@@ -23,6 +24,8 @@ use iikiti\CMS\Web\Fragment\FragmentContext;
 use iikiti\CMS\Web\Fragment\FragmentPlanCollector;
 use iikiti\CMS\Web\Fragment\FragmentResult;
 use iikiti\CMS\Web\Fragment\PageFragmentResult;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Twig\Environment;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
@@ -38,15 +41,21 @@ final class TemplateRenderer
 {
 	public const REGION_ROLE_MAIN = 'main';
 
+	/**
+	 * @param iterable<TemplateRenderPrefetchInterface> $renderPrefetchers
+	 */
 	public function __construct(
 		private readonly BlockRenderer $blockRenderer,
 		private readonly Environment $twig,
 		private readonly ?ShellResolver $shellResolver = null,
 		private readonly ?ShellProvider $shellProvider = null,
 		private readonly ?FiberTaskRunner $fiberTaskRunner = null,
-		private readonly ?EmbedResolver $embedResolver = null,
 		private readonly ?AsyncResponseDataCollector $profiler = null,
 		private readonly ?RenderedFragmentCache $renderedFragmentCache = null,
+		#[AutowireIterator('iikiti.cms.template_render_prefetch')]
+		private readonly iterable $renderPrefetchers = [],
+		private readonly ?PluginActivationChecker $activationChecker = null,
+		private readonly ?PluginRegistry $pluginRegistry = null,
 	) {
 	}
 
@@ -81,11 +90,11 @@ final class TemplateRenderer
 		];
 
 		$shells = $this->resolveShells($resolutionContext);
-		if (null !== $this->fiberTaskRunner && null !== $this->embedResolver) {
-			$context = $context->withPrefetchedEmbeds($this->embedResolver->prefetchOembeds(
-				$this->embedUrls($regionTrees, $context, $shells),
-				$this->fiberTaskRunner,
-			));
+		if (null !== $this->fiberTaskRunner) {
+			$noopRender = static function (BlockRenderContext $ctx): void {};
+			foreach ($this->renderPrefetchers as $prefetcher) {
+				$context = $prefetcher->prefetchDuringRender($regionTrees, $shells, $context, $this->fiberTaskRunner, $noopRender);
+			}
 		}
 
 		foreach ($regions as $region) {
@@ -104,7 +113,7 @@ final class TemplateRenderer
 		$this->twig->addGlobal('iikiti_editor_mode', $context->editorMode);
 
 		try {
-			return $this->twig->render($template->getLayout(), $vars);
+			return $this->twig->render($this->resolveLayoutTemplate($template->getLayout(), $context), $vars);
 		} catch (LoaderError|RuntimeError|SyntaxError $e) {
 			return $this->renderError($e->getMessage());
 		}
@@ -135,19 +144,16 @@ final class TemplateRenderer
 
 		$this->twig->addGlobal('iikiti_can_edit', $context->canEdit);
 		$this->twig->addGlobal('iikiti_editor_mode', $context->editorMode);
-		$deferredShellEmbeds = [];
-		$renderLayoutAndFragments = function (array $regionEmbeds) use (
+		$shells = $this->resolveShells($resolutionContext);
+		$renderLayoutAndFragments = function (BlockRenderContext $renderContext) use (
 			$template,
-			$context,
 			$regions,
 			$regionTrees,
+			$shells,
 			$composer,
 			$pagePlaceholderSelector,
 			$settings,
-			$resolutionContext,
-			&$deferredShellEmbeds,
 		): void {
-			$renderContext = $context->withPrefetchedEmbeds($regionEmbeds);
 			$orderedRegions = $regions;
 			$regionPriority = ['main' => 0, 'header' => 2];
 			usort($orderedRegions, static fn (array $left, array $right): int =>
@@ -162,16 +168,15 @@ final class TemplateRenderer
 				}
 			}
 
-			$shells = $this->resolveShells($resolutionContext);
 			$regionSlots = [];
 			$vars = [
-				'iikiti_editor_mode' => $context->editorMode,
-				'iikiti_can_edit' => $context->canEdit,
+				'iikiti_editor_mode' => $renderContext->editorMode,
+				'iikiti_can_edit' => $renderContext->canEdit,
 				'iikiti_regions' => $regions,
 				'iikiti_settings' => $settings ?: $template->getSettings(),
-				'iikiti_site' => $context->site,
-				'_iikiti_fragment_context' => new FragmentContext($context->site, $context->request?->getLocale() ?? 'und'),
-				'_iikiti_fragment_styles' => $context->customCssCollector,
+				'iikiti_site' => $renderContext->site,
+				'_iikiti_fragment_context' => new FragmentContext($renderContext->site, $renderContext->request?->getLocale() ?? 'und'),
+				'_iikiti_fragment_styles' => $renderContext->customCssCollector,
 				'iikiti_shells' => [],
 			];
 			foreach ($regions as $region) {
@@ -195,7 +200,7 @@ final class TemplateRenderer
 			}
 
 			try {
-				$layout = $this->twig->render($template->getLayout(), $vars);
+				$layout = $this->twig->render($this->resolveLayoutTemplate($template->getLayout(), $renderContext), $vars);
 			} catch (LoaderError|RuntimeError|SyntaxError $exception) {
 				$composer->insertIntoPlaceholder($pagePlaceholderSelector, $this->renderError($exception->getMessage()));
 
@@ -214,47 +219,46 @@ final class TemplateRenderer
 				}
 			}
 
-			$shellUrls = array_values(array_diff($this->embedUrls([], $context, $shells), array_keys($regionEmbeds)));
-			$renderShells = function (array $shellEmbeds) use ($shellSlots, $regionEmbeds, $renderContext, $composer): void {
-				$shellContext = $renderContext->withPrefetchedEmbeds($regionEmbeds + $shellEmbeds);
-				$roles = array_keys($shellSlots);
-				$rolePriority = ['aside' => 0, 'sidebar' => 0, 'footer' => 1, 'dialog' => 2, 'header' => 3];
-				usort($roles, static fn (string $left, string $right): int => ($rolePriority[$left] ?? 1) <=> ($rolePriority[$right] ?? 1));
-				foreach ($roles as $role) {
-					foreach ($shellSlots[$role] as $entry) {
-						$html = $this->blockRenderer->renderRegionTree(
-							is_array($entry['shell']['blocks'] ?? null) ? $entry['shell']['blocks'] : null,
-							$shellContext,
-						);
+			$roles = array_keys($shellSlots);
+			$rolePriority = ['aside' => 0, 'sidebar' => 0, 'footer' => 1, 'dialog' => 2, 'header' => 3];
+			usort($roles, static fn (string $left, string $right): int => ($rolePriority[$left] ?? 1) <=> ($rolePriority[$right] ?? 1));
+			foreach ($roles as $role) {
+				foreach ($shellSlots[$role] as $entry) {
+					$html = $this->blockRenderer->renderRegionTree(
+						is_array($entry['shell']['blocks'] ?? null) ? $entry['shell']['blocks'] : null,
+						$renderContext,
+					);
 					$selector = sprintf('template[data-iikiti-shell-slot="%s"]', $entry['token']);
 					if ($composer->hasPlaceholder($selector)) {
 						$composer->insertFragmentIntoPlaceholder($selector, $composer->createFragment($html));
-						}
 					}
 				}
-			};
-
-			if ([] !== $shellUrls && null !== $this->fiberTaskRunner && null !== $this->embedResolver) {
-				$deferredShellEmbeds = $this->embedResolver->renderWhilePrefetchingOembeds(
-					$shellUrls,
-					$this->fiberTaskRunner,
-					$renderShells,
-				);
-			} else {
-				$renderShells([]);
 			}
 		};
 
-		if (null !== $this->fiberTaskRunner && null !== $this->embedResolver) {
-			$deferredRegionEmbeds = $this->embedResolver->renderWhilePrefetchingOembeds(
-				$this->embedUrls($regionTrees, $context, []),
-				$this->fiberTaskRunner,
-				$renderLayoutAndFragments,
-			);
-			$composer->replaceDeferredEmbeds($deferredRegionEmbeds + $deferredShellEmbeds);
-		} else {
-			$renderLayoutAndFragments($context->prefetchedEmbeds);
+		$pipeline = static function (BlockRenderContext $finalContext) use ($renderLayoutAndFragments): BlockRenderContext {
+			$renderLayoutAndFragments($finalContext);
+
+			return $finalContext;
+		};
+		if (null !== $this->fiberTaskRunner) {
+			$runner = $this->fiberTaskRunner;
+			$prefetchers = is_array($this->renderPrefetchers)
+				? $this->renderPrefetchers
+				: iterator_to_array($this->renderPrefetchers, false);
+			foreach (array_reverse($prefetchers) as $prefetcher) {
+				$next = $pipeline;
+				$pipeline = static fn (BlockRenderContext $ctx): BlockRenderContext => $prefetcher->prefetchDuringRender(
+					$regionTrees,
+					$shells,
+					$ctx,
+					$runner,
+					$next,
+					$composer,
+				);
+			}
 		}
+		$pipeline($context);
 	}
 
 	/**
@@ -352,7 +356,7 @@ final class TemplateRenderer
 		}
 
 		try {
-			$html = $this->twig->render($template->getLayout(), $vars);
+			$html = $this->twig->render($this->resolveLayoutTemplate($template->getLayout(), $context), $vars);
 			$pluginFragments = $fragmentPlan->serverDescriptors();
 		} catch (LoaderError|RuntimeError|SyntaxError|\InvalidArgumentException $exception) {
 			$html = $this->renderError($exception->getMessage());
@@ -462,11 +466,12 @@ final class TemplateRenderer
 		if ('widget' === $kind && null !== $widgetEntry) {
 			$renderWidget = function (RenderCacheTagCollector $cacheTags) use ($widgetEntry, $context, $widgetPlan): array {
 				$fragmentContext = $context->withRenderCacheTags($cacheTags);
-				if (null !== $this->fiberTaskRunner && null !== $this->embedResolver) {
-					$fragmentContext = $fragmentContext->withPrefetchedEmbeds($this->embedResolver->prefetchOembeds(
-						$this->embedUrls(['widget' => [$widgetEntry['node']]], $fragmentContext, []),
-						$this->fiberTaskRunner,
-					));
+				if (null !== $this->fiberTaskRunner) {
+					$noopRender = static function (BlockRenderContext $ctx): void {};
+					$widgetTree = ['widget' => [$widgetEntry['node']]];
+					foreach ($this->renderPrefetchers as $prefetcher) {
+						$fragmentContext = $prefetcher->prefetchDuringRender($widgetTree, [], $fragmentContext, $this->fiberTaskRunner, $noopRender);
+					}
 				}
 
 				return [
@@ -481,13 +486,12 @@ final class TemplateRenderer
 			$styles = $rendered['styles'];
 		} else {
 			if (null !== $this->fiberTaskRunner
-				&& null !== $this->embedResolver
 				&& null === $this->inlinedWidgetSlots($kind, $resolvedId, $tree ?? [], $context, $widgetPlan)) {
 				$fragmentTrees = 'region' === $kind ? [$resolvedId => $tree ?? []] : ['shell' => $tree ?? []];
-				$context = $context->withPrefetchedEmbeds($this->embedResolver->prefetchOembeds(
-					$this->embedUrls($fragmentTrees, $context, []),
-					$this->fiberTaskRunner,
-				));
+				$noopRender = static function (BlockRenderContext $ctx): void {};
+				foreach ($this->renderPrefetchers as $prefetcher) {
+					$context = $prefetcher->prefetchDuringRender($fragmentTrees, [], $context, $this->fiberTaskRunner, $noopRender);
+				}
 			}
 			$rootPath = WidgetFragmentPlan::rootPath($kind, $resolvedId);
 			$html = $this->blockRenderer->renderRegionTree($tree, $context, $widgetPlan, $rootPath);
@@ -659,42 +663,6 @@ final class TemplateRenderer
 	}
 
 	/**
-	 * @param array<string,list<array<string,mixed>>> $regionTrees
-	 * @param array<string,list<array<string,mixed>>> $shells
-	 * @return list<string>
-	 */
-	private function embedUrls(array $regionTrees, BlockRenderContext $context, array $shells): array
-	{
-		$urls = [];
-		foreach ([$regionTrees, $context->dynamicBlocks, $shells] as $tree) {
-			$this->collectEmbedUrls($tree, $urls);
-		}
-
-		return array_values(array_unique($urls));
-	}
-
-	/**
-	 * @param array<string,mixed>|list<mixed> $node
-	 * @param list<string> $urls
-	 * @param-out list<string> $urls
-	 */
-	private function collectEmbedUrls(array $node, array &$urls): void
-	{
-		if ('social_embed' === ($node['type'] ?? null)) {
-			$url = $node['content']['url'] ?? null;
-			if (is_string($url) && '' !== trim($url)) {
-				$urls[] = $url;
-			}
-		}
-
-		foreach ($node as $value) {
-			if (is_array($value)) {
-				$this->collectEmbedUrls($value, $urls);
-			}
-		}
-	}
-
-	/**
 	 * Returns top-level widget slot tokens when a non-empty root tree renders
 	 * exclusively planned widget placeholders (zero inline HTML or root styles),
 	 * allowing the manifest to embed those widget slots directly and skip an
@@ -803,6 +771,39 @@ final class TemplateRenderer
 		}
 
 		return false;
+	}
+
+	private function resolveLayoutTemplate(string $layout, BlockRenderContext $context): string
+	{
+		$fallback = 'base/fallback-block-editor-content.twig';
+		$loader = $this->twig->getLoader();
+		$ownerSlug = $this->pluginSlugForLayoutNamespace($layout);
+		$pluginInactive = null !== $ownerSlug && null !== $this->activationChecker && !$this->activationChecker->isActiveForSite($ownerSlug, $context->site);
+		$needsFallback = $pluginInactive || (Template::DEFAULT_LAYOUT === $layout && !$loader->exists($layout));
+		if ($needsFallback && $loader->exists($fallback)) {
+			return $fallback;
+		}
+
+		return $layout;
+	}
+
+	private function pluginSlugForLayoutNamespace(string $layout): ?string
+	{
+		if (1 !== preg_match('/^@([A-Za-z0-9_]+)\//', $layout, $matches) || null === $this->pluginRegistry) {
+			return null;
+		}
+
+		$targetNamespace = strtolower($matches[1]);
+		foreach ($this->pluginRegistry->getManifests() as $manifest) {
+			$lastSeparator = strrpos($manifest->bundleClass, '\\');
+			$shortClass = false === $lastSeparator ? $manifest->bundleClass : substr($manifest->bundleClass, $lastSeparator + 1);
+			$twigNamespace = strtolower((string) preg_replace('/Bundle$/', '', $shortClass));
+			if ('' !== $twigNamespace && $twigNamespace === $targetNamespace) {
+				return $manifest->slug;
+			}
+		}
+
+		return null;
 	}
 
 	private function regionVar(string $regionId): string

@@ -70,6 +70,37 @@ final class PublicAssetApiProxyTest extends TestCase
 		self::assertSame(502, $response->getStatusCode());
 	}
 
+	public function testPluginAssetRejectsTraversalAndNormalizesValidSegments(): void
+	{
+		$requestedUrls = [];
+		$client = new MockHttpClient(static function (string $method, string $url) use (&$requestedUrls): MockResponse {
+			$requestedUrls[] = $url;
+
+			return new MockResponse('export default 1;', [
+				'http_code' => 200,
+				'response_headers' => ['Content-Type: application/javascript; charset=UTF-8'],
+			]);
+		});
+		$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
+		$proxy = new PublicAssetApiProxy(
+			$api,
+			new ApiSessionTokenProvider($api),
+			new FiberTaskRunner($client),
+			new GuestApiTokenManager('test-secret'),
+		);
+
+		$request = Request::create('https://www.example.test/');
+		foreach (['../secret.js', 'dist\\editor.js', 'dist/.env', 'dist/editor.js?x=1', '/etc/passwd'] as $badPath) {
+			self::assertSame(404, $proxy->pluginAsset($request, 'iikiti-forms', $badPath)->getStatusCode());
+		}
+		self::assertSame(404, $proxy->pluginAsset($request, '../evil', 'dist/editor.js')->getStatusCode());
+		self::assertSame([], $requestedUrls);
+
+		$ok = $proxy->pluginAsset($request, 'iikiti-forms', 'dist/my file.js');
+		self::assertSame(200, $ok->getStatusCode());
+		self::assertSame(['https://api.example.test/api/public/plugin-assets/iikiti-forms/dist/my%20file.js'], $requestedUrls);
+	}
+
 	/** @param array<array-key,mixed> $headers */
 	private static function header(array $headers, string $name): ?string
 	{

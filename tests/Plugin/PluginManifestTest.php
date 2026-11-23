@@ -63,6 +63,28 @@ final class PluginManifestTest extends TestCase
 
 		$this->assertSame([], $manifest->actions);
 		$this->assertSame([], $manifest->actionConflicts);
+		$this->assertSame(PluginManifest::ACTIVATION_OPT_IN, $manifest->activationMode);
+		$this->assertSame(PluginManifest::SCOPE_SITE, $manifest->scope);
+		$this->assertSame([], $manifest->requiredBundles);
+	}
+
+	public function testParsesBuiltInLifecycleAndRequiredBundles(): void
+	{
+		$manifest = PluginManifest::fromArray($this->validData([
+			'activation_mode' => PluginManifest::ACTIVATION_DEFAULT_ON,
+			'scope' => PluginManifest::SCOPE_BOTH,
+			'required_bundles' => ['Acme\\Bundle\\ExtraBundle'],
+		]));
+
+		$this->assertSame(PluginManifest::ACTIVATION_DEFAULT_ON, $manifest->activationMode);
+		$this->assertSame(PluginManifest::SCOPE_BOTH, $manifest->scope);
+		$this->assertSame(['Acme\\Bundle\\ExtraBundle'], $manifest->requiredBundles);
+	}
+
+	public function testRejectsInvalidActivationMode(): void
+	{
+		$this->expectException(InvalidManifestException::class);
+		PluginManifest::fromArray($this->validData(['activation_mode' => 'always']));
 	}
 
 	public function testRejectsInvalidActionDeclarations(): void

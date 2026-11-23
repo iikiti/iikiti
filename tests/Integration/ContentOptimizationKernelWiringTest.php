@@ -73,7 +73,9 @@ final class ContentOptimizationKernelWiringTest extends KernelTestCase
 		$request = Request::create('https://api.example.test/api/admin/applications/7/content-optimization/settings', 'GET');
 		$request->attributes->set('_route', 'api_admin_application_content_optimization_settings_get');
 
-		self::assertTrue(RouteContextClassifier::isSiteIndependentRoute(
+		/** @var RouteContextClassifier $classifier */
+		$classifier = $container->get(RouteContextClassifier::class);
+		self::assertTrue($classifier->matchesSiteIndependentRoute(
 			'api_admin_application_content_optimization_settings_get',
 			$request->getPathInfo(),
 			'api',

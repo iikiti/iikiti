@@ -15,7 +15,22 @@ class AuditRecorder
 {
 	public function __construct(
 		private readonly AuditLogger $logger,
+		private readonly ?AuditActionRegistry $actionRegistry = null,
 	) {
+	}
+
+	public function getActionRegistry(): ?AuditActionRegistry
+	{
+		return $this->actionRegistry;
+	}
+
+	public function isSupportedAction(string $action): bool
+	{
+		if (null === $this->actionRegistry) {
+			return in_array($action, \iikiti\CMS\Entity\AuditLogEntry::ACTIONS, true);
+		}
+
+		return $this->actionRegistry->isValid($action);
 	}
 
 	/**

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Web\BlockEditor\Embed;
 
+use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
+
 /**
  * A single provider capable of turning a URL into embed HTML.
  *
@@ -11,6 +13,7 @@ namespace iikiti\CMS\Web\BlockEditor\Embed;
  * Plugins register additional providers by implementing this interface and the
  * `iikiti.cms.embed_provider` tag (auto-tagged via {@see EmbedProviderInterface}).
  */
+#[AutoconfigureTag('iikiti.cms.embed_provider')]
 interface EmbedProviderInterface
 {
 	/**

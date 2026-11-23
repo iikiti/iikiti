@@ -23,4 +23,9 @@ trait AdminExtensionTrait
 	{
 		return [];
 	}
+
+	public function getPluginSlug(): ?string
+	{
+		return null;
+	}
 }

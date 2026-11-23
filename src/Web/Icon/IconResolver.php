@@ -6,11 +6,12 @@ namespace iikiti\CMS\Web\Icon;
 
 use iikiti\CMS\Repository\IconRepository;
 use iikiti\CMS\Repository\IconSetRepository;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 /**
  * Resolves an icon block's `name` to the icon set that holds it.
  *
- * - `box`            -> bundled Lucide set, icon `box` (existing content keeps working)
+ * - `box`            -> bundled icon set, icon `box` (existing content keeps working)
  * - `brand/logo`     -> admin-managed set with slug `brand`, icon `logo`
  *
  * A name is never resolved against a set the request did not ask for, and an unknown
@@ -18,11 +19,20 @@ use iikiti\CMS\Repository\IconSetRepository;
  */
 final class IconResolver
 {
+	/** @var list<IconSet> */
+	private readonly array $bundledSets;
+
+	/**
+	 * @param iterable<IconSet>|IconSet $bundledSets
+	 */
 	public function __construct(
-		private readonly LucideIconSet $bundled,
+		#[AutowireIterator('iikiti.cms.icon_set')]
+		iterable|IconSet $bundledSets,
 		private readonly IconSetRepository $sets,
 		private readonly IconRepository $icons,
 	) {
+		$sets = $bundledSets instanceof IconSet ? [$bundledSets] : [...$bundledSets];
+		$this->bundledSets = array_values($sets);
 	}
 
 	/**
@@ -32,7 +42,13 @@ final class IconResolver
 	{
 		$slash = strpos($reference, '/');
 		if (false === $slash) {
-			return $this->bundled->has($reference) ? ['set' => $this->bundled, 'name' => $reference] : null;
+			foreach ($this->bundledSets as $bundled) {
+				if ($bundled->has($reference)) {
+					return ['set' => $bundled, 'name' => $reference];
+				}
+			}
+
+			return null;
 		}
 
 		$slug = substr($reference, 0, $slash);
@@ -54,7 +70,10 @@ final class IconResolver
 	 */
 	public function allReferences(): array
 	{
-		$references = $this->bundled->names();
+		$references = [];
+		foreach ($this->bundledSets as $bundled) {
+			array_push($references, ...$bundled->names());
+		}
 		foreach ($this->sets->findBy([], ['slug' => 'ASC']) as $set) {
 			$stored = new StoredIconSet($set, $this->icons);
 			foreach ($stored->names() as $name) {
@@ -62,6 +81,6 @@ final class IconResolver
 			}
 		}
 
-		return $references;
+		return array_values(array_unique($references));
 	}
 }

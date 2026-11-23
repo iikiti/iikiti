@@ -27,7 +27,7 @@
     {% set message = 'Please try again later or return to the home page.' %}
 {% endif %}
 
-{% include '@Forma2026/errors/page.html.twig' with {
+{% include ['@Forma2026/errors/page.html.twig', 'base/fallback-error.html.twig'] with {
     status_code: code,
     title: title,
     message: message,

@@ -24,7 +24,7 @@ use iikiti\CMS\Service\LocaleResolver;
 use iikiti\CMS\Service\LocalizedPropertyResolver;
 use iikiti\CMS\Value\LocalizedValue;
 use iikiti\CMS\Web\BlockEditor\BlockType\BlockTypeRegistry;
-use iikiti\CMS\Web\BlockEditor\CustomCssCompiler;
+use iikiti\Extension\CustomCss\Css\CustomCssCompiler;
 use iikiti\CMS\Web\BlockEditor\EditorSettingsManager;
 use iikiti\CMS\Web\BlockEditor\FrontendConfigProvider;
 use iikiti\CMS\Web\BlockEditor\PageRendering;
@@ -40,6 +40,7 @@ use iikiti\CMS\Web\Icon\IconFontAssets;
 use iikiti\CMS\Web\Template\TemplateRenderer;
 use iikiti\CMS\Web\Template\TemplateResolver;
 use iikiti\CMS\Workflow\Policy\WorkflowAccessPolicy;
+use iikiti\Extension\ConsentManagement\Web\ConsentPageRenderContributor;
 use iikiti\Extension\ContentOptimization\Analytics\AnalyticsConnectorRegistry;
 use iikiti\Extension\ContentOptimization\Analytics\AnalyticsDescriptorResolver;
 use iikiti\Extension\ContentOptimization\Analytics\ClarityAnalyticsConnector;
@@ -47,6 +48,8 @@ use iikiti\Extension\ContentOptimization\Analytics\GoogleAnalytics4Connector;
 use iikiti\Extension\ContentOptimization\Service\ContentOptimizationSettings;
 use iikiti\Extension\ContentOptimization\Service\PageSeoSettingsNormalizer;
 use iikiti\Extension\ContentOptimization\Service\SeoMetadataResolver;
+use iikiti\Extension\ContentOptimization\Web\ContentOptimizationPageRenderContributor;
+use iikiti\Extension\ContentOptimization\Web\ContentOptimizationSettingsContributor;
 use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Request;
@@ -282,16 +285,17 @@ final class PageRenderingSeoMetadataTest extends TestCase
 
 	public function testActiveConsentBannerFragmentIsPlacedInsideTheBody(): void
 	{
-		$rendering = $this->rendering();
+		$rendering = (new \ReflectionClass(PageRendering::class))->newInstanceWithoutConstructor();
+		$this->setProperty($rendering, 'twig', $this->twig());
+		$this->setProperty($rendering, 'settingsContributors', []);
+		$this->setRenderContributors(
+			$rendering,
+			fragmentRuntime: new FragmentRuntime(new FragmentProviderRegistry([new ConsentBannerTestFragment()])),
+		);
 		$site = $this->site();
 		$configuration = $site->getConfiguration();
 		$configuration->enablePlugin('consent-management');
 		$site->setConfiguration($configuration);
-		$this->setProperty(
-			$rendering,
-			'fragmentRuntime',
-			new FragmentRuntime(new FragmentProviderRegistry([new ConsentBannerTestFragment()])),
-		);
 		$template = new Template();
 		$template->setProperty('title', 'Rendered title');
 		$html = $this->renderHead($rendering, Request::create('https://canonical.example.test/'), $this->state($site, null, $template, []));
@@ -317,21 +321,27 @@ final class PageRenderingSeoMetadataTest extends TestCase
 			],
 		]);
 		$site->setConfiguration($configuration);
-		$rendering = $this->renderingWithAnalyticsConnectors();
 		$template = new Template();
 		$template->setProperty('title', 'Analytics page');
 
 		// Without an active consent banner provider in FragmentRuntime, analytics fail closed
-		$noBannerHtml = $this->renderHead($rendering, Request::create('https://canonical.example.test/analytics'), $this->state($site, null, $template, []));
+		$noBannerHtml = $this->renderHead(
+			$this->renderingWithAnalyticsConnectors(),
+			Request::create('https://canonical.example.test/analytics'),
+			$this->state($site, null, $template, []),
+		);
 		self::assertStringNotContainsString('iikiti-analytics-config', $noBannerHtml);
 
 		// With an active consent banner provider in FragmentRuntime, inert analytics config is emitted
-		$this->setProperty(
-			$rendering,
-			'fragmentRuntime',
-			new FragmentRuntime(new FragmentProviderRegistry([new ConsentBannerTestFragment()])),
+		$renderingWithBanner = (new \ReflectionClass(PageRendering::class))->newInstanceWithoutConstructor();
+		$this->setProperty($renderingWithBanner, 'twig', $this->twig());
+		$this->setProperty($renderingWithBanner, 'settingsContributors', []);
+		$this->setRenderContributors(
+			$renderingWithBanner,
+			fragmentRuntime: new FragmentRuntime(new FragmentProviderRegistry([new ConsentBannerTestFragment()])),
+			analytics: true,
 		);
-		$html = $this->renderHead($rendering, Request::create('https://canonical.example.test/analytics'), $this->state($site, null, $template, []));
+		$html = $this->renderHead($renderingWithBanner, Request::create('https://canonical.example.test/analytics'), $this->state($site, null, $template, []));
 
 		self::assertStringContainsString('id="iikiti-analytics-config" type="application/json"', $html);
 		self::assertStringContainsString('www.googletagmanager.com', $html);
@@ -351,7 +361,7 @@ final class PageRenderingSeoMetadataTest extends TestCase
 		]);
 		$withoutConsent->setConfiguration($config);
 		$withoutConsentHtml = $this->renderHead(
-			$rendering,
+			$renderingWithBanner,
 			Request::create('https://canonical.example.test/analytics'),
 			$this->state($withoutConsent, null, $template, []),
 		);
@@ -388,41 +398,62 @@ final class PageRenderingSeoMetadataTest extends TestCase
 	{
 		$reflection = new \ReflectionClass(PageRendering::class);
 		$rendering = $reflection->newInstanceWithoutConstructor();
-		$settings = new ContentOptimizationSettings();
-		$this->setProperty($rendering, 'applications', $this->createStub(ApplicationRegistry::class));
-		$this->setProperty($rendering, 'contentOptimizationSettings', $settings);
-		$this->setProperty($rendering, 'seoMetadataResolver', new SeoMetadataResolver($settings, new PageSeoSettingsNormalizer()));
-		$this->setProperty($rendering, 'localizedPropertyResolver', new LocalizedPropertyResolver(
-			new LocaleResolver(),
-			new ObjectPropertyDefinitionRegistry([]),
-			$this->createStub(ApplicationRegistry::class),
-			$this->createStub(Security::class),
-		));
 		$this->setProperty($rendering, 'twig', $this->twig());
+		$this->setProperty($rendering, 'settingsContributors', []);
+		$this->setRenderContributors($rendering);
 
 		return $rendering;
 	}
 
 	private function renderingWithAnalyticsConnectors(): PageRendering
 	{
-		$registry = new AnalyticsConnectorRegistry([new GoogleAnalytics4Connector(), new ClarityAnalyticsConnector()]);
-		$settings = new ContentOptimizationSettings($registry);
 		$rendering = (new \ReflectionClass(PageRendering::class))->newInstanceWithoutConstructor();
-		$this->setProperty($rendering, 'applications', $this->createStub(ApplicationRegistry::class));
 		$this->setProperty($rendering, 'twig', $this->twig());
-		$this->setProperty($rendering, 'contentOptimizationSettings', $settings);
-		$this->setProperty($rendering, 'seoMetadataResolver', new SeoMetadataResolver($settings, new PageSeoSettingsNormalizer()));
-		$this->setProperty($rendering, 'analyticsDescriptorResolver', new AnalyticsDescriptorResolver($registry));
+		$this->setProperty($rendering, 'settingsContributors', []);
+		$this->setRenderContributors($rendering, analytics: true);
 
 		return $rendering;
+	}
+
+	private function setRenderContributors(
+		PageRendering $rendering,
+		?FragmentRuntime $fragmentRuntime = null,
+		bool $analytics = false,
+	): void {
+		$registry = $analytics
+			? new AnalyticsConnectorRegistry([new GoogleAnalytics4Connector(), new ClarityAnalyticsConnector()])
+			: new AnalyticsConnectorRegistry([]);
+		$settings = new ContentOptimizationSettings($registry);
+		$localizedPropertyResolver = new LocalizedPropertyResolver(
+			new LocaleResolver(),
+			new ObjectPropertyDefinitionRegistry([]),
+			$this->createStub(ApplicationRegistry::class),
+			$this->createStub(Security::class),
+		);
+		$seoContributor = new ContentOptimizationPageRenderContributor(
+			$this->createStub(ApplicationRegistry::class),
+			$settings,
+			new SeoMetadataResolver($settings, new PageSeoSettingsNormalizer()),
+			new EditorSettingsManager($this->createStub(EntityManagerInterface::class)),
+			$analytics ? new AnalyticsDescriptorResolver($registry) : null,
+			$localizedPropertyResolver,
+			fragmentRuntime: $fragmentRuntime,
+		);
+		$contributors = [];
+		if (null !== $fragmentRuntime) {
+			$contributors[] = new ConsentPageRenderContributor($fragmentRuntime);
+		}
+		$contributors[] = $seoContributor;
+		$this->setProperty($rendering, 'renderContributors', $contributors);
 	}
 
 	private function twig(?ChainLoader $loader = null): Environment
 	{
 		$twig = new Environment($loader ?? new FilesystemLoader(dirname(__DIR__, 3).'/templates'));
 		$twig->addFunction(new TwigFunction('asset', static fn (string $path): string => '/'.$path));
-		$twig->addFunction(new TwigFunction('encore_entry_link_tags', static fn (string $entry): string => 'entry:'.$entry));
-		$twig->addFunction(new TwigFunction('encore_entry_script_tags', static fn (string $entry): string => ''));
+		$twig->addFunction(new TwigFunction('encore_entry_link_tags', static fn (string $entry): string => 'entry:'.$entry, ['is_safe' => ['html']]));
+		$twig->addFunction(new TwigFunction('encore_entry_script_tags', static fn (string $entry): string => '', ['is_safe' => ['html']]));
+		$twig->addFunction(new TwigFunction('iikiti_import_map_json', static fn (): string => '{}', ['is_safe' => ['html']]));
 		$twig->addGlobal('app', (object) ['request' => (object) ['locale' => 'en']]);
 
 		return $twig;
@@ -449,20 +480,26 @@ final class PageRenderingSeoMetadataTest extends TestCase
 			$empty(PluginRegistry::class),
 		);
 		$settings = new ContentOptimizationSettings();
+		$applications = $this->createStub(ApplicationRegistry::class);
+		$settingsManager = new EditorSettingsManager($entityManager);
+		$seoContributor = new ContentOptimizationPageRenderContributor(
+			$applications,
+			$settings,
+			new SeoMetadataResolver($settings, new PageSeoSettingsNormalizer()),
+			$settingsManager,
+		);
 
 		return new PageRendering(
 			new IconFontAssets(),
 			new TemplateResolver($entityManager),
 			$templateRenderer,
 			$configProvider,
-			new EditorSettingsManager($entityManager),
+			$settingsManager,
 			$cssCompiler,
 			$security,
 			$twig,
 			new InlineAssetMinificationOptionsResolver($this->createStub(EventDispatcherInterface::class), true, true, false),
-			$this->createStub(ApplicationRegistry::class),
-			contentOptimizationSettings: $settings,
-			seoMetadataResolver: new SeoMetadataResolver($settings, new PageSeoSettingsNormalizer()),
+			renderContributors: [$seoContributor],
 		);
 	}
 
@@ -517,12 +554,21 @@ final class PageRenderingSeoMetadataTest extends TestCase
 			$this->createStub(ApiTokenManager::class),
 			$this->createStub(PluginRegistry::class),
 		);
+		$applications = $this->createStub(ApplicationRegistry::class);
+		$settingsManager = new EditorSettingsManager($this->createStub(EntityManagerInterface::class));
+		$optimizationSettings = new ContentOptimizationSettings();
+		$settingsContributor = new ContentOptimizationSettingsContributor(
+			$settingsManager,
+			$configProvider,
+			$optimizationSettings,
+			$applications,
+			$workflowAccess,
+		);
 		$rendering = (new \ReflectionClass(PageRendering::class))->newInstanceWithoutConstructor();
-		$this->setProperty($rendering, 'applications', $this->createStub(ApplicationRegistry::class));
 		$this->setProperty($rendering, 'configProvider', $configProvider);
-		$this->setProperty($rendering, 'contentOptimizationSettings', new ContentOptimizationSettings());
-		$this->setProperty($rendering, 'settingsManager', new EditorSettingsManager($this->createStub(EntityManagerInterface::class)));
-		$this->setProperty($rendering, 'workflowAccessPolicy', $workflowAccess);
+		$this->setProperty($rendering, 'settingsManager', $settingsManager);
+		$this->setProperty($rendering, 'settingsContributors', [$settingsContributor]);
+		$this->setProperty($rendering, 'renderContributors', []);
 		$method = new \ReflectionMethod(PageRendering::class, 'settingsContext');
 
 		return $method->invoke($rendering, null, $template, new User(), true, $site, Request::create('https://canonical.example.test/'));

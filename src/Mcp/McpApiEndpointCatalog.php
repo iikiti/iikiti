@@ -6,7 +6,9 @@ use ApiPlatform\JsonSchema\Schema;
 use ApiPlatform\JsonSchema\SchemaFactoryInterface;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\Metadata\Resource\Factory\ResourceMetadataCollectionFactoryInterface;
+use iikiti\CMS\Plugin\PluginActivationChecker;
 use iikiti\CMS\Plugin\PluginRegistry;
+use iikiti\CMS\Registry\RouteContextClassifier;
 use iikiti\CMS\Registry\SiteRegistry;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Component\Routing\Route;
@@ -23,6 +25,8 @@ final class McpApiEndpointCatalog
 	/** @var array<string, McpApiEndpoint>|null */
 	private ?array $endpoints = null;
 
+	private readonly RouteContextClassifier $routeClassifier;
+
 	/**
 	 * @param iterable<McpApiToolInterface> $tools
 	 */
@@ -33,7 +37,10 @@ final class McpApiEndpointCatalog
 		private readonly ?SchemaFactoryInterface $schemaFactory = null,
 		#[AutowireIterator('iikiti.mcp_api_tool')]
 		private readonly iterable $tools = [],
+		?RouteContextClassifier $routeClassifier = null,
+		private readonly ?PluginActivationChecker $activationChecker = null,
 	) {
+		$this->routeClassifier = $routeClassifier ?? new RouteContextClassifier();
 	}
 
 	/** @return list<McpApiEndpoint> */
@@ -284,16 +291,7 @@ final class McpApiEndpointCatalog
 
 		// Credentials and internal worker callbacks are intentionally not part of
 		// the application API catalog; callers must authenticate to MCP first.
-		if (str_starts_with($path, '/api/auth/') ||
-			str_starts_with($path, '/api/internal/') ||
-			str_starts_with($path, '/api/public/render/') ||
-			str_starts_with($path, '/api/public/assets/') ||
-			str_starts_with($path, '/api/public/content-optimization/') ||
-			str_starts_with($routeName, 'api_internal_') ||
-			str_starts_with($routeName, 'api_auth_') ||
-			str_starts_with($routeName, 'api_public_render_') ||
-			'_api_errors' === $routeName ||
-			str_starts_with($routeName, '_api_validation_errors_')) {
+		if ($this->routeClassifier->isMcpExcludedPath($path, $routeName)) {
 			return false;
 		}
 
@@ -315,6 +313,9 @@ final class McpApiEndpointCatalog
 	{
 		if (null === $endpoint->pluginSlug) {
 			return true;
+		}
+		if (null !== $this->activationChecker) {
+			return $this->activationChecker->isActive($endpoint->pluginSlug);
 		}
 
 		return SiteRegistry::hasCurrent() &&

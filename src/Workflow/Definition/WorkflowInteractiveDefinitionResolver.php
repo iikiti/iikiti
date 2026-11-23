@@ -9,6 +9,7 @@ use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Entity\Workflow\WorkflowDefinition;
 use iikiti\CMS\Entity\Workflow\WorkflowDefinitionVersion;
+use iikiti\CMS\Plugin\PluginActivationChecker;
 use iikiti\CMS\Workflow\Graph\WorkflowGraph;
 use iikiti\CMS\Workflow\Graph\WorkflowGraphCompiler;
 use iikiti\CMS\Workflow\WorkflowGraphFactoryInterface;
@@ -25,6 +26,7 @@ final class WorkflowInteractiveDefinitionResolver
 	public function __construct(
 		private readonly EntityManagerInterface $entityManager,
 		private readonly WorkflowGraphCompiler $graphCompiler,
+		private readonly ?PluginActivationChecker $activationChecker = null,
 	) {
 	}
 
@@ -97,7 +99,7 @@ final class WorkflowInteractiveDefinitionResolver
 	private function ownerIsAvailable(WorkflowDefinition $definition, Site $site): bool
 	{
 		return 'plugin' !== $definition->getOwnerType() ||
-			$site->getConfiguration()->isPluginActive($definition->getOwnerKey());
+			($this->activationChecker?->isActiveForSite($definition->getOwnerKey(), $site) ?? $site->getConfiguration()->isPluginActive($definition->getOwnerKey()));
 	}
 
 	private function versionFor(WorkflowDefinition $definition): ?WorkflowDefinitionVersion

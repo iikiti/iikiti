@@ -43,13 +43,13 @@ final class Version20261114120000 extends AbstractMigration
 			$table,
 		));
 		$this->addSql(sprintf(
-			'CREATE SEQUENCE %s_id_seq INCREMENT BY 1 MINVALUE 1 START 1',
+			'CREATE SEQUENCE %s INCREMENT BY 1 MINVALUE 1 START 1',
 			$schemaName.'.'.$this->connection->quoteSingleIdentifier('csp_reports_id_seq'),
 		));
 		$this->addSql(sprintf(
 			'ALTER TABLE %s ALTER COLUMN id SET DEFAULT nextval(%s)',
 			$table,
-			$this->connection->quoteSingleIdentifier($schemaName.'.csp_reports_id_seq'),
+			$this->connection->quote($schemaName.'.csp_reports_id_seq'),
 		));
 		$this->addSql(sprintf(
 			'CREATE INDEX idx_csp_reports_created ON %s (created_at)',

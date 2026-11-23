@@ -17,6 +17,8 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 /**
  * Provides paginated consent records for the admin consent log, scoped to the
  * current site.
+ *
+ * @implements ProviderInterface<ConsentRecordResource>
  */
 #[AutoconfigureTag('api_platform.state_provider')]
 final class ConsentRecordProvider implements ProviderInterface
@@ -25,14 +27,16 @@ final class ConsentRecordProvider implements ProviderInterface
 	{
 	}
 
+	/**
+	 * @return TraversablePaginator<ConsentRecordResource>
+	 */
 	#[\Override]
-	public function provide(Operation $operation, array $uriVariables = [], array $context = []): object|array|null
+	public function provide(Operation $operation, array $uriVariables = [], array $context = []): TraversablePaginator
 	{
 		$filters = $context['filters'] ?? [];
 
 		$page = max(1, (int) ($filters['page'] ?? 1));
 		$itemsPerPage = max(1, min(100, (int) ($filters['itemsPerPage'] ?? 25)));
-		$offset = ($page - 1) * $itemsPerPage;
 
 		$site = SiteRegistry::hasCurrent() ? SiteRegistry::getCurrent() : null;
 		if (null === $site) {

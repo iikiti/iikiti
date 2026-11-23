@@ -351,3 +351,13 @@ export function installAnalyticsLoader(windowRef = window, documentRef = documen
 	refreshConsent();
 	return analyticsApi;
 }
+
+if (
+	typeof window !== 'undefined' &&
+	typeof document !== 'undefined' &&
+	typeof document.getElementById === 'function' &&
+	document.getElementById('iikiti-analytics-config') &&
+	typeof window.iikiti?.analytics?.getConnectors !== 'function'
+) {
+	installAnalyticsLoader(window, document);
+}

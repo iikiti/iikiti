@@ -357,6 +357,7 @@ final class QueryFieldCatalog
 			foreach ($this->em->getMetadataFactory()->getAllMetadata() as $metadata) {
 				$class = $metadata->getName();
 				if (is_a($class, DbObject::class, true)
+					&& !is_subclass_of($class, \iikiti\CMS\Entity\UnknownDbObject::class)
 					&& (string) $metadata->discriminatorValue === $objectType
 				) {
 					return $class;

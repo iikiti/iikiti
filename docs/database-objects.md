@@ -20,7 +20,7 @@ Use `getSiteId()` and `setSiteId()` for the scalar site value. `setSite(Site)` i
 
 1. Create a concrete `#[ORM\Entity]` subclass of `DbObject` and assign it an entity-specific repository extending `ObjectRepository`.
 2. Choose whether it is site-specific. Set the `SITE_SPECIFIC` class constant to `false` for global objects and persist them with `site_id = 0`.
-3. Map subtype-only fields to nullable columns in `objects`; avoid column-name collisions across siblings.
+3. Map subtype-only fields to nullable columns in `objects`; avoid column-name collisions across siblings. Plugin `DbObject` subclasses must also annotate `#[DbObjectDiscriminator('type')]` (or implement `DbObjectSubtypeProviderInterface`); unmapped rows fall back to read-only generated `UnknownDbObject` proxies (see [`core-vs-plugins.md`](core-vs-plugins.md)).
 4. Put global uniqueness on the object identity registry and add physical indexes to the partitioned `objects` root in a schema migration. Do not add global unique indexes to the partitioned table unless the partition columns are part of the key.
 5. Add the discriminator/data migration, repository tests, and update this exception list if an entity or repository must remain standalone.
 
@@ -87,5 +87,6 @@ Standalone entities and their repositories must have a concrete reason to avoid 
 | `FirewallIpBan` / `FirewallIpBanRepository` (`firewall_ip_bans`) | Operational, high-volume, short-TTL auto and manual IP/CIDR ban state with strike counters and backoff history. It has its own expiry and purge lifecycle and mirrors into the compiled firewall matcher, so it is not site-owned CMS content. Site `0` denotes a global ban. |
 | `SecretSiteKey` / `secret_site_keys` | Standalone ORM key metadata for wrapped per-site and global secrets master keys. It is operational cryptographic material, not user-addressable CMS content; the nullable site relation cascades key deletion with its Site. |
 | `SearchIndex`, `SearchIndexField`, `SearchFilter`, `SearchAnalyzerLayer`, `SearchConfigGroup`, `Search\SiteGroup` and their search repositories | Search configuration and its field/filter/analyzer/site-assignment rows form a separate configuration graph with their own tables and lifecycle, not CMS content objects. Several are child or join rows rather than independently addressable objects. |
+| `CspReport` / `CspReportRepository` (`csp_reports`, in `plugins/iikiti-csp-reporting/`) | Write-only Content-Security-Policy violation reports posted unauthenticated by browsers. High-volume telemetry with its own pruning retention (`CspReportPruner`) and nullable `site_id` / structured violation columns, not user-authored CMS content. |
 
 These exceptions do not weaken the default: a new entity/repository should use `DbObject`/`ObjectRepository` unless its design warrants an explicit exception here.

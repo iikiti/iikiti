@@ -2,7 +2,7 @@
 
 namespace iikiti\CMS\Tests\Workflow;
 
-use iikiti\CMS\Form\Type\Mfa\EmailVerificationFormType;
+use iikiti\Extension\MfaEmail\Form\EmailVerificationFormType;
 use iikiti\CMS\Workflow\Step\AbstractFormWorkflowStep;
 use PHPUnit\Framework\TestCase;
 

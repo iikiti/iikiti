@@ -1,0 +1,114 @@
+<script lang="ts">
+	import { onMount } from 'svelte';
+	import { FormField, SelectInput, ToggleInput, TextInput, TextareaInput } from '@iikiti/ui';
+
+	interface Field {
+		key: string;
+		label: string;
+		type: string;
+		required: boolean;
+		disabled?: boolean;
+		options?: Array<{ value: string; label: string }>;
+	}
+
+	export interface Props {
+		flow: string;
+		action: string;
+		csrf: string;
+	}
+
+	let { flow, action, csrf }: Props = $props();
+
+	let fields = $state<Field[]>([]);
+	let transitions = $state<string[]>([]);
+	let loading = $state(true);
+	let error = $state<string | null>(null);
+	let values = $state<Record<string, unknown>>({});
+
+	const safeAction = $derived.by(() => {
+		const url = new URL(action, window.location.origin);
+
+		return `${url.pathname}${url.search}`;
+	});
+
+	onMount(async () => {
+		try {
+			const res = await fetch(`/flow/${encodeURIComponent(flow)}/step`, { credentials: 'same-origin' });
+			if (!res.ok) throw new Error(`HTTP ${res.status}`);
+			const data = (await res.json()) as { fields?: Field[]; complete?: boolean; enabledTransitions?: string[] };
+			if (data.complete) {
+				// Workflow finished server-side: reveal the live page.
+				window.location.assign(window.location.pathname);
+				return;
+			}
+			fields = data.fields ?? [];
+			transitions = (data.enabledTransitions ?? []).filter((transition) => transition !== 'back');
+		} catch (e: any) {
+			error = e?.message ?? 'Failed to load step';
+			(window as any).iikiti?.notifications?.notify?.({ message: error, type: 'error' });
+		} finally {
+			loading = false;
+		}
+	});
+
+	function onChange(key: string, value: unknown) {
+		values = { ...values, [key]: value };
+	}
+
+	function transitionAction(transition: string): string {
+		const url = new URL(action, window.location.origin);
+		url.searchParams.set('_workflow_transition', transition);
+
+		return `${url.pathname}${url.search}`;
+	}
+</script>
+
+{#if loading}
+	<p class="iikiti-flow__loading">Loading…</p>
+{:else if error}
+	<p class="iikiti-flow__error">{error}</p>
+{:else}
+	<form method="post" action={safeAction} class="iikiti-flow">
+		<input type="hidden" name="_token" value={csrf} />
+		{#each fields as field (field.key)}
+			<FormField label={field.label}>
+				{#if field.type === 'select'}
+					<SelectInput
+						name={field.key}
+						value={String(values[field.key] ?? '')}
+						options={field.options ?? []}
+						required={field.required}
+						disabled={field.disabled ?? false}
+						onchange={(v) => onChange(field.key, v)}
+					/>
+				{:else if field.type === 'toggle'}
+					<ToggleInput
+						name={field.key}
+						value={Boolean(values[field.key])}
+						disabled={field.disabled ?? false}
+						onchange={(v) => onChange(field.key, v)}
+					/>
+				{:else if field.type === 'textarea'}
+					<TextareaInput name={field.key} value={String(values[field.key] ?? '')} required={field.required} disabled={field.disabled ?? false} oninput={(v) => onChange(field.key, v)} />
+				{:else}
+					<TextInput name={field.key} value={String(values[field.key] ?? '')} required={field.required} disabled={field.disabled ?? false} oninput={(v) => onChange(field.key, v)} />
+				{/if}
+			</FormField>
+		{/each}
+		{#if transitions.length > 1}
+			{#each transitions as transition (transition)}
+				<button type="submit" formaction={transitionAction(transition)} class="iikiti-btn iikiti-btn--primary">
+					{transition.replaceAll('_', ' ')}
+				</button>
+			{/each}
+		{:else}
+			<button type="submit" class="iikiti-btn iikiti-btn--primary">Continue</button>
+		{/if}
+	</form>
+{/if}
+
+<style>
+	:global(.js .native-form) { display: none; }
+	.iikiti-flow__loading, .iikiti-flow__error { font-size: 1rem; opacity: 0.8; }
+	.iikiti-flow { display: flex; flex-direction: column; gap: 10px; }
+</style>

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace iikiti\CMS\Service;
 
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 /**
  * Renders security header values and resolves the effective on/off mode.
@@ -53,8 +54,14 @@ final class SecurityHeaderPolicy
 	#[Autowire('%mcp_allowed_hosts%')]
 	private array $mcpAllowedHosts = [];
 
-	public function __construct(private readonly string $environment)
-	{
+	/**
+	 * @param iterable<CspDirectiveContributorInterface> $cspContributors
+	 */
+	public function __construct(
+		private readonly string $environment,
+		#[AutowireIterator('iikiti.security.csp_directive_contributor')]
+		private readonly iterable $cspContributors = [],
+	) {
 	}
 
 	public function environment(): string
@@ -143,7 +150,7 @@ final class SecurityHeaderPolicy
 	private function defaultHeadersForEnvironment(): array
 	{
 		$prod = [
-			self::HEADER_CSP => "default-src 'self'; script-src 'self' __IIKITI_CSP_NONCE__; style-src 'self' __IIKITI_CSP_NONCE__; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; connect-src 'self' {$this->connectSrc()}; report-uri /api/internal/csp-reports",
+			self::HEADER_CSP => $this->applyCspContributors("default-src 'self'; script-src 'self' __IIKITI_CSP_NONCE__; style-src 'self' __IIKITI_CSP_NONCE__; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; connect-src 'self' {$this->connectSrc()}"),
 			self::HEADER_HSTS => 'max-age=31536000; includeSubDomains; preload',
 			self::HEADER_FRAME_OPTIONS => 'DENY',
 			self::HEADER_CONTENT_TYPE_OPTIONS => 'nosniff',
@@ -154,7 +161,7 @@ final class SecurityHeaderPolicy
 			self::HEADER_CORP => 'same-origin',
 		];
 		$dev = [
-			self::HEADER_CSP => "default-src 'self' 'unsafe-inline' 'unsafe-eval'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; connect-src 'self' {$this->connectSrc()}; report-uri /api/internal/csp-reports",
+			self::HEADER_CSP => $this->applyCspContributors("default-src 'self' 'unsafe-inline' 'unsafe-eval'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; connect-src 'self' {$this->connectSrc()}"),
 			self::HEADER_HSTS => 'max-age=0',
 			self::HEADER_FRAME_OPTIONS => 'SAMEORIGIN',
 			self::HEADER_CONTENT_TYPE_OPTIONS => 'nosniff',
@@ -166,6 +173,55 @@ final class SecurityHeaderPolicy
 		];
 
 		return 'prod' === $this->environment ? $prod : $dev;
+	}
+
+	private function applyCspContributors(string $basePolicy): string
+	{
+		$directives = [];
+		$order = [];
+		foreach (explode(';', $basePolicy) as $segment) {
+			$trimmed = trim($segment);
+			if ('' === $trimmed) {
+				continue;
+			}
+			$parts = preg_split('/\s+/', $trimmed) ?: [];
+			$name = strtolower(array_shift($parts) ?? '');
+			if ('' === $name) {
+				continue;
+			}
+			$order[] = $name;
+			$directives[$name] = $parts;
+		}
+
+		foreach ($this->cspContributors as $contributor) {
+			foreach ($contributor->getDirectives($this->environment) as $directive => $values) {
+				$name = strtolower(trim((string) $directive));
+				if (1 !== preg_match('/^[a-z0-9-]+$/D', $name)) {
+					continue;
+				}
+				if (!isset($directives[$name])) {
+					$order[] = $name;
+					$directives[$name] = [];
+				}
+				foreach ($values as $value) {
+					$token = trim((string) $value);
+					if ('' === $token || 1 === preg_match('/[;,\r\n]/', $token)) {
+						continue;
+					}
+					if (!in_array($token, $directives[$name], true)) {
+						$directives[$name][] = $token;
+					}
+				}
+			}
+		}
+
+		$rendered = [];
+		foreach (array_values(array_unique($order)) as $name) {
+			$values = $directives[$name];
+			$rendered[] = [] === $values ? $name : $name.' '.implode(' ', $values);
+		}
+
+		return implode('; ', $rendered);
 	}
 
 	private function connectSrc(): string

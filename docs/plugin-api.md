@@ -94,7 +94,10 @@ conflicts. A deliberate override is recorded through the audit log. Installing
 without activation remains allowed. The `/api/admin/plugins` read model exposes
 each installed manifest's `actions` claims and `actionConflicts` IDs.
 
-The response echoes `success`, `message` and a `result` payload. Failures return
+The response echoes `success`, `message` and a `result` payload (`activationMode`,
+`scope`, and `builtIn` flags are exposed on `/api/admin/plugins` responses, and
+public plugin ES module/stylesheet assets under `public/` are served from
+`/plugin-assets/{slug}/{path}`). Failures return
 a non-200 status (`404` when the plugin is not installed, `409` for declared
 action conflicts, `422` for state/security/store errors) with the message in the
 error body, so clients can detect failed operations.

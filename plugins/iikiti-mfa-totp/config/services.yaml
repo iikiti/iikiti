@@ -1,0 +1,10 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    iikiti\Extension\MfaTotp\:
+        resource: '../src/'
+        exclude:
+            - '../src/MfaTotpBundle.php'
+            - '../src/Step/'

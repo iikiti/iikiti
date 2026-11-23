@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace iikiti\CMS\Web\Template;
 
 use iikiti\CMS\Entity\Object\Template;
+use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 
 /**
  * A single assignment-rule type (e.g. "this template applies to all `Page` objects").
@@ -14,6 +15,7 @@ use iikiti\CMS\Entity\Object\Template;
  * against the {@see TemplateResolutionContext}; the matching template's assignments
  * carry a `priority` for conflict resolution (highest wins).
  */
+#[AutoconfigureTag('iikiti.cms.template_rule')]
 interface TemplateRuleInterface
 {
 	/**

@@ -2,10 +2,21 @@ parameters:
 	level: 6
 	paths:
 		- src
+		- plugins/forma-2026/src
+		- plugins/consent-management/src
 		- plugins/iikiti-content-optimization/src
+		- plugins/iikiti-csp-reporting/src
+		- plugins/iikiti-mfa-totp/src
+		- plugins/iikiti-mfa-email/src
+		- plugins/iikiti-mfa-backup-codes/src
+		- plugins/iikiti-icons-lucide/src
+		- plugins/iikiti-embeds/src
+		- plugins/iikiti-custom-css/src
+		- plugins/iikiti-forms/src
 		- tests
 	scanFiles:
 		- migrations/Version20261114170000.php
+		- migrations/Version20261123010000.php
 	doctrine:
 		objectManagerLoader: tests/object-manager.php
 		allowNullablePropertyForRequiredField: true

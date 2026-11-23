@@ -7,11 +7,13 @@ namespace iikiti\Extension\ConsentManagement\ApiResource;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
+use iikiti\CMS\Plugin\Attribute\RequiresPlugin;
 use iikiti\Extension\ConsentManagement\State\Provider\ConsentRecordProvider;
 
 /**
  * Read-only resource exposing consent records for the admin consent log.
  */
+#[RequiresPlugin('consent-management')]
 #[ApiResource(
 	operations: [
 		new GetCollection(
@@ -56,7 +58,7 @@ class ConsentRecordResource
 	{
 		return new self(
 			id: $record->getId() === null ? null : (int) $record->getId(),
-			siteId: $record->getSiteId() === null ? null : (int) $record->getSiteId(),
+			siteId: (int) $record->getSiteId(),
 			userId: $record->getUserId() === null ? null : (int) $record->getUserId(),
 			sessionId: $record->getSessionId(),
 			categories: $record->getCategories(),

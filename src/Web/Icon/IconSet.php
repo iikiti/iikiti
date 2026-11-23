@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Web\Icon;
 
+use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
+
 /**
  * A named collection of icons the icon block can render.
  *
  * The same set is the single source of truth for the public renderer, the
  * editor picker, and the canvas (editor config), so all three agree.
  */
+#[AutoconfigureTag('iikiti.cms.icon_set')]
 interface IconSet
 {
 	/** Stable identifier, e.g. `lucide`. */

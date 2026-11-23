@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="{{ app.request.locale|default('und')|replace({'_': '-'})|escape('html_attr') }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>{{ title|default('Error')|escape('html') }} · {{ status_code|default(500)|escape('html') }}</title>
+</head>
+<body>
+    <main aria-labelledby="error-title">
+        <p>ERROR {{ status_code|default(500)|escape('html') }}</p>
+        <h1 id="error-title">{{ title|default('Something went wrong')|escape('html') }}</h1>
+        <p>{{ message|default('Please try again later.')|escape('html') }}</p>
+        <a href="/">{{ action_label|default('Return to the home page')|escape('html') }}</a>
+    </main>
+</body>
+</html>

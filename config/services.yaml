@@ -182,9 +182,6 @@ services:
     iikiti\CMS\Workflow\WorkflowFactoryInterface:
         alias: iikiti\CMS\Workflow\WorkflowFactory
 
-    iikiti\CMS\Authentication\Mail\MfaCodeMailerInterface:
-        alias: iikiti\CMS\Authentication\Mail\MfaCodeMailer
-
     iikiti\CMS\Query\DatabasePlatform\DatabasePlatformStrategyInterface:
         alias: iikiti\CMS\Query\DatabasePlatform\PostgreSQL\PostgreSQLPlatformStrategy
 
@@ -259,18 +256,12 @@ services:
             $encodedKeys: '%secrets_keyring%'
             $activeKeyId: '%secrets_active_key_id%'
 
-    # EmbedResolver + ObjectsQuerySource cache via the database-backed pool.
-    iikiti\CMS\Web\BlockEditor\Embed\EmbedResolver:
-        arguments:
-            $cache: '@cache.database'
-
+    # ObjectsQuerySource caches via the database-backed pool.
     iikiti\CMS\Web\BlockEditor\Query\ObjectsQuerySource:
         arguments:
             $cache: '@cache.database'
 
-    # Icon block: the bundled Lucide set is the default IconSet. Plugins may
-    # alias this interface to a different set.
-    iikiti\CMS\Web\Icon\IconSet: '@iikiti\CMS\Web\Icon\LucideIconSet'
+    iikiti\CMS\Web\BlockEditor\CustomCssCompilerInterface: '@iikiti\CMS\Web\BlockEditor\DelegatingCustomCssCompiler'
 
     # Security services that may be accessed directly by plugins
     iikiti\CMS\Security\PermissionChecker:

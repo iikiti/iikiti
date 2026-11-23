@@ -42,7 +42,7 @@ final class McpApiRegistryWiringTest extends KernelTestCase
 		self::assertContains('iikiti.core.write_jobs.post.api_admin_batch_schedules_create', array_column($page->structuredContent['items'], 'id'));
 		$apiIds = array_map(static fn (McpApiEndpoint $endpoint): string => $endpoint->id, $catalog->all());
 		self::assertGreaterThan(50, count($apiIds));
-		foreach (['objects', 'users', 'sites', 'groups', 'roles', 'activity', 'forms', 'workflows', 'assets', 'templates', 'shells', 'plugins', 'search', 'security'] as $feature) {
+		foreach (['objects', 'users', 'sites', 'groups', 'roles', 'activity', 'workflows', 'assets', 'templates', 'shells', 'plugins', 'search', 'security'] as $feature) {
 			$operations = ['read_'];
 			$hasApi = false;
 			foreach ($apiIds as $apiId) {
@@ -55,6 +55,10 @@ final class McpApiRegistryWiringTest extends KernelTestCase
 			}
 			self::assertTrue($hasApi, 'Expected API coverage for '.$feature);
 		}
+		self::assertNotEmpty(array_filter(
+			$apiIds,
+			static fn (string $apiId): bool => str_starts_with($apiId, 'iikiti.plugin.iikiti-forms.read_forms.'),
+		), 'Expected plugin API coverage for forms');
 		self::assertContains('iikiti.core.write_settings.post.api_editor_settings_save', $apiIds);
 
 		$userList = $catalog->get('iikiti.core.read_users.get.admin_users_list');

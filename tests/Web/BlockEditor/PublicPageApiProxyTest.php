@@ -492,6 +492,7 @@ final class PublicPageApiProxyTest extends TestCase
 			new ApiSessionTokenProvider($api),
 			new FiberTaskRunner($client),
 			new GuestApiTokenManager('test-secret'),
+			routeClassifier: new \iikiti\CMS\Registry\RouteContextClassifier([new \iikiti\Extension\Forms\Routing\FormRouteContextContributor()]),
 		);
 
 		$response = $proxy->home(Request::create('https://www.example.test/'));

@@ -7,7 +7,7 @@ namespace iikiti\CMS\Web\BlockEditor\Render;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Web\BlockEditor\BlockType\BlockType;
 use iikiti\CMS\Web\BlockEditor\BlockType\BlockTypeRegistry;
-use iikiti\CMS\Web\BlockEditor\CustomCssCompiler;
+use iikiti\CMS\Web\BlockEditor\CustomCssCompilerInterface;
 use iikiti\CMS\Web\BlockEditor\Query\QueryDefinition;
 use iikiti\CMS\Web\BlockEditor\Query\QueryExecutor;
 use iikiti\CMS\Web\BlockEditor\Query\QueryFieldCatalog;
@@ -60,7 +60,7 @@ final class BlockRenderer
 		private readonly Environment $twig,
 		private readonly QueryExecutor $queryExecutor,
 		private readonly QueryFieldCatalog $queryFields,
-		private readonly CustomCssCompiler $customCssCompiler,
+		private readonly CustomCssCompilerInterface $customCssCompiler,
 		?WidgetFragmentPlanner $fragmentPlanner = null,
 	) {
 		$this->fragmentPlanner = $fragmentPlanner ?? new WidgetFragmentPlanner($registry);
