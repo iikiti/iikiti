@@ -286,6 +286,8 @@ final class PublicPageApiProxyTest extends TestCase
 		$html = (string) $response->getContent();
 		self::assertStringContainsString('<p>Main region</p>', $html);
 		self::assertStringContainsString('<header>Site header</header>', $html);
+		self::assertStringContainsString('<title>Manifest SEO title</title>', $html);
+		self::assertStringContainsString('rel="canonical" href="https://www.example.test/"', $html);
 		self::assertCount(3, $profiler->getAsyncRequests());
 		self::assertCount(3, $profiler->getApiSubrequests());
 		self::assertCount(2, $profiler->getFiberGroups());
@@ -425,7 +427,7 @@ final class PublicPageApiProxyTest extends TestCase
 		}
 
 		return json_encode([
-			'html' => '<!DOCTYPE html><html><head><template data-iikiti-fragment="custom-css"></template></head><body><main>'.$slots.'</main></body></html>',
+			'html' => '<!DOCTYPE html><html><head><title>Manifest SEO title</title><link rel="canonical" href="https://www.example.test/"><template data-iikiti-fragment="custom-css"></template></head><body><main>'.$slots.'</main></body></html>',
 			'styles' => $styles,
 			'editor_mode' => $editorMode,
 			'revision' => str_repeat('a', 64),

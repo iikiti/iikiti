@@ -2,8 +2,8 @@
 
 namespace iikiti\CMS\Security;
 
-use iikiti\CMS\Repository\Object\ApiTokenRepository;
 use iikiti\CMS\Entity\Object\ApiToken;
+use iikiti\CMS\Repository\Object\ApiTokenRepository;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -20,27 +20,32 @@ class ApiTokenAuthenticator extends AbstractAuthenticator
 	public function __construct(
 		private ApiTokenRepository $apiTokenRepository,
 		private GuestApiTokenManager $guestTokens,
-	)
-	{
+	) {
 	}
 
-    public function supports(Request $request): ?bool
-    {
-        return $request->headers->has('X-AUTH-TOKEN');
-    }
+	public function supports(Request $request): ?bool
+	{
+		return $request->headers->has('X-AUTH-TOKEN');
+	}
 
-    public function authenticate(Request $request): Passport
-    {
-        $apiToken = $request->headers->get('X-AUTH-TOKEN');
+	public function authenticate(Request $request): Passport
+	{
+		$apiToken = $request->headers->get('X-AUTH-TOKEN');
 		if (null === $apiToken) {
 			throw new CustomUserMessageAuthenticationException('No API token provided');
 		}
 		if (str_starts_with($apiToken, 'guest1.') || str_starts_with($apiToken, 'guest2.')) {
 			$guest = $this->guestTokens->decode($apiToken);
-			if (null === $guest
-				|| !in_array($request->getMethod(), ['GET', 'HEAD'], true)
-				|| (!str_starts_with($request->getPathInfo(), '/api/public/render/')
-					&& !str_starts_with($request->getPathInfo(), '/api/public/assets/'))) {
+			$path = $request->getPathInfo();
+			$isPublicRenderPath = str_starts_with($path, '/api/public/render/') ||
+				str_starts_with($path, '/api/public/assets/') ||
+				in_array($path, [
+					'/api/public/content-optimization/robots',
+					'/api/public/content-optimization/sitemap',
+				], true);
+			if (null === $guest ||
+				!in_array($request->getMethod(), ['GET', 'HEAD'], true) ||
+				!$isPublicRenderPath) {
 				throw new CustomUserMessageAuthenticationException('Invalid or out-of-scope guest API credential');
 			}
 			$siteHost = $request->headers->get('X-SITE-HOST');
@@ -58,24 +63,24 @@ class ApiTokenAuthenticator extends AbstractAuthenticator
 		}
 
 		$token = $this->apiTokenRepository->findOneBy(['token' => $apiToken]);
-        if (null === $token || $token->isExpired()) {
-            throw new CustomUserMessageAuthenticationException('Invalid API token');
-        }
+		if (null === $token || $token->isExpired()) {
+			throw new CustomUserMessageAuthenticationException('Invalid API token');
+		}
 
-        return new SelfValidatingPassport(new UserBadge($token->getUser()->getUserIdentifier()));
-    }
+		return new SelfValidatingPassport(new UserBadge($token->getUser()->getUserIdentifier()));
+	}
 
-    public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
-    {
-        return null;
-    }
+	public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
+	{
+		return null;
+	}
 
-    public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response
-    {
-        $data = [
-            'message' => strtr($exception->getMessageKey(), $exception->getMessageData())
-        ];
+	public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response
+	{
+		$data = [
+			'message' => strtr($exception->getMessageKey(), $exception->getMessageData()),
+		];
 
-        return new JsonResponse($data, Response::HTTP_UNAUTHORIZED);
-    }
+		return new JsonResponse($data, Response::HTTP_UNAUTHORIZED);
+	}
 }

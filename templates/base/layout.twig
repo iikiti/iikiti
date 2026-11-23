@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ app.request.locale|replace({'_': '-'})|escape('html_attr') }}" class="logged-in">
+<html lang="{{ (iikiti_page_locale|default(app.request.locale))|replace({'_': '-'})|escape('html_attr') }}" class="logged-in">
 <head>
     {% block head %}
         {% block head_meta %}
@@ -42,18 +42,74 @@
                     <style id="iikiti-custom-css">{{ iikiti_custom_css|raw }}</style>
                 {% endif %}
             {% endif %}
+            {% if iikiti_consent_enabled|default(false) %}
+                {{ encore_entry_link_tags('consent-banner') }}
+            {% endif %}
         {% endblock %}
         <title>{{ (doc.title ?? 'iikiti')|escape('html') }}</title>
+        {% if iikiti_seo is defined %}
+            {% if iikiti_seo.description is not empty %}
+                <meta name="description" content="{{ iikiti_seo.description|escape('html_attr') }}">
+            {% endif %}
+            {% if iikiti_seo.canonicalUrl is not empty %}
+                <link rel="canonical" href="{{ iikiti_seo.canonicalUrl|escape('html_attr') }}">
+            {% endif %}
+            <meta name="robots" content="{{ (iikiti_seo.robots.index ~ ',' ~ iikiti_seo.robots.follow)|escape('html_attr') }}">
+            {% if iikiti_seo.openGraph.title is not empty %}
+                <meta property="og:title" content="{{ iikiti_seo.openGraph.title|escape('html_attr') }}">
+            {% endif %}
+            {% if iikiti_seo.openGraph.description is not empty %}
+                <meta property="og:description" content="{{ iikiti_seo.openGraph.description|escape('html_attr') }}">
+            {% endif %}
+            {% if iikiti_seo.openGraph.siteName is not empty %}
+                <meta property="og:site_name" content="{{ iikiti_seo.openGraph.siteName|escape('html_attr') }}">
+            {% endif %}
+            {% if iikiti_seo.openGraph.type is not empty %}
+                <meta property="og:type" content="{{ iikiti_seo.openGraph.type|escape('html_attr') }}">
+            {% endif %}
+            {% if iikiti_seo.locale is defined and iikiti_seo.locale is not empty %}
+                <meta property="og:locale" content="{{ iikiti_seo.locale|escape('html_attr') }}">
+            {% endif %}
+            {% if iikiti_seo.openGraph.image is not empty %}
+                <meta property="og:image" content="{{ iikiti_seo.openGraph.image|escape('html_attr') }}">
+            {% endif %}
+            {% if iikiti_seo.openGraph.url is not empty %}
+                <meta property="og:url" content="{{ iikiti_seo.openGraph.url|escape('html_attr') }}">
+            {% endif %}
+            <meta name="twitter:card" content="{{ iikiti_seo.twitter.card|escape('html_attr') }}">
+            {% if iikiti_seo.twitter.title is not empty %}
+                <meta name="twitter:title" content="{{ iikiti_seo.twitter.title|escape('html_attr') }}">
+            {% endif %}
+            {% if iikiti_seo.twitter.description is not empty %}
+                <meta name="twitter:description" content="{{ iikiti_seo.twitter.description|escape('html_attr') }}">
+            {% endif %}
+            {% if iikiti_seo.twitter.image is not empty %}
+                <meta name="twitter:image" content="{{ iikiti_seo.twitter.image|escape('html_attr') }}">
+            {% endif %}
+            {% if iikiti_seo.structuredData is not empty %}
+                <script type="application/ld+json">{{ iikiti_seo.structuredDataJson|raw }}</script>
+            {% endif %}
+        {% endif %}
+        {% if iikiti_editor_noindex|default(false) and iikiti_seo is not defined %}
+            <meta name="robots" content="noindex,nofollow">
+        {% endif %}
+        {% if iikiti_analytics_config_json is defined %}
+            <script id="iikiti-analytics-config" type="application/json">{{ iikiti_analytics_config_json|raw }}</script>
+        {% endif %}
+        {{ encore_entry_script_tags('iikiti') }}
         {% block head_js %}{% endblock %}
     {% endblock %}
 </head>
 	<body class="text-black bg-white dark:text-white dark:bg-gray-900{% if iikiti_forma_theme|default(false) %} forma-theme{% endif %}{% for scopeClass in iikiti_scope_classes|default([]) %} {{ scopeClass|escape('html_attr') }}{% endfor %}{% if iikiti_can_edit %} iikiti-can-edit{% endif %}{% if iikiti_editor_mode %} iikiti-editor-body{% endif %}">
-		{% block body_before %}{% endblock %}
+		{% block body_before %}
+			{% if iikiti_consent_banner is defined %}{{ iikiti_consent_banner|raw }}{% endif %}
+		{% endblock %}
 		{% block body %}{% if iikiti_use_fragment_composer|default(false) %}<template data-iikiti-fragment="page"></template>{% else %}{{ iikiti_page_body|default('')|raw }}{% endif %}{% endblock %}
-		{% if iikiti_config %}
-			<script id="iikiti-config" type="application/json">{{ iikiti_config|json_encode|raw }}</script>
+		{% if iikiti_config_json is defined and iikiti_config_json is not empty %}
+			<script id="iikiti-config" type="application/json">{{ iikiti_config_json|raw }}</script>
+		{% elseif iikiti_config %}
+			<script id="iikiti-config" type="application/json">{{ iikiti_config|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_HEX_APOS') b-or constant('JSON_HEX_QUOT'))|raw }}</script>
 		{% endif %}
-		{{ encore_entry_script_tags('iikiti') }}
 		{% block body_after %}{% endblock %}
 	</body>
 </html>

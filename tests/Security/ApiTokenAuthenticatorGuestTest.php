@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Tests\Security;
 
-use iikiti\CMS\Repository\Object\ApiTokenRepository;
 use iikiti\CMS\Entity\Object\ApiToken;
 use iikiti\CMS\Entity\Object\User;
+use iikiti\CMS\Repository\Object\ApiTokenRepository;
 use iikiti\CMS\Security\ApiTokenAuthenticator;
 use iikiti\CMS\Security\GuestApiTokenManager;
 use iikiti\CMS\Security\GuestApiUser;
@@ -27,6 +27,20 @@ final class ApiTokenAuthenticatorGuestTest extends TestCase
 		$passport = $authenticator->authenticate($request);
 
 		self::assertInstanceOf(GuestApiUser::class, $passport->getUser());
+	}
+
+	public function testGuestCredentialCanReadSiteScopedRobotsAndSitemapDocuments(): void
+	{
+		$manager = new GuestApiTokenManager('test-secret');
+		$authenticator = new ApiTokenAuthenticator($this->createStub(ApiTokenRepository::class), $manager);
+
+		foreach (['robots', 'sitemap'] as $document) {
+			$request = Request::create('/api/public/content-optimization/'.$document, 'GET');
+			$request->headers->set('X-AUTH-TOKEN', $manager->issue('www.example.test'));
+			$request->headers->set('X-SITE-HOST', 'www.example.test');
+
+			self::assertInstanceOf(GuestApiUser::class, $authenticator->authenticate($request)->getUser());
+		}
 	}
 
 	public function testGuestCredentialCannotCallAWriteOrOtherApiOperation(): void

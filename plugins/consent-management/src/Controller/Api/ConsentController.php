@@ -8,9 +8,11 @@ use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\Extension\ConsentManagement\Service\ConsentService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Attribute\AsController;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -41,13 +43,31 @@ final class ConsentController extends AbstractController
 			return new JsonResponse(['error' => 'Invalid JSON body.'], JsonResponse::HTTP_BAD_REQUEST);
 		}
 
+		$site = $this->site();
 		try {
-			$result = $this->service->record($data, $request, $this->site());
-		} catch (\Throwable $exception) {
-			return new JsonResponse(['error' => $exception->getMessage()], JsonResponse::HTTP_BAD_REQUEST);
+			$result = $this->service->record($data, $request, $site);
+		} catch (AccessDeniedHttpException) {
+			return new JsonResponse(['error' => 'A valid consent session is required.'], JsonResponse::HTTP_FORBIDDEN);
 		}
 
-		return new JsonResponse($result, JsonResponse::HTTP_OK);
+		$response = new JsonResponse($result, JsonResponse::HTTP_OK);
+		$sessionId = $result['sessionId'] ?? null;
+		if (is_string($sessionId) && '' !== $sessionId) {
+			$signed = $this->service->signSessionId($sessionId, $site);
+			if (null !== $signed) {
+				$response->headers->setCookie(
+					Cookie::create(ConsentService::SESSION_COOKIE_NAME)
+						->withValue($signed)
+						->withExpires(time() + 31_536_000)
+						->withPath('/')
+						->withSecure($request->isSecure())
+						->withHttpOnly(true)
+						->withSameSite(Cookie::SAMESITE_LAX),
+				);
+			}
+		}
+
+		return $response;
 	}
 
 	private function site(): Site

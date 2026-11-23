@@ -3,10 +3,11 @@
 namespace iikiti\CMS\Registry;
 
 use Doctrine\Persistence\ManagerRegistry;
+use iikiti\CMS\Entity\Object\ApiToken;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Security\GuestApiTokenManager;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -70,15 +71,14 @@ class SiteRegistry
 		bool $publicPageRenderViaApi,
 	): void {
 		$route = $requestStack->getCurrentRequest()?->attributes->get('_route');
+		$routeName = is_string($route) ? $route : null;
 		$path = $requestStack->getCurrentRequest()?->getPathInfo() ?? '';
-		$consumerProxyRoute = in_array($route, ['home', 'page', 'digital_asset_file', 'public_fragment'], true);
-		$siteIndependentRoute = 'html_login' === $route || in_array($route, ['admin_home', 'admin_spa'], true)
-			|| 1 === preg_match('~^/api/admin/applications/[^/]+/headers(?:/preview)?$~D', $path)
-			|| 'api_internal_response_headers_resolve' === $route
-			|| 'api_internal_firewall_resolve' === $route
-			|| 'firewall_challenge_verify' === $route
-			|| ('consumer' === $applicationRole && $consumerProxyRoute)
-			|| ($publicPageRenderViaApi && in_array($route, ['home', 'page'], true));
+		$siteIndependentRoute = RouteContextClassifier::isSiteIndependentRoute(
+			$routeName,
+			$path,
+			$applicationRole,
+			$publicPageRenderViaApi,
+		);
 		if (static::$populated || !static::$initialized || 'consumer' === $applicationRole || $siteIndependentRoute) {
 			static::$populated = true;
 
@@ -92,14 +92,13 @@ class SiteRegistry
 			// site still receive a clear error from getCurrent().
 			return;
 		}
-		if (in_array($request->attributes->get('_route'), ['api_internal_scheduler_run_due', 'api_internal_batch_item_process', 'api_internal_digital_asset_process', 'api_internal_background_queue_run', 'html_logout'], true)) {
+		if (RouteContextClassifier::isInternalWorkerRoute($routeName)) {
 			static::$populated = true;
 
 			return;
 		}
 		$host = $request->getHost();
-		$route = $request->attributes->get('_route');
-		if ('api_auth_login' === $route) {
+		if ('api_auth_login' === $routeName) {
 			$loginHost = $request->request->get('_site_host');
 			$sessionHost = $request->hasSession() ? $request->getSession()->get('auth_site_host') : null;
 			if (is_string($loginHost) && is_string($sessionHost) && 0 !== strcasecmp($loginHost, $sessionHost)) {
@@ -108,34 +107,46 @@ class SiteRegistry
 			if (is_string($loginHost) && '' !== $loginHost) {
 				$host = $loginHost;
 			}
-		} elseif ('mfa_challenge' === $route && $request->hasSession()) {
+		} elseif ('mfa_challenge' === $routeName && $request->hasSession()) {
 			$loginHost = $request->getSession()->get('auth_site_host');
 			if (is_string($loginHost) && '' !== $loginHost) {
 				$host = $loginHost;
 			}
 		}
-		if (str_starts_with((string) $request->attributes->get('_route'), 'api_public_render_')
-			|| str_starts_with((string) $request->attributes->get('_route'), 'api_public_asset_')
-			|| 'api_auth_session_token' === $request->attributes->get('_route')
-			|| '/api/mcp' === $request->getPathInfo()
-			|| str_starts_with($request->getPathInfo(), '/api/forms/')
-			|| str_starts_with($request->getPathInfo(), '/api/admin/')
-			|| 1 === preg_match('~^/api/site/[^/]+/headers(?:/preview)?$~D', $request->getPathInfo())
-			|| str_starts_with($request->getPathInfo(), '/api/editor/')) {
+		$isStatelessForwarded = RouteContextClassifier::isStatelessForwardedHostRoute($routeName, $path);
+		$isSessionForwarded = RouteContextClassifier::isSessionForwardedHostRoute($routeName, $path);
+		if ($isStatelessForwarded || $isSessionForwarded) {
 			$forwardedHost = $request->headers->get('X-SITE-HOST');
 			if (is_string($forwardedHost) && '' !== $forwardedHost) {
-				$token = $request->headers->get('X-AUTH-TOKEN', '');
-				$guest = str_starts_with($token, 'guest1.') ? $guestTokens->decode($token) : null;
-				if (str_starts_with($token, 'guest1.') && (null === $guest || 0 !== strcasecmp($guest->getSiteHost(), $forwardedHost))) {
-					throw new NotFoundHttpException('Site does not exist for current domain.');
+				if ($isStatelessForwarded) {
+					$token = (string) $request->headers->get('X-AUTH-TOKEN', '');
+					$isPublicRenderOrAsset = RouteContextClassifier::isPublicRenderOrAssetRoute($routeName);
+					$isGuestToken = str_starts_with($token, 'guest1.') || str_starts_with($token, 'guest2.');
+					if ($isGuestToken) {
+						$guest = $guestTokens->decode($token);
+						if (null === $guest || 0 !== strcasecmp($guest->getSiteHost(), $forwardedHost)) {
+							throw new AccessDeniedHttpException('Invalid or out-of-scope guest API credential.');
+						}
+						$host = $forwardedHost;
+					} elseif ('' !== $token && self::isValidApiToken($registry, $token)) {
+						$host = $forwardedHost;
+					} elseif ($isPublicRenderOrAsset) {
+						throw new AccessDeniedHttpException('A site-scoped API credential is required.');
+					}
+				} else {
+					$host = $forwardedHost;
 				}
-				$host = $forwardedHost;
+			} elseif ($isStatelessForwarded && RouteContextClassifier::isPublicRenderOrAssetRoute($routeName)) {
+				$token = (string) $request->headers->get('X-AUTH-TOKEN', '');
+				if ('' === $token) {
+					throw new AccessDeniedHttpException('A site-scoped API credential is required.');
+				}
 			}
 			$siteHost = $request->attributes->get('siteHost');
 			if (is_string($siteHost) && '' !== $siteHost) {
 				$host = $siteHost;
 			}
-			if (str_starts_with($request->getPathInfo(), '/api/forms/')) {
+			if (str_starts_with($path, '/api/forms/')) {
 				$formHost = $request->query->get('_site_host') ?? $request->request->get('_site_host');
 				if ((!is_string($formHost) || '' === $formHost) && $request->hasSession()) {
 					$formHost = $request->getSession()->get('auth_site_host');
@@ -155,6 +166,18 @@ class SiteRegistry
 			static::pushSite($site);
 		}
 		static::$populated = true;
+	}
+
+	private static function isValidApiToken(ManagerRegistry $registry, string $token): bool
+	{
+		if (!str_starts_with($token, ApiToken::TOKEN_PREFIX)) {
+			return false;
+		}
+
+		$repository = $registry->getManager()->getRepository(ApiToken::class);
+		$record = $repository->findOneBy(['token' => $token]);
+
+		return $record instanceof ApiToken && !$record->isExpired();
 	}
 
 	/**

@@ -1,10 +1,10 @@
-{# Consent management banner fragment. Rendered in the page <head> by the theme. #}
+{# Consent management banner fragment. Rendered inside the page body. #}
 
 <script id="iikiti-consent-config" type="application/json">
-	{"version":1,"default_categories":{"necessary":true,"analytics":false,"marketing":false}}
+	{{ consentConfigJson|raw }}
 </script>
 
-<div id="iikiti-consent-banner" style="display:none"></div>
+<div id="iikiti-consent-banner" hidden></div>
 
 {{ encore_entry_script_tags('consent-manager') }}
 {{ encore_entry_script_tags('consent-banner') }}

@@ -14,10 +14,28 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ## [Unreleased]
 
-> Last updated: 2026-11-14
+> Last updated: 2026-11-22
 
 ### Added
 
+- 2026-11-22: Added `RouteContextClassifier` to centralize route-classification rules shared by `Initializer` and `SiteRegistry`, and `HomepageSeoAccessPolicy` to unify homepage SEO authorization between `PageRendering` and `EditorStateController`.
+- 2026-11-22: Added `PageRepository::findSitemapBatchForSite()` keyset-paginated DBAL query and `cache.rendered_fragments` caching for `robots.txt` and `sitemap.xml`, plus `HEAD` support and `Cache-Control: public, max-age=300`.
+- 2026-11-22: Added kernel wiring, discovery controller, consent banner, and content optimization editor unit/integration tests.
+
+- 2026-11-15: Link built-in and registered analytics connectors to their validated provider dashboards.
+- 2026-11-15: Generate Site-scoped `robots.txt` and `sitemap.xml` with AI crawler directives, canonical hosts, and noindex/X-Robots filtering; proxy them through Consumer mode.
+- 2026-11-15: Add a consent-gated browser loader for GA4, Clarity, and registered plugin adapters with validated script descriptors and revocation callbacks.
+- 2026-11-15: Emit an inert analytics configuration block for enabled GA4, Clarity, and registered connector strategies only when Consent Management is active.
+- 2026-11-15: Render the active Consent Management banner inside the page body for consent-gated integrations, without inline hiding styles.
+- 2026-11-15: Default-enabled Content Optimization for existing and new site configurations, with a per-site opt-out.
+- 2026-11-15: Added the plugin-extensible analytics connector registry with fixed analytics consent, schema/config validation, safe client descriptors, and validated CSP requirements.
+- 2026-11-15: Added an application/site Content Optimization admin screen with inheritance controls, indexing defaults, analytics consent messaging, and CSP guidance.
+- 2026-11-15: Added site-scoped Content Optimization activation controls while leaving settings available for reconfiguration when disabled.
+- 2026-11-15: Added a deterministic SEO metadata resolver for application, site, and page overrides, including canonical, robots, Open Graph, Twitter, and WebSite/Organization/Breadcrumb structured data.
+- 2026-11-15: Added application-default and site-override Content Optimization settings APIs with scoped authorization, inheritance, and strict validation.
+- 2026-11-15: Added the bundled iikiti Content Optimization plugin manifest and Symfony bundle.
+- 2026-11-15: Added Page and Site-home SEO, robots, Open Graph, and X/Twitter settings with inherited defaults, character guidance, and live search/social previews.
+- 2026-11-15: Added backend normalization and validation for page SEO settings, including bounded text fields and safe canonical/social image URLs.
 - 2026-11-14: Added the `FIREWALL_ENABLED` environment variable (`firewall_enabled` container parameter, default `true`) to enable or disable the entire application-level request firewall; when `false`, Stage 1, Stage 2 WAF, and feedback subscribers are bypassed, no firewall events are dispatched, the profiler reports the firewall as disabled, and `iikiti:firewall:status` prints the disabled state.
 - 2026-11-14: Added an always-visible `Firewall status` (`Enabled` / `Disabled`) metric to `templates/profiler/firewall_section.html.twig` across disabled, not-evaluated, and evaluated request states.
 - 2026-11-14: Added the `cache.firewall_ratelimit` cache pool (86400s default lifetime) for rate-limit counters, DoS anomaly counters, and strike counters.
@@ -57,12 +75,38 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Fixed
 
+- 2026-11-22: Fixed `Initializer` returning 404 on `/api/admin/applications/{applicationId}/content-optimization/settings` by aligning site-independent route classification with `SiteRegistry`.
+- 2026-11-22: Fixed `ContentOptimizationSettings::stripInvalidStoredConnectors()` converting persisted connector maps to arrays (breaking reload) and mishandling partial/corrupt overrides, and fixed `ReferenceError: connectorHasConfiguration is not defined` and hidden `loadError` banner in `ContentOptimization.svelte`.
+- 2026-11-22: Fixed Svelte 5 `unmount()` lifecycle crash in `consent-banner.js`, `consent-manager.js` `applyConsent()`/`initialize()` race condition and concurrent banner mount/retry bugs, `ConsentService::getState()` authenticated user lookup, and `ConsentRecordRepository` explicit site filtering.
+- 2026-11-22: Fixed WCAG 2.2 AA accessibility issues in `ContentOptimization.svelte`, `SeoPreviewControl.svelte`, `FormField.svelte`, `ToggleInput.svelte`, `ToggleControl.svelte`, `SelectInput.svelte`, `TextControl.svelte`, `TextareaControl.svelte`, and `SettingsSidebar.svelte`.
+- 2026-11-22: Fixed `resolveTitleTemplate()` regex replacement token corruption (`$&`/`$1`), 3-part `og:locale` normalization (e.g. `zh-Hans-CN` -> `zh_CN`), optional `PageRendering` Content Optimization constructor parameters, and off-canonical URL exclusion from `sitemap.xml`.
+- 2026-11-15: Restrict analytics CSP sources against directive injection, unsafe double-slash paths, broad wildcards, and invalid ports.
+- 2026-11-15: Fix consent repository wiring/counting and authenticated user IDs so the active banner fragment renders with Site-aware data.
+- 2026-11-15: Fail closed to noindex/nofollow when legacy page SEO settings fail validation instead of breaking public rendering.
+- 2026-11-15: Ignore stale/uninstalled connector settings without resetting unrelated SEO, crawler, or sitemap policies.
+- 2026-11-15: Keep public page-render, asset, and crawler payload routes out of the MCP API catalog.
+- 2026-11-15: Keep editor previews noindex/nofollow even when Content Optimization is disabled for the Site.
+- 2026-11-15: Make Consent Management `isAllowed` fail closed until state synchronization completes and only allow categories explicitly granted in current consent.
+- 2026-11-15: Keep analytics and marketing scripts blocked independently until their own explicit, current consent is granted.
+- 2026-11-15: Rejected secret-like analytics connector fields and host-wide script CSP sources.
+- 2026-11-15: Validate Content Optimization SEO fields on editor settings saves while preserving unrelated page settings.
+- 2026-11-15: Associated editor field labels with their text, select, textarea, and toggle controls for accessible names.
 - 2026-11-14: Enabled `autowire: true` on `FirewallDataCollector` under `when@dev` and `when@test` in `config/services.yaml` so `#[Autowire('%firewall_enabled%')]` injects `FIREWALL_ENABLED` into the Symfony Web Profiler collector instead of falling back to the default `true`.
 - 2026-11-14: Fixed `FirewallFeedbackSubscriber::onPostAuthRequest()` to inspect the firewall request context and `SiteRegistry::hasCurrent()` before hydrating the user on site-independent routes, preventing `User::getRoles()` site-context errors on stateful lazy firewalls.
 - 2026-11-14: Fixed `FirewallIpRule` and `FirewallTrustedAutomation` nullable property removal in `object_properties`, API Platform `gen_id` serialization on `FirewallSimulateResource` and `FirewallIpRuleImportResource` via dedicated output DTOs, `Post`/`Delete` provider routing on IP rules/bans/automations, `AuditLogEntry` action lengths (`<= 32` chars), and `FirewallBotDetector` finding emission for non-impersonated bot actions.
 
 ### Changed
 
+- 2026-11-22: Lazily load `analytics-loader.js` only on pages emitting `#iikiti-analytics-config`, upgrade Clarity consent calls to `consentv2`, and forward `X-Forwarded-Proto` from `PublicPageApiProxy` so TLS-terminating Consumer proxies preserve `https://` canonicals via `TRUSTED_PROXIES`.
+- 2026-11-22: Restrict page SEO URLs to `https://` or root-relative paths, re-normalize valid legacy page SEO drafts on publish, skip and log malformed/spoofed third-party analytics connectors at boot, and route per-site Content Optimization activation toggles through `PluginLifecycleHandler` with audit recording.
+- 2026-11-15: Preserve the Content Optimization settings form after validation/save errors and bind cross-site requests to the selected Site host.
+- 2026-11-15: Resolve localized Page/Site titles using the render locale and emit locale-correct HTML language and Open Graph locale metadata.
+- 2026-11-15: Bind Content Optimization Site settings and activation routes to the selected X-SITE-HOST while keeping Application settings site-independent.
+- 2026-11-15: Include Content Optimization plugin source in PHPStan analysis.
+- 2026-11-15: Surface shared Application/Site X-Robots-Tag rules and possible indexing conflicts without creating a separate header policy.
+- 2026-11-15: Allow Site Managers to switch explicitly between site-scoped homepage SEO and shared Template settings in the editor.
+- 2026-11-15: Store homepage SEO overrides in a Site-scoped editor settings target instead of shared Template settings.
+- 2026-11-15: Load the bundled Content Optimization editor settings only on active sites and filter plugin editor UIs by site activation.
 - 2026-11-14: Replaced the site security-header API with conditional Application and site response-header policies, including required Application rules and shared X-Robots-Tag support.
 - 2026-11-14: Consumer header resolution now forwards only `Accept-Language`, `User-Agent`, and `X-Device`; the internal resolver accepts only hosts listed in `IIKITI_CONSUMER_HOSTS`; resolution failures keep non-success responses intact and return 503 only for successful responses.
 - 2026-11-14: Extracted the consent manager into a testable factory while preserving browser initialization, component notifications, and banner-load deduplication.
@@ -117,6 +161,9 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Security
 
+- 2026-11-22: Authenticated `X-SITE-HOST` override in `SiteRegistry` using verified `ApiToken` or host-matched `GuestApiTokenManager` tokens, closing tenant-host enumeration and unauthorized public render/asset access.
+- 2026-11-22: Hardened `ConsentController`/`ConsentService` with HMAC-signed `HttpOnly` anonymous session cookies (`iikiti_consent_sid`) and safe error responses, preventing consent session hijacking/overwrite and internal exception leakage.
+- 2026-11-22: Hex-escaped `iikiti-config` JSON in `templates/base/layout.twig` to prevent `<!--<script>` / `</script>` breakout XSS, enforced `AnalyticsConnectorRegistry` bundle namespace ownership and JS prototype key rejection, closed `EditorStateController` `site_home` enumeration oracles, and added DOM-clobbering and IP-literal guards in `analytics-loader.js`.
 - 2026-11-13: MCP is disabled by default, requires an authenticated API principal, applies per-user/site rate limits and existing endpoint permissions, and excludes authentication/internal worker routes.
 
 ### Added

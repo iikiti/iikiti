@@ -10,4 +10,9 @@
 	let { field, value, onChange }: Props = $props();
 </script>
 
-<ToggleInput value={Boolean(value)} onchange={(v: boolean) => onChange(v)} />
+<ToggleInput
+	id={String(field.controlId ?? field.key)}
+	aria-labelledby={String(field.labelId ?? `${String(field.key)}-label`)}
+	value={Boolean(value)}
+	onchange={(v: boolean) => onChange(v)}
+/>

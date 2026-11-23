@@ -12,6 +12,8 @@ namespace iikiti\CMS\Service\Configuration;
  */
 trait PluginConfigurationTrait
 {
+	private const DEFAULT_ACTIVE_PLUGINS = ['iikiti-content-optimization'];
+
 	/**
 	 * @return array<string,mixed>
 	 */
@@ -33,9 +35,18 @@ trait PluginConfigurationTrait
 	 */
 	public function getActivePlugins(): array
 	{
-		$active = $this->_pluginConfigArray()['active'] ?? [];
+		$data = $this->_pluginConfigArray();
+		$active = $data['active'] ?? [];
+		$active = is_array($active) ? $active : [];
+		$inactive = $data['inactive'] ?? [];
+		$inactive = is_array($inactive) ? $inactive : [];
 
-		return is_array($active) ? $active : [];
+		$active = array_values(array_unique([...self::DEFAULT_ACTIVE_PLUGINS, ...$active]));
+
+		return array_values(array_filter(
+			$active,
+			static fn ($slug): bool => !in_array($slug, $inactive, true),
+		));
 	}
 
 	public function getPluginConfiguration(?string $pluginSlug): object
@@ -70,14 +81,25 @@ trait PluginConfigurationTrait
 
 	public function enablePlugin(string $pluginSlug): void
 	{
-		if ($this->isPluginActive($pluginSlug)) {
+		$data = $this->_pluginConfigArray();
+		$inactive = $data['inactive'] ?? [];
+		$inactive = is_array($inactive) ? $inactive : [];
+		$updatedInactive = array_values(array_filter($inactive, static fn ($slug): bool => $slug !== $pluginSlug));
+		if (in_array($pluginSlug, self::DEFAULT_ACTIVE_PLUGINS, true)) {
+			if ($updatedInactive !== $inactive) {
+				$data['inactive'] = $updatedInactive;
+				$this->set('plugins', $data);
+			}
+
 			return;
 		}
 
-		$data = $this->_pluginConfigArray();
 		$active = $data['active'] ?? [];
 		$active = is_array($active) ? $active : [];
-		$active[] = $pluginSlug;
+		if (!in_array($pluginSlug, $active, true)) {
+			$active[] = $pluginSlug;
+		}
+		$data['inactive'] = $updatedInactive;
 		$data['active'] = array_values(array_unique($active));
 		$this->set('plugins', $data);
 	}
@@ -85,6 +107,16 @@ trait PluginConfigurationTrait
 	public function disablePlugin(string $pluginSlug): void
 	{
 		$data = $this->_pluginConfigArray();
+		if (in_array($pluginSlug, self::DEFAULT_ACTIVE_PLUGINS, true)) {
+			$inactive = $data['inactive'] ?? [];
+			$inactive = is_array($inactive) ? $inactive : [];
+			$inactive[] = $pluginSlug;
+			$data['inactive'] = array_values(array_unique($inactive));
+			$this->set('plugins', $data);
+
+			return;
+		}
+
 		$active = $data['active'] ?? [];
 		$active = is_array($active) ? $active : [];
 		$data['active'] = array_values(array_filter($active, static fn ($slug): bool => $slug !== $pluginSlug));

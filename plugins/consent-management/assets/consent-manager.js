@@ -87,7 +87,9 @@ export function createConsentManager(config, deps = {}) {
 	let sessionId = null;
 	let listeners = [];
 	let blocked = [];
-	let released = false;
+	let initialized = false;
+	let initPromise = null;
+	let consentRevision = 0;
 
 	function getConfig() {
 		return config;
@@ -95,6 +97,30 @@ export function createConsentManager(config, deps = {}) {
 
 	function getConfigVersion() {
 		return Number(config.version ?? 1);
+	}
+
+	function isAllowed(category) {
+		if (category === 'necessary') {
+			return true;
+		}
+		if (!CATEGORIES.includes(category)) {
+			return false;
+		}
+
+		return Boolean(
+			state?.ready === true &&
+			state?.hasConsented === true &&
+			state?.stale !== true &&
+			state?.categories?.[category] === true
+		);
+	}
+
+	function categoriesForExplicitChange() {
+		if (state?.ready === true && state.hasConsented === true && state.stale !== true) {
+			return { ...state.categories, necessary: true };
+		}
+
+		return { necessary: true, analytics: false, marketing: false };
 	}
 
 	function getDefaultCategories() {
@@ -198,12 +224,12 @@ export function createConsentManager(config, deps = {}) {
 	}
 
 	function dispatchConsentMode() {
-		if (!state || !state.hasConsented) {
-			return;
-		}
-		const { analytics, marketing } = state.categories;
+		if (!state) return;
+		const ready = state.ready === true && state.hasConsented === true && state.stale !== true;
+		const analytics = ready && state.categories.analytics === true;
+		const marketing = ready && state.categories.marketing === true;
 		const eventDetail = {
-			ad_storage: analytics || marketing ? 'granted' : 'denied',
+			ad_storage: marketing ? 'granted' : 'denied',
 			analytics_storage: analytics ? 'granted' : 'denied',
 			ad_user_data: marketing ? 'granted' : 'denied',
 			ad_personalization: marketing ? 'granted' : 'denied',
@@ -228,10 +254,12 @@ export function createConsentManager(config, deps = {}) {
 	 * Persist consent to localStorage and the server, then release blocked
 	 * scripts and notify listeners.
 	 */
-	async function applyConsent(categories, version) {
+	async function applyConsent(categories) {
 		ensureSessionId();
+		const revision = ++consentRevision;
 		const next = {
 			hasConsented: true,
+			ready: true,
 			categories: {
 				necessary: true,
 				analytics: Boolean(categories.analytics),
@@ -253,6 +281,7 @@ export function createConsentManager(config, deps = {}) {
 			const response = await fetchFn('/api/privacy/consent', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
+				credentials: 'include',
 				body: JSON.stringify({
 					categories: next.categories,
 					session_id: sessionId,
@@ -261,77 +290,113 @@ export function createConsentManager(config, deps = {}) {
 			});
 			if (response.ok) {
 				const result = await response.json();
-				next.proofToken = result.proofToken ?? next.proofToken;
-				next.legalFramework = result.legalFramework ?? next.legalFramework;
-				next.version = result.version ?? next.version;
-				next.stale = Boolean(result.stale);
+				const responseVersion = Number(result.configVersion ?? result.version ?? 0);
+				if (result.hasConsented === false || result.stale === true || responseVersion !== getConfigVersion()) {
+					next.hasConsented = false;
+					next.categories = getDefaultCategories();
+					next.version = Number(result.version ?? 0);
+					next.stale = true;
+				} else {
+					next.proofToken = result.proofToken ?? next.proofToken;
+					next.legalFramework = result.legalFramework ?? next.legalFramework;
+					next.version = responseVersion;
+					next.configVersion = getConfigVersion();
+					next.stale = false;
+					if (typeof result.sessionId === 'string' && result.sessionId) {
+						sessionId = result.sessionId;
+						next.sessionId = result.sessionId;
+					}
+				}
+			} else if (response.status >= 400 && response.status < 500) {
+				next.hasConsented = false;
+				next.categories = getDefaultCategories();
+				next.stale = true;
 			}
 		} catch {
 			// offline: keep localStorage copy, still apply locally
 		}
+		if (revision !== consentRevision) {
+			return state;
+		}
 
+		// Explicit user consent is authoritative and must never regress ready to false.
+		initialized = true;
+		next.ready = true;
 		state = next;
 		writeStored(next);
 		emitChange();
 		dispatchConsentMode();
 		releaseBlocked();
+		if (!state.hasConsented || state.stale) {
+			showBanner();
+		} else {
+			hideBanner();
+		}
 		return state;
 	}
 
 	/** Block a script element until consent is given. */
 	function blockScript(el) {
-		if (released || el.dataset.iikitiConsentBlocked) {
+		if (el.dataset.iikitiConsentBlocked) {
 			return;
 		}
 		const category = el.dataset.consentCategory;
-		if (!CATEGORIES.includes(category) || category === 'necessary') {
+		if (!CATEGORIES.includes(category) || category === 'necessary' || isAllowed(category)) {
 			return;
 		}
 		el.dataset.iikitiConsentBlocked = '1';
+		if (!Object.prototype.hasOwnProperty.call(el.dataset, 'consentType')) {
+			el.dataset.consentType = el.type;
+		}
 		if (el.src) {
 			el.dataset.consentSrc = el.src;
 			el.removeAttribute('src');
 		}
 		if (el.type !== 'text/plain') {
-			el.dataset.consentType = el.type;
 			el.type = 'text/plain';
 		}
 		blocked.push(el);
 	}
 
-	/** Release all blocked scripts once consent is granted. */
+	/** Release only scripts whose individual category has explicit fresh consent. */
 	function releaseBlocked() {
-		if (released) {
-			return;
-		}
-		released = true;
+		const remaining = [];
 		blocked.forEach((el) => {
-			if (el.dataset.consentSrc) {
-				const src = el.dataset.consentSrc;
-				const type = el.dataset.consentType;
-				const replacement = doc.createElement('script');
+			const category = el.dataset.consentCategory;
+			if (!isAllowed(category)) {
+				remaining.push(el);
+				return;
+			}
+
+			const src = el.dataset.consentSrc;
+			const replacement = doc.createElement('script');
+			const originalType = el.dataset.consentType;
+			if (originalType) {
+				replacement.type = originalType;
+			}
+			if (src) {
 				replacement.src = src;
-				if (type) {
-					replacement.type = type;
+			} else {
+				replacement.textContent = el.textContent ?? '';
+			}
+			for (const attr of el.attributes) {
+				if (
+					attr.name !== 'src' &&
+					attr.name !== 'type' &&
+					attr.name !== 'data-consent-category' &&
+					attr.name !== 'data-iikiti-consent-blocked' &&
+					attr.name !== 'data-consent-src' &&
+					attr.name !== 'data-consent-type' &&
+					!(src && attr.name === 'nonce')
+				) {
+					replacement.setAttribute(attr.name, attr.value);
 				}
-				for (const attr of el.attributes) {
-					if (
-						attr.name !== 'src' &&
-						attr.name !== 'type' &&
-						attr.name !== 'data-consent-category' &&
-						attr.name !== 'data-iikiti-consent-blocked' &&
-						attr.name !== 'data-consent-src' &&
-						attr.name !== 'data-consent-type'
-					) {
-						replacement.setAttribute(attr.name, attr.value);
-					}
-				}
+			}
+			if (el.parentNode) {
 				el.parentNode.replaceChild(replacement, el);
-			} else if (el.type === 'text/plain') {
-				el.type = el.dataset.consentType ?? 'text/javascript';
 			}
 		});
-		blocked = [];
+		blocked = remaining;
 	}
 
 	/** Intercept dynamically created scripts. */
@@ -347,7 +412,7 @@ export function createConsentManager(config, deps = {}) {
 						name === 'data-consent-category' &&
 						CATEGORIES.includes(value) &&
 						value !== 'necessary' &&
-						!released
+						!isAllowed(value)
 					) {
 						blockScript(el);
 					}
@@ -356,7 +421,7 @@ export function createConsentManager(config, deps = {}) {
 						el.dataset.consentCategory &&
 						CATEGORIES.includes(el.dataset.consentCategory) &&
 						el.dataset.consentCategory !== 'necessary' &&
-						!released
+						!isAllowed(el.dataset.consentCategory)
 					) {
 						blockScript(el);
 					}
@@ -383,7 +448,7 @@ export function createConsentManager(config, deps = {}) {
 						el.dataset.consentCategory &&
 						CATEGORIES.includes(el.dataset.consentCategory) &&
 						el.dataset.consentCategory !== 'necessary' &&
-						!released
+						!isAllowed(el.dataset.consentCategory)
 					) {
 						blockScript(el);
 					}
@@ -391,7 +456,7 @@ export function createConsentManager(config, deps = {}) {
 						if (
 							CATEGORIES.includes(s.dataset.consentCategory) &&
 							s.dataset.consentCategory !== 'necessary' &&
-							!released &&
+							!isAllowed(s.dataset.consentCategory) &&
 							!s.dataset.iikitiConsentBlocked
 						) {
 							blockScript(s);
@@ -424,6 +489,10 @@ export function createConsentManager(config, deps = {}) {
 				.then(() => {
 					api.bannerLoaded = true;
 					return api;
+				})
+				.catch((error) => {
+					api.bannerLoaded = null;
+					throw error;
 				});
 			return api.bannerLoaded;
 		}
@@ -435,16 +504,19 @@ export function createConsentManager(config, deps = {}) {
 		if (!container) {
 			return;
 		}
-		container.style.display = '';
+		container.hidden = false;
 		void (async () => {
-			await loadBanner();
+			try {
+				await loadBanner();
+			} catch {
+				return;
+			}
+			if (container.hidden) {
+				return;
+			}
 			if (typeof window !== 'undefined' && window.iikiti?.consentBanner?.mount) {
 				window.iikiti.consentBanner.mount(container, async ({ analytics, marketing }) => {
-					await applyConsent(
-						{ necessary: true, analytics, marketing },
-						state?.version ?? getConfigVersion()
-					);
-					hideBanner();
+					await applyConsent({ necessary: true, analytics, marketing });
 				});
 			}
 		})();
@@ -453,80 +525,132 @@ export function createConsentManager(config, deps = {}) {
 	function hideBanner() {
 		const container = doc.getElementById('iikiti-consent-banner');
 		if (container) {
-			container.style.display = 'none';
+			container.hidden = true;
 		}
 	}
 
-	async function initialize() {
-		if (readConfig) {
-			config = readConfig();
+	function initialize() {
+		if (initialized) {
+			return Promise.resolve();
 		}
-		initializeState();
-		blockExistingScripts();
-		installCreateElementInterceptor();
-		installMutationObserver();
-
-		if (!state.hasConsented) {
-			showBanner();
+		if (initPromise) {
+			return initPromise;
 		}
+		initPromise = (async () => {
+			const initialConsentRevision = consentRevision;
+			if (readConfig) {
+				config = readConfig();
+			}
+			initializeState();
+			blockExistingScripts();
+			installCreateElementInterceptor();
+			installMutationObserver();
 
-		// Fetch server-side consent state (may override local for logged-in users).
-		try {
-			const response = await fetchFn('/api/privacy/consent', {
-				headers: { Accept: 'application/json' },
-				credentials: 'include',
-			});
-			if (response.ok) {
-				const server = await response.json();
-				if (server.hasConsented) {
+			// Fetch server-side consent state (may override local for logged-in users or signed cookie sessions).
+			try {
+				const response = await fetchFn('/api/privacy/consent', {
+					headers: { Accept: 'application/json' },
+					credentials: 'include',
+				});
+				if (response.ok) {
+					const server = await response.json();
+					if (initialConsentRevision === consentRevision) {
+						const currentVersion = getConfigVersion();
+						const serverVersion = Number(server.configVersion ?? server.version ?? 0);
+						const hasCurrentConsent = server.hasConsented === true
+							&& server.stale !== true
+							&& Number(server.version ?? 0) === currentVersion
+							&& serverVersion === currentVersion;
+						state = hasCurrentConsent
+							? {
+								...state,
+								hasConsented: true,
+								categories: {
+									necessary: true,
+									analytics: Boolean(server.categories?.analytics),
+									marketing: Boolean(server.categories?.marketing),
+								},
+								version: serverVersion,
+								configVersion: currentVersion,
+								stale: false,
+								legalFramework: server.legalFramework ?? state.legalFramework,
+								geoCountry: server.geoCountry ?? state.geoCountry,
+								signals: server.signals ?? state.signals,
+								proofToken: server.proofToken ?? state.proofToken,
+								consentedAt: server.consentedAt ?? state.consentedAt,
+								userId: server.userId ?? state.userId,
+								sessionId: server.sessionId ?? state.sessionId,
+							}
+							: {
+								...state,
+								hasConsented: false,
+								categories: getDefaultCategories(),
+								version: Number(server.version ?? 0),
+								configVersion: currentVersion,
+								stale: Boolean(server.stale) || serverVersion !== currentVersion,
+							};
+						writeStored(state);
+					}
+				} else if (response.status >= 400 && response.status < 500 && initialConsentRevision === consentRevision) {
 					state = {
 						...state,
-						hasConsented: true,
-						categories: server.categories ?? state.categories,
-						version: server.version ?? state.version,
-						configVersion: server.configVersion ?? state.configVersion,
-						stale: Boolean(server.stale),
-						legalFramework: server.legalFramework ?? state.legalFramework,
-						geoCountry: server.geoCountry ?? state.geoCountry,
-						signals: server.signals ?? state.signals,
-						proofToken: server.proofToken ?? state.proofToken,
-						consentedAt: server.consentedAt ?? state.consentedAt,
-						userId: server.userId ?? state.userId,
-						sessionId: server.sessionId ?? state.sessionId,
+						hasConsented: false,
+						categories: getDefaultCategories(),
+						configVersion: getConfigVersion(),
+						stale: true,
 					};
-					writeStored(state);
-					if (state.stale) {
-						showBanner();
-					} else {
-						hideBanner();
-						releaseBlocked();
-					}
-					emitChange();
-					dispatchConsentMode();
 				}
+			} catch {
+				// ignore network errors; local state stands
 			}
-		} catch {
-			// ignore network errors; local state stands
-		}
+
+			initialized = true;
+			state = { ...state, ready: true };
+			writeStored(state);
+			emitChange();
+			dispatchConsentMode();
+			releaseBlocked();
+			if (!state.hasConsented || state.stale) {
+				showBanner();
+			} else {
+				hideBanner();
+			}
+			try {
+				dispatch(new CustomEvent('iikiti:consent-ready', { detail: { state: { ...state } } }));
+			} catch {
+				// ignore event dispatch errors
+			}
+		})().finally(() => {
+			initPromise = null;
+		});
+
+		return initPromise;
 	}
 
 	function initializeState() {
 		const stored = readStored();
 		const signals = detectSignals();
-		let initial = { necessary: true, analytics: false, marketing: false };
-
-		if (stored && stored.categories && stored.version === getConfigVersion()) {
-			initial = stored.categories;
-		} else if (stored && stored.categories) {
-			initial = getDefaultCategories();
-		}
+		const currentVersion = getConfigVersion();
+		const hasCurrentConsent = Boolean(
+			stored?.hasConsented === true &&
+			stored?.stale !== true &&
+			stored?.version === currentVersion
+		);
+		const initial = hasCurrentConsent && stored?.categories && typeof stored.categories === 'object'
+			? {
+				necessary: true,
+				analytics: Boolean(stored.categories.analytics),
+				marketing: Boolean(stored.categories.marketing),
+			}
+			: getDefaultCategories();
 
 		state = {
-			hasConsented: Boolean(stored && stored.version === getConfigVersion()),
+			ready: false,
+			hasConsented: hasCurrentConsent,
 			categories: initial,
 			version: stored?.version ?? 0,
-			configVersion: getConfigVersion(),
-			stale: Boolean(!stored || stored.version !== getConfigVersion()),
+			configVersion: currentVersion,
+			stale: Boolean(!stored || stored.stale === true || stored.version !== currentVersion),
 			legalFramework: stored?.legalFramework ?? 'none',
 			geoCountry: stored?.geoCountry ?? null,
 			signals,
@@ -550,19 +674,19 @@ export function createConsentManager(config, deps = {}) {
 			return state ? { ...state } : null;
 		},
 		isAllowed(category) {
-			return Boolean(state?.categories[category] ?? false);
+			return isAllowed(category);
 		},
 		allow(category) {
 			if (!state) {
-				return;
+				return Promise.resolve(null);
 			}
-			void applyConsent({ ...state.categories, [category]: true }, state.version);
+			return applyConsent({ ...categoriesForExplicitChange(), [category]: true });
 		},
 		deny(category) {
 			if (!state) {
-				return;
+				return Promise.resolve(null);
 			}
-			void applyConsent({ ...state.categories, [category]: false }, state.version);
+			return applyConsent({ ...categoriesForExplicitChange(), [category]: false });
 		},
 		onChange(fn) {
 			listeners.push(fn);

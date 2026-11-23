@@ -1,6 +1,8 @@
 <script lang="ts">
 	interface Props {
+		id?: string;
 		name?: string;
+		ariaDescribedBy?: string;
 		value?: string | number | null;
 		placeholder?: string;
 		type?: 'text' | 'email' | 'password' | 'number' | 'tel' | 'url';
@@ -13,7 +15,9 @@
 	}
 
 	let {
+		id,
 		name,
+		ariaDescribedBy,
 		value,
 		placeholder,
 		type = 'text',
@@ -41,7 +45,9 @@
 <input
 	type={type}
 	class="admin-input w-full"
+	{id}
 	{name}
+	aria-describedby={ariaDescribedBy}
 	{placeholder}
 	bind:value={inputValue}
 	{disabled}

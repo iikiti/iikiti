@@ -82,6 +82,7 @@ export const editorSettings = derived(state, ($) => ({
 	values: $.settingsValues,
 	version: $.settingsVersion,
 	hasDraft: $.settingsHasDraft,
+	options: Array.isArray($.config['settingsContextOptions']) ? $.config['settingsContextOptions'] : [],
 }));
 export const canUndo = derived(state, ($) => $.historyPos > 0);
 export const canRedo = derived(state, ($) => $.history.length > 0 && $.historyPos < $.history.length - 1);
@@ -179,6 +180,44 @@ export function updateEditorSetting(key, value) {
 		settingsValues: { ...current.settingsValues, [key]: value },
 		settingsDirty: true,
 	}));
+}
+
+/**
+ * Switch the settings sidebar between explicit server-provided targets.
+ * Unsaved settings values must be saved before changing targets.
+ * @param {{type:string,id:number|string,label:string,values?:Record<string,unknown>,version?:number,hasDraft?:boolean}} option
+ */
+export function switchEditorSettingsContext(option) {
+	if (!option || !['page', 'template', 'site_home'].includes(option.type)) return false;
+	const current = get(state);
+	if (current.settingsDirty) return false;
+	const options = Array.isArray(current.config['settingsContextOptions']) ? current.config['settingsContextOptions'] : [];
+	if (!options.some((candidate) => candidate.type === option.type && Number(candidate.id) === Number(option.id))) return false;
+	const values = option.values && typeof option.values === 'object' && !Array.isArray(option.values) ? option.values : {};
+	state.update((currentState) => ({
+		...currentState,
+		config: {
+			...currentState.config,
+			settingsContextType: option.type,
+			settingsContextId: Number(option.id),
+			settingsLabel: option.label,
+		},
+		settingsValues: { ...values },
+		settingsVersion: Number(option.version ?? 0) || 0,
+		settingsDirty: false,
+		settingsHasDraft: Boolean(option.hasDraft),
+	}));
+
+	return true;
+}
+
+function updatedSettingsContextOptions(config, current, patch) {
+	const options = Array.isArray(config['settingsContextOptions']) ? config['settingsContextOptions'] : [];
+	const targetType = current.config['settingsContextType'];
+	const targetId = Number(current.config['settingsContextId'] ?? 0);
+	return options.map((option) =>
+		option.type === targetType && Number(option.id) === targetId ? { ...option, ...patch } : option
+	);
 }
 
 /** @returns {Promise<{valid:boolean,error?:string,compiled?:string}>} */
@@ -819,7 +858,9 @@ export async function saveDraft() {
 			notifications.notify({
 				message: result.conflict
 					? 'Settings draft conflict – reload and retry.'
-					: blockSaved ? 'Settings save failed after the block draft was saved.' : 'Settings save failed',
+					: result.error
+						? String(result.error)
+						: blockSaved ? 'Settings save failed after the block draft was saved.' : 'Settings save failed',
 				type: 'error',
 			});
 			return result;
@@ -844,7 +885,7 @@ export async function publish() {
 	});
 	const publishResult = await res.json().catch(() => ({ ok: false }));
 	if (!res.ok || !publishResult.ok) {
-		notifications.notify({ message: 'Block publish failed', type: 'error' });
+		notifications.notify({ message: publishResult.error ? String(publishResult.error) : 'Block publish failed', type: 'error' });
 		return false;
 	}
 
@@ -853,7 +894,14 @@ export async function publish() {
 	if (current.settingsDirty) {
 		const saved = await saveSettingsDraft(current);
 		if (!saved.ok) {
-			notifications.notify({ message: saved.conflict ? 'Settings draft conflict – reload and retry.' : 'Settings could not be saved before publishing.', type: 'error' });
+			notifications.notify({
+				message: saved.conflict
+					? 'Settings draft conflict – reload and retry.'
+					: saved.error
+						? String(saved.error)
+						: 'Settings could not be saved before publishing.',
+				type: 'error',
+			});
 			return false;
 		}
 		current = get(state);
@@ -864,11 +912,26 @@ export async function publish() {
 			notifications.notify({
 				message: result.conflict
 					? 'Settings publish conflict – reload and retry.'
-					: 'Block tree published, but settings publish failed.',
+					: result.error
+						? String(result.error)
+						: 'Block tree published, but settings publish failed.',
 				type: 'error',
 			});
 			return false;
 		}
+		current = get(state);
+	}
+	const otherDraftTargets = (Array.isArray(current.config['settingsContextOptions']) ? current.config['settingsContextOptions'] : [])
+		.filter((option) => option && option.hasDraft && (
+			option.type !== current.config['settingsContextType']
+			|| Number(option.id) !== Number(current.config['settingsContextId'] ?? 0)
+		));
+	if (otherDraftTargets.length > 0) {
+		const labels = otherDraftTargets.map((option) => option.label || option.type).join(', ');
+		notifications.notify({
+			message: `Unpublished settings draft still remains on: ${labels}. Switch settings target to publish it.`,
+			type: 'warning',
+		});
 	}
 	return true;
 }
@@ -889,6 +952,14 @@ async function saveSettingsDraft(current) {
 	if (!res.ok || data.conflict) return data;
 	state.update((st) => ({
 		...st,
+		config: {
+			...st.config,
+			settingsContextOptions: updatedSettingsContextOptions(st.config, current, {
+				values: current.settingsValues,
+				version: Number(data.version ?? st.settingsVersion),
+				hasDraft: true,
+			}),
+		},
 		settingsDirty: st.settingsValues !== current.settingsValues,
 		settingsVersion: Number(data.version ?? st.settingsVersion),
 		settingsHasDraft: true,
@@ -911,6 +982,14 @@ async function publishSettings(current) {
 	if (!res.ok || data.conflict) return data;
 	state.update((st) => ({
 		...st,
+		config: {
+			...st.config,
+			settingsContextOptions: updatedSettingsContextOptions(st.config, current, {
+				values: current.settingsValues,
+				version: Number(data.version ?? st.settingsVersion),
+				hasDraft: Boolean(data.hasDraft),
+			}),
+		},
 		settingsDirty: st.settingsValues !== current.settingsValues,
 		settingsVersion: Number(data.version ?? st.settingsVersion),
 		settingsHasDraft: Boolean(data.hasDraft),

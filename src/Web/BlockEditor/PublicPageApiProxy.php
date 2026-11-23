@@ -46,6 +46,24 @@ final readonly class PublicPageApiProxy
 		return $this->render($request, '/api/public/render/pages/'.rawurlencode($slug));
 	}
 
+	public function robots(Request $request): Response
+	{
+		return $this->proxyDiscoveryDocument(
+			$request,
+			'/api/public/content-optimization/robots',
+			'text/plain; charset=UTF-8',
+		);
+	}
+
+	public function sitemap(Request $request): Response
+	{
+		return $this->proxyDiscoveryDocument(
+			$request,
+			'/api/public/content-optimization/sitemap',
+			'application/xml; charset=UTF-8',
+		);
+	}
+
 	public function fragment(Request $request, string $provider): Response
 	{
 		$siteHost = strtolower($request->getHost());
@@ -53,6 +71,7 @@ final readonly class PublicPageApiProxy
 		$headers = [
 			'X-SITE-HOST' => $siteHost,
 			'X-SITE-SCHEME' => $request->getScheme(),
+			'X-Forwarded-Proto' => $request->getScheme(),
 			'X-SITE-LOCALE' => $request->getLocale(),
 		];
 		$params = $request->query->get('params', '{}');
@@ -74,9 +93,9 @@ final readonly class PublicPageApiProxy
 
 			return new JsonResponse(['html' => $result['html'], 'styles' => $result['styles']], Response::HTTP_OK, ['Cache-Control' => 'private, no-store']);
 		} catch (BusinessApiException $exception) {
-			$status = in_array($exception->statusCode, [Response::HTTP_BAD_REQUEST, Response::HTTP_FORBIDDEN, Response::HTTP_NOT_FOUND], true)
-				? $exception->statusCode
-				: (Response::HTTP_CONFLICT === $exception->statusCode ? Response::HTTP_CONFLICT : Response::HTTP_BAD_GATEWAY);
+			$status = in_array($exception->statusCode, [Response::HTTP_BAD_REQUEST, Response::HTTP_FORBIDDEN, Response::HTTP_NOT_FOUND], true) ?
+				$exception->statusCode :
+				(Response::HTTP_CONFLICT === $exception->statusCode ? Response::HTTP_CONFLICT : Response::HTTP_BAD_GATEWAY);
 
 			return new JsonResponse(['message' => 'The requested fragment could not be rendered.'], $status, ['Cache-Control' => 'private, no-store']);
 		} catch (\Throwable $exception) {
@@ -93,6 +112,7 @@ final readonly class PublicPageApiProxy
 		$headers = [
 			'X-SITE-HOST' => $siteHost,
 			'X-SITE-SCHEME' => $request->getScheme(),
+			'X-Forwarded-Proto' => $request->getScheme(),
 			'X-SITE-LOCALE' => $request->getLocale(),
 		];
 
@@ -151,9 +171,9 @@ final readonly class PublicPageApiProxy
 				}
 			}
 			if (null !== $mainDescriptor) {
-				if (!$mainFragment['found']
-					|| $mainFragment['id'] !== $mainDescriptor['id']
-					|| $mainFragment['revision'] !== $manifest['revision']) {
+				if (!$mainFragment['found'] ||
+					$mainFragment['id'] !== $mainDescriptor['id'] ||
+					$mainFragment['revision'] !== $manifest['revision']) {
 					throw new BusinessApiException(Response::HTTP_CONFLICT);
 				}
 				$renderedFragments[$mainDescriptor['slot']] = $mainFragment;
@@ -212,9 +232,9 @@ final readonly class PublicPageApiProxy
 				$completedSlots = [];
 				foreach ($batch as $fragment) {
 					$raw = $results[$fragment['slot']] ?? null;
-					$normalized = 'provider' === $fragment['kind']
-						? $this->normalizeProviderResult($raw, $fragment['id'], $manifest['editor_mode'])
-						: $this->normalizeFragmentResult($raw, $manifest['editor_mode']);
+					$normalized = 'provider' === $fragment['kind'] ?
+						$this->normalizeProviderResult($raw, $fragment['id'], $manifest['editor_mode']) :
+						$this->normalizeFragmentResult($raw, $manifest['editor_mode']);
 					if (null === $normalized) {
 						throw new \UnexpectedValueException('The API returned an invalid page fragment.');
 					}
@@ -253,7 +273,46 @@ final readonly class PublicPageApiProxy
 				'server_port' => $request->server->get('SERVER_PORT'),
 				'api_host' => parse_url($this->api->getBaseUrl(), PHP_URL_HOST),
 			]);
+
 			return $this->failureResponse($exception);
+		}
+	}
+
+	private function proxyDiscoveryDocument(Request $request, string $path, string $expectedContentType): Response
+	{
+		$siteHost = strtolower($request->getHost());
+		$guestToken = $this->guestTokens->issue($siteHost);
+		$headers = [
+			'X-SITE-HOST' => $siteHost,
+			'X-SITE-SCHEME' => $request->getScheme(),
+			'X-Forwarded-Proto' => $request->getScheme(),
+		];
+
+		try {
+			$result = $this->api->request(
+				'GET',
+				$path,
+				$guestToken,
+				headers: $headers,
+			);
+			if (!is_string($result['body'] ?? null) || ($result['contentType'] ?? null) !== $expectedContentType) {
+				return new JsonResponse(['message' => 'The public discovery API returned an invalid response.'], Response::HTTP_BAD_GATEWAY, ['Cache-Control' => 'no-store']);
+			}
+
+			return new Response($result['body'], Response::HTTP_OK, [
+				'Content-Type' => $expectedContentType,
+				'Cache-Control' => 'public, max-age=300',
+			]);
+		} catch (BusinessApiException $exception) {
+			$status = in_array($exception->statusCode, [Response::HTTP_BAD_REQUEST, Response::HTTP_FORBIDDEN, Response::HTTP_NOT_FOUND], true) ?
+				$exception->statusCode :
+				Response::HTTP_BAD_GATEWAY;
+
+			return new JsonResponse(['message' => 'The public discovery document could not be loaded.'], $status, ['Cache-Control' => 'no-store']);
+		} catch (\Throwable $exception) {
+			$this->logger?->error('Public discovery API request failed.', ['path' => $path, 'exception' => $exception]);
+
+			return new JsonResponse(['message' => 'The public discovery document could not be loaded.'], Response::HTTP_BAD_GATEWAY, ['Cache-Control' => 'no-store']);
 		}
 	}
 
@@ -304,18 +363,18 @@ final readonly class PublicPageApiProxy
 	/** @return array{html:string,styles:list<array{id:?string,css:string}>,editor_mode:bool,revision:string,fragments:list<array<string,mixed>>,inline_asset_minification:array{css_minify:bool,js_minify:bool,js_uglify:bool}}|null */
 	private function normalizeManifest(mixed $manifest): ?array
 	{
-		$inlineAssetOptions = is_array($manifest)
-			? InlineAssetMinificationOptions::fromArray($manifest['inline_asset_minification'] ?? null)
-			: null;
-		if (!is_array($manifest)
-			|| !is_string($manifest['html'] ?? null)
-			|| !is_bool($manifest['editor_mode'] ?? null)
-			|| null === $inlineAssetOptions
-			|| !is_string($manifest['revision'] ?? null)
-			|| 1 !== preg_match('/^[a-f0-9]{64}$/D', $manifest['revision'])
-			|| !is_array($manifest['fragments'] ?? null)
-			|| !array_is_list($manifest['fragments'])
-			|| count($manifest['fragments']) > RenderFragmentLimits::MAX_PER_PAGE) {
+		$inlineAssetOptions = is_array($manifest) ?
+			InlineAssetMinificationOptions::fromArray($manifest['inline_asset_minification'] ?? null) :
+			null;
+		if (!is_array($manifest) ||
+			!is_string($manifest['html'] ?? null) ||
+			!is_bool($manifest['editor_mode'] ?? null) ||
+			null === $inlineAssetOptions ||
+			!is_string($manifest['revision'] ?? null) ||
+			1 !== preg_match('/^[a-f0-9]{64}$/D', $manifest['revision']) ||
+			!is_array($manifest['fragments'] ?? null) ||
+			!array_is_list($manifest['fragments']) ||
+			count($manifest['fragments']) > RenderFragmentLimits::MAX_PER_PAGE) {
 			return null;
 		}
 		$styles = $this->normalizeStyles($manifest['styles'], $manifest['editor_mode']);
@@ -327,34 +386,34 @@ final readonly class PublicPageApiProxy
 		$slots = [];
 		$identifiers = [];
 		foreach ($manifest['fragments'] as $fragment) {
-			if (!is_array($fragment)
-				|| !in_array($fragment['kind'] ?? null, ['region', 'shell', 'widget', 'provider'], true)
-				|| !is_string($fragment['id'] ?? null)
-				|| '' === $fragment['id']
-				|| strlen($fragment['id']) > 128
-				|| 1 === preg_match('/[\x00-\x1F\x7F]/', $fragment['id'])
-				|| !is_string($fragment['role'] ?? null)
-				|| '' === $fragment['role']
-				|| ('provider' === $fragment['kind'] && 'provider' !== $fragment['role'])
-				|| !is_string($fragment['slot'] ?? null)
-				|| 1 !== preg_match('/^[a-f0-9]{32}$/D', $fragment['slot'])) {
+			if (!is_array($fragment) ||
+				!in_array($fragment['kind'] ?? null, ['region', 'shell', 'widget', 'provider'], true) ||
+				!is_string($fragment['id'] ?? null) ||
+				'' === $fragment['id'] ||
+				strlen($fragment['id']) > 128 ||
+				1 === preg_match('/[\x00-\x1F\x7F]/', $fragment['id']) ||
+				!is_string($fragment['role'] ?? null) ||
+				'' === $fragment['role'] ||
+				('provider' === $fragment['kind'] && 'provider' !== $fragment['role']) ||
+				!is_string($fragment['slot'] ?? null) ||
+				1 !== preg_match('/^[a-f0-9]{32}$/D', $fragment['slot'])) {
 				return null;
 			}
 			if ('shell' === $fragment['kind'] && 1 !== preg_match('/^[1-9][0-9]{0,18}$/D', $fragment['id'])) {
 				return null;
 			}
 			$depth = $fragment['depth'] ?? 0;
-			if (!is_int($depth)
-				|| ('widget' === $fragment['kind'] && ($depth < 1 || $depth >= RenderFragmentLimits::MAX_PER_PAGE))
-				|| (!in_array($fragment['kind'], ['widget', 'provider'], true) && 0 !== $depth)
-				|| ('widget' === $fragment['kind'] && 1 !== preg_match('/^[a-f0-9]{64}$/D', $fragment['id']))
-				|| ('provider' === $fragment['kind'] && (0 !== $depth || 1 !== preg_match('/^[a-z0-9][a-z0-9-]{0,62}\.[a-z][a-z0-9_.-]{0,63}$/D', $fragment['id'])))) {
+			if (!is_int($depth) ||
+				('widget' === $fragment['kind'] && ($depth < 1 || $depth >= RenderFragmentLimits::MAX_PER_PAGE)) ||
+				(!in_array($fragment['kind'], ['widget', 'provider'], true) && 0 !== $depth) ||
+				('widget' === $fragment['kind'] && 1 !== preg_match('/^[a-f0-9]{64}$/D', $fragment['id'])) ||
+				('provider' === $fragment['kind'] && (0 !== $depth || 1 !== preg_match('/^[a-z0-9][a-z0-9-]{0,62}\.[a-z][a-z0-9_.-]{0,63}$/D', $fragment['id'])))) {
 				return null;
 			}
 
-			$identifier = 'provider' === $fragment['kind']
-				? $fragment['kind'].':'.(string) ($fragment['key'] ?? '')
-				: $fragment['kind'].':'.$fragment['id'];
+			$identifier = 'provider' === $fragment['kind'] ?
+				$fragment['kind'].':'.(string) ($fragment['key'] ?? '') :
+				$fragment['kind'].':'.$fragment['id'];
 			if (isset($slots[$fragment['slot']]) || isset($identifiers[$identifier])) {
 				return null;
 			}
@@ -371,10 +430,10 @@ final readonly class PublicPageApiProxy
 				$key = $fragment['key'] ?? null;
 				$dependencies = $fragment['dependsOn'] ?? null;
 				$params = $fragment['params'] ?? null;
-				if (!is_string($key) || 1 !== preg_match('/^[A-Za-z0-9_-]{1,64}$/D', $key)
-					|| !is_array($dependencies) || !array_is_list($dependencies)
-					|| !is_array($params) || ([] !== $params && array_is_list($params))
-					|| 16_384 < strlen(json_encode($params, JSON_THROW_ON_ERROR, 16))) {
+				if (!is_string($key) || 1 !== preg_match('/^[A-Za-z0-9_-]{1,64}$/D', $key) ||
+					!is_array($dependencies) || !array_is_list($dependencies) ||
+					!is_array($params) || ([] !== $params && array_is_list($params)) ||
+					16_384 < strlen(json_encode($params, JSON_THROW_ON_ERROR, 16))) {
 					return null;
 				}
 				foreach ($dependencies as $dependency) {
@@ -450,11 +509,11 @@ final readonly class PublicPageApiProxy
 		if (!$fragment['found']) {
 			return ['found' => false, 'id' => null, 'revision' => null, 'html' => '', 'styles' => []];
 		}
-		if (!is_string($fragment['id'] ?? null)
-			|| '' === $fragment['id']
-			|| !is_string($fragment['revision'] ?? null)
-			|| 1 !== preg_match('/^[a-f0-9]{64}$/D', $fragment['revision'])
-			|| !is_string($fragment['html'] ?? null)) {
+		if (!is_string($fragment['id'] ?? null) ||
+			'' === $fragment['id'] ||
+			!is_string($fragment['revision'] ?? null) ||
+			1 !== preg_match('/^[a-f0-9]{64}$/D', $fragment['revision']) ||
+			!is_string($fragment['html'] ?? null)) {
 			return null;
 		}
 		$styles = $this->normalizeStyles($fragment['styles'] ?? null, $editorMode);
@@ -481,7 +540,7 @@ final readonly class PublicPageApiProxy
 
 	/**
 	 * @param array{html:string,styles:list<array{id:?string,css:string}>,editor_mode:bool,revision:string,fragments:list<array<string,mixed>>} $manifest
-	 * @param array<string,mixed> $renderedFragments
+	 * @param array<string,mixed>                                                                                                               $renderedFragments
 	 */
 	private function composeDocument(array $manifest, array $renderedFragments, string $siteHost): \Dom\HTMLDocument
 	{
@@ -489,10 +548,10 @@ final readonly class PublicPageApiProxy
 		$styleFragments = $manifest['styles'];
 		foreach ($manifest['fragments'] as $fragment) {
 			$result = $renderedFragments[$fragment['slot']] ?? null;
-			if (!is_array($result)
-				|| !is_string($result['html'] ?? null)
-				|| true !== ($result['found'] ?? false)
-				|| ($result['id'] ?? null) !== $fragment['id']) {
+			if (!is_array($result) ||
+				!is_string($result['html'] ?? null) ||
+				true !== ($result['found'] ?? false) ||
+				($result['id'] ?? null) !== $fragment['id']) {
 				throw new \UnexpectedValueException('The API returned an invalid page fragment.');
 			}
 			if ('provider' !== $fragment['kind'] && ($result['revision'] ?? null) !== $manifest['revision']) {
@@ -538,8 +597,8 @@ final readonly class PublicPageApiProxy
 				return null;
 			}
 			$id = $style['id'];
-			if ((!$allowPublicStyleIds && $editorMode && !is_string($id)) || (!$editorMode && !$allowPublicStyleIds && null !== $id)
-				|| (is_string($id) && ('' === $id || strlen($id) > 128 || 1 === preg_match('/[\x00-\x1F\x7F]/', $id)))) {
+			if ((!$allowPublicStyleIds && $editorMode && !is_string($id)) || (!$editorMode && !$allowPublicStyleIds && null !== $id) ||
+				(is_string($id) && ('' === $id || strlen($id) > 128 || 1 === preg_match('/[\x00-\x1F\x7F]/', $id)))) {
 				return null;
 			}
 			$normalized[] = ['id' => $id, 'css' => $style['css']];
@@ -625,5 +684,4 @@ final readonly class PublicPageApiProxy
 			return substr($tag, 0, -1).' crossorigin="use-credentials">';
 		}, $html) ?? $html;
 	}
-
 }

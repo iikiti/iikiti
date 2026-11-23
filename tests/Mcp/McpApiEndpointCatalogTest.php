@@ -15,6 +15,9 @@ use Mcp\Capability\Discovery\SchemaValidator;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\HttpFoundation\RequestStack;
+use Doctrine\Persistence\ManagerRegistry;
+use iikiti\CMS\Registry\SiteRegistry;
+use iikiti\CMS\Security\GuestApiTokenManager;
 use Symfony\Component\HttpKernel\KernelInterface;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
@@ -73,6 +76,21 @@ final class McpApiEndpointCatalogTest extends TestCase
 		sort($methods);
 
 		self::assertSame(['DELETE', 'GET', 'PATCH', 'POST', 'PUT'], $methods);
+	}
+
+	public function testPublicRenderAndDiscoveryPayloadRoutesAreNotExposedToMcp(): void
+	{
+		$catalog = $this->createCatalog([
+			'api_public_render_home' => new Route('/api/public/render/home', ['_controller' => 'TestController::home'], [], [], '', [], ['GET']),
+			'api_public_asset_file' => new Route('/api/public/assets/{id}/file', ['_controller' => 'TestController::asset'], [], [], '', [], ['GET']),
+			'api_public_render_content_optimization_robots' => new Route('/api/public/content-optimization/robots', ['_controller' => 'TestController::robots'], [], [], '', [], ['GET']),
+			'api_public_render_content_optimization_sitemap' => new Route('/api/public/content-optimization/sitemap', ['_controller' => 'TestController::sitemap'], [], [], '', [], ['GET']),
+			'api_admin_content_optimization_settings' => new Route('/api/admin/applications/1/content-optimization/settings', ['_controller' => 'TestController::settings'], [], [], '', [], ['GET']),
+		]);
+
+		$paths = array_map(static fn (McpApiEndpoint $endpoint): string => $endpoint->path, $catalog->all());
+
+		self::assertSame(['/api/admin/applications/1/content-optimization/settings'], $paths);
 	}
 
 	public function testDescribeIncludesRouteArgumentSchemaAndRequiredDescriptions(): void
@@ -185,6 +203,8 @@ final class McpApiEndpointCatalogTest extends TestCase
 	 */
 	private function createCatalog(array $routes, array $tools = []): McpApiEndpointCatalog
 	{
+		$this->resetSiteRegistry();
+		new SiteRegistry(new RequestStack(), $this->createStub(ManagerRegistry::class), new GuestApiTokenManager('test-secret'), 'api');
 		$collection = new RouteCollection();
 		foreach ($routes as $name => $route) {
 			$collection->add($name, $route);
@@ -193,6 +213,13 @@ final class McpApiEndpointCatalogTest extends TestCase
 		$router->method('getRouteCollection')->willReturn($collection);
 
 		return new McpApiEndpointCatalog($router, new PluginRegistry(), tools: $tools);
+	}
+
+	private function resetSiteRegistry(): void
+	{
+		(new \ReflectionProperty(SiteRegistry::class, 'siteStack'))->setValue(null, new \SplStack());
+		(new \ReflectionProperty(SiteRegistry::class, 'initialized'))->setValue(null, false);
+		(new \ReflectionProperty(SiteRegistry::class, 'populated'))->setValue(null, false);
 	}
 
 	private function createApiTools(McpApiEndpointCatalog $catalog): ApiTools

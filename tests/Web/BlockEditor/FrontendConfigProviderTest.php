@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Tests\Web\BlockEditor;
 
-use Doctrine\Persistence\ManagerRegistry;
 use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Persistence\ManagerRegistry;
 use iikiti\CMS\Entity\Object\ApiToken;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Entity\Object\UserGroup;
+use iikiti\CMS\Plugin\PluginManifest;
 use iikiti\CMS\Plugin\PluginRegistry;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\Object\UserGroupRepository;
@@ -198,6 +199,66 @@ final class FrontendConfigProviderTest extends TestCase
 
 		self::assertSame('www.example.test', $config['apiSiteHost']);
 		self::assertSame('https', $config['apiSiteScheme']);
+	}
+
+	public function testBundledEditorUiIsAvailableOnlyWhenEnabledForCurrentSite(): void
+	{
+		$security = $this->createStub(Security::class);
+		$user = $this->createStub(User::class);
+		$security->method('getUser')->willReturn($user);
+		$checker = $this->createStub(PermissionChecker::class);
+		$checker->method('canAccess')->willReturn(true);
+		$token = $this->createStub(ApiToken::class);
+		$token->method('getToken')->willReturn('ephemeral-token');
+		$tokenManager = $this->createStub(ApiTokenManager::class);
+		$tokenManager->method('getOrCreateToken')->willReturn($token);
+
+		$activeManifest = PluginManifest::fromArray([
+			'name' => 'Active plugin',
+			'slug' => 'active-plugin',
+			'namespace' => 'Vendor\\Active',
+			'bundle_class' => 'Vendor\\Active\\ActiveBundle',
+			'version' => '1.0.0',
+			'iikiti_version' => '^1.0',
+			'editor_ui' => ['entry' => 'editor.js'],
+		]);
+		$inactiveManifest = PluginManifest::fromArray([
+			'name' => 'Inactive plugin',
+			'slug' => 'inactive-plugin',
+			'namespace' => 'Vendor\\Inactive',
+			'bundle_class' => 'Vendor\\Inactive\\InactiveBundle',
+			'version' => '1.0.0',
+			'iikiti_version' => '^1.0',
+			'editor_ui' => ['entry' => 'editor.js'],
+		]);
+		$plugins = new PluginRegistry();
+		$plugins->add($activeManifest);
+		$plugins->add($inactiveManifest);
+
+		$site = new Site();
+		$configuration = $site->getConfiguration();
+		$configuration->enablePlugin('active-plugin');
+		$site->setConfiguration($configuration);
+		new SiteRegistry(new RequestStack(), $this->createStub(ManagerRegistry::class), new GuestApiTokenManager('test-secret'), 'api');
+		SiteRegistry::pushSite($site);
+
+		try {
+			$provider = new FrontendConfigProvider($security, $checker, $tokenManager, $plugins);
+			$config = $provider->build(7, 'template', $user);
+			self::assertNotNull($config);
+			self::assertTrue($config['contentOptimizationEnabled']);
+			self::assertSame(['active-plugin'], array_column($config['plugins'], 'slug'));
+
+			$configuration = $site->getConfiguration();
+			$configuration->disablePlugin('iikiti-content-optimization');
+			$site->setConfiguration($configuration);
+			$disabledConfig = $provider->build(7, 'template', $user);
+			self::assertNotNull($disabledConfig);
+			self::assertFalse($disabledConfig['contentOptimizationEnabled']);
+			self::assertSame(['active-plugin'], array_column($disabledConfig['plugins'], 'slug'));
+		} finally {
+			SiteRegistry::popSite();
+		}
 	}
 
 	private function provider(

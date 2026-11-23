@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { selected, blockTypes, tree, updateNode, searchNode, editorSettings, updateEditorSetting } from './state';
+	import { selected, blockTypes, tree, updateNode, searchNode, editorSettings, updateEditorSetting, switchEditorSettingsContext, settingsDirty } from './state';
 	import type { BlockNode } from './state';
 	import {
 		getSections,
@@ -152,6 +152,11 @@
 		return isSettingsMode ? getSettingsSections(settingsContext.targetType) : getSections();
 	});
 
+	$effect(() => {
+		if (!isSettingsMode || sections.length === 0 || sections.some((section) => section.id === $activeSettingsSectionId)) return;
+		setActiveSettingsSection(sections[0].id);
+	});
+
 	const tab = $derived(isSettingsMode ? $activeSettingsSectionId : $activeSectionId);
 
 	const nodes = $derived.by(() => {
@@ -292,6 +297,16 @@
 			),
 		);
 	}
+
+	function changeSettingsTarget(event: Event) {
+		const value = (event.currentTarget as HTMLSelectElement).value;
+		const separator = value.lastIndexOf(':');
+		if (separator < 0 || $settingsDirty) return;
+		const targetType = value.slice(0, separator);
+		const targetId = Number(value.slice(separator + 1));
+		const option = settingsContext.options.find((candidate) => candidate.type === targetType && Number(candidate.id) === targetId);
+		if (option) switchEditorSettingsContext(option);
+	}
 </script>
 
 <div class="iikiti-settings iikiti-settings--{side}" data-tour="editor.settings">
@@ -311,6 +326,25 @@
 	{#if !isSettingsMode && !node}
 		<p class="iikiti-settings__empty">Select a block to edit its content, element and style.</p>
 	{:else}
+		{#if isSettingsMode && settingsContext.options.length > 1}
+			<label for="editor-settings-target" class="iikiti-settings__breakpoint">
+				<span>Settings target</span>
+				<select
+					id="editor-settings-target"
+					value={`${settingsContext.targetType}:${settingsContext.targetId}`}
+					disabled={$settingsDirty}
+					onchange={changeSettingsTarget}
+					aria-describedby="editor-settings-target-hint"
+				>
+					{#each settingsContext.options as option (`${option.type}:${option.id}`)}
+						<option value={`${option.type}:${option.id}`}>{option.label}</option>
+					{/each}
+				</select>
+				<span id="editor-settings-target-hint" class="iikiti-settings__hint">
+					{#if $settingsDirty}Save the current settings draft before switching targets.{:else}Homepage SEO is saved for this Site; Template settings are shared.{/if}
+				</span>
+			</label>
+		{/if}
 		<div class="iikiti-settings__tabs" role="tablist">
 			{#each sections as s (s.id)}
 				<button
@@ -406,14 +440,27 @@
 				<div class="iikiti-settings__repeater-row">
 					{#each (n.fields as Record<string, unknown>[]) ?? [] as sub (sub.key)}
 						{@const SubControl = resolveFieldControl(sub.type as string) ?? TextControl}
-						<label class="iikiti-settings__repeater-field">
-							<span class="iikiti-settings__repeater-label">{sub.label}</span>
-							<SubControl
-								field={sub}
-								value={(item as Record<string, unknown>)?.[sub.key as string]}
-								onChange={(v: unknown) => updateItem(n, index, sub.key as string, v)}
-							/>
-						</label>
+						{@const scopedId = `${String(n.id ?? 'repeater')}-${index}-${String(sub.key)}`}
+						{@const scopedField = { ...sub, controlId: scopedId, labelId: `${scopedId}-label` }}
+						{#if sub.type === 'toggle'}
+							<div class="iikiti-settings__repeater-field">
+								<span id={`${scopedId}-label`} class="iikiti-settings__repeater-label">{sub.label}</span>
+								<SubControl
+									field={scopedField}
+									value={(item as Record<string, unknown>)?.[sub.key as string]}
+									onChange={(v: unknown) => updateItem(n, index, sub.key as string, v)}
+								/>
+							</div>
+						{:else}
+							<label for={scopedId} class="iikiti-settings__repeater-field">
+								<span class="iikiti-settings__repeater-label">{sub.label}</span>
+								<SubControl
+									field={scopedField}
+									value={(item as Record<string, unknown>)?.[sub.key as string]}
+									onChange={(v: unknown) => updateItem(n, index, sub.key as string, v)}
+								/>
+							</label>
+						{/if}
 					{/each}
 					<button
 						type="button"

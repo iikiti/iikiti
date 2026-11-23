@@ -56,6 +56,8 @@ php bin/console iikiti:plugin:update --dry-run
 
 Admin-only (`ROLE_ADMIN`). All routes are under `/api/admin/plugins`.
 
+> **Delegated site-scoped exception:** First-party bundled `iikiti-content-optimization` also exposes `PUT /api/site/{siteId}/content-optimization/activation` so `ROLE_SITE_MANAGER` users can enable or disable Content Optimization on their assigned Site. State transitions still route through `PluginLifecycleHandler::activate()` / `deactivate()`, dispatching plugin lifecycle events and recording `enabled_plugin` / `disabled_plugin` audit entries.
+
 | Method | Endpoint | Action |
 |--------|----------|--------|
 | GET | `/api/admin/plugins` | List installed plugins |

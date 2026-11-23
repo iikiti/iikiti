@@ -2,6 +2,7 @@ parameters:
 	level: 6
 	paths:
 		- src
+		- plugins/iikiti-content-optimization/src
 		- tests
 	scanFiles:
 		- migrations/Version20261114170000.php

@@ -1,0 +1,12 @@
+{
+  "name": "iikiti Content Optimization",
+  "slug": "iikiti-content-optimization",
+  "namespace": "iikiti\\Extension\\ContentOptimization",
+  "bundle_class": "iikiti\\Extension\\ContentOptimization\\ContentOptimizationBundle",
+  "version": "1.0.0",
+  "iikiti_version": "^1.0",
+  "description": "SEO, GEO, AIO metadata, indexing controls, and privacy-aware analytics connectors.",
+  "authors": [{ "name": "iikiti" }],
+  "license": "MIT",
+  "edition": "standard"
+}

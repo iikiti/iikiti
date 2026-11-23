@@ -199,10 +199,12 @@ export function registerCoreSidebar() {
 	registerSection({ id: 'rendering', label: 'Rendering', icon: 'zap', order: 40, build: buildRendering });
 	registerSettingsSection({
 		id: 'general', label: 'General', order: 10,
+		targetTypes: ['page', 'template'],
 		build: () => [{ kind: 'field', path: 'settings', field: { key: 'name', label: 'Name', type: 'text', order: 10 } }],
 	});
 	registerSettingsSection({
 		id: 'advanced', label: 'Advanced', order: 20,
+		targetTypes: ['page', 'template'],
 		build: () => [{ kind: 'field', path: 'settings', field: { key: 'customCss', label: 'Custom CSS', type: 'css', group: 'style', order: 10 } }],
 	});
 

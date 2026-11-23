@@ -6,7 +6,7 @@ The Consent Management plugin (`plugins/consent-management`) provides a self-con
 
 - Consent banner with category toggles: `necessary` (always on), `analytics`, `marketing`.
 - Consent records stored per site + user (logged in) or session (anonymous) in `object_properties` (no new database tables).
-- Frontend script blocking: scripts tagged `data-consent-category="analytics|marketing"` are neutralised until consent is granted, then released.
+- Legacy DOM script blocking: scripts tagged `data-consent-category="analytics|marketing"` are held/released per category by the manager when it observes them. This is not a guarantee against parser-preloaded `<script src>` requests; do not add third-party script URLs directly to page HTML and rely on this attribute as the sole privacy gate. New analytics integrations should use the Content Optimization connector loader or another inert, consent-gated strategy.
 - Consent management API: `POST /api/privacy/consent` and `GET /api/privacy/consent`.
 - Admin screens: consent log and per-site banner configuration (`ROLE_ADMIN`).
 - Audit logging via `AuditRecorder` for every consent change, with proof-of-consent capture (proof token, timestamp, categories snapshot, framework, geo, signals, IP, UA).
@@ -31,17 +31,23 @@ Two webpack entries are built into `public/build/`:
 - `consent-manager` — vanilla consent manager loaded early (sync) on public pages; governs script blocking and consent state. Exposes `window.iikiti.consent`.
 - `consent-banner` — Svelte banner/preferences components, lazy-mounted by the consent manager when the banner needs to show.
 
-The `consent-management.banner` fragment renders the banner container, the `iikiti-consent-config` block, and both script tags. Themes should render `{{ iikiti_fragment('consent-management.banner') }}` in the page `<head>` so script blocking is active as early as possible.
+When Consent Management is enabled for a Site, the public page renderer inserts the `consent-management.banner` fragment at the beginning of `<body>`. The fragment contains the banner container, the `iikiti-consent-config` block, and the manager/banner scripts. Do not place this fragment in `<head>`: the banner is a body UI element. The same-origin `iikiti` runtime is loaded from `<head>` first so the fragment scripts can register with its loader.
 
 ## JavaScript API (`window.iikiti.consent`)
 
 | Method | Description |
 |--------|-------------|
-| `getState()` | Current consent state (`hasConsented`, `categories`, `version`, `legalFramework`, `proofToken`, …). |
-| `isAllowed(category)` | `true` if `analytics` or `marketing` is allowed. |
+| `getState()` | Current consent state (`ready`, `hasConsented`, `stale`, `categories`, `version`, `legalFramework`, `proofToken`, …). |
+| `isAllowed(category)` | `true` for `necessary`, or when initialization completed and that category has explicit, non-stale consent. Defaults do not grant analytics or marketing consent. |
 | `allow(category)` / `deny(category)` | Set a category and persist consent. |
 | `onChange(fn)` | Subscribe to consent changes; returns an unsubscribe function. |
 | `showBanner()` / `hideBanner()` / `loadBanner()` | Show / hide / lazy-load the Svelte banner. |
+
+The runtime dispatches `iikiti:consent-ready` once local/server initialization has completed. Consumers should fail closed while `getState().ready` is false, when no Consent Management runtime exists, or when state is stale. In split Consumer/API deployments, the existing `/api/privacy/consent` endpoint is not proxied by the Consumer runtime; client-side state remains local there, and server-side consent synchronization requires a separately configured API route.
+
+## Analytics connectors
+
+The Content Optimization plugin only emits an inert analytics configuration block when the Consent Management plugin is active on the Site. Its same-origin loader makes no provider requests or preconnects until `getState().ready === true`, `hasConsented === true`, `stale !== true`, and `categories.analytics === true`. Missing Consent Management, unknown state, denied consent, or stale consent leaves every provider unloaded. The loader uses the consent-change signal to stop further analytics collection when consent is revoked.
 
 ## Consent Mode v2 integration
 
@@ -63,11 +69,11 @@ A Google Tag Manager / gtag consumer can listen for this event and call the corr
 
 `POST /api/privacy/consent` (public)
 - Body: `{ categories: { necessary, analytics, marketing }, session_id?, version? }`
-- Records/updates consent for the authenticated user or the supplied session id. Returns the proof token and resolved categories/framework/version.
-- `400` when anonymous without a `session_id`.
+- Records/updates consent for the authenticated user or anonymous visitor. For anonymous visitors, the server issues a fresh session ID when no valid signed `iikiti_consent_sid` cookie is present and returns it in an HMAC-signed `HttpOnly`, `SameSite=Lax` cookie (`Secure` on HTTPS), preventing spoofing or overwriting another visitor's consent record.
+- Returns the proof token and resolved categories/framework/version.
 
 `GET /api/privacy/consent` (public)
-- Returns the current consent state for the authenticated user or session, including `stale` (true when the configured consent version changed since the visitor last consented).
+- Returns the current consent state for the authenticated user (matched by user ID) or anonymous visitor (matched only via the signed `iikiti_consent_sid` cookie — raw query-string `session_id` values are never trusted), including `stale` (true when the configured consent version changed since the visitor last consented).
 
 `GET /api/admin/privacy/consent-log` (`ROLE_ADMIN`)
 - Paginated consent-log records for the current site.

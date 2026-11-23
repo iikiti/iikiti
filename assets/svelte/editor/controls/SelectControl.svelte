@@ -13,6 +13,7 @@
 </script>
 
 <SelectInput
+	id={String(field.controlId ?? field.key)}
 	value={value == null ? '' : String(value)}
 	{options}
 	onchange={(v: string) => onChange(v)}

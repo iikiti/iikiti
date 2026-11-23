@@ -17,7 +17,7 @@ use Symfony\Contracts\Cache\TagAwareCacheInterface;
 /** Server-side cache for explicitly shared, independently rendered widgets. */
 final class RenderedFragmentCache
 {
-	private const CMS_DEPENDENCY_TAG = 'iikiti_rendered_fragments_cms';
+	public const CMS_DEPENDENCY_TAG = 'iikiti_rendered_fragments_cms';
 
 	public function __construct(
 		#[Autowire(service: 'cache.rendered_fragments')]

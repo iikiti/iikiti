@@ -1,6 +1,8 @@
 <script lang="ts">
 	interface Props {
+		id?: string;
 		name?: string;
+		ariaDescribedBy?: string;
 		value?: string | null;
 		placeholder?: string;
 		rows?: number;
@@ -10,7 +12,9 @@
 	}
 
 	let {
+		id,
 		name,
+		ariaDescribedBy,
 		value,
 		placeholder,
 		rows = 4,
@@ -33,7 +37,9 @@
 
 <textarea
 	class="admin-input w-full resize-y"
+	{id}
 	{name}
+	aria-describedby={ariaDescribedBy}
 	{placeholder}
 	rows={rows}
 	bind:value={inputValue}

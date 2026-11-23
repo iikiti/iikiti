@@ -23,6 +23,7 @@
 	import SearchIndexesRoute from './routes/SearchIndexes.svelte';
 	import SearchFiltersRoute from './routes/SearchFilters.svelte';
 	import SearchSiteGroupsRoute from './routes/SearchSiteGroups.svelte';
+	import ContentOptimizationRoute from './routes/ContentOptimization.svelte';
 	import GenericListPage from './routes/GenericListPage.svelte';
 	import GenericDetailPage from './routes/GenericDetailPage.svelte';
 	import GenericFormPage from './routes/GenericFormPage.svelte';
@@ -75,6 +76,7 @@
 		SearchFilters: SearchFiltersRoute,
 		SearchSiteGroups: SearchSiteGroupsRoute,
 		Firewall: FirewallRoute,
+		ContentOptimization: ContentOptimizationRoute,
 	};
 
 	// Match against the pathname only so dynamic-id screens (e.g.

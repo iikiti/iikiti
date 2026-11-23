@@ -286,8 +286,12 @@ final class McpApiEndpointCatalog
 		// the application API catalog; callers must authenticate to MCP first.
 		if (str_starts_with($path, '/api/auth/') ||
 			str_starts_with($path, '/api/internal/') ||
+			str_starts_with($path, '/api/public/render/') ||
+			str_starts_with($path, '/api/public/assets/') ||
+			str_starts_with($path, '/api/public/content-optimization/') ||
 			str_starts_with($routeName, 'api_internal_') ||
 			str_starts_with($routeName, 'api_auth_') ||
+			str_starts_with($routeName, 'api_public_render_') ||
 			'_api_errors' === $routeName ||
 			str_starts_with($routeName, '_api_validation_errors_')) {
 			return false;
@@ -563,7 +567,7 @@ final class McpApiEndpointCatalog
 			$parameterSchema['description'] = is_string($parameterDescription) ?
 				$parameterDescription :
 				sprintf('Query parameter "%s" for this API operation.', $parameterName);
-			$properties[$parameterName] = $this->ensureSchemaDescriptions($parameterSchema, $operation?->getShortName() ?? 'API');
+			$properties[$parameterName] = $this->ensureSchemaDescriptions($parameterSchema, $operation->getShortName() ?? 'API');
 		}
 
 		return ['properties' => $properties];

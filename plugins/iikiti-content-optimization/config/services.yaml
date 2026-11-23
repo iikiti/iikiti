@@ -1,0 +1,9 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    iikiti\Extension\ContentOptimization\:
+        resource: '../src/'
+        exclude:
+            - '../src/ContentOptimizationBundle.php'

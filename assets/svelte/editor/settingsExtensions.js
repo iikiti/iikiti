@@ -16,14 +16,14 @@ function bump() {
 
 /**
  * Register or replace a settings tab. Tabs apply to both target types unless
- * `targetTypes` narrows them to `page` and/or `template`.
+ * `targetTypes` narrows them to `page`, `template`, and `site_home`.
  *
  * @param {{id:string,label:string,icon?:string,order?:number,targetTypes?:string[],build?:(ctx:any)=>any[]}} section
  */
 export function registerSettingsSection(section) {
 	if (!section?.id || !section?.label) return;
 	const targetTypes = [...new Set(section.targetTypes ?? ['page', 'template'])];
-	if (targetTypes.length === 0 || targetTypes.some((type) => !['page', 'template'].includes(type))) return;
+	if (targetTypes.length === 0 || targetTypes.some((type) => !['page', 'template', 'site_home'].includes(type))) return;
 	for (let index = sections.length - 1; index >= 0; index--) {
 		const existing = sections[index];
 		if (existing.id !== section.id) continue;
@@ -35,7 +35,7 @@ export function registerSettingsSection(section) {
 	bump();
 }
 
-/** @param {'page'|'template'} targetType */
+/** @param {'page'|'template'|'site_home'} targetType */
 export function getSettingsSections(targetType) {
 	return sections
 		.filter((section) => section.targetTypes.includes(targetType))
@@ -53,12 +53,12 @@ export function getSettingsSections(targetType) {
 export function patchSettingsSection(sectionId, transformer, options = {}) {
 	if (!sectionId || typeof transformer !== 'function') return;
 	const targetTypes = options.targetTypes ? [...new Set(options.targetTypes)] : null;
-	if (targetTypes?.some((type) => !['page', 'template'].includes(type))) return;
+	if (targetTypes?.some((type) => !['page', 'template', 'site_home'].includes(type))) return;
 	patches.push({ sectionId, transformer, priority: Number(options.priority ?? 0), targetTypes, seq: ++sequence });
 	bump();
 }
 
-/** @param {'page'|'template'} targetType @param {string} sectionId @param {any} context */
+/** @param {'page'|'template'|'site_home'} targetType @param {string} sectionId @param {any} context */
 export function buildSettingsSectionNodes(targetType, sectionId, context) {
 	const section = sections.find((entry) => entry.id === sectionId && entry.targetTypes.includes(targetType));
 	if (!section) return [];

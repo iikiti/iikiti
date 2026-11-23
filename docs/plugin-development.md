@@ -828,6 +828,33 @@ const groups = sb.getGroups('seo');
 console.log(groups);
 ```
 
+## Analytics connector extension API
+
+Plugins can register a consent-gated analytics strategy through the
+`iikiti-content-optimization` bundle. See
+[content-optimization.md](content-optimization.md#third-party-analytics-connectors)
+for the full policy and CSP requirements. Connector services implement
+`iikiti\Extension\ContentOptimization\Analytics\AnalyticsConnectorInterface`;
+the interface is auto-tagged for the registry.
+
+Each connector must use a key in `plugin-slug.connector-id` form, the fixed
+`analytics` consent category, a code-owned HTTPS script URL and CSP rules, a
+typed setting schema, and strict server-side validation. Stored settings must
+not contain script URLs, markup, JavaScript, tokens, or credentials. The registry
+filters connectors by the owning plugin's Site activation and validates the
+client descriptor before it reaches the browser. Optional `dashboardUrl()` links
+must also be fixed HTTPS URLs.
+
+The browser loader includes built-in GA4 and Clarity adapters. A third-party
+connector may provide its own adapter in its public plugin JavaScript and
+register it with `window.iikiti.analytics.registerAdapter(adapterId, handler)`.
+The handler must implement both `load(descriptor)` and `setConsent(allowed,
+state)`; the latter must stop further collection when consent is revoked. The
+core loader calls `load` only after current, explicit analytics consent and fails
+closed if the adapter is not registered. Use DOM APIs to create script elements;
+do not inject HTML or rely on the generic `window.iikiti.loader.loadScript` URL
+fallback for analytics.
+
 ## Fragment API
 
 Plugins (including themes) can register a named server-rendered fragment and use

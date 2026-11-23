@@ -8,11 +8,11 @@ use iikiti\CMS\Filters\HtmlFilter;
 use iikiti\CMS\Filters\InlineCssFilter;
 use iikiti\CMS\Filters\InlineJavaScriptFilter;
 use iikiti\CMS\Registry\ApplicationRegistry;
+use iikiti\CMS\Registry\RouteContextClassifier;
 use iikiti\CMS\Registry\SiteRegistry;
-use Override;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ControllerEvent;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
@@ -50,7 +50,7 @@ class Initializer implements EventSubscriberInterface
 	/**
 	 * Identifies subscribed events.
 	 */
-	#[Override]
+	#[\Override]
 	public static function getSubscribedEvents(): array
 	{
 		return [
@@ -80,21 +80,20 @@ class Initializer implements EventSubscriberInterface
 		$stopwatch = $this->stopwatch;
 
 		$route = $event->getRequest()->attributes->get('_route');
-		$consumerProxyRoute = in_array($route, ['home', 'page', 'digital_asset_file', 'public_fragment', 'admin_home', 'admin_spa'], true);
-		$apiBackedPageRoute = $this->publicPageRenderViaApi && in_array($route, ['home', 'page'], true);
-		$siteIndependentRoute = 'html_login' === $route
-			|| in_array($route, ['admin_home', 'admin_spa'], true)
-			|| 1 === preg_match('~^/api/admin/applications/[^/]+/headers(?:/preview)?$~D', $event->getRequest()->getPathInfo())
-			|| 'api_internal_response_headers_resolve' === $route
-			|| 'api_internal_firewall_resolve' === $route
-			|| 'firewall_challenge_verify' === $route
-			|| ('consumer' === $this->applicationRole && $consumerProxyRoute)
-			|| $apiBackedPageRoute;
+		$routeName = is_string($route) ? $route : null;
+		$path = $event->getRequest()->getPathInfo();
+		$consumerProxyRoute = RouteContextClassifier::isConsumerProxyRoute($routeName);
+		$siteIndependentRoute = RouteContextClassifier::isSiteIndependentRoute(
+			$routeName,
+			$path,
+			$this->applicationRole,
+			$this->publicPageRenderViaApi,
+		);
 		if ('consumer' === $this->applicationRole) {
 			if (!$consumerProxyRoute) {
 				throw new ServiceUnavailableHttpException(null, 'This consumer runtime only supports API-backed page, asset, and admin shell routes.');
 			}
-		} elseif (!$siteIndependentRoute && !in_array($route, ['api_internal_scheduler_run_due', 'api_internal_batch_item_process', 'api_internal_digital_asset_process', 'api_internal_background_queue_run', 'html_logout'], true)) {
+		} elseif (!$siteIndependentRoute && !RouteContextClassifier::isInternalWorkerRoute($routeName)) {
 			$this->appRegistry->getCurrent();
 			$this->siteRegistry::getCurrent();
 		}
@@ -124,14 +123,12 @@ class Initializer implements EventSubscriberInterface
 	 */
 	protected function _verifyUserHasSiteAccess(Request $request): void
 	{
-		if ('consumer' === $this->applicationRole || in_array($request->attributes->get('_route'), ['admin_home', 'admin_spa', 'html_login'], true)
-			|| 'api_internal_response_headers_resolve' === $request->attributes->get('_route')
-			|| 1 === preg_match('~^/api/(?:admin/applications|site)/[^/]+/headers(?:/preview)?$~D', $request->getPathInfo())) {
+		if (RouteContextClassifier::isSiteAccessCheckExempt($request, $this->applicationRole)) {
 			return;
 		}
 
 		$user = $this->security->getUser();
-		if (!($user instanceof User)) {
+		if (!$user instanceof User) {
 			return;
 		} // Not logged in
 

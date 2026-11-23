@@ -4,6 +4,7 @@
 		label: string;
 		type: string;
 		required?: boolean;
+		readOnlyDisplay?: boolean;
 	}
 
 	interface Props {
@@ -15,10 +16,16 @@
 </script>
 
 <div>
-	<label for={field.key} class="block text-sm font-medium text-text mb-1">
-		{field.label}
-		{#if field.required}<span class="text-danger">*</span>{/if}
-	</label>
+	{#if field.readOnlyDisplay}
+		<p id={`${field.key}-label`} class="block text-sm font-medium text-text mb-1">
+			{field.label}
+		</p>
+	{:else}
+		<label id={`${field.key}-label`} for={field.key} class="block text-sm font-medium text-text mb-1">
+			{field.label}
+			{#if field.required}<span class="text-danger">*</span>{/if}
+		</label>
+	{/if}
 	{@render children?.()}
 	{#if error}
 		<p class="mt-1 text-xs text-danger">{error}</p>

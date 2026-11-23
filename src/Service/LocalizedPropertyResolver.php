@@ -27,7 +27,7 @@ final readonly class LocalizedPropertyResolver
 	) {
 	}
 
-	public function resolve(DbObject $object, ObjectProperty $property): ?ResolvedPropertyValue
+	public function resolve(DbObject $object, ObjectProperty $property, ?LocaleTag $requestedLocale = null): ?ResolvedPropertyValue
 	{
 		$localized = $property->getLocalizedValue();
 		if (null === $localized) {
@@ -45,7 +45,7 @@ final readonly class LocalizedPropertyResolver
 			$this->applications->getCurrent() :
 			null;
 		$user = $this->security->getUser();
-		$userLocale = $user instanceof User ? $user->getPreferredLocale() : null;
+		$userLocale = $requestedLocale ?? ($user instanceof User ? $user->getPreferredLocale() : null);
 		$objectLocale = $object->getDefaultLocale() ?? $definition?->defaultLocale;
 		$siteLocale = $site instanceof Site ? $site->getDefaultLocale() : null;
 		$applicationLocale = $application instanceof Application ? $application->getDefaultLocale() : null;

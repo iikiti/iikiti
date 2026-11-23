@@ -9,6 +9,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\EntityRepository;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Entity\Object\Page;
+use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\Template;
 use iikiti\CMS\Web\BlockEditor\EditorSettingsManager;
 use PHPUnit\Framework\TestCase;
@@ -33,7 +34,7 @@ final class EditorSettingsManagerTest extends TestCase
 		$this->assertSame(['title' => 'Published', 'plugin' => ['keep' => true]], $manager->state($page)['values']);
 	}
 
-	public function testFindTargetOnlyAcceptsPageAndTemplateTypes(): void
+	public function testFindTargetRestrictsSiteHomeToCurrentSite(): void
 	{
 		$page = $this->object(Page::class);
 		$template = $this->object(Template::class);
@@ -47,6 +48,13 @@ final class EditorSettingsManagerTest extends TestCase
 		$this->assertSame($template, $manager->findTarget('template', 11));
 		$this->assertNull($manager->findTarget('template', 10));
 		$this->assertNull($manager->findTarget('object', 10));
+
+		$site = $this->object(Site::class);
+		$id = (new \ReflectionClass(DbObject::class))->getProperty('id');
+		$id->setValue($site, 12);
+		$this->assertSame($site, $manager->findTarget('site_home', 12, $site));
+		$this->assertNull($manager->findTarget('site_home', 13, $site));
+		$this->assertNull($manager->findTarget('site_home', 12));
 	}
 
 	public function testSaveRejectsStaleSettingsVersionWithoutReplacingDraft(): void
@@ -84,7 +92,9 @@ final class EditorSettingsManagerTest extends TestCase
 
 	/**
 	 * @template TObject of DbObject
+	 *
 	 * @param class-string<TObject> $class
+	 *
 	 * @return TObject
 	 */
 	private function object(string $class): DbObject

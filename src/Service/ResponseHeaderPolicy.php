@@ -160,9 +160,27 @@ final class ResponseHeaderPolicy
 	 */
 	public function resolve(array $applicationRules, array $siteRules, Request $request, Response $response): array
 	{
+		return $this->resolveValidated(
+			$this->validateRules($applicationRules, true),
+			$this->validateRules($siteRules, false),
+			$request,
+			$response,
+		);
+	}
+
+	/**
+	 * Evaluate already-validated rules without repeating schema validation per URL.
+	 *
+	 * @param list<array<string,mixed>> $validatedApplicationRules
+	 * @param list<array<string,mixed>> $validatedSiteRules
+	 *
+	 * @return array<string,array<string,mixed>>
+	 */
+	public function resolveValidated(array $validatedApplicationRules, array $validatedSiteRules, Request $request, Response $response): array
+	{
 		$winners = [];
 		$ranks = [];
-		foreach ([[$this->validateRules($applicationRules, true), 0], [$this->validateRules($siteRules, false), 1]] as [$rules, $scope]) {
+		foreach ([[$validatedApplicationRules, 0], [$validatedSiteRules, 1]] as [$rules, $scope]) {
 			foreach ($rules as $rule) {
 				if (isset($rule['conditions']) && true !== $this->matches($rule['conditions'], $request, $response)) {
 					continue;

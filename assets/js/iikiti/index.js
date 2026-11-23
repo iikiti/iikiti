@@ -56,6 +56,29 @@ if (!window.iikiti) {
 
 window.iikiti.fragments ??= createFragmentsFacade();
 
+// Provide a lightweight synchronous adapter registration stub so plugins can
+// register adapters before the analytics loader chunk loads, and only fetch the
+// analytics loader on pages that actually emit an analytics config block.
+if (!window.iikiti.analytics) {
+	const adapterQueue = [];
+	window.iikiti.analytics = {
+		_queue: adapterQueue,
+		registerAdapter(adapterId, handler) {
+			if (typeof adapterId !== 'string' || !handler || typeof handler !== 'object') return false;
+			adapterQueue.push([adapterId, handler]);
+			return true;
+		},
+	};
+}
+
+if (document.getElementById('iikiti-analytics-config')) {
+	import('../../../plugins/iikiti-content-optimization/assets/js/analytics-loader.js')
+		.then(({ installAnalyticsLoader }) => installAnalyticsLoader(window, document))
+		.catch((error) => {
+			console.error('iikiti analytics loader failed to load', error);
+		});
+}
+
 // Tour/spotlight framework (registers built-in actions + window.iikiti.tour).
 installTour();
 

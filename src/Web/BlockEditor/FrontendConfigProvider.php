@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Web\BlockEditor;
 
-use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Entity\DbObject;
-use iikiti\CMS\Plugin\PluginRegistry;
+use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Event\Subscriber\RequestLocaleSubscriber;
+use iikiti\CMS\Plugin\PluginRegistry;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\Object\UserGroupRepository;
 use iikiti\CMS\Response\Composition\JsonObjectComposer;
@@ -44,8 +44,8 @@ final class FrontendConfigProvider
 
 	/**
 	 * @param 'template'|'object' $contextType
-	 * @param int                 $version     Current draft version the editor must echo back as
-	 *                                         `If-Match` on save (omit to keep the legacy 0 default)
+	 * @param int                 $version         Current draft version the editor must echo back as
+	 *                                             `If-Match` on save (omit to keep the legacy 0 default)
 	 * @param array<string,mixed> $settingsContext
 	 *
 	 * @return array<string,mixed>|null
@@ -56,8 +56,7 @@ final class FrontendConfigProvider
 		?User $user = null,
 		int $version = 0,
 		array $settingsContext = [],
-	): ?array
-	{
+	): ?array {
 		$user ??= $this->security->getUser();
 
 		if (!$user instanceof User) {
@@ -93,6 +92,11 @@ final class FrontendConfigProvider
 		], order: 30);
 		$composer->add([
 			'plugins' => $this->pluginEditorUis(),
+			'contentOptimizationEnabled' => in_array(
+				'iikiti-content-optimization',
+				$this->enabledPluginsForCurrentSite(),
+				true,
+			),
 		], order: 40);
 		$composer->add([
 			'settingsContextType' => $settingsContext['type'] ?? $contextType,
@@ -101,6 +105,8 @@ final class FrontendConfigProvider
 			'settingsValues' => $settingsContext['values'] ?? [],
 			'settingsVersion' => $settingsContext['version'] ?? 0,
 			'settingsHasDraft' => $settingsContext['hasDraft'] ?? false,
+			'settingsContextOptions' => $settingsContext['options'] ?? [],
+			'seoPreviewDefaults' => $settingsContext['seoPreviewDefaults'] ?? [],
 		], order: 50);
 
 		return $composer->compose();
@@ -163,7 +169,11 @@ final class FrontendConfigProvider
 	private function pluginEditorUis(): array
 	{
 		$uis = [];
+		$enabledPlugins = $this->enabledPluginsForCurrentSite();
 		foreach ($this->plugins->getManifests() as $manifest) {
+			if (!in_array($manifest->slug, $enabledPlugins, true)) {
+				continue;
+			}
 			$editorUi = $manifest->getEditorUi();
 			if (null === $editorUi) {
 				continue;
@@ -176,6 +186,16 @@ final class FrontendConfigProvider
 		}
 
 		return $uis;
+	}
+
+	/** @return list<string> */
+	private function enabledPluginsForCurrentSite(): array
+	{
+		if (!SiteRegistry::isInitialized() || !SiteRegistry::hasCurrent()) {
+			return [];
+		}
+
+		return SiteRegistry::getCurrent()->getEnabledPlugins();
 	}
 
 	private function apiSiteHost(): string

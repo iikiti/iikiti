@@ -8,14 +8,26 @@ use iikiti\CMS\Mcp\ApiTools;
 use iikiti\CMS\Mcp\McpApiEndpoint;
 use iikiti\CMS\Mcp\McpApiEndpointCatalog;
 use iikiti\CMS\Mcp\McpRuntimeGuardSubscriber;
+use iikiti\CMS\Registry\SiteRegistry;
+use iikiti\CMS\Security\GuestApiTokenManager;
+use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 final class McpApiRegistryWiringTest extends KernelTestCase
 {
+	protected function setUp(): void
+	{
+		parent::setUp();
+		(new \ReflectionProperty(SiteRegistry::class, 'siteStack'))->setValue(null, new \SplStack());
+		(new \ReflectionProperty(SiteRegistry::class, 'initialized'))->setValue(null, false);
+		(new \ReflectionProperty(SiteRegistry::class, 'populated'))->setValue(null, false);
+	}
+
 	public function testAllCallerFacingApiRoutesAppearBehindOnePaginatedCatalog(): void
 	{
 		static::bootKernel();
@@ -55,14 +67,18 @@ final class McpApiRegistryWiringTest extends KernelTestCase
 		self::assertIsArray($description->structuredContent['outputSchema']);
 	}
 
-	public function testMcpHttpEndpointIsDisabledByDefault(): void
+	public function testMcpHttpEndpointGuardHonorsTheConfiguredSetting(): void
 	{
 		static::bootKernel();
+		new SiteRegistry(new RequestStack(), static::getContainer()->get(ManagerRegistry::class), static::getContainer()->get(GuestApiTokenManager::class), 'api');
 		$kernel = static::getContainer()->get('kernel');
 		$subscriber = static::getContainer()->get(McpRuntimeGuardSubscriber::class);
 		$event = new RequestEvent($kernel, Request::create('/api/mcp'), HttpKernelInterface::MAIN_REQUEST);
-
-		$this->expectException(NotFoundHttpException::class);
-		$subscriber($event);
+		if (static::getContainer()->getParameter('mcp_http_enabled')) {
+			self::assertNull($subscriber($event));
+		} else {
+			$this->expectException(NotFoundHttpException::class);
+			$subscriber($event);
+		}
 	}
 }

@@ -108,6 +108,15 @@
 		}
 	}
 
+	async function loadContentOptimizationEditorUi() {
+		if (config['contentOptimizationEnabled'] !== true) return;
+		try {
+			await import('../../../plugins/iikiti-content-optimization/assets/editor/index.js');
+		} catch {
+			/* A bundled plugin editor section must not prevent the core editor from loading. */
+		}
+	}
+
 	onMount(async () => {
 		// Register the editor top bar with the viewport-bars standard first so the
 		// (sticky) slot pushes the page content down from the earliest possible
@@ -127,6 +136,7 @@
 		// Core sidebar (tabs + field controls) registers through the same API
 		// plugins use, then plugin editor UI bundles may extend it.
 		registerCoreSidebar();
+		await loadContentOptimizationEditorUi();
 		mountSidebar(sidebarSide);
 		// Core block actions (copy / paste / delete) use the same registry plugins do.
 		registerCoreBlockActions();

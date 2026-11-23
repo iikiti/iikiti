@@ -7,6 +7,7 @@ namespace iikiti\CMS\Web\BlockEditor;
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Entity\Object\Page;
+use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\Template;
 
 /**
@@ -43,8 +44,16 @@ final class EditorSettingsManager
 		return is_array($value) ? $value : [];
 	}
 
-	public function findTarget(string $targetType, int $targetId): ?DbObject
+	public function findTarget(string $targetType, int $targetId, ?Site $currentSite = null): ?DbObject
 	{
+		if ('site_home' === $targetType) {
+			if (null === $currentSite || (int) $currentSite->getId() !== $targetId) {
+				return null;
+			}
+
+			return $currentSite;
+		}
+
 		$class = match ($targetType) {
 			'page' => Page::class,
 			'template' => Template::class,
