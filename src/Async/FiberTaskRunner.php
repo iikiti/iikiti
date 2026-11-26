@@ -18,6 +18,7 @@ final class FiberTaskRunner
 {
 	private const MAX_TASKS = 32;
 	private const DEFAULT_TIMEOUT_SECONDS = 5.0;
+	private const PRIME_TIMEOUT_SECONDS = 0.002;
 
 	public function __construct(
 		private readonly HttpClientInterface $httpClient,
@@ -31,7 +32,7 @@ final class FiberTaskRunner
 	 */
 	public function run(array $operations, float $timeoutSeconds = self::DEFAULT_TIMEOUT_SECONDS): array
 	{
-		return $this->runDuring($operations, static fn (): null => null, $timeoutSeconds)['tasks'];
+		return $this->executeGroup($operations, null, $timeoutSeconds, null)['tasks'];
 	}
 
 	public function await(Promise $promise, float $timeoutSeconds = self::DEFAULT_TIMEOUT_SECONDS): mixed
@@ -114,18 +115,19 @@ final class FiberTaskRunner
 	 */
 	public function runUntil(array $operations, Closure $stopWhen, float $timeoutSeconds = self::DEFAULT_TIMEOUT_SECONDS): array
 	{
-		return $this->executeGroup($operations, static fn (): null => null, $timeoutSeconds, $stopWhen)['tasks'];
+		return $this->executeGroup($operations, null, $timeoutSeconds, $stopWhen)['tasks'];
 	}
 
 	/**
 	 * @param array<array-key,\Closure(FiberHttpClient):mixed> $operations
+	 * @param Closure():mixed|null $work
 	 * @param Closure(array<string,mixed>,array<string,Throwable>):bool|null $stopWhen
 	 * @return array{tasks:array<string,mixed>,work:mixed}
 	 */
-	private function executeGroup(array $operations, Closure $work, float $timeoutSeconds, ?Closure $stopWhen): array
+	private function executeGroup(array $operations, ?Closure $work, float $timeoutSeconds, ?Closure $stopWhen): array
 	{
 		if ([] === $operations) {
-			return ['tasks' => [], 'work' => $work()];
+			return ['tasks' => [], 'work' => null !== $work ? $work() : null];
 		}
 
 		$tasks = [];
@@ -233,16 +235,37 @@ final class FiberTaskRunner
 		}
 		$stopped = null !== $stopWhen && $stopWhen($results, $errors);
 
+		$primeTimeMs = 0.0;
+		if (null !== $work && !$stopped && [] !== $pending) {
+			$remaining = $deadline - microtime(true);
+			if ($remaining > 0) {
+				$primeStartedAt = hrtime(true);
+				$stopped = $this->primePending(
+					$pending,
+					$pendingByObjectId,
+					$pendingPromises,
+					$results,
+					$errors,
+					$advance,
+					$resumeSettledPromises,
+					$stopWhen,
+					$streamState,
+					min(self::PRIME_TIMEOUT_SECONDS, $remaining),
+				);
+				$primeTimeMs = (hrtime(true) - $primeStartedAt) / 1_000_000;
+			}
+		}
+
 		$workStartedAt = hrtime(true);
 		$workResult = null;
 		$workException = null;
-		if (!$stopped) {
+		if (null !== $work && !$stopped) {
 			try {
 				$workResult = $work();
-		} catch (Throwable $exception) {
-			$workException = $exception;
-		}
-		$resumeSettledPromises();
+			} catch (Throwable $exception) {
+				$workException = $exception;
+			}
+			$resumeSettledPromises();
 		}
 		$workTimeMs = (hrtime(true) - $workStartedAt) / 1_000_000;
 		$waitStartedAt = hrtime(true);
@@ -259,11 +282,15 @@ final class FiberTaskRunner
 				break;
 			}
 			if ([] === $pending) {
+				$resumeSettledPromises();
 				foreach (array_keys($pendingPromises) as $key) {
 					unset($pendingPromises[$key]);
 					$advance($key, new LogicException('A Promise awaited by this task group has no active resolver.'));
 				}
 				$resumeSettledPromises();
+				if (null !== $stopWhen && $stopWhen($results, $errors)) {
+					$stopped = true;
+				}
 
 				continue;
 			}
@@ -309,6 +336,10 @@ final class FiberTaskRunner
 				}
 			} catch (Throwable $exception) {
 				$this->failPending($pending, $pendingByObjectId, $advance, $exception);
+				$resumeSettledPromises();
+				if (null !== $stopWhen && $stopWhen($results, $errors)) {
+					$stopped = true;
+				}
 			}
 		}
 		if ($stopped) {
@@ -336,7 +367,7 @@ final class FiberTaskRunner
 			$pendingByObjectId = [];
 			$pendingPromises = [];
 		}
-		$this->profiler?->recordFiberGroup(count($tasks), $workTimeMs, (hrtime(true) - $waitStartedAt) / 1_000_000, count($errors));
+		$this->profiler?->recordFiberGroup(count($tasks), $workTimeMs, $primeTimeMs + ((hrtime(true) - $waitStartedAt) / 1_000_000), count($errors));
 
 		if (null !== $workException) {
 			throw $workException;
@@ -356,6 +387,92 @@ final class FiberTaskRunner
 		}
 
 		return ['tasks' => $ordered, 'work' => $workResult];
+	}
+
+	/**
+	 * Performs one brief non-blocking poll before local work so lazy CurlHttpClient
+	 * handles are flushed over the socket while local rendering executes.
+	 *
+	 * @param array<string,ResponseInterface> $pending
+	 * @param array<int,string> $pendingByObjectId
+	 * @param array<string,Promise> $pendingPromises
+	 * @param array<string,mixed> $results
+	 * @param array<string,Throwable> $errors
+	 * @param callable(string,?Throwable=):void $advance
+	 * @param callable():void $resumeSettledPromises
+	 * @param Closure(array<string,mixed>,array<string,Throwable>):bool|null $stopWhen
+	 */
+	private function primePending(
+		array &$pending,
+		array &$pendingByObjectId,
+		array &$pendingPromises,
+		array &$results,
+		array &$errors,
+		callable $advance,
+		callable $resumeSettledPromises,
+		?Closure $stopWhen,
+		\stdClass $streamState,
+		float $timeoutSeconds,
+	): bool {
+		$this->consumePendingAdded($streamState);
+
+		try {
+			foreach ($this->httpClient->stream($pending, $timeoutSeconds) as $response => $chunk) {
+				$responseId = spl_object_id($response);
+				$key = $pendingByObjectId[$responseId] ?? false;
+				if (false === $key || ($pending[$key] ?? null) !== $response) {
+					continue;
+				}
+
+				$this->consumePendingAdded($streamState);
+				try {
+					if ($chunk->isTimeout()) {
+						// Idle prime timeout is expected; keep the handle pending for the main wait loop.
+						continue;
+					}
+					if (null !== $chunk->getError()) {
+						$chunk->isLast();
+					}
+					if ($chunk->isFirst()) {
+						$response->getHeaders(false);
+					}
+					if (!$chunk->isLast()) {
+						continue;
+					}
+
+					unset($pending[$key], $pendingByObjectId[$responseId]);
+					$advance($key);
+					$resumeSettledPromises();
+				} catch (Throwable $exception) {
+					unset($pending[$key], $pendingByObjectId[$responseId]);
+					$advance($key, $exception);
+					$resumeSettledPromises();
+				}
+
+				if (null !== $stopWhen && $stopWhen($results, $errors)) {
+					return true;
+				}
+				if ($this->consumePendingAdded($streamState)) {
+					break;
+				}
+			}
+		} catch (Throwable $exception) {
+			$this->failPending($pending, $pendingByObjectId, $advance, $exception);
+			$resumeSettledPromises();
+			if (null !== $stopWhen && $stopWhen($results, $errors)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private function consumePendingAdded(\stdClass $streamState): bool
+	{
+		$added = (bool) $streamState->pendingAdded;
+		$streamState->pendingAdded = false;
+
+		return $added;
 	}
 
 	/**

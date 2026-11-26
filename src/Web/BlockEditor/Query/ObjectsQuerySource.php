@@ -35,7 +35,7 @@ final class ObjectsQuerySource implements QuerySourceInterface
 	#[\Override]
 	public function execute(QueryDefinition $definition, ?int $siteId): array
 	{
-		$cacheKey = 'iikiti_query:'.md5(serialize([
+		$cacheKey = 'iikiti_query_'.md5(serialize([
 			$definition->getSource(),
 			$definition->getObjectType(),
 			$definition->getFilters(),

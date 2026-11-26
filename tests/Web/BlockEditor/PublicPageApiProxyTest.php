@@ -10,6 +10,8 @@ use iikiti\CMS\Async\FiberTaskRunner;
 use iikiti\CMS\Profiler\AsyncResponseDataCollector;
 use iikiti\CMS\Response\Composition\DomHtmlResponse;
 use iikiti\CMS\Security\GuestApiTokenManager;
+use iikiti\CMS\Tests\Support\Async\ControllableHttpClient;
+use iikiti\CMS\Tests\Support\Async\ControllableResponse;
 use iikiti\CMS\Web\BlockEditor\PublicPageApiProxy;
 use iikiti\CMS\Web\Template\HttpErrorPageRenderer;
 use PHPUnit\Framework\TestCase;
@@ -647,6 +649,370 @@ final class PublicPageApiProxyTest extends TestCase
 		self::assertStringContainsString('.page{color:red}', $html);
 		self::assertStringContainsString('.main{color:blue}', $html);
 		self::assertStringContainsString('.shell{background-image:url("https://api.example.test/api/public/sites/www.example.test/assets/'.$assetToken.'/original")}', $html);
+	}
+
+	public function testWaveOneCompletesMainRegionWhileManifestIsBlockedAndViceVersa(): void
+	{
+		// Direction 1: manifest held until @main completes.
+		$mainDone = false;
+		$client1 = new ControllableHttpClient();
+		$client1->whenUrlContains('/manifest', static function () use (&$mainDone): ControllableResponse {
+			return ControllableResponse::ok(self::manifest(), key: 'manifest')
+				->holdUntil(static function () use (&$mainDone): bool {
+					return $mainDone;
+				});
+		});
+		$client1->whenUrlContains('/fragments/region', static function () use (&$mainDone): ControllableResponse {
+			return ControllableResponse::ok(self::fragment('<p>Main First</p>'), key: 'main')
+				->onComplete(static function () use (&$mainDone): void {
+					$mainDone = true;
+				});
+		});
+		$api1 = new BusinessApiClient($client1, 'https://api.example.test', 'test');
+		$proxy1 = new PublicPageApiProxy($api1, new ApiSessionTokenProvider($api1), new FiberTaskRunner($client1), new GuestApiTokenManager('test-secret'));
+
+		$response1 = $proxy1->home(Request::create('https://www.example.test/'));
+		self::assertSame(200, $response1->getStatusCode());
+		self::assertStringContainsString('<p>Main First</p>', (string) $response1->getContent());
+		self::assertLessThan(
+			array_search('complete:manifest', $client1->getEvents(), true),
+			array_search('complete:main', $client1->getEvents(), true),
+		);
+
+		// Direction 2: @main held until manifest completes.
+		$manifestDone = false;
+		$client2 = new ControllableHttpClient();
+		$client2->whenUrlContains('/manifest', static function () use (&$manifestDone): ControllableResponse {
+			return ControllableResponse::ok(self::manifest(), key: 'manifest')
+				->onComplete(static function () use (&$manifestDone): void {
+					$manifestDone = true;
+				});
+		});
+		$client2->whenUrlContains('/fragments/region', static function () use (&$manifestDone): ControllableResponse {
+			return ControllableResponse::ok(self::fragment('<p>Main Second</p>'), key: 'main')
+				->holdUntil(static function () use (&$manifestDone): bool {
+					return $manifestDone;
+				});
+		});
+		$api2 = new BusinessApiClient($client2, 'https://api.example.test', 'test');
+		$proxy2 = new PublicPageApiProxy($api2, new ApiSessionTokenProvider($api2), new FiberTaskRunner($client2), new GuestApiTokenManager('test-secret'));
+
+		$response2 = $proxy2->home(Request::create('https://www.example.test/'));
+		self::assertSame(200, $response2->getStatusCode());
+		self::assertStringContainsString('<p>Main Second</p>', (string) $response2->getContent());
+		self::assertLessThan(
+			array_search('complete:main', $client2->getEvents(), true),
+			array_search('complete:manifest', $client2->getEvents(), true),
+		);
+	}
+
+	public function testWaveTwoRendersSiblingWidgetsShellsAndProvidersWhileOneWidgetIsBlocked(): void
+	{
+		$widgetA = str_repeat('1', 64);
+		$widgetB = str_repeat('2', 64);
+		$slotA = str_repeat('a', 32);
+		$slotB = str_repeat('b', 32);
+		$slotShell = str_repeat('c', 32);
+		$slotProvider = str_repeat('d', 32);
+		$manifestJson = json_encode([
+			'html' => '<!DOCTYPE html><html><head><template data-iikiti-fragment="custom-css"></template></head><body>'
+				.'<header><template data-iikiti-shell-slot="'.$slotShell.'"></template></header>'
+				.'<main><template data-iikiti-widget-slot="'.$slotA.'"></template><template data-iikiti-widget-slot="'.$slotB.'"></template>'
+				.'<template data-iikiti-provider-slot="'.$slotProvider.'"></template></main></body></html>',
+			'styles' => [],
+			'editor_mode' => false,
+			'revision' => str_repeat('a', 64),
+			'fragments' => [
+				['kind' => 'shell', 'id' => '17', 'role' => 'header', 'slot' => $slotShell],
+				['kind' => 'widget', 'id' => $widgetA, 'role' => 'widget', 'slot' => $slotA, 'depth' => 1],
+				['kind' => 'widget', 'id' => $widgetB, 'role' => 'widget', 'slot' => $slotB, 'depth' => 1],
+				['kind' => 'provider', 'id' => 'sample.card', 'role' => 'provider', 'slot' => $slotProvider, 'depth' => 0, 'key' => 'card', 'dependsOn' => [], 'params' => []],
+			],
+			'inline_asset_minification' => ['css_minify' => true, 'js_minify' => true, 'js_uglify' => false],
+		], JSON_THROW_ON_ERROR);
+
+		$completedSiblings = 0;
+		$client = new ControllableHttpClient(static function (string $method, string $url) use ($manifestJson, $widgetA, $widgetB, &$completedSiblings): ControllableResponse {
+			$path = (string) parse_url($url, PHP_URL_PATH);
+			if (str_ends_with($path, '/manifest')) {
+				return ControllableResponse::ok($manifestJson, key: 'manifest');
+			}
+			if (str_contains($path, '/providers/sample.card')) {
+				return ControllableResponse::ok(json_encode(['html' => '<aside>Provider Card</aside>', 'styles' => []], JSON_THROW_ON_ERROR), key: 'provider')
+					->onComplete(static function () use (&$completedSiblings): void {
+						++$completedSiblings;
+					});
+			}
+			$id = self::query($url)['_iikiti_fragment_id'] ?? null;
+			if ('@main' === $id) {
+				return ControllableResponse::ok(self::fragment(''), key: 'speculative-main');
+			}
+			if ($widgetA === $id) {
+				return ControllableResponse::ok(self::fragment('<section>Slow Widget A</section>', [], $widgetA), key: 'widget-a')
+					->holdUntil(static function () use (&$completedSiblings): bool {
+						return $completedSiblings >= 3;
+					});
+			}
+			if ($widgetB === $id) {
+				return ControllableResponse::ok(self::fragment('<section>Fast Widget B</section>', [], $widgetB), key: 'widget-b')
+					->onComplete(static function () use (&$completedSiblings): void {
+						++$completedSiblings;
+					});
+			}
+
+			return ControllableResponse::ok(self::fragment('<nav>Header Shell</nav>', [], '17'), key: 'shell-17')
+				->onComplete(static function () use (&$completedSiblings): void {
+					++$completedSiblings;
+				});
+		});
+
+		$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
+		$proxy = new PublicPageApiProxy($api, new ApiSessionTokenProvider($api), new FiberTaskRunner($client), new GuestApiTokenManager('test-secret'));
+
+		$response = $proxy->home(Request::create('https://www.example.test/'));
+		$html = (string) $response->getContent();
+		$events = $client->getEvents();
+
+		self::assertSame(200, $response->getStatusCode());
+		self::assertStringContainsString('<nav>Header Shell</nav>', $html);
+		self::assertStringContainsString('<section>Slow Widget A</section><section>Fast Widget B</section><aside>Provider Card</aside>', $html);
+		self::assertLessThan(array_search('complete:widget-a', $events, true), array_search('complete:widget-b', $events, true));
+		self::assertLessThan(array_search('complete:widget-a', $events, true), array_search('complete:shell-17', $events, true));
+		self::assertLessThan(array_search('complete:widget-a', $events, true), array_search('complete:provider', $events, true));
+	}
+
+	public function testNestedChildWidgetCompletesWhileParentWidgetIsBlockedAndStillComposesParentBeforeChild(): void
+	{
+		$parentId = str_repeat('c', 64);
+		$childId = str_repeat('d', 64);
+		$descriptors = [
+			['kind' => 'region', 'id' => 'main', 'role' => 'main', 'slot' => str_repeat('a', 32)],
+			['kind' => 'widget', 'id' => $parentId, 'role' => 'widget', 'slot' => str_repeat('b', 32), 'depth' => 1],
+			['kind' => 'widget', 'id' => $childId, 'role' => 'widget', 'slot' => str_repeat('c', 32), 'depth' => 2],
+		];
+
+		$childDone = false;
+		$client = new ControllableHttpClient(static function (string $method, string $url) use ($descriptors, $parentId, $childId, &$childDone): ControllableResponse {
+			$path = (string) parse_url($url, PHP_URL_PATH);
+			if (str_ends_with($path, '/manifest')) {
+				return ControllableResponse::ok(self::manifest($descriptors), key: 'manifest');
+			}
+			$id = self::query($url)['_iikiti_fragment_id'] ?? null;
+			if ('@main' === $id) {
+				return ControllableResponse::ok(self::fragment('<template data-iikiti-widget-slot="'.str_repeat('b', 32).'"></template>'), key: 'main');
+			}
+			if ($parentId === $id) {
+				return ControllableResponse::ok(
+					self::fragment('<section class="parent"><template data-iikiti-widget-slot="'.str_repeat('c', 32).'"></template></section>', [], $parentId),
+					key: 'parent',
+				)->holdUntil(static function () use (&$childDone): bool {
+					return $childDone;
+				});
+			}
+			return ControllableResponse::ok(self::fragment('<p class="child">Child Ready Early</p>', [], $childId), key: 'child')
+				->onComplete(static function () use (&$childDone): void {
+					$childDone = true;
+				});
+		});
+
+		$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
+		$proxy = new PublicPageApiProxy($api, new ApiSessionTokenProvider($api), new FiberTaskRunner($client), new GuestApiTokenManager('test-secret'));
+
+		$response = $proxy->page(Request::create('https://www.example.test/about'), 'about');
+		$html = (string) $response->getContent();
+
+		self::assertSame(200, $response->getStatusCode());
+		self::assertStringContainsString('<section class="parent"><p class="child">Child Ready Early</p></section>', $html);
+		self::assertStringNotContainsString('data-iikiti-widget-slot', $html);
+		self::assertLessThan(
+			array_search('complete:parent', $client->getEvents(), true),
+			array_search('complete:child', $client->getEvents(), true),
+		);
+	}
+
+	public function testProviderDependsOnChainProceedsEagerlyWhileUnrelatedWidgetIsBlocked(): void
+	{
+		$slowWidgetId = str_repeat('5', 64);
+		$slotWidget = str_repeat('a', 32);
+		$slotA = str_repeat('b', 32);
+		$slotB = str_repeat('c', 32);
+		$manifestJson = json_encode([
+			'html' => '<!DOCTYPE html><html><head><template data-iikiti-fragment="custom-css"></template></head><body><main>'
+				.'<template data-iikiti-widget-slot="'.$slotWidget.'"></template>'
+				.'<template data-iikiti-provider-slot="'.$slotA.'"></template>'
+				.'<template data-iikiti-provider-slot="'.$slotB.'"></template>'
+				.'</main></body></html>',
+			'styles' => [],
+			'editor_mode' => false,
+			'revision' => str_repeat('a', 64),
+			'fragments' => [
+				['kind' => 'widget', 'id' => $slowWidgetId, 'role' => 'widget', 'slot' => $slotWidget, 'depth' => 1],
+				['kind' => 'provider', 'id' => 'sample.first', 'role' => 'provider', 'slot' => $slotA, 'depth' => 0, 'key' => 'first', 'dependsOn' => [], 'params' => []],
+				['kind' => 'provider', 'id' => 'sample.second', 'role' => 'provider', 'slot' => $slotB, 'depth' => 0, 'key' => 'second', 'dependsOn' => ['first'], 'params' => []],
+			],
+			'inline_asset_minification' => ['css_minify' => true, 'js_minify' => true, 'js_uglify' => false],
+		], JSON_THROW_ON_ERROR);
+
+		$providerBDone = false;
+		$client = new ControllableHttpClient(static function (string $method, string $url) use ($manifestJson, $slowWidgetId, &$providerBDone): ControllableResponse {
+			$path = (string) parse_url($url, PHP_URL_PATH);
+			if (str_ends_with($path, '/manifest')) {
+				return ControllableResponse::ok($manifestJson, key: 'manifest');
+			}
+			if (str_ends_with($path, '/providers/sample.first')) {
+				return ControllableResponse::ok(json_encode(['html' => '<p>First</p>', 'styles' => []], JSON_THROW_ON_ERROR), key: 'provider-first');
+			}
+			if (str_ends_with($path, '/providers/sample.second')) {
+				return ControllableResponse::ok(json_encode(['html' => '<p>Second</p>', 'styles' => []], JSON_THROW_ON_ERROR), key: 'provider-second')
+					->onComplete(static function () use (&$providerBDone): void {
+						$providerBDone = true;
+					});
+			}
+			$id = self::query($url)['_iikiti_fragment_id'] ?? null;
+			if ('@main' === $id) {
+				return ControllableResponse::ok(self::fragment(''), key: 'speculative-main');
+			}
+			self::assertSame($slowWidgetId, $id);
+
+			return ControllableResponse::ok(self::fragment('<p>Slow Widget</p>', [], $slowWidgetId), key: 'slow-widget')
+				->holdUntil(static function () use (&$providerBDone): bool {
+					return $providerBDone;
+				});
+		});
+
+		$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
+		$proxy = new PublicPageApiProxy($api, new ApiSessionTokenProvider($api), new FiberTaskRunner($client), new GuestApiTokenManager('test-secret'));
+
+		$response = $proxy->home(Request::create('https://www.example.test/'));
+		$events = $client->getEvents();
+
+		self::assertSame(200, $response->getStatusCode());
+		self::assertStringContainsString('<p>Slow Widget</p><p>First</p><p>Second</p>', (string) $response->getContent());
+		self::assertLessThan(array_search('complete:provider-second', $events, true), array_search('complete:provider-first', $events, true));
+		self::assertLessThan(array_search('complete:slow-widget', $events, true), array_search('complete:provider-second', $events, true));
+	}
+
+	public function testSlidingWindowStartsOverflowFragmentsWithoutWaitingForBlockedFirstWaveFragment(): void
+	{
+		$fragments = [];
+		$slotsHtml = '';
+		$idToIndex = [];
+		for ($i = 1; $i <= 34; ++$i) {
+			$widgetId = str_pad(dechex($i), 64, '0', STR_PAD_LEFT);
+			$slot = str_pad(dechex($i), 32, 'f', STR_PAD_LEFT);
+			$idToIndex[$widgetId] = $i;
+			$fragments[] = ['kind' => 'widget', 'id' => $widgetId, 'role' => 'widget', 'slot' => $slot, 'depth' => 1];
+			$slotsHtml .= '<template data-iikiti-widget-slot="'.$slot.'"></template>';
+		}
+		$manifestJson = json_encode([
+			'html' => '<!DOCTYPE html><html><head><template data-iikiti-fragment="custom-css"></template></head><body><main>'.$slotsHtml.'</main></body></html>',
+			'styles' => [],
+			'editor_mode' => false,
+			'revision' => str_repeat('a', 64),
+			'fragments' => $fragments,
+			'inline_asset_minification' => ['css_minify' => true, 'js_minify' => true, 'js_uglify' => false],
+		], JSON_THROW_ON_ERROR);
+
+		$w34Done = false;
+		$client = new ControllableHttpClient(static function (string $method, string $url) use ($manifestJson, $idToIndex, &$w34Done): ControllableResponse {
+			$path = (string) parse_url($url, PHP_URL_PATH);
+			if (str_ends_with($path, '/manifest')) {
+				return ControllableResponse::ok($manifestJson, key: 'manifest');
+			}
+			$id = (string) (self::query($url)['_iikiti_fragment_id'] ?? '');
+			if ('@main' === $id) {
+				return ControllableResponse::ok(self::fragment(''), key: 'speculative-main');
+			}
+			$idx = $idToIndex[$id];
+			if (1 === $idx) {
+				return ControllableResponse::ok(self::fragment('<p>W1</p>', [], $id), key: 'w1')
+					->holdUntil(static function () use (&$w34Done): bool {
+						return $w34Done;
+					});
+			}
+			if (34 === $idx) {
+				return ControllableResponse::ok(self::fragment('<p>W34</p>', [], $id), key: 'w34')
+					->onComplete(static function () use (&$w34Done): void {
+						$w34Done = true;
+					});
+			}
+
+			return ControllableResponse::ok(self::fragment('<p>W'.$idx.'</p>', [], $id), key: 'w'.$idx);
+		});
+
+		$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
+		$proxy = new PublicPageApiProxy($api, new ApiSessionTokenProvider($api), new FiberTaskRunner($client), new GuestApiTokenManager('test-secret'));
+
+		$response = $proxy->home(Request::create('https://www.example.test/'));
+		$events = $client->getEvents();
+
+		self::assertSame(200, $response->getStatusCode());
+		self::assertLessThanOrEqual(32, $client->getMaxConcurrentInFlight());
+		self::assertStringContainsString('<p>W1</p>', (string) $response->getContent());
+		self::assertStringContainsString('<p>W34</p>', (string) $response->getContent());
+		self::assertLessThan(array_search('complete:w1', $events, true), array_search('complete:w34', $events, true));
+	}
+
+	public function testFatalFragmentFailureCancelsStillBlockedSiblingRequestsImmediately(): void
+	{
+		foreach ([500 => 500, 409 => 409] as $apiStatus => $expectedProxyStatus) {
+			$widgetA = str_repeat('7', 64);
+			$widgetB = str_repeat('8', 64);
+			$slotA = str_repeat('a', 32);
+			$slotB = str_repeat('b', 32);
+			$manifestJson = json_encode([
+				'html' => '<!DOCTYPE html><html><head><template data-iikiti-fragment="custom-css"></template></head><body><main>'
+					.'<template data-iikiti-widget-slot="'.$slotA.'"></template>'
+					.'<template data-iikiti-widget-slot="'.$slotB.'"></template>'
+					.'</main></body></html>',
+				'styles' => [],
+				'editor_mode' => false,
+				'revision' => str_repeat('a', 64),
+				'fragments' => [
+					['kind' => 'widget', 'id' => $widgetA, 'role' => 'widget', 'slot' => $slotA, 'depth' => 1],
+					['kind' => 'widget', 'id' => $widgetB, 'role' => 'widget', 'slot' => $slotB, 'depth' => 1],
+				],
+				'inline_asset_minification' => ['css_minify' => true, 'js_minify' => true, 'js_uglify' => false],
+			], JSON_THROW_ON_ERROR);
+
+			$widgetACanceled = false;
+			$client = new ControllableHttpClient(static function (string $method, string $url) use ($manifestJson, $widgetA, $widgetB, $apiStatus, &$widgetACanceled): ControllableResponse {
+				$path = (string) parse_url($url, PHP_URL_PATH);
+				if (str_ends_with($path, '/manifest')) {
+					return ControllableResponse::ok($manifestJson, key: 'manifest');
+				}
+				$id = self::query($url)['_iikiti_fragment_id'] ?? null;
+				if ('@main' === $id) {
+					return ControllableResponse::ok(self::fragment(''), key: 'speculative-main');
+				}
+				if ($widgetA === $id) {
+					return ControllableResponse::ok(self::fragment('<p>Never</p>', [], $widgetA), key: 'widget-a')
+						->holdUntil(static fn (): bool => false)
+						->onCancel(static function () use (&$widgetACanceled): void {
+							$widgetACanceled = true;
+						});
+				}
+				self::assertSame($widgetB, $id);
+
+				return ControllableResponse::error($apiStatus, '{"message":"failure"}', key: 'widget-b');
+			});
+
+			$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
+			$proxy = new PublicPageApiProxy(
+				$api,
+				new ApiSessionTokenProvider($api),
+				new FiberTaskRunner($client),
+				new GuestApiTokenManager('test-secret'),
+				errorPages: $this->errorPageRenderer(),
+			);
+
+			$response = $proxy->home(Request::create('https://www.example.test/'));
+
+			self::assertSame($expectedProxyStatus, $response->getStatusCode());
+			self::assertNotInstanceOf(DomHtmlResponse::class, $response);
+			self::assertTrue($widgetACanceled);
+			self::assertStringNotContainsString('<p>Never</p>', (string) $response->getContent());
+		}
 	}
 
 	/** @param list<array{kind:string,id:string,role:string,slot:string,depth?:int}> $fragments

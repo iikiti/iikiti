@@ -12,7 +12,10 @@ Fibers and multiplexes their suspended Symfony HTTP responses with
 `HttpClientInterface::stream()`. It accepts at most 32 operations and defaults
 to a 5-second group deadline. Results are returned in input order, not network
 completion order. A failed operation is reported as `FiberTaskException` with
-the task key.
+the task key. When invoked via `runDuring()`, the runner performs one brief
+non-blocking transport prime pass (`2 ms` cap) before running the local work
+callback so lazy `CurlHttpClient` handles are flushed onto the wire before local
+Twig rendering begins.
 
 Task callbacks must perform remote work through the supplied
 `FiberHttpClient::request()` so the Fiber can suspend and the runner can stream
@@ -113,17 +116,19 @@ Widget IDs are site/revision-bound HMACs of structural tree paths (not block
 IDs), and their slot tokens are stable for that render revision. Consumers do
 not send block trees, query definitions, selectors, or arbitrary render data.
 
-The main region is fetched concurrently with the manifest; the consumer then
-requests all other listed regions, shells, widgets, and server-mode plugin
-providers in bounded `FiberTaskRunner` groups of at most 32 requests (up to 128
-descriptors per page). Independent descriptors start together. Named provider
-placements can declare `dependsOn` sibling keys; the consumer waits for those
-requests before starting dependents and rejects cycles or unknown keys. Widget
-responses are composed by nesting depth so each parent slot exists before its
-child slot is filled. The consumer waits for all required server responses,
-then fills the API-issued slots in the same main DOM document before returning
-one complete HTML document. This is concurrent rendering, not progressive HTTP
-streaming. Every page-fragment request repeats API-side user/guest, MFA, site,
+The main region is fetched concurrently with the manifest (cancelling the
+sibling immediately via `runUntil()` on error); the consumer then fetches all
+other listed regions, shells, widgets, and server-mode plugin providers through
+a bounded sliding-window worker pool of at most 32 concurrent Fibers (up to 128
+descriptors per page). Independent descriptors start immediately without waiting
+for slow siblings in a fixed batch, and newly satisfied `dependsOn` providers
+start as soon as their prerequisites complete (rejecting cycles or unknown
+keys). Any fragment error cancels still-pending sibling HTTP requests
+immediately rather than waiting for their timeouts. Widget responses are
+composed by nesting depth so each parent slot exists before its child slot is
+filled. The consumer waits for all required server responses, then fills the
+API-issued slots in the same main DOM document before returning one complete HTML
+document. This is concurrent rendering, not progressive HTTP streaming. Every page-fragment request repeats API-side user/guest, MFA, site,
 and page checks and verifies the page render revision. Provider requests are
 limited to registered, site-enabled public providers and validated params. If a
 page-fragment request fails, the consumer returns an error rather than partially
@@ -362,14 +367,20 @@ their response mode and lack of Fiber groups.
 
 ## Validation
 
-Run the focused checks with:
+Run the focused unit, browser, and concurrency integration checks with:
 
 ```sh
 vendor/bin/phpunit tests/Async
 vendor/bin/phpunit tests/Response/Composition
+vendor/bin/phpunit tests/Web/BlockEditor/PublicPageApiProxyTest.php
 vendor/bin/phpunit tests/Web/BlockEditor/Embed/EmbedResolverTest.php
 vendor/bin/phpunit tests/Web/Template/TemplateRendererTest.php
+vendor/bin/phpunit tests/Profiler/AsyncResponseDataCollectorTest.php
+vendor/bin/phpunit tests/Integration/AsyncHttpConcurrencyIntegrationTest.php
+vendor/bin/phpunit tests/Integration/AsyncDatabaseConcurrencyIntegrationTest.php
+vendor/bin/phpunit tests/Integration/ConsumerRuntimeDatabaseBoundaryTest.php
 vendor/bin/phpunit tests/Plugin/PluginDownloaderTest.php
+bun test tests/js/fragments.test.mjs
 ```
 
 The shared-hosting request path remains unchanged. Fibers are cooperatively

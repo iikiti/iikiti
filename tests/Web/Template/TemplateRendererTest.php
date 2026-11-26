@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Tests\Web\Template;
 
+use iikiti\CMS\Tests\Support\Async\ControllableHttpClient;
+use iikiti\CMS\Tests\Support\Async\ControllableResponse;
 use iikiti\CMS\Tests\Support\IconResolverFactory;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Async\FiberTaskRunner;
 use iikiti\CMS\Entity\DbObject;
+use iikiti\CMS\Entity\Object\Shell;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\Template;
+use iikiti\CMS\Repository\Object\ShellRepository;
 use iikiti\Extension\Embeds\BlockType\EmbedBlockTypeProvider;
 use iikiti\Extension\Embeds\Embed\EmbedResolver;
 use iikiti\Extension\Embeds\Template\EmbedTemplateRenderPrefetcher;
@@ -24,7 +28,11 @@ use iikiti\CMS\Web\BlockEditor\Render\BlockRenderer;
 use iikiti\CMS\Web\BlockEditor\Twig\BlockTwigExtension;
 use iikiti\CMS\Web\BlockEditor\Twig\LocalizedTextExtension;
 use iikiti\CMS\Web\Icon\IconFontAssets;
+use iikiti\CMS\Web\Template\ShellProvider;
+use iikiti\CMS\Web\Template\ShellResolver;
 use iikiti\CMS\Web\Template\TemplateRenderer;
+use iikiti\CMS\Web\Template\TemplateResolutionContext;
+use iikiti\CMS\Web\Template\TemplateRuleInterface;
 use iikiti\CMS\Web\Fragment\FragmentContext;
 use iikiti\CMS\Web\Fragment\FragmentProviderInterface;
 use iikiti\CMS\Web\Fragment\FragmentProviderRegistry;
@@ -474,5 +482,253 @@ final class TemplateRendererTest extends TestCase
 		self::assertSame([], $customCss->fragments(false));
 		self::assertStringContainsString('iikiti-error', $manifest['html']);
 		self::assertSame([], $manifest['fragments']);
+	}
+
+	public function testRenderIntoDocumentRendersTemplatesRegionsAndShellsWhileRemoteOembedIsBlocked(): void
+	{
+		$url = 'https://twitter.com/example/status/42';
+		$composer = new HtmlFragmentComposer('<!DOCTYPE html><html><body><template data-iikiti-fragment="page"></template></body></html>');
+		$localHtmlSnapshot = '';
+		$localFinished = false;
+
+		$http = new ControllableHttpClient();
+		$http->whenUrlContains('publish.twitter.com', static function () use ($composer, &$localHtmlSnapshot, &$localFinished): ControllableResponse {
+			return ControllableResponse::ok(
+				json_encode(['html' => '<blockquote cite="https://twitter.com/example/status/42">resolved-embed</blockquote>'], JSON_THROW_ON_ERROR),
+				key: 'twitter-oembed',
+			)->holdUntil(static function () use ($composer, &$localHtmlSnapshot, &$localFinished): bool {
+				if (!$localFinished && $composer->hasPlaceholder('footer')) {
+					$localFinished = true;
+					$localHtmlSnapshot = $composer->document()->saveHTML($composer->document());
+				}
+
+				return $localFinished;
+			});
+		});
+
+		$embedResolver = new EmbedResolver([], $http, new ArrayAdapter());
+		$layoutEnv = new Environment(new ArrayLoader([
+			'layout.twig' => '<header>{{ region_header|raw }}</header><main>{{ region_main|raw }}</main><footer>{{ iikiti_shells.footer[0]|raw }}</footer>',
+		]), ['strict_variables' => false]);
+		$blockLoader = new FilesystemLoader(__DIR__.'/../../../templates');
+		$blockLoader->addPath(__DIR__.'/../../../plugins/iikiti-embeds/templates', 'Embeds');
+		$blockTwig = new Environment($blockLoader, ['strict_variables' => false]);
+		$blockTwig->addExtension(new LocalizedTextExtension());
+		$blockTwig->addExtension(new BlockTwigExtension(
+			$embedResolver,
+			new QueryExecutor([]),
+			IconResolverFactory::bundledOnly(),
+			new IconFontAssets(),
+		));
+		$blockRenderer = new BlockRenderer(
+			new BlockTypeRegistry([new CoreBlockTypeProvider(), new EmbedBlockTypeProvider()]),
+			$blockTwig,
+			new QueryExecutor([]),
+			new QueryFieldCatalog($this->createStub(EntityManagerInterface::class)),
+			new CustomCssCompiler(),
+		);
+
+		$shell = new Shell();
+		(new \ReflectionClass(DbObject::class))->getProperty('properties')->setValue($shell, new ArrayCollection());
+		$shell->setRole('footer');
+		$shell->setName('Site Footer');
+		$shell->setEnabled(true);
+		$shell->setDisplayRules([['rule' => 'always', 'config' => []]]);
+		$shell->setBlocks([[
+			'id' => 'footer-container',
+			'type' => 'container',
+			'content' => [],
+			'style' => ['base' => []],
+			'children' => [['id' => 'footer-text', 'type' => 'text', 'content' => ['content' => '<p>Footer Shell</p>'], 'style' => ['base' => []]]],
+		]]);
+		$shellRepo = $this->createStub(ShellRepository::class);
+		$shellRepo->method('findAllWithProperties')->willReturn([$shell]);
+		$alwaysRule = new class implements TemplateRuleInterface {
+			public function getName(): string { return 'always'; }
+			public function matches(array $config, TemplateResolutionContext $context): bool { return true; }
+			public static function getLabel(): string { return 'Always'; }
+			/** @return array<string,mixed> */
+			public static function getConfigSchema(): array { return []; }
+		};
+
+		$renderer = new TemplateRenderer(
+			$blockRenderer,
+			$layoutEnv,
+			new ShellResolver([$alwaysRule]),
+			new ShellProvider($shellRepo),
+			new FiberTaskRunner($http),
+			renderPrefetchers: [new EmbedTemplateRenderPrefetcher($embedResolver)],
+		);
+		$template = $this->template([
+			['id' => 'header', 'role' => 'header', 'name' => 'Header', 'allowed_types' => []],
+			['id' => 'main', 'role' => 'main', 'name' => 'Main', 'allowed_types' => []],
+		]);
+
+		$renderer->renderIntoDocument(
+			$template,
+			new BlockRenderContext(editorMode: false),
+			[
+				'header' => [[
+					'id' => 'hdr-box',
+					'type' => 'container',
+					'content' => [],
+					'style' => ['base' => []],
+					'children' => [['id' => 'hdr-text', 'type' => 'text', 'content' => ['content' => '<p>Header Region</p>'], 'style' => ['base' => []]]],
+				]],
+				'main' => [[
+					'id' => 'main-box',
+					'type' => 'container',
+					'content' => [],
+					'style' => ['base' => []],
+					'children' => [
+						['id' => 'embed-1', 'type' => 'social_embed', 'content' => ['url' => $url]],
+						['id' => 'local-text', 'type' => 'text', 'content' => ['content' => '<p>Sibling Text</p>'], 'style' => ['base' => []]],
+					],
+				]],
+			],
+			$composer,
+			'[data-iikiti-fragment="page"]',
+			resolutionContext: new TemplateResolutionContext(),
+		);
+		$finalHtml = $composer->render();
+
+		// Local layout, header region, sibling text, and footer shell all rendered while oEmbed was still blocked.
+		self::assertTrue($localFinished);
+		self::assertStringContainsString('data-iikiti-async-embed=', $localHtmlSnapshot);
+		self::assertStringContainsString('<p>Header Region</p>', $localHtmlSnapshot);
+		self::assertStringContainsString('<p>Sibling Text</p>', $localHtmlSnapshot);
+		self::assertStringContainsString('<p>Footer Shell</p>', $localHtmlSnapshot);
+		self::assertStringNotContainsString('resolved-embed', $localHtmlSnapshot);
+
+		// Final DOM replaces the deferred placeholder with the resolved oEmbed blockquote.
+		self::assertStringContainsString('resolved-embed', $finalHtml);
+		self::assertStringNotContainsString('data-iikiti-async-embed', $finalHtml);
+	}
+
+	public function testRenderIntoDocumentDegradesTimedOutOembedToLinkCardWithoutBlockingOtherRegions(): void
+	{
+		$url = 'https://twitter.com/example/status/99';
+		$http = new ControllableHttpClient();
+		$http->whenUrlContains('publish.twitter.com', static fn (): ControllableResponse => ControllableResponse::timeout('twitter-timeout'));
+
+		$embedResolver = new EmbedResolver([], $http, new ArrayAdapter());
+		$layoutEnv = new Environment(new ArrayLoader([
+			'layout.twig' => '<header>{{ region_header|raw }}</header><main>{{ region_main|raw }}</main>',
+		]), ['strict_variables' => false]);
+		$blockLoader = new FilesystemLoader(__DIR__.'/../../../templates');
+		$blockLoader->addPath(__DIR__.'/../../../plugins/iikiti-embeds/templates', 'Embeds');
+		$blockTwig = new Environment($blockLoader, ['strict_variables' => false]);
+		$blockTwig->addExtension(new LocalizedTextExtension());
+		$blockTwig->addExtension(new BlockTwigExtension(
+			$embedResolver,
+			new QueryExecutor([]),
+			IconResolverFactory::bundledOnly(),
+			new IconFontAssets(),
+		));
+		$blockRenderer = new BlockRenderer(
+			new BlockTypeRegistry([new CoreBlockTypeProvider(), new EmbedBlockTypeProvider()]),
+			$blockTwig,
+			new QueryExecutor([]),
+			new QueryFieldCatalog($this->createStub(EntityManagerInterface::class)),
+			new CustomCssCompiler(),
+		);
+		$renderer = new TemplateRenderer(
+			$blockRenderer,
+			$layoutEnv,
+			fiberTaskRunner: new FiberTaskRunner($http),
+			renderPrefetchers: [new EmbedTemplateRenderPrefetcher($embedResolver)],
+		);
+		$template = $this->template([
+			['id' => 'header', 'role' => 'header', 'name' => 'Header', 'allowed_types' => []],
+			['id' => 'main', 'role' => 'main', 'name' => 'Main', 'allowed_types' => []],
+		]);
+		$composer = new HtmlFragmentComposer('<!DOCTYPE html><html><body><template data-iikiti-fragment="page"></template></body></html>');
+
+		$renderer->renderIntoDocument($template, new BlockRenderContext(editorMode: false), [
+			'header' => [['id' => 'h1', 'type' => 'container', 'content' => [], 'style' => ['base' => []], 'children' => [['id' => 'ht', 'type' => 'text', 'content' => ['content' => '<p>Header Alive</p>'], 'style' => ['base' => []]]]]],
+			'main' => [['id' => 'm1', 'type' => 'container', 'content' => [], 'style' => ['base' => []], 'children' => [['id' => 'e1', 'type' => 'social_embed', 'content' => ['url' => $url]]]]],
+		], $composer, '[data-iikiti-fragment="page"]');
+		$html = $composer->render();
+
+		self::assertStringContainsString('<p>Header Alive</p>', $html);
+		self::assertStringContainsString('iikiti-embed--link-card', $html);
+		self::assertStringContainsString($url, $html);
+		self::assertStringNotContainsString('data-iikiti-async-embed', $html);
+	}
+
+	public function testRenderFragmentPrefetchesMultipleOembedsConcurrentlyWhenOneIsBlocked(): void
+	{
+		$twitterUrl = 'https://twitter.com/example/status/10';
+		$bskyUrl = 'https://bsky.app/profile/example/post/20';
+		$bskyFinished = false;
+
+		$http = new ControllableHttpClient();
+		$http->whenUrlContains('publish.twitter.com', static function () use (&$bskyFinished): ControllableResponse {
+			return ControllableResponse::ok(
+				json_encode(['html' => '<blockquote cite="https://twitter.com/example/status/10">slow-tweet</blockquote>'], JSON_THROW_ON_ERROR),
+				key: 'slow-twitter',
+			)->holdUntil(static function () use (&$bskyFinished): bool {
+				return $bskyFinished;
+			});
+		});
+		$http->whenUrlContains('embed.bsky.app', static function () use (&$bskyFinished): ControllableResponse {
+			return ControllableResponse::ok(
+				json_encode(['html' => '<blockquote cite="https://bsky.app/profile/example/post/20">fast-bsky</blockquote>'], JSON_THROW_ON_ERROR),
+				key: 'fast-bsky',
+			)->onComplete(static function () use (&$bskyFinished): void {
+				$bskyFinished = true;
+			});
+		});
+
+		$embedResolver = new EmbedResolver([], $http, new ArrayAdapter());
+		$layoutEnv = new Environment(new ArrayLoader([
+			'layout.twig' => '<main>{{ region_main|raw }}</main>',
+		]), ['strict_variables' => false]);
+		$blockLoader = new FilesystemLoader(__DIR__.'/../../../templates');
+		$blockLoader->addPath(__DIR__.'/../../../plugins/iikiti-embeds/templates', 'Embeds');
+		$blockTwig = new Environment($blockLoader, ['strict_variables' => false]);
+		$blockTwig->addExtension(new LocalizedTextExtension());
+		$blockTwig->addExtension(new BlockTwigExtension(
+			$embedResolver,
+			new QueryExecutor([]),
+			IconResolverFactory::bundledOnly(),
+			new IconFontAssets(),
+		));
+		$blockRenderer = new BlockRenderer(
+			new BlockTypeRegistry([new CoreBlockTypeProvider(), new EmbedBlockTypeProvider()]),
+			$blockTwig,
+			new QueryExecutor([]),
+			new QueryFieldCatalog($this->createStub(EntityManagerInterface::class)),
+			new CustomCssCompiler(),
+		);
+		$renderer = new TemplateRenderer(
+			$blockRenderer,
+			$layoutEnv,
+			fiberTaskRunner: new FiberTaskRunner($http),
+			renderPrefetchers: [new EmbedTemplateRenderPrefetcher($embedResolver)],
+		);
+		$template = $this->template([['id' => 'main', 'role' => 'main', 'name' => 'Main', 'allowed_types' => []]]);
+
+		$fragment = $renderer->renderFragment($template, new BlockRenderContext(editorMode: false), [
+			'main' => [[
+				'id' => 'c1',
+				'type' => 'container',
+				'content' => [],
+				'style' => ['base' => []],
+				'children' => [
+					['id' => 'e-tw', 'type' => 'social_embed', 'content' => ['url' => $twitterUrl]],
+					['id' => 'e-bs', 'type' => 'social_embed', 'content' => ['url' => $bskyUrl]],
+				],
+			]],
+		], 'region', 'main');
+
+		self::assertNotNull($fragment);
+		self::assertStringContainsString('slow-tweet', $fragment->fragment->html);
+		self::assertStringContainsString('fast-bsky', $fragment->fragment->html);
+		$events = $http->getEvents();
+		self::assertLessThan(
+			array_search('complete:slow-twitter', $events, true),
+			array_search('complete:fast-bsky', $events, true),
+		);
 	}
 }

@@ -12,6 +12,8 @@ use iikiti\CMS\Response\Composition\ControllerResponseComposer;
 use iikiti\CMS\Response\Composition\ControllerResponsePlan;
 use iikiti\CMS\Response\Composition\DomHtmlResponse;
 use iikiti\CMS\Response\Composition\ResponseFragment;
+use iikiti\CMS\Tests\Support\Async\ControllableHttpClient;
+use iikiti\CMS\Tests\Support\Async\ControllableResponse;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
@@ -92,5 +94,110 @@ final class ControllerResponseComposerTest extends TestCase
 
 		self::assertSame('headtail', $response->getContent());
 		self::assertSame('application/octet-stream', $response->headers->get('Content-Type'));
+	}
+
+	public function testBlockedHtmlFragmentAllowsSiblingFragmentToRenderFirstWhilePreservingDeclaredOrder(): void
+	{
+		$secondCompleted = false;
+		$http = new ControllableHttpClient();
+		$http->whenUrlContains('/slow-first', static function () use (&$secondCompleted): ControllableResponse {
+			return ControllableResponse::ok('First', key: 'slow-first')
+				->holdUntil(static function () use (&$secondCompleted): bool {
+					return $secondCompleted;
+				});
+		});
+		$http->whenUrlContains('/fast-second', static function () use (&$secondCompleted): ControllableResponse {
+			return ControllableResponse::ok('Second', key: 'fast-second')
+				->onComplete(static function () use (&$secondCompleted): void {
+					$secondCompleted = true;
+				});
+		});
+
+		$composer = new ControllerResponseComposer(new FiberTaskRunner($http));
+		$response = $composer->compose(ControllerResponsePlan::html(
+			'<!DOCTYPE html><html><body><main><template id="slot"></template></main></body></html>',
+			[
+				'first' => Promise::async(static fn (FiberHttpClient $client): ResponseFragment => ResponseFragment::html(
+					'#slot',
+					'<p>'.$client->request('GET', 'https://example.test/slow-first')->getContent().'</p>',
+					order: 10,
+				)),
+				'second' => Promise::async(static fn (FiberHttpClient $client): ResponseFragment => ResponseFragment::html(
+					'#slot',
+					'<p>'.$client->request('GET', 'https://example.test/fast-second')->getContent().'</p>',
+					order: 20,
+				)),
+			],
+		));
+
+		$html = (string) $response->getContent();
+		self::assertStringContainsString('<p>First</p><p>Second</p>', $html);
+		self::assertLessThan(
+			array_search('complete:slow-first', $http->getEvents(), true),
+			array_search('complete:fast-second', $http->getEvents(), true),
+		);
+	}
+
+	public function testBlockedJsonAndTextFragmentsPreserveDeclaredOrderDespiteOutOfOrderCompletion(): void
+	{
+		$fastDone = false;
+		$http = new ControllableHttpClient();
+		$http->whenUrlContains('/slow', static function () use (&$fastDone): ControllableResponse {
+			return ControllableResponse::ok('slow', key: 'slow')
+				->holdUntil(static function () use (&$fastDone): bool {
+					return $fastDone;
+				});
+		});
+		$http->whenUrlContains('/fast', static function () use (&$fastDone): ControllableResponse {
+			return ControllableResponse::ok('fast', key: 'fast')
+				->onComplete(static function () use (&$fastDone): void {
+					$fastDone = true;
+				});
+		});
+		$composer = new ControllerResponseComposer(new FiberTaskRunner($http));
+
+		$jsonObject = $composer->compose(ControllerResponsePlan::jsonObject([
+			'slow' => Promise::async(static fn (FiberHttpClient $c): ResponseFragment => ResponseFragment::jsonObject(
+				['first' => $c->request('GET', 'https://example.test/slow')->getContent()],
+				order: 10,
+			)),
+			'fast' => Promise::async(static fn (FiberHttpClient $c): ResponseFragment => ResponseFragment::jsonObject(
+				['second' => $c->request('GET', 'https://example.test/fast')->getContent()],
+				order: 20,
+			)),
+		]));
+		self::assertSame(
+			['first', 'second'],
+			array_keys(json_decode((string) $jsonObject->getContent(), true, flags: JSON_THROW_ON_ERROR)),
+		);
+
+		$fastDone = false;
+		$jsonArray = $composer->compose(ControllerResponsePlan::jsonArray([
+			'slow' => Promise::async(static fn (FiberHttpClient $c): ResponseFragment => ResponseFragment::jsonArray(
+				[$c->request('GET', 'https://example.test/slow')->getContent()],
+				order: 10,
+			)),
+			'fast' => Promise::async(static fn (FiberHttpClient $c): ResponseFragment => ResponseFragment::jsonArray(
+				[$c->request('GET', 'https://example.test/fast')->getContent()],
+				order: 20,
+			)),
+		]));
+		self::assertSame(
+			['slow', 'fast'],
+			json_decode((string) $jsonArray->getContent(), true, flags: JSON_THROW_ON_ERROR),
+		);
+
+		$fastDone = false;
+		$text = $composer->compose(ControllerResponsePlan::text([
+			'slow' => Promise::async(static fn (FiberHttpClient $c): ResponseFragment => ResponseFragment::text(
+				$c->request('GET', 'https://example.test/slow')->getContent().'-',
+				order: 10,
+			)),
+			'fast' => Promise::async(static fn (FiberHttpClient $c): ResponseFragment => ResponseFragment::text(
+				$c->request('GET', 'https://example.test/fast')->getContent(),
+				order: 20,
+			)),
+		]));
+		self::assertSame('slow-fast', $text->getContent());
 	}
 }

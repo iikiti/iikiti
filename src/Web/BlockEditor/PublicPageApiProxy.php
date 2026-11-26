@@ -9,6 +9,7 @@ use iikiti\CMS\Api\BusinessApiClient;
 use iikiti\CMS\Api\BusinessApiException;
 use iikiti\CMS\Async\FiberHttpClient;
 use iikiti\CMS\Async\FiberTaskRunner;
+use iikiti\CMS\Async\Promise;
 use iikiti\CMS\Filters\InlineAssetMinificationOptions;
 use iikiti\CMS\Profiler\AsyncResponseDataCollector;
 use iikiti\CMS\Registry\RouteContextClassifier;
@@ -134,7 +135,7 @@ final readonly class PublicPageApiProxy
 			$apiToken = $tokenInfo['token'];
 			$mainQuery = $request->query->all();
 			$mainQuery['_iikiti_fragment_id'] = '@main';
-			$bootstrap = $this->tasks->run([
+			$bootstrap = $this->tasks->runUntil([
 				'manifest' => function (FiberHttpClient $http) use ($path, $apiToken, $headers, $request): array {
 					return $this->api->requestAsync(
 						$http,
@@ -157,7 +158,7 @@ final readonly class PublicPageApiProxy
 						collectDoctrineQueries: true,
 					);
 				},
-			], 5.0);
+			], static fn (array $_results, array $errors): bool => [] !== $errors, 5.0);
 			$rawManifest = $bootstrap['manifest'] ?? null;
 			$manifest = $this->normalizeManifest($rawManifest);
 			if (null === $manifest) {
@@ -200,81 +201,15 @@ final readonly class PublicPageApiProxy
 				$manifest['fragments'],
 				static fn (array $fragment): bool => null === $mainDescriptor || $fragment['slot'] !== $mainDescriptor['slot'],
 			));
-			$completedProviderKeys = [];
-			$providerResponseBytes = 0;
-			while ([] !== $remainingFragments) {
-				$ready = array_values(array_filter($remainingFragments, static function (array $fragment) use ($completedProviderKeys): bool {
-					if ('provider' !== $fragment['kind']) {
-						return true;
-					}
-
-					return [] === array_diff($fragment['dependsOn'], array_keys($completedProviderKeys));
-				}));
-				if ([] === $ready) {
-					throw new \UnexpectedValueException('The fragment dependency plan cannot make progress.');
-				}
-				$batch = array_slice($ready, 0, RenderFragmentLimits::BATCH_SIZE);
-				$operations = [];
-				foreach ($batch as $fragment) {
-					$operations[$fragment['slot']] = function (FiberHttpClient $http) use ($path, $fragment, $manifest, $apiToken, $request, $headers): array {
-						if ('provider' === $fragment['kind']) {
-							return $this->api->requestAsync(
-								$http,
-								'GET',
-								'/api/public/render/providers/'.rawurlencode($fragment['id']),
-								$apiToken,
-								query: ['params' => json_encode((object) $fragment['params'], JSON_THROW_ON_ERROR, 16)],
-								headers: $headers,
-								collectDoctrineQueries: true,
-							);
-						}
-
-						$query = $request->query->all();
-						$query['_iikiti_fragment_id'] = $fragment['id'];
-						$query['_iikiti_render_revision'] = $manifest['revision'];
-
-						return $this->api->requestAsync(
-							$http,
-							'GET',
-							$path.'/fragments/'.$fragment['kind'],
-							$apiToken,
-							query: $query,
-							headers: $headers,
-							collectDoctrineQueries: true,
-						);
-					};
-				}
-
-				$results = $this->tasks->run($operations, 5.0);
-				$completedSlots = [];
-				foreach ($batch as $fragment) {
-					$raw = $results[$fragment['slot']] ?? null;
-					$normalized = 'provider' === $fragment['kind'] ?
-						$this->normalizeProviderResult($raw, $fragment['id'], $manifest['editor_mode']) :
-						$this->normalizeFragmentResult($raw, $manifest['editor_mode']);
-					if (null === $normalized) {
-						throw new \UnexpectedValueException('The API returned an invalid page fragment.');
-					}
-					if ('provider' === $fragment['kind']) {
-						$providerResponseBytes += strlen($normalized['html']);
-						foreach ($normalized['styles'] as $style) {
-							$providerResponseBytes += strlen($style['css']);
-						}
-						if ($providerResponseBytes > self::MAX_PROVIDER_BYTES_PER_PAGE) {
-							throw new \UnexpectedValueException('Plugin fragments exceed the page response size limit.');
-						}
-					}
-					$renderedFragments[$fragment['slot']] = $normalized;
-					$completedSlots[$fragment['slot']] = true;
-					if ('provider' === $fragment['kind']) {
-						$completedProviderKeys[$fragment['key']] = true;
-					}
-				}
-				$remainingFragments = array_values(array_filter(
-					$remainingFragments,
-					static fn (array $fragment): bool => !isset($completedSlots[$fragment['slot']]),
-				));
-			}
+			$renderedFragments = $this->fetchRemainingFragments(
+				$path,
+				$apiToken,
+				$headers,
+				$request,
+				$manifest,
+				$remainingFragments,
+				$renderedFragments,
+			);
 
 			$document = $this->composeDocument($manifest, $renderedFragments, $siteHost);
 			try {
@@ -298,6 +233,161 @@ final readonly class PublicPageApiProxy
 
 			return $this->failureResponse($exception);
 		}
+	}
+
+	/**
+	 * Fetches remaining region, shell, widget, and provider fragments concurrently
+	 * via a bounded sliding-window Fiber pool, unblocking dependent providers as
+	 * soon as their prerequisites complete and cancelling siblings on first error.
+	 *
+	 * @param array<string,string> $headers
+	 * @param array{html:string,styles:list<array{id:?string,css:string}>,editor_mode:bool,revision:string,fragments:list<array<string,mixed>>,inline_asset_minification:array{css_minify:bool,js_minify:bool,js_uglify:bool},filter_options:array<string,mixed>} $manifest
+	 * @param list<array<string,mixed>> $remainingFragments
+	 * @param array<string,mixed> $renderedFragments
+	 * @return array<string,mixed>
+	 */
+	private function fetchRemainingFragments(
+		string $path,
+		string $apiToken,
+		array $headers,
+		Request $request,
+		array $manifest,
+		array $remainingFragments,
+		array $renderedFragments,
+	): array {
+		if ([] === $remainingFragments) {
+			return $renderedFragments;
+		}
+
+		$state = new \stdClass();
+		$state->pending = $remainingFragments;
+		$state->completedProviders = [];
+		$state->rendered = $renderedFragments;
+		$state->providerBytes = 0;
+		$state->inFlight = 0;
+		$state->aborted = false;
+		$state->progress = Promise::withResolvers();
+
+		$notify = static function () use ($state): void {
+			$current = $state->progress;
+			$state->progress = Promise::withResolvers();
+			($current->resolve)(null);
+		};
+		$claimNext = static function () use ($state): ?array {
+			foreach ($state->pending as $index => $fragment) {
+				if ('provider' !== $fragment['kind']
+					|| [] === array_diff($fragment['dependsOn'], array_keys($state->completedProviders))) {
+					array_splice($state->pending, $index, 1);
+
+					return $fragment;
+				}
+			}
+
+			return null;
+		};
+
+		$workerCount = min(RenderFragmentLimits::BATCH_SIZE, count($remainingFragments));
+		$workers = [];
+		for ($i = 0; $i < $workerCount; ++$i) {
+			$workers['worker-'.$i] = Promise::async(function (FiberHttpClient $http) use ($state, $notify, $claimNext, $path, $apiToken, $headers, $request, $manifest): void {
+				while (!$state->aborted) {
+					$fragment = $claimNext();
+					if (null === $fragment) {
+						if ([] === $state->pending) {
+							return;
+						}
+						if (0 === $state->inFlight) {
+							throw new \UnexpectedValueException('The fragment dependency plan cannot make progress.');
+						}
+						$state->progress->promise->execute($http);
+
+						continue;
+					}
+
+					++$state->inFlight;
+					try {
+						$raw = $this->requestFragment($http, $path, $fragment, $manifest, $apiToken, $request, $headers);
+						$normalized = 'provider' === $fragment['kind'] ?
+							$this->normalizeProviderResult($raw, $fragment['id'], $manifest['editor_mode']) :
+							$this->normalizeFragmentResult($raw, $manifest['editor_mode']);
+						if (null === $normalized) {
+							throw new \UnexpectedValueException('The API returned an invalid page fragment.');
+						}
+						if ('provider' === $fragment['kind']) {
+							$state->providerBytes += strlen($normalized['html']);
+							foreach ($normalized['styles'] as $style) {
+								$state->providerBytes += strlen($style['css']);
+							}
+							if ($state->providerBytes > self::MAX_PROVIDER_BYTES_PER_PAGE) {
+								throw new \UnexpectedValueException('Plugin fragments exceed the page response size limit.');
+							}
+						}
+
+						$state->rendered[$fragment['slot']] = $normalized;
+						if ('provider' === $fragment['kind']) {
+							$state->completedProviders[$fragment['key']] = true;
+							$notify();
+						}
+					} catch (\Throwable $exception) {
+						$state->aborted = true;
+						$notify();
+						throw $exception;
+					} finally {
+						--$state->inFlight;
+					}
+				}
+			});
+		}
+
+		$this->tasks->runPromisesUntil(
+			$workers,
+			static fn (array $_results, array $errors): bool => [] !== $errors,
+			5.0,
+		);
+
+		return $state->rendered;
+	}
+
+	/**
+	 * @param array<string,mixed> $fragment
+	 * @param array{editor_mode:bool,revision:string} $manifest
+	 * @param array<string,string> $headers
+	 * @return array<mixed>
+	 */
+	private function requestFragment(
+		FiberHttpClient $http,
+		string $path,
+		array $fragment,
+		array $manifest,
+		string $apiToken,
+		Request $request,
+		array $headers,
+	): array {
+		if ('provider' === $fragment['kind']) {
+			return $this->api->requestAsync(
+				$http,
+				'GET',
+				'/api/public/render/providers/'.rawurlencode($fragment['id']),
+				$apiToken,
+				query: ['params' => json_encode((object) $fragment['params'], JSON_THROW_ON_ERROR, 16)],
+				headers: $headers,
+				collectDoctrineQueries: true,
+			);
+		}
+
+		$query = $request->query->all();
+		$query['_iikiti_fragment_id'] = $fragment['id'];
+		$query['_iikiti_render_revision'] = $manifest['revision'];
+
+		return $this->api->requestAsync(
+			$http,
+			'GET',
+			$path.'/fragments/'.$fragment['kind'],
+			$apiToken,
+			query: $query,
+			headers: $headers,
+			collectDoctrineQueries: true,
+		);
 	}
 
 	private function proxyDiscoveryDocument(Request $request, string $path, string $expectedContentType): Response

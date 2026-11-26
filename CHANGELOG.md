@@ -14,7 +14,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ## [Unreleased]
 
-> Last updated: 2026-11-23
+> Last updated: 2026-11-26
 
 ### Security
 
@@ -24,12 +24,14 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Changed
 
+- 2026-11-26: Primed pending `CurlHttpClient` requests non-blockingly before executing local work in `FiberTaskRunner::runDuring()`, and replaced fixed Wave 2 batch barriers in `PublicPageApiProxy` with a bounded sliding-window Fiber worker pool that starts unblocked `dependsOn` providers eagerly and cancels still-pending siblings immediately on failure.
 - 2026-11-23: Switched workflow and Content Optimization activation checks (`DigitalAssetWorkflowManager`, `MfaWorkflowDefinitionResolver`, `WorkflowInteractiveDefinitionResolver`, `WorkflowInstanceManager`, `AnalyticsConnectorRegistry`, `AnalyticsDescriptorResolver`, `ContentOptimizationSettingsController`, `PublicDiscoveryDocumentGenerator`) to `PluginActivationChecker`; moved `HomepageSeoAccessPolicy` into `plugins/iikiti-content-optimization/`.
 - 2026-11-23: Returned the generic `icon` block type, `templates/blocks/icon.twig`, and `IconPreview.svelte` to Core while keeping Lucide icon/webfont assets in `plugins/iikiti-icons-lucide/`, made `BlockTypeRegistry` lazy and resettable (`ResetInterface`), and replaced the hardcoded `'forma-2026'` check in `TemplateRenderer::resolveLayoutTemplate()` with dynamic plugin-namespace matching.
 - 2026-11-23: Documented in `AGENTS.md` that `vendor/bin/phpunit` and DB-connecting Doctrine commands must be executed outside the sandbox (`BypassSandbox: true`) so integration tests can reach local PostgreSQL (`127.0.0.1:5432`).
 
 ### Fixed
 
+- 2026-11-26: Replaced the PSR-6-reserved `:` character in `ObjectsQuerySource` cache keys (`iikiti_query_*`) so `query` blocks cache and render database results without throwing `InvalidArgumentException`, and resumed settled Promises + re-evaluated `$stopWhen` inside `FiberTaskRunner::executeGroup()` error paths.
 - 2026-11-23: Fixed the PostgreSQL `CREATE SEQUENCE` / `nextval()` syntax in `migrations/Version20261114120000.php`.
 - 2026-11-23: Tightened `ContentOptimizationPageRenderContributor` consent detection so unrelated `body_before` fragments do not imply `consent-management` banner availability.
 - 2026-11-23: Preserved block `widgetClass` and `elementId` on `checkbox`/`radio` previews in `FormFieldPreview.svelte`, moved `cssFormat.test.js` to `tests/js/cssFormat.test.mjs`, added `Version20261123010000.php` to `phpstan.neon`, and updated `docs/core-vs-plugins.md`, `docs/database-objects.md`, and `docs/mfa-workflow.md`.
@@ -38,6 +40,7 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Added
 
+- 2026-11-26: Added three-layer asynchronous rendering pipeline concurrency tests (`ControllableHttpClient`, `LocalBarrierHttpServer`, `ApiWorkerServer`, deterministic interleaving unit tests in `FiberTaskRunnerTest`, `TemplateRendererTest`, `PublicPageApiProxyTest`, and `ControllerResponseComposerTest`, loopback TCP and multi-worker PostgreSQL integration tests in `AsyncHttpConcurrencyIntegrationTest` and `AsyncDatabaseConcurrencyIntegrationTest`, and browser progressive fragment concurrency tests in `tests/js/fragments.test.mjs`).
 - 2026-11-22: Documented the Core-vs-Plugins boundary, extension point matrix, activation modes/scopes, and ESM import map architecture in `docs/core-vs-plugins.md`.
 - 2026-11-22: Added plugin extensibility contracts across persistence (`#[DbObjectDiscriminator]`, `DbObjectSubtypeProviderInterface`, `UnknownDbObject` proxy fallback), lifecycle (`activation_mode`, `scope`, `#[RequiresPlugin]`, `PluginActivationChecker`, `PluginOwnedAdminExtensionInterface`), routing (`RouteContextContributorInterface`), security/crypto (`SiteAccessPolicy`, `ApplicationKeyRotatorInterface`, `CspDirectiveContributorInterface`, `AuditActionProviderInterface`), rendering/editor (`PageRenderContributorInterface`, `EditorSettingsContextContributorInterface`, `EditorSettingsHandlerInterface`, `FrontendConfigContributorInterface`, `TemplateRenderPrefetchInterface`, `BlockTreeValidatorInterface`, `ResponseFilterInterface`, `CommonBlockFields`, `registerBlockPreview`), icons/CSS (`FontIconSetInterface`, `IconFontStylesheetProviderInterface`, `PluginCustomCssCompilerInterface`, `DelegatingCustomCssCompiler`, `PlainCssCompiler`), and workflows (`FlowProviderInterface`).
 - 2026-11-22: Added native ES module Svelte 5 import map builds (`assets/build/build-esm.mjs`, `ImportMapTwigExtension`) and public plugin asset serving (`PublicPluginAssetController` at `/plugin-assets/{slug}/{path}` with Consumer API proxy support).
