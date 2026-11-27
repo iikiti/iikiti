@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace iikiti\CMS\Response\Composition;
 
 use Dom\HTMLDocument;
+use Jimbo2150\CssIndexedDom\IndexedHtmlDocument;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -13,15 +14,24 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class DomHtmlResponse extends Response
 {
+	private readonly HTMLDocument $document;
+	private ?IndexedHtmlDocument $indexedDocument;
 	private bool $dirty = true;
 	private bool $contentOverridden = false;
 
 	/** @param array<string,string> $headers */
 	public function __construct(
-		private readonly HTMLDocument $document,
+		HTMLDocument|IndexedHtmlDocument $document,
 		int $status = self::HTTP_OK,
 		array $headers = [],
 	) {
+		if ($document instanceof IndexedHtmlDocument) {
+			$this->indexedDocument = $document;
+			$this->document = $document->document();
+		} else {
+			$this->indexedDocument = null;
+			$this->document = $document;
+		}
 		parent::__construct('', $status, $headers);
 		$this->dirty = true;
 		$this->contentOverridden = false;
@@ -33,6 +43,11 @@ final class DomHtmlResponse extends Response
 	public function document(): HTMLDocument
 	{
 		return $this->document;
+	}
+
+	public function indexedDocument(): IndexedHtmlDocument
+	{
+		return $this->indexedDocument ??= IndexedHtmlDocument::fromDocument($this->document, lazyIndex: true);
 	}
 
 	/**

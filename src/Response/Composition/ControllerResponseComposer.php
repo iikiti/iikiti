@@ -60,7 +60,7 @@ final class ControllerResponseComposer
 			$composer->insertBefore($fragment->target, $fragment->value, $fragment->order);
 		}
 
-		return new DomHtmlResponse($composer->document(), $plan->status, $plan->headers);
+		return new DomHtmlResponse($composer->indexedDocument(), $plan->status, $plan->headers);
 	}
 
 	/** @param list<array{fragment:ResponseFragment,sequence:int}> $fragments */

@@ -6,6 +6,7 @@ namespace iikiti\CMS\Response\Composition;
 
 use Dom\DocumentFragment;
 use Dom\HTMLDocument;
+use Jimbo2150\CssIndexedDom\IndexedHtmlDocument;
 use RuntimeException;
 
 /** Inserts trusted rendered HTML fragments at explicit placeholders. */
@@ -14,13 +15,17 @@ final class HtmlFragmentComposer
 	/** @var list<array{selector:string,html:string|DocumentFragment,order:int,sequence:int}> */
 	private array $fragments = [];
 	private int $sequence = 0;
-	private readonly HTMLDocument $document;
+	private readonly IndexedHtmlDocument $indexedDocument;
 
-	public function __construct(string|HTMLDocument $documentHtml)
+	public function __construct(string|HTMLDocument|IndexedHtmlDocument $documentHtml)
 	{
-		$this->document = $documentHtml instanceof HTMLDocument
-			? $documentHtml
-			: HTMLDocument::createFromString($documentHtml, LIBXML_COMPACT | LIBXML_NOERROR);
+		if ($documentHtml instanceof IndexedHtmlDocument) {
+			$this->indexedDocument = $documentHtml;
+		} elseif ($documentHtml instanceof HTMLDocument) {
+			$this->indexedDocument = IndexedHtmlDocument::fromDocument($documentHtml, lazyIndex: true);
+		} else {
+			$this->indexedDocument = IndexedHtmlDocument::createFromString($documentHtml, LIBXML_COMPACT | LIBXML_NOERROR, lazyIndex: true);
+		}
 	}
 
 	public function insertBefore(string $selector, string|DocumentFragment $html, int $order = 0): void
@@ -46,7 +51,7 @@ final class HtmlFragmentComposer
 	public function insertFragmentIntoPlaceholder(string $selector, DocumentFragment $fragment): void
 	{
 		$this->flush();
-		$placeholder = $this->document->querySelector($selector);
+		$placeholder = $this->indexedDocument->querySelector($selector);
 		if (null === $placeholder) {
 			throw new RuntimeException(sprintf('HTML fragment placeholder "%s" was not found.', $selector));
 		}
@@ -63,14 +68,14 @@ final class HtmlFragmentComposer
 
 	public function hasPlaceholder(string $selector): bool
 	{
-		return null !== $this->document->querySelector($selector);
+		return null !== $this->indexedDocument->querySelector($selector);
 	}
 
 	/** @param array<string,string> $embeddedHtml async embed token => HTML */
 	public function replaceDeferredEmbeds(array $embeddedHtml): void
 	{
 		$this->flush();
-		$placeholders = $this->document->querySelectorAll('template[data-iikiti-async-embed]');
+		$placeholders = $this->indexedDocument->querySelectorAll('template[data-iikiti-async-embed]');
 		foreach ($placeholders as $placeholder) {
 			$token = $placeholder->getAttribute('data-iikiti-async-embed');
 			$this->replaceNodeForElement($placeholder, $embeddedHtml[$token] ?? '');
@@ -81,14 +86,21 @@ final class HtmlFragmentComposer
 	{
 		$this->flush();
 
-		return $this->document;
+		return $this->indexedDocument->document();
+	}
+
+	public function indexedDocument(): IndexedHtmlDocument
+	{
+		$this->flush();
+
+		return $this->indexedDocument;
 	}
 
 	public function render(): string
 	{
 		$this->flush();
 
-		return $this->document->saveHTML($this->document);
+		return $this->indexedDocument->saveHtml();
 	}
 
 	private function flush(): void
@@ -99,8 +111,9 @@ final class HtmlFragmentComposer
 		}
 		$this->fragments = [];
 
+		$document = $this->indexedDocument->document();
 		foreach ($grouped as $selector => $fragments) {
-			$placeholder = $this->document->querySelector($selector);
+			$placeholder = $this->indexedDocument->querySelector($selector);
 			$parent = $placeholder?->parentNode;
 			if (null === $placeholder || null === $parent) {
 				throw new RuntimeException(sprintf('HTML fragment placeholder "%s" was not found.', $selector));
@@ -108,19 +121,18 @@ final class HtmlFragmentComposer
 
 			usort($fragments, static fn (array $left, array $right): int =>
 				$left['order'] <=> $right['order'] ?: $left['sequence'] <=> $right['sequence']);
-			$combined = $this->document->createDocumentFragment();
+			$combined = $document->createDocumentFragment();
 			foreach ($fragments as $fragment) {
 				$combined->append($this->fragmentForDocument($fragment['html'], $parent->nodeName));
 			}
 
-			$parent->insertBefore($combined, $placeholder);
-			$parent->removeChild($placeholder);
+			$this->indexedDocument->replaceWith($placeholder, $combined);
 		}
 	}
 
 	private function replaceNode(string $selector, string|DocumentFragment $html): void
 	{
-		$placeholder = $this->document->querySelector($selector);
+		$placeholder = $this->indexedDocument->querySelector($selector);
 		if (null === $placeholder) {
 			throw new RuntimeException(sprintf('HTML fragment placeholder "%s" was not found.', $selector));
 		}
@@ -144,9 +156,10 @@ final class HtmlFragmentComposer
 			return $this->parseFragment($html, $context);
 		}
 
-		$fragment = $this->document->createDocumentFragment();
+		$document = $this->indexedDocument->document();
+		$fragment = $document->createDocumentFragment();
 		foreach ($html->childNodes as $child) {
-			$fragment->append($this->document->importNode($child, true));
+			$fragment->append($document->importNode($child, true));
 		}
 
 		return $fragment;
@@ -154,18 +167,17 @@ final class HtmlFragmentComposer
 
 	private function insertFragmentForElement(\Dom\Element $placeholder, DocumentFragment $fragment): void
 	{
-		$parent = $placeholder->parentNode;
-		if (null === $parent) {
+		if (null === $placeholder->parentNode) {
 			throw new RuntimeException('HTML fragment placeholder has no parent.');
 		}
 
-		$parent->insertBefore($fragment, $placeholder);
-		$parent->removeChild($placeholder);
+		$this->indexedDocument->replaceWith($placeholder, $fragment);
 	}
 
 	private function parseFragment(string $html, string $context = 'body'): DocumentFragment
 	{
-		$fragment = $this->document->createDocumentFragment();
+		$document = $this->indexedDocument->document();
+		$fragment = $document->createDocumentFragment();
 		if ('' === $html) {
 			return $fragment;
 		}
@@ -191,7 +203,7 @@ final class HtmlFragmentComposer
 		}
 
 		foreach ($container->childNodes as $child) {
-			$fragment->append($this->document->importNode($child, true));
+			$fragment->append($document->importNode($child, true));
 		}
 
 		return $fragment;

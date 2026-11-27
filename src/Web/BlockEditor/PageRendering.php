@@ -72,7 +72,7 @@ final class PageRendering
 			$renderContext,
 			$state['region_trees'],
 			$composer,
-			'[data-iikiti-fragment="page"]',
+			'template[data-iikiti-fragment="page"]',
 			resolutionContext: $state['resolution_context'],
 		);
 
@@ -82,11 +82,11 @@ final class PageRendering
 		$iconFont = [] !== $fontPaths
 			? $this->twig->render('base/_icon_font_link.twig', ['iikiti_icon_font_paths' => $fontPaths])
 			: '';
-		$composer->insertIntoPlaceholder('[data-iikiti-fragment="icon-font"]', $iconFont);
+		$composer->insertIntoPlaceholder('template[data-iikiti-fragment="icon-font"]', $iconFont);
 
-		$composer->insertIntoPlaceholder('[data-iikiti-fragment="custom-css"]', $this->customCssHtml($customCss, $state['editor_mode']));
+		$composer->insertIntoPlaceholder('template[data-iikiti-fragment="custom-css"]', $this->customCssHtml($customCss, $state['editor_mode']));
 
-		return new DomHtmlResponse($composer->document());
+		return new DomHtmlResponse($composer->indexedDocument());
 	}
 
 	/**

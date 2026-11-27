@@ -282,13 +282,17 @@ single-URL fallback and cannot join the already-started batch.
 ## Response Composition
 
 For direct API-role rendering, `PageRendering` creates the base
-`Dom\HTMLDocument` and `TemplateRenderer` inserts local region and shell
+`Dom\HTMLDocument` wrapped in `Jimbo2150\CssIndexedDom\IndexedHtmlDocument` via
+`HtmlFragmentComposer` and `TemplateRenderer` inserts local region and shell
 fragments as before. In consumer mode, the API produces the skeleton and
 server-authored slot manifest; `PublicPageApiProxy` fetches each region, shell,
 and widget fragment through `FiberHttpClient`, inserts the returned trusted HTML
-and CSS into the same DOM document, then returns a `DomHtmlResponse`. The HTML output
-filter can minify that retained document without reparsing the completed page
-string. Legacy full-page API and template/string responses remain supported.
+and CSS into the same `IndexedHtmlDocument`, then returns a `DomHtmlResponse`
+carrying that retained wrapper. `OutputParser` (`HtmlFilter`,
+`InlineCssFilter`, `InlineJavaScriptFilter`, and plugin
+`ResponseFilterInterface` filters) reuses the same `IndexedHtmlDocument` and
+its incrementally updated selector index without reparsing the completed page
+string or rebuilding the index. Legacy full-page API and template/string responses remain supported.
 Fragments are trusted rendered Twig HTML, not sanitized input; untrusted values
 must remain escaped by Twig.
 

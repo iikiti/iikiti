@@ -1184,6 +1184,18 @@ the SSE reader uses authenticated `fetch` so API tokens stay in headers.
 
 ## Inline asset response filters
 
+Main HTML responses share a lazily-indexed `Jimbo2150\CssIndexedDom\IndexedHtmlDocument`
+across `OutputParser`'s single-pass DOM filter pipeline (`HtmlFilter`,
+`InlineCssFilter`, `InlineJavaScriptFilter`, and tagged
+`ResponseFilterInterface` services). Subclasses of
+`iikiti\CMS\Filters\AbstractFilter` receive that wrapper from
+`self::getHtmlDocument($event)`, accelerating CSS selector lookups such as
+`querySelector()` and `querySelectorAll()`. When mutating the DOM inside a
+response filter, use `IndexedHtmlDocument`'s mutation helpers (`addClass()`,
+`removeClass()`, `setAttribute()`, `append()`, `replaceWith()`, etc.) to keep
+the index synchronized, or call `$document->invalidate()` after direct mutations
+on `$document->document()`.
+
 Main HTML responses minify CSS in `<style>` elements using the core
 `jimbo2150/php-css-typed-om` parser and `CSSRenderer` minified mode, and
 JavaScript in inline `<script>` elements. `style` attributes, scripts with a

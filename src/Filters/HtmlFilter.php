@@ -5,6 +5,7 @@ namespace iikiti\CMS\Filters;
 use Dom\Document;
 use Dom\Node;
 use iikiti\CMS\Utility\Variable as V;
+use Jimbo2150\CssIndexedDom\IndexedHtmlDocument;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\Stopwatch\Stopwatch;
 
@@ -53,9 +54,10 @@ class HtmlFilter extends AbstractFilter
 		$stopwatch?->stop('html_save');
 	}
 
-	protected static function minifyHtml(Document $dom): void
+	protected static function minifyHtml(IndexedHtmlDocument|Document $dom): void
 	{
-		self::minifyNode($dom);
+		$node = $dom instanceof IndexedHtmlDocument ? $dom->document() : $dom;
+		self::minifyNode($node);
 	}
 
 	private static function minifyNode(Node $node): void

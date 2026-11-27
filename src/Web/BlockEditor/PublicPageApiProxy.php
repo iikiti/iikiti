@@ -17,6 +17,7 @@ use iikiti\CMS\Response\Composition\DomHtmlResponse;
 use iikiti\CMS\Response\Composition\HtmlFragmentComposer;
 use iikiti\CMS\Security\GuestApiTokenManager;
 use iikiti\CMS\Web\Template\HttpErrorPageRenderer;
+use Jimbo2150\CssIndexedDom\IndexedHtmlDocument;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -680,7 +681,7 @@ final readonly class PublicPageApiProxy
 	 * @param array{html:string,styles:list<array{id:?string,css:string}>,editor_mode:bool,revision:string,fragments:list<array<string,mixed>>} $manifest
 	 * @param array<string,mixed>                                                                                                               $renderedFragments
 	 */
-	private function composeDocument(array $manifest, array $renderedFragments, string $siteHost): \Dom\HTMLDocument
+	private function composeDocument(array $manifest, array $renderedFragments, string $siteHost): IndexedHtmlDocument
 	{
 		$composer = new HtmlFragmentComposer($this->rewriteAssetUrls($manifest['html'], $siteHost));
 		$styleFragments = $manifest['styles'];
@@ -713,8 +714,8 @@ final readonly class PublicPageApiProxy
 			}
 		}
 		$styles = $this->renderStyles($styleFragments, $manifest['editor_mode'], $siteHost);
-		$composer->insertIntoPlaceholder('[data-iikiti-fragment="custom-css"]', $styles);
-		$document = $composer->document();
+		$composer->insertIntoPlaceholder('template[data-iikiti-fragment="custom-css"]', $styles);
+		$document = $composer->indexedDocument();
 		$this->applyAssetCrossOrigin($document, $this->assetBaseUrl($siteHost));
 
 		return $document;
@@ -801,7 +802,7 @@ final readonly class PublicPageApiProxy
 		return $this->api->getBaseUrl().'/api/public/sites/'.rawurlencode($siteHost).'/assets/';
 	}
 
-	private function applyAssetCrossOrigin(\Dom\HTMLDocument $document, string $assetBase): void
+	private function applyAssetCrossOrigin(IndexedHtmlDocument $document, string $assetBase): void
 	{
 		foreach ($document->querySelectorAll('img, video') as $element) {
 			if ($element->hasAttribute('crossorigin')) {
@@ -814,7 +815,7 @@ final readonly class PublicPageApiProxy
 				|| str_contains($srcset, $assetBase)
 				|| str_contains($poster, $assetBase);
 			if (!$matchesAsset && 'VIDEO' === strtoupper($element->nodeName)) {
-				foreach ($element->querySelectorAll('source') as $source) {
+				foreach ($document->querySelectorAll('source', $element) as $source) {
 					if (str_contains($source->getAttribute('src') ?? '', $assetBase)) {
 						$matchesAsset = true;
 						break;
@@ -822,7 +823,7 @@ final readonly class PublicPageApiProxy
 				}
 			}
 			if ($matchesAsset) {
-				$element->setAttribute('crossorigin', 'use-credentials');
+				$document->setAttribute($element, 'crossorigin', 'use-credentials');
 			}
 		}
 	}

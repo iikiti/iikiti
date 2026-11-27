@@ -4,6 +4,7 @@ namespace iikiti\CMS\Filters;
 
 use Dom\HTMLDocument;
 use iikiti\CMS\Response\Composition\DomHtmlResponse;
+use Jimbo2150\CssIndexedDom\IndexedHtmlDocument;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
@@ -38,21 +39,27 @@ class AbstractFilter
 			str_starts_with($response->headers->get($ctHeader) ?? $htmlMime, $htmlMime);
 	}
 
-	protected static function getHtmlDocument(ResponseEvent $event): HTMLDocument
+	protected static function getHtmlDocument(ResponseEvent $event): IndexedHtmlDocument
 	{
 		$request = $event->getRequest();
 		$isDeferred = true === $request->attributes->get(self::DEFER_HTML_SAVE_ATTRIBUTE);
 		if ($isDeferred) {
 			$document = $request->attributes->get(self::HTML_DOCUMENT_ATTRIBUTE);
-			if ($document instanceof HTMLDocument) {
+			if ($document instanceof IndexedHtmlDocument) {
 				return $document;
+			}
+			if ($document instanceof HTMLDocument) {
+				$indexed = IndexedHtmlDocument::fromDocument($document, lazyIndex: true);
+				$request->attributes->set(self::HTML_DOCUMENT_ATTRIBUTE, $indexed);
+
+				return $indexed;
 			}
 		}
 
 		$response = $event->getResponse();
 		$document = $response instanceof DomHtmlResponse && $response->isDocumentCurrent()
-			? $response->document()
-			: HTMLDocument::createFromString((string) $response->getContent(), LIBXML_COMPACT | LIBXML_NOERROR);
+			? $response->indexedDocument()
+			: IndexedHtmlDocument::createFromString((string) $response->getContent(), LIBXML_COMPACT | LIBXML_NOERROR, lazyIndex: true);
 		if ($isDeferred) {
 			$request->attributes->set(self::HTML_DOCUMENT_ATTRIBUTE, $document);
 		}
@@ -60,10 +67,21 @@ class AbstractFilter
 		return $document;
 	}
 
-	protected static function saveHtmlDocument(ResponseEvent $event, HTMLDocument $document): void
+	protected static function saveHtmlDocument(ResponseEvent $event, IndexedHtmlDocument|HTMLDocument $document): void
 	{
 		$request = $event->getRequest();
 		if (true === $request->attributes->get(self::DEFER_HTML_SAVE_ATTRIBUTE)) {
+			if ($document instanceof HTMLDocument) {
+				$existing = $request->attributes->get(self::HTML_DOCUMENT_ATTRIBUTE);
+				if ($existing instanceof IndexedHtmlDocument && $existing->document() === $document) {
+					// Raw DOM mutations outside the wrapper may invalidate its index buckets.
+					$existing->invalidate();
+					$document = $existing;
+				} else {
+					$document = IndexedHtmlDocument::fromDocument($document, lazyIndex: true);
+				}
+			}
+
 			$request->attributes->set(self::HTML_DOCUMENT_ATTRIBUTE, $document);
 			$request->attributes->set(self::HTML_DOCUMENT_DIRTY_ATTRIBUTE, true);
 			$response = $event->getResponse();
@@ -76,7 +94,10 @@ class AbstractFilter
 
 		$request->attributes->remove(self::HTML_DOCUMENT_DIRTY_ATTRIBUTE);
 		$request->attributes->remove(self::HTML_DOCUMENT_ATTRIBUTE);
-		$event->getResponse()->setContent($document->saveHTML($document));
+		$html = $document instanceof IndexedHtmlDocument
+			? $document->saveHtml()
+			: $document->saveHTML($document);
+		$event->getResponse()->setContent($html);
 	}
 
 	/**
@@ -91,7 +112,9 @@ class AbstractFilter
 		$request->attributes->remove(self::HTML_DOCUMENT_DIRTY_ATTRIBUTE);
 		$request->attributes->remove(self::HTML_DOCUMENT_ATTRIBUTE);
 
-		if ($isDirty && $document instanceof HTMLDocument) {
+		if ($isDirty && $document instanceof IndexedHtmlDocument) {
+			$event->getResponse()->setContent($document->saveHtml());
+		} elseif ($isDirty && $document instanceof HTMLDocument) {
 			$event->getResponse()->setContent($document->saveHTML($document));
 		}
 	}

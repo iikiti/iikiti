@@ -93,4 +93,25 @@ final class HtmlFragmentComposerTest extends TestCase
 		$sent = ob_get_clean();
 		self::assertSame('<html><body><script nonce="abc"></script></body></html>', $sent);
 	}
+
+	public function testComposerMaintainsSingleIndexedDocumentAcrossMutationsAndDomHtmlResponse(): void
+	{
+		$composer = new HtmlFragmentComposer(
+			'<!DOCTYPE html><html><head><template data-iikiti-fragment="custom-css"></template></head><body><template id="before"></template><template id="main"></template></body></html>',
+		);
+		$composer->insertBefore('#before', '<aside class="slot-item">Before</aside>', order: 10);
+		$composer->insertIntoPlaceholder('template[data-iikiti-fragment="custom-css"]', '<style>.slot-item{color:blue}</style>');
+		$composer->insertIntoPlaceholder('#main', '<main><template data-iikiti-async-embed="e1"></template></main>');
+		$composer->replaceDeferredEmbeds(['e1' => '<p class="slot-item embedded">Async</p>']);
+
+		$indexedDocument = $composer->indexedDocument();
+		$response = new DomHtmlResponse($indexedDocument);
+
+		self::assertSame($indexedDocument, $response->indexedDocument());
+		self::assertSame($indexedDocument->document(), $response->document());
+		self::assertFalse($indexedDocument->isDirty());
+		self::assertSame(1, $indexedDocument->indexStats()->rebuildCount);
+		self::assertSame(2, $indexedDocument->querySelectorAll('.slot-item')->count());
+		self::assertSame('Async', $indexedDocument->querySelector('.slot-item.embedded')?->textContent);
+	}
 }

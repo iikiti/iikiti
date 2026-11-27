@@ -6,6 +6,7 @@ namespace iikiti\CMS\Response\Composition;
 
 use Dom\HTMLDocument;
 use iikiti\CMS\Async\Promise;
+use Jimbo2150\CssIndexedDom\IndexedHtmlDocument;
 
 /** Opt-in response plan returned by ordinary Symfony controller actions. */
 final readonly class ControllerResponsePlan
@@ -19,7 +20,7 @@ final readonly class ControllerResponsePlan
 		public array $operations,
 		public int $status,
 		public array $headers,
-		public string|HTMLDocument|null $documentHtml = null,
+		public string|HTMLDocument|IndexedHtmlDocument|null $documentHtml = null,
 		public ?string $contentType = null,
 		public float $timeoutSeconds = 5.0,
 	) {
@@ -29,7 +30,7 @@ final readonly class ControllerResponsePlan
 	 *  @param array<string,string> $headers
 	 */
 	public static function html(
-		string|HTMLDocument $documentSkeleton,
+		string|HTMLDocument|IndexedHtmlDocument $documentSkeleton,
 		array $operations,
 		int $status = 200,
 		array $headers = [],
