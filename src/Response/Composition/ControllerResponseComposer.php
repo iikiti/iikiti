@@ -7,6 +7,7 @@ namespace iikiti\CMS\Response\Composition;
 use Dom\DocumentFragment;
 use iikiti\CMS\Async\FiberTaskRunner;
 use iikiti\CMS\Profiler\AsyncResponseDataCollector;
+use Jimbo2150\CssIndexedDom\IndexedDocumentFragment;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -54,7 +55,7 @@ final class ControllerResponseComposer
 		$composer = new HtmlFragmentComposer($plan->documentHtml);
 		foreach ($fragments as $entry) {
 			$fragment = $entry['fragment'];
-			if (null === $fragment->target || (!is_string($fragment->value) && !$fragment->value instanceof DocumentFragment)) {
+			if (null === $fragment->target || (!is_string($fragment->value) && !$fragment->value instanceof DocumentFragment && !$fragment->value instanceof IndexedDocumentFragment)) {
 				throw new \UnexpectedValueException('HTML fragments require a target selector and a string or DOM fragment.');
 			}
 			$composer->insertBefore($fragment->target, $fragment->value, $fragment->order);

@@ -299,9 +299,10 @@ must remain escaped by Twig.
 Ordinary Symfony controllers can opt into `ControllerResponseComposer` by
 returning its response. Each operation returns a typed `ResponseFragment`; the
 plan chooses an HTML document skeleton, JSON object, JSON list, or buffered text
-response. HTML plans can receive an existing `Dom\HTMLDocument` or a skeleton
-string. HTML fragments may be trusted strings or `Dom\DocumentFragment`
-instances imported into that document. For example:
+response. HTML plans can receive an existing `Dom\HTMLDocument`,
+`IndexedHtmlDocument`, or a skeleton string. HTML fragments may be trusted
+strings, `Dom\DocumentFragment`, or `IndexedDocumentFragment` instances
+spliced or imported into that document. For example:
 
 ```php
 return $responseComposer->compose(ControllerResponsePlan::html($skeleton, [

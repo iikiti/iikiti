@@ -6,6 +6,7 @@ namespace iikiti\CMS\Tests\Response\Composition;
 
 use iikiti\CMS\Response\Composition\HtmlFragmentComposer;
 use iikiti\CMS\Response\Composition\DomHtmlResponse;
+use Jimbo2150\CssIndexedDom\IndexedDocumentFragment;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
@@ -113,5 +114,39 @@ final class HtmlFragmentComposerTest extends TestCase
 		self::assertSame(1, $indexedDocument->indexStats()->rebuildCount);
 		self::assertSame(2, $indexedDocument->querySelectorAll('.slot-item')->count());
 		self::assertSame('Async', $indexedDocument->querySelector('.slot-item.embedded')?->textContent);
+	}
+
+	public function testComposerAcceptsSameDocumentAndCrossDocumentIndexedDocumentFragments(): void
+	{
+		$composer = new HtmlFragmentComposer(
+			'<!DOCTYPE html><html><body><template id="before"></template><template id="same"></template><template id="cross"></template></body></html>',
+		);
+		$doc = $composer->indexedDocument();
+		self::assertTrue($doc->isDirty());
+		self::assertSame(0, $doc->querySelectorAll('.item')->count());
+		self::assertFalse($doc->isDirty());
+		self::assertSame(1, $doc->indexStats()->rebuildCount);
+
+		$sameFrag = $doc->createFragment('<div class="item">Initial</div>');
+		$itemEl = $sameFrag->querySelector('.item');
+		self::assertNotNull($itemEl);
+		$sameFrag->addClass($itemEl, 'same-doc');
+
+		$crossBeforeFrag = IndexedDocumentFragment::createFromString('<aside class="item cross-before">Before</aside>');
+		$crossReplaceFrag = IndexedDocumentFragment::createFromString('<section class="item cross-replace">Cross</section>');
+
+		$composer->insertBefore('#before', $crossBeforeFrag, order: 10);
+		$composer->insertFragmentIntoPlaceholder('#same', $sameFrag);
+		$composer->insertIntoPlaceholder('#cross', $crossReplaceFrag);
+
+		$finalDoc = $composer->indexedDocument();
+		self::assertTrue($sameFrag->isDirty());
+		self::assertFalse($crossBeforeFrag->isDirty());
+		self::assertFalse($finalDoc->isDirty());
+		self::assertSame(1, $finalDoc->indexStats()->rebuildCount);
+		self::assertSame(3, $finalDoc->querySelectorAll('.item')->count());
+		self::assertSame('Initial', $finalDoc->querySelector('.item.same-doc')?->textContent);
+		self::assertSame('Before', $finalDoc->querySelector('.item.cross-before')?->textContent);
+		self::assertSame('Cross', $finalDoc->querySelector('.item.cross-replace')?->textContent);
 	}
 }

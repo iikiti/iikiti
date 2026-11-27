@@ -6,13 +6,14 @@ namespace iikiti\CMS\Response\Composition;
 
 use Dom\DocumentFragment;
 use Dom\HTMLDocument;
+use Jimbo2150\CssIndexedDom\IndexedDocumentFragment;
 use Jimbo2150\CssIndexedDom\IndexedHtmlDocument;
 use RuntimeException;
 
 /** Inserts trusted rendered HTML fragments at explicit placeholders. */
 final class HtmlFragmentComposer
 {
-	/** @var list<array{selector:string,html:string|DocumentFragment,order:int,sequence:int}> */
+	/** @var list<array{selector:string,html:string|DocumentFragment|IndexedDocumentFragment,order:int,sequence:int}> */
 	private array $fragments = [];
 	private int $sequence = 0;
 	private readonly IndexedHtmlDocument $indexedDocument;
@@ -28,7 +29,7 @@ final class HtmlFragmentComposer
 		}
 	}
 
-	public function insertBefore(string $selector, string|DocumentFragment $html, int $order = 0): void
+	public function insertBefore(string $selector, string|DocumentFragment|IndexedDocumentFragment $html, int $order = 0): void
 	{
 		if ('' === trim($selector)) {
 			throw new \InvalidArgumentException('A fragment insertion selector is required.');
@@ -42,13 +43,13 @@ final class HtmlFragmentComposer
 		];
 	}
 
-	public function insertIntoPlaceholder(string $selector, string|DocumentFragment $html): void
+	public function insertIntoPlaceholder(string $selector, string|DocumentFragment|IndexedDocumentFragment $html): void
 	{
 		$this->flush();
 		$this->replaceNode($selector, $html);
 	}
 
-	public function insertFragmentIntoPlaceholder(string $selector, DocumentFragment $fragment): void
+	public function insertFragmentIntoPlaceholder(string $selector, DocumentFragment|IndexedDocumentFragment $fragment): void
 	{
 		$this->flush();
 		$placeholder = $this->indexedDocument->querySelector($selector);
@@ -130,7 +131,7 @@ final class HtmlFragmentComposer
 		}
 	}
 
-	private function replaceNode(string $selector, string|DocumentFragment $html): void
+	private function replaceNode(string $selector, string|DocumentFragment|IndexedDocumentFragment $html): void
 	{
 		$placeholder = $this->indexedDocument->querySelector($selector);
 		if (null === $placeholder) {
@@ -140,38 +141,66 @@ final class HtmlFragmentComposer
 		$this->replaceNodeForElement($placeholder, $html);
 	}
 
-	private function replaceNodeForElement(\Dom\Element $placeholder, string|DocumentFragment $html): void
+	private function replaceNodeForElement(\Dom\Element $placeholder, string|DocumentFragment|IndexedDocumentFragment $html): void
 	{
 		$parent = $placeholder->parentNode;
 		if (null === $parent) {
 			throw new RuntimeException('HTML fragment placeholder has no parent.');
 		}
 
-		$this->insertFragmentForElement($placeholder, $this->fragmentForDocument($html, $parent->nodeName));
+		if ($html instanceof DocumentFragment || $html instanceof IndexedDocumentFragment) {
+			$this->insertFragmentForElement($placeholder, $html);
+
+			return;
+		}
+
+		$this->insertFragmentForElement($placeholder, $this->parseFragment($html, $parent->nodeName));
 	}
 
-	private function fragmentForDocument(string|DocumentFragment $html, string $context): DocumentFragment
+	private function fragmentForDocument(string|DocumentFragment|IndexedDocumentFragment $html, string $context): DocumentFragment
 	{
 		if (is_string($html)) {
 			return $this->parseFragment($html, $context);
 		}
 
 		$document = $this->indexedDocument->document();
+		$source = $html instanceof IndexedDocumentFragment ? $html->fragment() : $html;
+		if ($source->ownerDocument === $document) {
+			if ($html instanceof IndexedDocumentFragment) {
+				// Its children are moved out into the combined fragment below.
+				$html->invalidate();
+			}
+
+			return $source;
+		}
+
 		$fragment = $document->createDocumentFragment();
-		foreach ($html->childNodes as $child) {
+		foreach ($source->childNodes as $child) {
 			$fragment->append($document->importNode($child, true));
 		}
 
 		return $fragment;
 	}
 
-	private function insertFragmentForElement(\Dom\Element $placeholder, DocumentFragment $fragment): void
+	private function insertFragmentForElement(\Dom\Element $placeholder, DocumentFragment|IndexedDocumentFragment $fragment): void
 	{
-		if (null === $placeholder->parentNode) {
+		$parent = $placeholder->parentNode;
+		if (null === $parent) {
 			throw new RuntimeException('HTML fragment placeholder has no parent.');
 		}
 
-		$this->indexedDocument->replaceWith($placeholder, $fragment);
+		$document = $this->indexedDocument->document();
+		if ($fragment instanceof IndexedDocumentFragment) {
+			$prepared = $fragment->document() === $document
+				? $fragment
+				: $this->fragmentForDocument($fragment, $parent->nodeName);
+		} else {
+			$prepared = $fragment->ownerDocument === $document
+				? $fragment
+				: $this->fragmentForDocument($fragment, $parent->nodeName);
+		}
+
+		$this->indexedDocument->replaceWith($placeholder, $prepared);
 	}
 
 	private function parseFragment(string $html, string $context = 'body'): DocumentFragment
@@ -182,28 +211,22 @@ final class HtmlFragmentComposer
 			return $fragment;
 		}
 
-		$tag = strtolower($context);
-		[$prefix, $suffix, $selector] = match ($tag) {
-			'head' => ['<!DOCTYPE html><html><head>', '</head><body></body></html>', 'head'],
-			'table' => ['<!DOCTYPE html><html><body><table>', '</table></body></html>', 'table'],
-			'tbody', 'thead', 'tfoot' => ['<!DOCTYPE html><html><body><table><'.$tag.'>', '</'.$tag.'></table></body></html>', $tag],
-			'tr' => ['<!DOCTYPE html><html><body><table><tbody><tr>', '</tr></tbody></table></body></html>', 'tr'],
-			'colgroup' => ['<!DOCTYPE html><html><body><table><colgroup>', '</colgroup></table></body></html>', 'colgroup'],
-			'select' => ['<!DOCTYPE html><html><body><select>', '</select></body></html>', 'select'],
-			'optgroup' => ['<!DOCTYPE html><html><body><select><optgroup>', '</optgroup></select></body></html>', 'optgroup'],
-			default => ['<!DOCTYPE html><html><head></head><body>', '</body></html>', 'body'],
+		$contextTag = match (strtolower($context)) {
+			'head' => 'head',
+			'table' => 'table',
+			'tbody' => 'tbody',
+			'thead' => 'thead',
+			'tfoot' => 'tfoot',
+			'tr' => 'tr',
+			'colgroup' => 'colgroup',
+			'select' => 'select',
+			'optgroup' => 'optgroup',
+			default => 'body',
 		};
-		$fragmentDocument = HTMLDocument::createFromString(
-			$prefix.$html.$suffix,
-			LIBXML_COMPACT | LIBXML_NOERROR,
-		);
-		$container = $fragmentDocument->querySelector($selector);
-		if (null === $container) {
-			return $fragment;
-		}
-
-		foreach ($container->childNodes as $child) {
-			$fragment->append($document->importNode($child, true));
+		$container = $document->createElement($contextTag);
+		$container->innerHTML = $html;
+		while (null !== $container->firstChild) {
+			$fragment->appendChild($container->firstChild);
 		}
 
 		return $fragment;

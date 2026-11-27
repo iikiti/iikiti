@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace iikiti\CMS\Response\Composition;
 
 use Dom\DocumentFragment;
+use Jimbo2150\CssIndexedDom\IndexedDocumentFragment;
 
 final readonly class ResponseFragment
 {
@@ -16,7 +17,7 @@ final readonly class ResponseFragment
 	) {
 	}
 
-	public static function html(string $target, string|DocumentFragment $html, int $order = 0): self
+	public static function html(string $target, string|DocumentFragment|IndexedDocumentFragment $html, int $order = 0): self
 	{
 		if ('' === trim($target)) {
 			throw new \InvalidArgumentException('An HTML fragment target selector is required.');

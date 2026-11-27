@@ -14,6 +14,7 @@ use iikiti\CMS\Response\Composition\DomHtmlResponse;
 use iikiti\CMS\Response\Composition\ResponseFragment;
 use iikiti\CMS\Tests\Support\Async\ControllableHttpClient;
 use iikiti\CMS\Tests\Support\Async\ControllableResponse;
+use Jimbo2150\CssIndexedDom\IndexedDocumentFragment;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
@@ -82,6 +83,24 @@ final class ControllerResponseComposerTest extends TestCase
 		self::assertInstanceOf(DomHtmlResponse::class, $response);
 		self::assertNotNull($response->document()->querySelector('main article'));
 		self::assertStringContainsString('<article>DOM fragment</article>', $response->getContent());
+	}
+
+	public function testControllerCanReturnAnIndexedDocumentFragment(): void
+	{
+		$indexedFragment = IndexedDocumentFragment::createFromString('<article class="card">Indexed fragment</article>');
+		$card = $indexedFragment->querySelector('.card');
+		self::assertNotNull($card);
+		$indexedFragment->addClass($card, 'highlighted');
+
+		$composer = new ControllerResponseComposer(new FiberTaskRunner(new MockHttpClient()));
+		$response = $composer->compose(ControllerResponsePlan::html(
+			'<!DOCTYPE html><html><body><main><template id="content"></template></main></body></html>',
+			['content' => Promise::async(static fn (FiberHttpClient $client): ResponseFragment => ResponseFragment::html('#content', $indexedFragment))],
+		));
+
+		self::assertInstanceOf(DomHtmlResponse::class, $response);
+		self::assertNotNull($response->indexedDocument()->querySelector('main article.card.highlighted'));
+		self::assertStringContainsString('<article class="card highlighted">Indexed fragment</article>', $response->getContent());
 	}
 
 	public function testControllerTextPlanUsesAnOrderedBufferAndPreservesCustomType(): void
