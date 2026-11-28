@@ -90,6 +90,60 @@ final class RequestLocaleSubscriberTest extends TestCase
 		self::assertNull($request->attributes->get(RequestLocaleSubscriber::REQUEST_CONTEXT_ATTRIBUTE)['userPreferred']);
 	}
 
+	public function testSkipsSecurityLookupWhenNoSiteContextIsLoaded(): void
+	{
+		$this->initializeSiteStack();
+
+		$security = $this->createMock(Security::class);
+		$security->expects(self::never())->method('getUser');
+		$applications = $this->createStub(ApplicationRegistry::class);
+		$applications->method('hasCurrentApplication')->willReturn(false);
+		$translator = $this->createMock(LocaleAwareInterface::class);
+		$translator->expects(self::once())->method('setLocale')->with('en');
+		$request = Request::create('/');
+
+		$subscriber = new RequestLocaleSubscriber(
+			$security,
+			$applications,
+			new LocaleResolver(),
+			$translator,
+		);
+		$subscriber->onKernelRequest($this->requestEvent($request));
+
+		self::assertSame('en', $request->getLocale());
+		self::assertSame([
+			'ui' => 'en',
+			'presentation' => 'en',
+			'userPreferred' => null,
+			'timeZone' => null,
+		], $request->attributes->get(RequestLocaleSubscriber::REQUEST_CONTEXT_ATTRIBUTE));
+	}
+
+	public function testSkipsSecurityLookupWhenSiteRegistryIsUninitialized(): void
+	{
+		(new \ReflectionProperty(SiteRegistry::class, 'siteStack'))->setValue(null, new \SplStack());
+		(new \ReflectionProperty(SiteRegistry::class, 'initialized'))->setValue(null, false);
+		(new \ReflectionProperty(SiteRegistry::class, 'populated'))->setValue(null, false);
+
+		$security = $this->createMock(Security::class);
+		$security->expects(self::never())->method('getUser');
+		$applications = $this->createStub(ApplicationRegistry::class);
+		$applications->method('hasCurrentApplication')->willReturn(false);
+		$translator = $this->createMock(LocaleAwareInterface::class);
+		$translator->expects(self::once())->method('setLocale')->with('en');
+		$request = Request::create('/');
+
+		$subscriber = new RequestLocaleSubscriber(
+			$security,
+			$applications,
+			new LocaleResolver(),
+			$translator,
+		);
+		$subscriber->onKernelRequest($this->requestEvent($request));
+
+		self::assertSame('en', $request->getLocale());
+	}
+
 	private function initializeSiteStack(): void
 	{
 		(new \ReflectionProperty(SiteRegistry::class, 'siteStack'))->setValue(null, new \SplStack());

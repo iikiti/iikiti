@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import * as acorn from 'acorn';
 import webpack from 'webpack';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -10,25 +11,84 @@ const mode = isProd ? 'production' : 'development';
 const esmOutputDir = path.join(rootDir, 'public/build/esm');
 const stripTsLoader = path.join(rootDir, 'assets/build/strip-ts-loader.cjs');
 const sveltePkgDir = path.join(rootDir, 'node_modules/svelte/src');
+const svelteRootDir = path.join(rootDir, 'node_modules/svelte');
 
-const SVELTE_SPECIFIERS = {
-	'svelte': path.join(sveltePkgDir, 'index-client.js'),
-	'svelte/internal/client': path.join(sveltePkgDir, 'internal/client/index.js'),
-	'svelte/internal/disclose-version': path.join(sveltePkgDir, 'internal/disclose-version.js'),
-	'svelte/internal/flags/async': path.join(sveltePkgDir, 'internal/flags/async.js'),
-	'svelte/internal/flags/legacy': path.join(sveltePkgDir, 'internal/flags/legacy.js'),
-	'svelte/internal/flags/tracing': path.join(sveltePkgDir, 'internal/flags/tracing.js'),
-	'svelte/store': path.join(sveltePkgDir, 'store/index-client.js'),
-	'svelte/transition': path.join(sveltePkgDir, 'transition/index.js'),
-	'svelte/animate': path.join(sveltePkgDir, 'animate/index.js'),
-	'svelte/easing': path.join(sveltePkgDir, 'easing/index.js'),
-	'svelte/motion': path.join(sveltePkgDir, 'motion/index.js'),
-	'svelte/reactivity': path.join(sveltePkgDir, 'reactivity/index-client.js'),
-	'svelte/reactivity/window': path.join(sveltePkgDir, 'reactivity/window/index.js'),
-	'svelte/attachments': path.join(sveltePkgDir, 'attachments/index.js'),
-	'svelte/events': path.join(sveltePkgDir, 'events/index.js'),
-	'svelte/legacy': path.join(sveltePkgDir, 'legacy/legacy-client.js'),
-};
+const EXCLUDED_SVELTE_EXPORTS = new Set([
+	'./package.json',
+	'./compiler',
+	'./server',
+	'./internal',
+	'./internal/server',
+]);
+
+function resolveSvelteBrowserSpecifiers(pkgRootDir) {
+	const pkgJsonPath = path.join(pkgRootDir, 'package.json');
+	const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
+	const exportsMap = pkg.exports ?? {};
+	const specifiers = {};
+
+	for (const [subpath, target] of Object.entries(exportsMap)) {
+		if (EXCLUDED_SVELTE_EXPORTS.has(subpath)) {
+			continue;
+		}
+		const resolved = typeof target === 'string'
+			? target
+			: (target?.browser ?? target?.default ?? null);
+		if (typeof resolved !== 'string' || !resolved.endsWith('.js')) {
+			continue;
+		}
+		const specifier = subpath === '.' ? 'svelte' : `svelte/${subpath.slice(2)}`;
+		specifiers[specifier] = path.join(pkgRootDir, resolved);
+	}
+
+	if (Object.keys(specifiers).length === 0) {
+		throw new Error(`No browser Svelte specifiers resolved from ${pkgJsonPath}.`);
+	}
+
+	return specifiers;
+}
+
+const SVELTE_SPECIFIERS = resolveSvelteBrowserSpecifiers(svelteRootDir);
+
+function isBareModuleSpecifier(specifier) {
+	return !specifier.startsWith('.')
+		&& !specifier.startsWith('/')
+		&& !specifier.startsWith('http:')
+		&& !specifier.startsWith('https:');
+}
+
+function extractBareSpecifiers(source) {
+	const bare = new Set();
+	const ast = acorn.parse(source, { ecmaVersion: 'latest', sourceType: 'module' });
+	for (const node of ast.body) {
+		if (
+			(node.type === 'ImportDeclaration'
+				|| node.type === 'ExportNamedDeclaration'
+				|| node.type === 'ExportAllDeclaration')
+			&& node.source
+			&& typeof node.source.value === 'string'
+			&& isBareModuleSpecifier(node.source.value)
+		) {
+			bare.add(node.source.value);
+		}
+	}
+	return bare;
+}
+
+function assertImportMapCoversBundles(manifestImports, bundleFiles) {
+	const missing = [];
+	for (const filePath of bundleFiles) {
+		const source = fs.readFileSync(filePath, 'utf8');
+		for (const specifier of extractBareSpecifiers(source)) {
+			if (!Object.prototype.hasOwnProperty.call(manifestImports, specifier)) {
+				missing.push(`${specifier} (referenced in ${path.relative(rootDir, filePath)})`);
+			}
+		}
+	}
+	if (missing.length > 0) {
+		throw new Error(`Unmapped bare module specifier(s) in built ESM bundles:\n- ${missing.join('\n- ')}`);
+	}
+}
 
 function flatEntryName(specifier) {
 	return specifier.replace(/\//g, '-');
@@ -229,6 +289,11 @@ async function build() {
 	// Pass 3: Monorepo plugin ESM bundles (externalizing svelte/* and @iikiti/ui)
 	const pluginEntriesPath = path.join(rootDir, 'assets/build/esm-entries.json');
 	const pluginEntries = JSON.parse(fs.readFileSync(pluginEntriesPath, 'utf8'));
+	const builtBundles = [
+		path.join(esmOutputDir, adminAsset),
+		path.join(esmOutputDir, editorAsset),
+		path.join(esmOutputDir, uiAsset),
+	];
 	let bundledCount = 0;
 	for (const spec of pluginEntries) {
 		if (spec.entry && spec.outputPath && spec.filename) {
@@ -260,6 +325,7 @@ async function build() {
 					rules: commonModuleRules(),
 				},
 			});
+			builtBundles.push(path.join(outDir, spec.filename));
 			bundledCount++;
 		}
 
@@ -278,6 +344,8 @@ async function build() {
 			}
 		}
 	}
+
+	assertImportMapCoversBundles(imports, builtBundles);
 
 	console.log(`Built ${Object.keys(imports).length} importmap entries and ${bundledCount} plugin ESM bundle(s) in ${mode} mode.`);
 }

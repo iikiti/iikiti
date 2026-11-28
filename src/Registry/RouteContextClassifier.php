@@ -174,15 +174,18 @@ final class RouteContextClassifier
 			|| ($publicPageRenderViaApi && in_array($route, ['home', 'page'], true));
 	}
 
-	public function matchesSiteAccessCheckExempt(Request $request, string $applicationRole): bool
-	{
+	public function matchesSiteAccessCheckExempt(
+		Request $request,
+		string $applicationRole,
+		bool $publicPageRenderViaApi = false,
+	): bool {
 		$route = $request->attributes->get('_route');
+		$routeName = is_string($route) ? $route : null;
 		$path = $request->getPathInfo();
 
 		return 'consumer' === $applicationRole
-			|| in_array($route, ['admin_home', 'admin_spa', 'html_login'], true)
-			|| 'api_internal_response_headers_resolve' === $route
-			|| $this->matchesApplicationAdminSettingsPath($path)
+			|| $this->matchesSiteIndependentRoute($routeName, $path, $applicationRole, $publicPageRenderViaApi)
+			|| $this->matchesInternalWorkerRoute($routeName)
 			|| $this->matchesSiteScopedSettingsPath($path);
 	}
 
@@ -290,9 +293,12 @@ final class RouteContextClassifier
 	}
 
 	/** @deprecated Inject {@see RouteContextClassifier} instead. */
-	public static function isSiteAccessCheckExempt(Request $request, string $applicationRole): bool
-	{
-		return (new self())->matchesSiteAccessCheckExempt($request, $applicationRole);
+	public static function isSiteAccessCheckExempt(
+		Request $request,
+		string $applicationRole,
+		bool $publicPageRenderViaApi = false,
+	): bool {
+		return (new self())->matchesSiteAccessCheckExempt($request, $applicationRole, $publicPageRenderViaApi);
 	}
 
 	/** @deprecated Inject {@see RouteContextClassifier} instead. */

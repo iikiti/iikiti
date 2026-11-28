@@ -41,11 +41,13 @@ final class RequestLocaleSubscriber implements EventSubscriberInterface
 	public function onKernelRequest(RequestEvent $event): void
 	{
 		$request = $event->getRequest();
-		$site = SiteRegistry::hasCurrent() ? SiteRegistry::getCurrent() : null;
+		$site = SiteRegistry::isInitialized() && SiteRegistry::hasCurrent() ? SiteRegistry::getCurrent() : null;
 		$application = $site instanceof Site && $this->applications->hasCurrentApplication() ?
 			$this->applications->getCurrent() :
 			null;
-		$user = $this->security->getUser();
+		// Avoid triggering lazy stateful user refresh (and DB access on consumer
+		// runtimes) when the current route is site-independent.
+		$user = $site instanceof Site ? $this->security->getUser() : null;
 		$preferredLocale = $user instanceof User ? $user->getPreferredLocale() : null;
 		$siteLocale = $site instanceof Site ? $site->getDefaultLocale() : null;
 		$applicationLocale = $application instanceof Application ? $application->getDefaultLocale() : null;

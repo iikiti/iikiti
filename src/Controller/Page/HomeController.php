@@ -45,16 +45,13 @@ class HomeController extends AppController
 	#[Route('/', name: 'home', priority: 0, format: 'html')]
 	public function index(Request $request): Response
 	{
-		if ('consumer' === $this->applicationRole) {
+		if ('consumer' === $this->applicationRole || $this->publicPageRenderViaApi) {
 			return $this->apiProxy->home($request);
 		}
 
 		$user = $this->security->getUser();
 		if ($user instanceof User && !$this->mfaGate->allowsFullyAuthenticatedUser()) {
 			return new RedirectResponse('/api/auth/mfa/challenge');
-		}
-		if ($this->publicPageRenderViaApi) {
-			return $this->apiProxy->home($request);
 		}
 
 		return ($this->pageRendering)()->render($request, home: true);

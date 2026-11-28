@@ -48,6 +48,11 @@ class User extends DbObject implements
 		$this->currentSite = $site;
 	}
 
+	public function getCurrentSite(): ?Site
+	{
+		return $this->currentSite;
+	}
+
 	/**
      * Returns the identifier for this user (e.g. username or email address).
      *
@@ -117,8 +122,11 @@ class User extends DbObject implements
 	{
 		$defaultRoles = UserRoleManager::getDefaultRoles();
 		if (null === $this->currentSite) {
-			// Or handle this case gracefully, e.g., by returning only default roles
-			throw new \LogicException('Cannot get roles without a site context.');
+			$roles = array_merge($defaultRoles, $this->getGlobalRoles());
+
+			return $asEnum ? $roles : array_values(
+				UserRoleManager::convertEnumsToStrings($roles)
+			);
 		}
 		$siteId = $this->currentSite->getId();
 		if (null === $siteId) {

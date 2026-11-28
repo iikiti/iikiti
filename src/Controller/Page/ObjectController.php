@@ -52,16 +52,13 @@ class ObjectController extends AppController
 	#[Route('/{slug}', name: 'page', requirements: ['slug' => '[\w\d_-]+'], methods: ['GET', 'HEAD'], priority: -100)]
 	public function page(Request $request, string $slug): Response
 	{
-		if ('consumer' === $this->applicationRole) {
+		if ('consumer' === $this->applicationRole || $this->publicPageRenderViaApi) {
 			return $this->apiProxy->page($request, $slug);
 		}
 
 		$user = $this->security->getUser();
 		if ($user instanceof User && !$this->mfaGate->allowsFullyAuthenticatedUser()) {
 			return new RedirectResponse('/api/auth/mfa/challenge');
-		}
-		if ($this->publicPageRenderViaApi) {
-			return $this->apiProxy->page($request, $slug);
 		}
 		$page = $this->pageRepository->findOneByProperty('slug', $slug);
 		if (!$page instanceof Page) {

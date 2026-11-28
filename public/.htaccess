@@ -5,6 +5,13 @@
 # to each configured DirectoryIndex file (e.g. index.php, index.html, index.pl).
 DirectoryIndex index.php
 
+# Serve ES modules (.mjs) with the RFC 9239 JavaScript MIME type so browsers
+# accept <script type="module"> and import-map chunks even when the host's
+# system mime.types omits .mjs.
+<IfModule mod_mime.c>
+    AddType text/javascript .mjs
+</IfModule>
+
 # By default, Apache does not evaluate symbolic links if you did not enable this
 # feature in your server configuration. Uncomment the following line if you
 # install assets as symlinks or if you experience problems related to symlinks

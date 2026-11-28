@@ -81,6 +81,35 @@ final class RouteContextClassifierTest extends TestCase
 		self::assertTrue($classifier->matchesSiteAccessCheckExempt($request, 'all'));
 	}
 
+	public function testSiteAccessExemptionsCoverSiteIndependentAndApiBackedRoutes(): void
+	{
+		$contributor = new class () extends AbstractRouteContextContributor {
+			public function getSiteIndependentRoutes(): array
+			{
+				return ['plugin_global_callback'];
+			}
+		};
+		$classifier = new RouteContextClassifier([$contributor]);
+
+		$homeRequest = Request::create('/');
+		$homeRequest->attributes->set('_route', 'home');
+		self::assertFalse($classifier->matchesSiteAccessCheckExempt($homeRequest, 'api', false));
+		self::assertTrue($classifier->matchesSiteAccessCheckExempt($homeRequest, 'api', true));
+
+		$pageRequest = Request::create('/about');
+		$pageRequest->attributes->set('_route', 'page');
+		self::assertFalse($classifier->matchesSiteAccessCheckExempt($pageRequest, 'api', false));
+		self::assertTrue($classifier->matchesSiteAccessCheckExempt($pageRequest, 'api', true));
+
+		$logoutRequest = Request::create('/api/auth/logout');
+		$logoutRequest->attributes->set('_route', 'html_logout');
+		self::assertTrue($classifier->matchesSiteAccessCheckExempt($logoutRequest, 'api', false));
+
+		$pluginGlobalRequest = Request::create('/plugin/cb');
+		$pluginGlobalRequest->attributes->set('_route', 'plugin_global_callback');
+		self::assertTrue($classifier->matchesSiteAccessCheckExempt($pluginGlobalRequest, 'api', false));
+	}
+
 	public function testStaticBackwardsCompatibilityHelpersStillWork(): void
 	{
 		self::assertTrue(RouteContextClassifier::isConsumerProxyRoute('home'));

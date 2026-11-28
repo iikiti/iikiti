@@ -106,7 +106,7 @@ class Initializer implements EventSubscriberInterface
 	 */
 	protected function _verifyUserHasSiteAccess(Request $request): void
 	{
-		if ($this->routeClassifier->matchesSiteAccessCheckExempt($request, $this->applicationRole)) {
+		if ($this->routeClassifier->matchesSiteAccessCheckExempt($request, $this->applicationRole, $this->publicPageRenderViaApi)) {
 			return;
 		}
 

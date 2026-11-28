@@ -37,6 +37,9 @@ The top-level file keeps the latest 5 dated entries; older entries live in
 
 ### Fixed
 
+- 2026-11-28: Derived browser Svelte runtime subpaths dynamically from `svelte/package.json` exports in `assets/build/build-esm.mjs` (fixing missing `svelte/internal/init-operations` in `public/build/esm/importmap.json`) and added post-build/test verification that every bare specifier in host and plugin ESM bundles is mapped.
+- 2026-11-28: Added `AddType text/javascript .mjs` inside `<IfModule mod_mime.c>` in `public/.htaccess` so Apache serves ES module bundles (`public/build/esm/*.mjs`) with a valid JavaScript MIME type.
+- 2026-11-28: Fixed `LogicException: Cannot get roles without a site context.` during post-login redirects and site-independent requests (`PUBLIC_PAGE_RENDER_VIA_API=1`, `/admin`, `/login`, `/api/auth/logout`, and dev profiler collection) by guarding `RequestLocaleSubscriber`, exempting API-proxied/site-independent routes in `RouteContextClassifier`/`Initializer`, delegating `HomeController`/`ObjectController` before security lookup when proxied, falling back to default + global roles in `User::getRoles()` without site context, and verifying login-site roles on `CheckRefreshedUserEvent` in `UserSiteContextSubscriber`.
 - 2026-11-26: Replaced the PSR-6-reserved `:` character in `ObjectsQuerySource` cache keys (`iikiti_query_*`) so `query` blocks cache and render database results without throwing `InvalidArgumentException`, and resumed settled Promises + re-evaluated `$stopWhen` inside `FiberTaskRunner::executeGroup()` error paths.
 - 2026-11-23: Fixed the PostgreSQL `CREATE SEQUENCE` / `nextval()` syntax in `migrations/Version20261114120000.php`.
 - 2026-11-23: Tightened `ContentOptimizationPageRenderContributor` consent detection so unrelated `body_before` fragments do not imply `consent-management` banner availability.
