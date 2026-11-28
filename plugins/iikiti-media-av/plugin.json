@@ -1,0 +1,19 @@
+{
+  "name": "Audio & Video Media",
+  "slug": "iikiti-media-av",
+  "namespace": "iikiti\\Extension\\MediaAv",
+  "bundle_class": "iikiti\\Extension\\MediaAv\\MediaAvBundle",
+  "version": "1.0.0",
+  "iikiti_version": ">=1.0.0",
+  "activation_mode": "opt_in",
+  "scope": "application",
+  "edition": "standard",
+  "description": "Adds first-party audio and video digital asset support with FFmpeg metadata probing, poster frame extraction, audio waveform peaks, and optional HLS transcoding.",
+  "authors": [{ "name": "iikiti" }],
+  "license": "MIT",
+  "capabilities": {
+    "services": true,
+    "routes": true,
+    "doctrine_mappings": false
+  }
+}

@@ -1,0 +1,30 @@
+parameters:
+    asset_s3_endpoint_default: ''
+    asset_s3_endpoint: '%env(default:asset_s3_endpoint_default:ASSET_S3_ENDPOINT)%'
+    asset_s3_region_default: 'us-east-1'
+    asset_s3_region: '%env(default:asset_s3_region_default:ASSET_S3_REGION)%'
+    asset_s3_bucket_default: ''
+    asset_s3_bucket: '%env(default:asset_s3_bucket_default:ASSET_S3_BUCKET)%'
+    asset_s3_access_key_default: ''
+    asset_s3_access_key: '%env(default:asset_s3_access_key_default:ASSET_S3_ACCESS_KEY)%'
+    asset_s3_secret_key_default: ''
+    asset_s3_secret_key: '%env(default:asset_s3_secret_key_default:ASSET_S3_SECRET_KEY)%'
+    asset_s3_prefix_default: ''
+    asset_s3_prefix: '%env(default:asset_s3_prefix_default:ASSET_S3_PREFIX)%'
+    asset_s3_path_style_default: false
+    asset_s3_path_style: '%env(bool:default:asset_s3_path_style_default:ASSET_S3_PATH_STYLE)%'
+    asset_s3_cdn_url_default: ''
+    asset_s3_cdn_url: '%env(default:asset_s3_cdn_url_default:ASSET_S3_CDN_URL)%'
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    iikiti\Extension\StorageS3\:
+        resource: '../src/'
+        exclude:
+            - '../src/StorageS3Bundle.php'
+            - '../src/Service/S3StorageConfig.php'
+            - '../src/Storage/S3AssetStorage.php'
+            - '../src/Storage/FlysystemBridgeStorage.php'

@@ -39,8 +39,31 @@ class DigitalAssetVariant
 	#[ORM\Column(type: Types::BIGINT)]
 	private int|string $size;
 
-	public function __construct(AbstractDigitalAsset $asset, string $key, string $storageKey, string $mimeType, int|string $size, ?int $width = null, ?int $height = null)
-	{
+	#[ORM\Column(name: 'checksum', type: Types::STRING, length: 64, nullable: true)]
+	private ?string $checksum = null;
+
+	#[ORM\Column(name: 'format', type: Types::STRING, length: 16, nullable: true)]
+	private ?string $format = null;
+
+	#[ORM\Column(name: 'quality', type: Types::SMALLINT, nullable: true)]
+	private ?int $quality = null;
+
+	#[ORM\Column(name: 'focal_crop', type: Types::BOOLEAN, options: ['default' => false])]
+	private bool $focalCrop = false;
+
+	public function __construct(
+		AbstractDigitalAsset $asset,
+		string $key,
+		string $storageKey,
+		string $mimeType,
+		int|string $size,
+		?int $width = null,
+		?int $height = null,
+		?string $checksum = null,
+		?string $format = null,
+		?int $quality = null,
+		bool $focalCrop = false,
+	) {
 		$this->asset = $asset;
 		$this->key = $key;
 		$this->storageKey = $storageKey;
@@ -48,6 +71,10 @@ class DigitalAssetVariant
 		$this->size = $size;
 		$this->width = $width;
 		$this->height = $height;
+		$this->checksum = $checksum;
+		$this->setFormat($format);
+		$this->setQuality($quality);
+		$this->focalCrop = $focalCrop;
 	}
 
 	public function getId(): int|string|null
@@ -88,5 +115,70 @@ class DigitalAssetVariant
 	public function getSize(): int|string
 	{
 		return $this->size;
+	}
+
+	public function getChecksum(): ?string
+	{
+		return $this->checksum;
+	}
+
+	public function setChecksum(?string $checksum): static
+	{
+		$this->checksum = $checksum;
+
+		return $this;
+	}
+
+	public function getFormat(): ?string
+	{
+		return $this->format;
+	}
+
+	public function setFormat(?string $format): static
+	{
+		if (null === $format) {
+			$this->format = null;
+
+			return $this;
+		}
+		$normalized = strtolower(trim($format));
+		if ('' === $normalized) {
+			$this->format = null;
+
+			return $this;
+		}
+		if (strlen($normalized) > 16 || 1 !== preg_match('/^[a-z0-9]{1,16}$/', $normalized)) {
+			throw new \InvalidArgumentException('Variant format must be an alphanumeric identifier up to 16 characters.');
+		}
+		$this->format = $normalized;
+
+		return $this;
+	}
+
+	public function getQuality(): ?int
+	{
+		return $this->quality;
+	}
+
+	public function setQuality(?int $quality): static
+	{
+		if (null !== $quality && ($quality < 1 || $quality > 100)) {
+			throw new \InvalidArgumentException('Variant quality must be between 1 and 100.');
+		}
+		$this->quality = $quality;
+
+		return $this;
+	}
+
+	public function isFocalCrop(): bool
+	{
+		return $this->focalCrop;
+	}
+
+	public function setFocalCrop(bool $focalCrop): static
+	{
+		$this->focalCrop = $focalCrop;
+
+		return $this;
 	}
 }

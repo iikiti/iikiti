@@ -7,6 +7,7 @@ use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\ORM\Event\PostFlushEventArgs;
 use Doctrine\ORM\Events;
 use iikiti\CMS\Entity\DbObject;
+use iikiti\CMS\Entity\DigitalAssetVariant;
 use iikiti\CMS\Entity\ObjectProperty;
 use iikiti\CMS\Service\DatabaseCacheManager;
 use iikiti\CMS\Web\BlockEditor\Render\RenderedFragmentCache;
@@ -51,6 +52,9 @@ class CacheInvalidationSubscriber
 				$this->renderedFragmentsAffected = true;
 			} elseif ($entity instanceof ObjectProperty) {
 				$classes[] = ObjectProperty::class;
+				$this->renderedFragmentsAffected = true;
+			} elseif ($entity instanceof DigitalAssetVariant) {
+				$classes[] = DigitalAssetVariant::class;
 				$this->renderedFragmentsAffected = true;
 			}
 		}

@@ -14,6 +14,12 @@ final class CoreObjectPropertyDefinitionProvider implements ObjectPropertyDefini
 			new ObjectPropertyDefinition('*', 'slug', allowMixedLanguage: true, searchable: true, sortable: true, allowAnyLocale: true),
 			new ObjectPropertyDefinition('*', 'tags', allowMixedLanguage: true, searchable: true, allowAnyLocale: true),
 			new ObjectPropertyDefinition('*', 'content', allowMixedLanguage: true, searchable: true, allowAnyLocale: true),
+			new ObjectPropertyDefinition('uploadeddigitalasset', 'default_alt', allowMixedLanguage: true, searchable: true, allowAnyLocale: true),
+			new ObjectPropertyDefinition('uploadeddigitalasset', 'default_caption', allowMixedLanguage: true, searchable: true, allowAnyLocale: true),
+			new ObjectPropertyDefinition('uploadeddigitalasset', 'description', allowMixedLanguage: true, searchable: true, allowAnyLocale: true),
+			new ObjectPropertyDefinition('externaldigitalasset', 'default_alt', allowMixedLanguage: true, searchable: true, allowAnyLocale: true),
+			new ObjectPropertyDefinition('externaldigitalasset', 'default_caption', allowMixedLanguage: true, searchable: true, allowAnyLocale: true),
+			new ObjectPropertyDefinition('externaldigitalasset', 'description', allowMixedLanguage: true, searchable: true, allowAnyLocale: true),
 		];
 	}
 }

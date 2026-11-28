@@ -12,15 +12,14 @@ use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\DigitalAssetRepository;
 use iikiti\CMS\Repository\DigitalAssetVariantRepository;
 use iikiti\CMS\Security\MfaAuthenticationGate;
-use iikiti\CMS\Service\AssetStorage;
+use iikiti\CMS\Service\AssetSignedUrlService;
+use iikiti\CMS\Service\AssetStreamResponseFactory;
 use iikiti\CMS\Web\BlockEditor\PublicAssetApiProxy;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -32,10 +31,12 @@ final class DigitalAssetFileController extends AbstractController
 		private readonly MfaAuthenticationGate $mfaGate,
 		#[Autowire('%application_role%')]
 		private readonly string $applicationRole,
+		private readonly AssetStreamResponseFactory $responseFactory,
+		private readonly AssetSignedUrlService $signedUrls,
 	) {
 	}
 
-	#[Route('/assets/{publicToken}/{variant}', name: 'digital_asset_file', defaults: ['variant' => 'original'], requirements: ['publicToken' => '[a-f0-9]{64}', 'variant' => '[a-z][a-z0-9_-]{0,63}'], methods: ['GET'])]
+	#[Route('/assets/{publicToken}/{variant}', name: 'digital_asset_file', defaults: ['variant' => 'original'], requirements: ['publicToken' => '[a-f0-9]{64}', 'variant' => '[a-z][a-z0-9_-]{0,63}'], methods: ['GET', 'HEAD'])]
 	public function __invoke(
 		Request $request,
 		string $publicToken,
@@ -43,7 +44,6 @@ final class DigitalAssetFileController extends AbstractController
 		DigitalAssetRepository $assets,
 		DigitalAssetVariantRepository $variants,
 		SiteRegistry $siteRegistry,
-		AssetStorage $storage,
 	): Response {
 		if ('consumer' === $this->applicationRole) {
 			return $this->apiProxy->file($request, $publicToken, $variant);
@@ -61,18 +61,90 @@ final class DigitalAssetFileController extends AbstractController
 		if ('private' === $asset->getVisibility() && !($this->getUser() instanceof User)) {
 			throw $this->createAccessDeniedException();
 		}
+
+		return $this->deliverAsset($request, $asset, $variant, $variants, null, false);
+	}
+
+	#[Route('/assets/signed/{publicToken}/{variant}', name: 'digital_asset_signed_file', defaults: ['variant' => 'original'], requirements: ['publicToken' => '[a-f0-9]{64}', 'variant' => '[a-z][a-z0-9_-]{0,63}'], methods: ['GET', 'HEAD'])]
+	public function signed(
+		Request $request,
+		string $publicToken,
+		string $variant,
+		DigitalAssetRepository $assets,
+		DigitalAssetVariantRepository $variants,
+		SiteRegistry $siteRegistry,
+	): Response {
+		if ('consumer' === $this->applicationRole) {
+			return $this->apiProxy->signedFile($request, $publicToken, $variant);
+		}
+
+		$site = $siteRegistry::getCurrent();
+		$currentSiteId = $site->getId();
+		$siteParam = $request->query->get('site');
+		$expParam = $request->query->get('exp');
+		$sigParam = $request->query->get('sig');
+		$disposition = $request->query->get('d', 'inline');
+		$versionParam = $request->query->get('v');
+
+		if (
+			null === $currentSiteId ||
+			!is_string($siteParam) ||
+			$siteParam !== (string) $currentSiteId ||
+			!is_string($expParam) ||
+			!ctype_digit($expParam) ||
+			!is_string($sigParam) ||
+			!is_string($disposition)
+		) {
+			throw $this->createAccessDeniedException('Invalid or expired signed asset URL.');
+		}
+
+		$version = null;
+		if (null !== $versionParam && '' !== $versionParam) {
+			if (!is_string($versionParam) || !ctype_digit($versionParam)) {
+				throw $this->createAccessDeniedException('Invalid or expired signed asset URL.');
+			}
+			$version = (int) $versionParam;
+		}
+
+		if (!$this->signedUrls->verify($publicToken, $variant, $currentSiteId, (int) $expParam, $disposition, $sigParam, $version)) {
+			throw $this->createAccessDeniedException('Invalid or expired signed asset URL.');
+		}
+
+		$asset = $assets->findPublicTokenForSite($publicToken, $site);
+		if (!$asset instanceof AbstractDigitalAsset) {
+			throw $this->createNotFoundException();
+		}
+
+		return $this->deliverAsset($request, $asset, $variant, $variants, $disposition, true);
+	}
+
+	private function deliverAsset(
+		Request $request,
+		AbstractDigitalAsset $asset,
+		string $variant,
+		DigitalAssetVariantRepository $variants,
+		?string $forcedDisposition,
+		bool $isSigned,
+	): Response {
 		if ($asset instanceof ExternalDigitalAsset) {
 			if (null === $asset->getExternalUri()) {
 				throw $this->createNotFoundException();
 			}
+			$redirect = $this->redirect($asset->getExternalUri(), Response::HTTP_FOUND);
+			if ($isSigned || 'private' === $asset->getVisibility()) {
+				$redirect->headers->set('Cache-Control', 'private, no-store');
+			}
 
-			return $this->redirect($asset->getExternalUri(), Response::HTTP_FOUND);
+			return $redirect;
 		}
 
 		if ('original' === $variant) {
 			$key = $asset->getStorageKey();
 			$mimeType = $asset->getMimeType();
 			$filename = $asset->getOriginalName() ?? $asset->getTitle();
+			$checksum = $asset->getChecksum();
+			$rawSize = $asset->getSize();
+			$size = null !== $rawSize ? (int) $rawSize : null;
 		} else {
 			$record = $variants->findByAssetAndKey($asset, $variant);
 			if (!$record instanceof DigitalAssetVariant) {
@@ -81,22 +153,24 @@ final class DigitalAssetFileController extends AbstractController
 			$key = $record->getStorageKey();
 			$mimeType = $record->getMimeType();
 			$filename = $asset->getTitle().'-'.$record->getKey();
+			$checksum = $record->getChecksum();
+			$size = (int) $record->getSize();
 		}
+
 		if (null === $key) {
 			throw $this->createNotFoundException();
 		}
-		$path = $storage->pathFor($key);
-		if (!is_file($path)) {
-			throw $this->createNotFoundException();
-		}
 
-		$response = new BinaryFileResponse($path);
-		$response->headers->set('Content-Type', $mimeType);
-		$response->headers->set('X-Content-Type-Options', 'nosniff');
-		$response->headers->set('Cache-Control', 'private' === $asset->getVisibility() ? 'private, no-store' : 'public, max-age=3600');
-		$disposition = str_starts_with($mimeType, 'image/') ? ResponseHeaderBag::DISPOSITION_INLINE : ResponseHeaderBag::DISPOSITION_ATTACHMENT;
-		$response->setContentDisposition($disposition, $filename);
-
-		return $response;
+		return $this->responseFactory->createResponse(
+			$request,
+			$key,
+			$mimeType,
+			$filename,
+			$asset->getVisibility(),
+			$checksum,
+			$size,
+			$forcedDisposition,
+			$isSigned,
+		);
 	}
 }

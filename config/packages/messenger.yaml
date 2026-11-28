@@ -4,10 +4,12 @@ framework:
         transports:
             asset_processing: 'doctrine://default?queue_name=asset_processing'
             batch_processing: 'doctrine://default?queue_name=batch_processing'
+            media_transcoding: 'doctrine://default?queue_name=media_transcoding'
             failed: 'doctrine://default?queue_name=failed'
         routing:
             'iikiti\CMS\Message\ProcessDigitalAsset': asset_processing
             'iikiti\CMS\Message\ProcessBatchItem': batch_processing
+            'iikiti\Extension\MediaAv\Message\TranscodeMediaAsset': media_transcoding
 
 when@test:
     framework:
@@ -15,4 +17,5 @@ when@test:
             transports:
                 asset_processing: 'in-memory://'
                 batch_processing: 'in-memory://'
+                media_transcoding: 'in-memory://'
                 failed: 'in-memory://'

@@ -18,6 +18,10 @@ use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\DigitalAssetVariantRepository;
 use iikiti\CMS\Repository\Object\SiteRepository;
 use iikiti\CMS\StateMachine\AssetProcessingStateMachine;
+use iikiti\CMS\Storage\AssetMimeTypeRegistry;
+use iikiti\CMS\Storage\AssetStorageInterface;
+use iikiti\CMS\Storage\CoreAssetMimeTypeProvider;
+use iikiti\CMS\Value\LocalizedValue;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -25,13 +29,7 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final class DigitalAssetManager
 {
-	private const MAX_UPLOAD_BYTES = 26214400;
-
-	private const MIME_TYPES = [
-		'image/jpeg', 'image/png', 'image/gif', 'image/webp',
-		'application/pdf', 'text/plain', 'text/markdown', 'text/csv',
-		'application/json', 'application/xml', 'text/xml',
-	];
+	private readonly AssetMimeTypeRegistry $mimeRegistry;
 
 	public function __construct(
 		private readonly EntityManagerInterface $entityManager,
@@ -39,11 +37,13 @@ final class DigitalAssetManager
 		private readonly SiteRepository $sites,
 		private readonly SiteRegistry $siteRegistry,
 		private readonly DigitalAssetAccessPolicy $accessPolicy,
-		private readonly AssetStorage $storage,
+		private readonly AssetStorageInterface $storage,
 		private readonly MessageBusInterface $messageBus,
 		private readonly EventDispatcherInterface $eventDispatcher,
 		private readonly AssetProcessingStateMachine $assetProcessingStateMachine,
+		?AssetMimeTypeRegistry $mimeRegistry = null,
 	) {
+		$this->mimeRegistry = $mimeRegistry ?? new AssetMimeTypeRegistry([new CoreAssetMimeTypeProvider()]);
 	}
 
 	/** @param list<mixed> $siteIds */
@@ -52,14 +52,16 @@ final class DigitalAssetManager
 		if (!$file->isValid()) {
 			throw new \InvalidArgumentException('The uploaded file is not valid.');
 		}
-		$size = $file->getSize();
-		if (false === $size || $size < 1 || $size > self::MAX_UPLOAD_BYTES) {
-			throw new \InvalidArgumentException('The file must be between 1 byte and 25 MB.');
-		}
 
 		$mimeType = (new \finfo(FILEINFO_MIME_TYPE))->file($file->getPathname());
-		if (!is_string($mimeType) || !in_array($mimeType, self::MIME_TYPES, true)) {
+		if (!is_string($mimeType) || !$this->mimeRegistry->isAllowed($mimeType)) {
 			throw new \InvalidArgumentException('This file type is not supported.');
+		}
+
+		$size = $file->getSize();
+		$maxBytes = $this->mimeRegistry->maxBytesFor($mimeType);
+		if (false === $size || $size < 1 || $size > $maxBytes) {
+			throw new \InvalidArgumentException(sprintf('The file must be between 1 byte and %d bytes.', $maxBytes));
 		}
 
 		$sites = $this->resolveSites($siteIds, $creator);
@@ -72,10 +74,11 @@ final class DigitalAssetManager
 		$asset->setOriginalName($file->getClientOriginalName());
 		$asset->setSize($size);
 
+		$checksum = hash_file('sha256', $file->getPathname());
+		$asset->setChecksum(is_string($checksum) ? $checksum : null);
+
 		$storageKey = $this->storage->storeUploadedFile($file, $mimeType);
 		$asset->setStorageKey($storageKey);
-		$checksum = hash_file('sha256', $this->storage->pathFor($storageKey));
-		$asset->setChecksum(is_string($checksum) ? $checksum : null);
 
 		try {
 			$this->entityManager->persist($asset);
@@ -140,7 +143,49 @@ final class DigitalAssetManager
 			$asset->setExternalUri($this->validateExternalUri((string) $payload['uri']));
 		}
 
+		$focalChanged = false;
+		if (array_key_exists('focalPoint', $payload)) {
+			$previousFocalX = $asset->getFocalX();
+			$previousFocalY = $asset->getFocalY();
+			$focalPoint = $payload['focalPoint'];
+			if (null === $focalPoint) {
+				$asset->setFocalPoint(null, null);
+			} elseif (is_array($focalPoint)) {
+				if (
+					!array_key_exists('x', $focalPoint) ||
+					!array_key_exists('y', $focalPoint) ||
+					(!is_int($focalPoint['x']) && !is_float($focalPoint['x'])) ||
+					(!is_int($focalPoint['y']) && !is_float($focalPoint['y']))
+				) {
+					throw new \InvalidArgumentException('Focal point must provide numeric x and y coordinates between 0.0 and 1.0.');
+				}
+				$asset->setFocalPoint((float) $focalPoint['x'], (float) $focalPoint['y']);
+			} else {
+				throw new \InvalidArgumentException('Focal point must be an object with x and y coordinates or null.');
+			}
+			$focalChanged = ($previousFocalX !== $asset->getFocalX() || $previousFocalY !== $asset->getFocalY());
+		}
+
+		if (array_key_exists('defaultAlt', $payload)) {
+			$asset->setDefaultAlt($this->normaliseLocalizedTextInput($payload['defaultAlt'], 'defaultAlt'));
+		}
+		if (array_key_exists('defaultCaption', $payload)) {
+			$asset->setDefaultCaption($this->normaliseLocalizedTextInput($payload['defaultCaption'], 'defaultCaption'));
+		}
+		if (array_key_exists('description', $payload)) {
+			$asset->setDescription($this->normaliseLocalizedTextInput($payload['description'], 'description'));
+		}
+
+		if ($focalChanged && $asset instanceof UploadedDigitalAsset) {
+			$this->resetImageThumbnailWorkflowInstances($asset);
+		}
+
 		$this->entityManager->flush();
+
+		if ($focalChanged && $asset instanceof UploadedDigitalAsset) {
+			$this->queueProcessing($asset);
+		}
+
 		$this->eventDispatcher->dispatch(new DigitalAssetEvent($asset), DigitalAssetEvents::UPDATED);
 
 		return $asset;
@@ -256,5 +301,60 @@ final class DigitalAssetManager
 		}
 
 		return $uri;
+	}
+
+	private function normaliseLocalizedTextInput(mixed $value, string $fieldName): LocalizedValue|string|null
+	{
+		if (null === $value) {
+			return null;
+		}
+		if (is_string($value)) {
+			$trimmed = trim($value);
+
+			return '' === $trimmed ? null : $trimmed;
+		}
+		if (is_array($value)) {
+			if (LocalizedValue::isLocalizedArray($value)) {
+				return LocalizedValue::fromArray($value);
+			}
+			if (array_key_exists('translations', $value) && 1 === count($value) && is_array($value['translations'])) {
+				$value = $value['translations'];
+			}
+			if ([] === $value) {
+				return null;
+			}
+			$translations = [];
+			foreach ($value as $locale => $text) {
+				if (!is_string($locale) || (!is_string($text) && null !== $text)) {
+					throw new \InvalidArgumentException(sprintf('%s translations must map BCP 47 locale strings to text.', $fieldName));
+				}
+				if (null === $text) {
+					continue;
+				}
+				$trimmed = trim($text);
+				if ('' === $trimmed) {
+					continue;
+				}
+				$translations[$locale] = $trimmed;
+			}
+
+			return [] === $translations ? null : LocalizedValue::fromTranslations($translations);
+		}
+
+		throw new \InvalidArgumentException(sprintf('%s must be a string, a locale map, or null.', $fieldName));
+	}
+
+	private function resetImageThumbnailWorkflowInstances(UploadedDigitalAsset $asset): void
+	{
+		$assetId = $asset->getId();
+		if (null === $assetId) {
+			return;
+		}
+		foreach ($this->entityManager->getRepository(WorkflowInstance::class)->findBySubject('digital_asset', $assetId) as $instance) {
+			$processorKey = $instance->getDefinitionVersion()->getGraph()['metadata']['assetProcessor']['processorKey'] ?? null;
+			if ('image_thumbnail' === $processorKey) {
+				$this->entityManager->remove($instance);
+			}
+		}
 	}
 }

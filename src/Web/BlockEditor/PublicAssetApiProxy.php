@@ -13,9 +13,31 @@ use iikiti\CMS\Security\GuestApiTokenManager;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/** Proxies public asset delivery to the database-owning API runtime. */
+/** Proxies public and signed asset delivery to the database-owning API runtime. */
 final readonly class PublicAssetApiProxy
 {
+	/** @var list<string> */
+	private const FORWARDED_QUERY_PARAMS = ['v', 'exp', 'sig', 'site', 'd'];
+
+	/** @var list<string> */
+	private const FORWARDED_REQUEST_HEADERS = ['If-None-Match', 'If-Modified-Since', 'Range'];
+
+	/** @var list<string> */
+	private const PASSTHROUGH_RESPONSE_HEADERS = [
+		'content-type',
+		'content-disposition',
+		'cache-control',
+		'x-content-type-options',
+		'content-security-policy',
+		'content-length',
+		'location',
+		'etag',
+		'last-modified',
+		'accept-ranges',
+		'content-range',
+		'vary',
+	];
+
 	public function __construct(
 		private BusinessApiClient $api,
 		private ApiSessionTokenProvider $sessionTokens,
@@ -27,6 +49,11 @@ final readonly class PublicAssetApiProxy
 	public function file(Request $request, string $publicToken, string $variant): Response
 	{
 		return $this->proxyPath($request, '/api/public/assets/'.$publicToken.'/'.$variant);
+	}
+
+	public function signedFile(Request $request, string $publicToken, string $variant): Response
+	{
+		return $this->proxyPath($request, '/api/public/assets/signed/'.$publicToken.'/'.$variant);
 	}
 
 	public function pluginAsset(Request $request, string $slug, string $path): Response
@@ -54,21 +81,39 @@ final readonly class PublicAssetApiProxy
 	{
 		$siteHost = strtolower($request->getHost());
 		$guestToken = $this->guestTokens->issue($siteHost);
+		$method = $request->isMethod('HEAD') ? 'HEAD' : 'GET';
 		$headers = [
 			'X-SITE-HOST' => $siteHost,
 			'X-SITE-SCHEME' => $request->getScheme(),
 		];
+		foreach (self::FORWARDED_REQUEST_HEADERS as $headerName) {
+			$headerValue = $request->headers->get($headerName);
+			if (is_string($headerValue) && '' !== $headerValue && !str_contains($headerValue, "\r") && !str_contains($headerValue, "\n")) {
+				$headers[$headerName] = $headerValue;
+			}
+		}
+
+		$query = [];
+		foreach (self::FORWARDED_QUERY_PARAMS as $param) {
+			if ($request->query->has($param)) {
+				$value = $request->query->get($param);
+				if (is_string($value) && '' !== $value) {
+					$query[$param] = $value;
+				}
+			}
+		}
 
 		try {
 			$result = $this->tasks->run([
-				'asset' => function (FiberHttpClient $http) use ($request, $apiPath, $siteHost, $guestToken, $headers): array {
+				'asset' => function (FiberHttpClient $http) use ($request, $method, $apiPath, $siteHost, $guestToken, $query, $headers): array {
 					$token = $this->sessionTokens->tokenFor($http, $request, $siteHost) ?? $guestToken;
 
 					return $this->api->requestRawAsync(
 						$http,
-						'GET',
+						$method,
 						$apiPath,
 						$token,
+						query: $query,
 						headers: $headers,
 						timeout: 30.0,
 					);
@@ -81,18 +126,23 @@ final readonly class PublicAssetApiProxy
 		}
 
 		$status = $result['status'];
-		if ($status < 200 || $status >= 400) {
+		$isPassthroughStatus = ($status >= 200 && $status < 400) || Response::HTTP_REQUESTED_RANGE_NOT_SATISFIABLE === $status;
+		if (!$isPassthroughStatus) {
 			return new Response('', in_array($status, [401, 403, 404], true) ? $status : Response::HTTP_BAD_GATEWAY);
 		}
 
 		$responseHeaders = [];
-		foreach (['content-type', 'content-disposition', 'cache-control', 'x-content-type-options', 'content-security-policy', 'content-length', 'location', 'etag', 'last-modified'] as $name) {
+		foreach (self::PASSTHROUGH_RESPONSE_HEADERS as $name) {
 			$value = $result['headers'][$name][0] ?? null;
 			if (is_string($value)) {
 				$responseHeaders[$name] = $value;
 			}
 		}
 
-		return new Response($result['body'], $status, $responseHeaders);
+		$body = ('HEAD' === $method || Response::HTTP_NOT_MODIFIED === $status || Response::HTTP_REQUESTED_RANGE_NOT_SATISFIABLE === $status) ?
+			'' :
+			$result['body'];
+
+		return new Response($body, $status, $responseHeaders);
 	}
 }

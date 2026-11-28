@@ -12,6 +12,16 @@ parameters:
     internal_api_resolve_default: '{}'
     internal_api_resolve: '%env(json:default:internal_api_resolve_default:INTERNAL_API_RESOLVE)%'
     digital_asset_storage_dir: '%kernel.project_dir%/var/digital-assets'
+    asset_storage_driver_default: 'local'
+    asset_storage_driver: '%env(default:asset_storage_driver_default:ASSET_STORAGE_DRIVER)%'
+    asset_signing_secret_default: ''
+    asset_signing_secret: '%env(default:asset_signing_secret_default:ASSET_SIGNING_SECRET)%'
+    asset_delivery_mode_default: 'proxy'
+    asset_delivery_mode: '%env(default:asset_delivery_mode_default:ASSET_DELIVERY_MODE)%'
+    asset_cdn_base_url_default: ''
+    asset_cdn_base_url: '%env(default:asset_cdn_base_url_default:ASSET_CDN_BASE_URL)%'
+    asset_redirect_ttl_seconds_default: 300
+    asset_redirect_ttl_seconds: '%env(int:default:asset_redirect_ttl_seconds_default:ASSET_REDIRECT_TTL_SECONDS)%'
     scheduler_adapter_default: symfony
     scheduler_adapter_key: '%env(default:scheduler_adapter_default:SCHEDULER_ADAPTER)%'
     lazy_queue_enabled_default: true
@@ -89,6 +99,8 @@ services:
             - '../src/Profiler/RemoteDoctrineDataCollector.php'
             - '../src/Profiler/RemoteAwareDoctrineDataCollector.php'
             - '../src/Crypto/ApplicationKeyring.php'
+            - '../src/Storage/AssetMimeTypeDefinition.php'
+            - '../src/Storage/LocalTempFile.php'
             - '../src/Entity/'
             - '../src/Kernel.php'
             - '../src/Tests/'
@@ -97,9 +109,18 @@ services:
             - '../src/Query/'
             - '../src/ORM/'
 
+    iikiti\CMS\Storage\LocalAssetStorage:
+        arguments:
+            $directory: '%env(default:digital_asset_storage_dir:DIGITAL_ASSET_STORAGE_DIRECTORY)%'
+            $publicDirectory: '%kernel.project_dir%/public'
+
+    iikiti\CMS\Storage\AssetStorageInterface:
+        alias: iikiti\CMS\Storage\DelegatingAssetStorage
+
     iikiti\CMS\Service\AssetStorage:
         arguments:
             $directory: '%env(default:digital_asset_storage_dir:DIGITAL_ASSET_STORAGE_DIRECTORY)%'
+            $publicDirectory: '%kernel.project_dir%/public'
 
     iikiti\CMS\Filters\InlineAssetMinificationOptionsResolver:
         arguments:

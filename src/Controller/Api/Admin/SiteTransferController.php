@@ -16,8 +16,8 @@ use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Repository\DigitalAssetRepository;
 use iikiti\CMS\Repository\Object\SiteRepository;
-use iikiti\CMS\Service\AssetStorage;
 use iikiti\CMS\Service\DigitalAssetAccessPolicy;
+use iikiti\CMS\Storage\AssetStorageInterface;
 use iikiti\CMS\Transfer\RemoteSiteClient;
 use iikiti\CMS\Transfer\SiteTransferCatalog;
 use iikiti\CMS\Transfer\SiteTransferExportService;
@@ -26,6 +26,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Attribute\Route;
 
 #[Route('/api/admin/site-transfer', name: 'api_admin_site_transfer_')]
@@ -120,7 +121,7 @@ final class SiteTransferController extends AppController
 	}
 
 	#[Route('/exports/{id}/assets/{assetId}', name: 'export_asset', requirements: ['id' => '\\d+', 'assetId' => '\\d+'], methods: ['GET'])]
-	public function exportAsset(int $id, int $assetId, EntityManagerInterface $entityManager, DigitalAssetRepository $assets, DigitalAssetAccessPolicy $assetAccess, SiteTransferExportService $exports, BatchAccessPolicy $access, AssetStorage $storage): Response
+	public function exportAsset(int $id, int $assetId, EntityManagerInterface $entityManager, DigitalAssetRepository $assets, DigitalAssetAccessPolicy $assetAccess, SiteTransferExportService $exports, BatchAccessPolicy $access, AssetStorageInterface $storage): Response
 	{
 		$user = $this->adminUser();
 		$job = $entityManager->find(BatchJob::class, $id);
@@ -148,18 +149,52 @@ final class SiteTransferController extends AppController
 
 			return $response;
 		}
-		if (!$asset instanceof \iikiti\CMS\Entity\Object\UploadedDigitalAsset || null === $asset->getStorageKey()) {
+		$storageKey = $asset->getStorageKey();
+		if (!$asset instanceof \iikiti\CMS\Entity\Object\UploadedDigitalAsset || null === $storageKey) {
 			return $this->json(['error' => 'This asset has no locally downloadable binary.'], Response::HTTP_NOT_FOUND);
 		}
-		$path = $storage->pathFor($asset->getStorageKey());
-		if (!is_file($path)) {
+		$filename = $asset->getOriginalName() ?? $asset->getTitle();
+		if ($storage->isLocal()) {
+			$path = $storage->pathFor($storageKey);
+			if (!is_file($path)) {
+				return $this->json(['error' => 'Asset binary is missing.'], Response::HTTP_NOT_FOUND);
+			}
+			$response = new BinaryFileResponse($path);
+			$response->headers->set('Content-Type', $asset->getMimeType());
+			$response->headers->set('X-Content-Type-Options', 'nosniff');
+			$response->headers->set('Cache-Control', 'private, no-store');
+			$response->setContentDisposition('attachment', $filename);
+
+			return $response;
+		}
+		if (!$storage->exists($storageKey)) {
 			return $this->json(['error' => 'Asset binary is missing.'], Response::HTTP_NOT_FOUND);
 		}
-		$response = new BinaryFileResponse($path);
+		$response = new StreamedResponse(static function () use ($storage, $storageKey): void {
+			$stream = $storage->readStream($storageKey);
+			if (!is_resource($stream)) {
+				throw new \RuntimeException('Asset binary stream could not be opened.');
+			}
+			try {
+				while (!feof($stream)) {
+					$chunk = fread($stream, 8192);
+					if (false === $chunk || '' === $chunk) {
+						break;
+					}
+					echo $chunk;
+				}
+			} finally {
+				fclose($stream);
+			}
+		});
 		$response->headers->set('Content-Type', $asset->getMimeType());
 		$response->headers->set('X-Content-Type-Options', 'nosniff');
 		$response->headers->set('Cache-Control', 'private, no-store');
-		$response->setContentDisposition('attachment', $asset->getOriginalName() ?? $asset->getTitle());
+		$response->headers->set('Content-Disposition', $response->headers->makeDisposition('attachment', $filename));
+		$size = $storage->size($storageKey);
+		if (null !== $size) {
+			$response->headers->set('Content-Length', (string) $size);
+		}
 
 		return $response;
 	}

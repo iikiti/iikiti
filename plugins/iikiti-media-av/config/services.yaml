@@ -1,0 +1,20 @@
+parameters:
+    media_av_ffmpeg_binary_default: 'ffmpeg'
+    media_av_ffmpeg_binary: '%env(default:media_av_ffmpeg_binary_default:FFMPEG_BINARY)%'
+    media_av_ffprobe_binary_default: 'ffprobe'
+    media_av_ffprobe_binary: '%env(default:media_av_ffprobe_binary_default:FFPROBE_BINARY)%'
+    media_av_max_upload_bytes_default: 262144000
+    media_av_max_upload_bytes: '%env(int:default:media_av_max_upload_bytes_default:MEDIA_AV_MAX_UPLOAD_BYTES)%'
+    media_av_hls_enabled_default: false
+    media_av_hls_enabled: '%env(bool:default:media_av_hls_enabled_default:MEDIA_AV_HLS_ENABLED)%'
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    iikiti\Extension\MediaAv\:
+        resource: '../src/'
+        exclude:
+            - '../src/MediaAvBundle.php'
+            - '../src/Message/'
