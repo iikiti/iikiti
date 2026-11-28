@@ -1389,10 +1389,12 @@ final readonly class CadMimeTypeProvider implements AssetMimeTypeProviderInterfa
 }
 ```
 
-Never register active browser-executable formats (such as `text/html` or
-`image/svg+xml`) with `inlineDelivery: true`, and pair custom MIME types with a
-tagged `DigitalAssetProcessorInterface` workflow when background processing is
-needed.
+`AssetMimeTypeRegistry::BLOCKED_MIME_TYPES` (`image/svg+xml`, `text/html`,
+`application/xhtml+xml`, `application/javascript`, `text/javascript`) are
+unconditionally rejected by the registry even if a plugin attempts to register
+them. Never register active browser-executable formats with
+`inlineDelivery: true`, and pair custom MIME types with a tagged
+`DigitalAssetProcessorInterface` workflow when background processing is needed.
 
 ### Custom "Where Used" extractors (`AssetUsageExtractorInterface`)
 

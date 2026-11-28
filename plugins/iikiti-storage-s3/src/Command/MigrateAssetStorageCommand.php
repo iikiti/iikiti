@@ -256,7 +256,7 @@ final class MigrateAssetStorageCommand extends Command
 				return;
 			}
 
-			$writeMimeType = (null !== $mimeType && '' !== trim($mimeType) && $this->mimeRegistry->isAllowed($mimeType))
+			$writeMimeType = (null !== $mimeType && '' !== trim($mimeType) && $this->mimeRegistry->isAllowedForInternalStream($mimeType))
 				? $mimeType
 				: null;
 

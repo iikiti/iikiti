@@ -98,7 +98,10 @@ When `MEDIA_AV_HLS_ENABLED=1` (for video assets) or a workflow definition sets `
 
 - `TranscodeMediaAssetHandler` invokes `HlsTranscoder`, which transcodes the source into 6-second MPEG-TS segments and VOD M3U8 playlists stored via `AssetStorageInterface` as `DigitalAssetVariant` records (`hls_master` for `master.m3u8`, `hls_<stem>` for rendition playlists and `.ts` segments).
 - `HlsTranscoder::rewritePlaylist()` rewrites every relative playlist and segment reference inside `.m3u8` manifests to CMS-controlled paths (`/assets/{publicToken}/hls/{segment}`).
-- `HlsDeliveryController` serves `GET|HEAD /assets/{publicToken}/hls/{segment}` (`RequiresPlugin('iikiti-media-av')`), enforcing MFA completion, site access grants, asset visibility, and full `AssetStreamResponseFactory` ETag/Range/Cache-Control policies on every playlist and segment request.
+- `HlsDeliveryController` serves `GET|HEAD /assets/{publicToken}/hls/{segment}`:
+  - In database-free `consumer` deployments (classified by `MediaAvRouteContextContributor`), it proxies requests via `PublicAssetApiProxy::hls()` to `GET|HEAD /api/public/assets/{publicToken}/hls/{segment}` (`api_public_asset_media_av_hls`, guarded by `#[RequiresPlugin('iikiti-media-av')]`).
+  - On standalone and API runtimes, it verifies `PluginActivationChecker::isActive('iikiti-media-av')` and enforces `isEffectivelyPrivate()` (including expired `make_private` assets), MFA completion (for private assets), site access grants, and segment extension/MIME consistency (`m3u8` ↔ `application/vnd.apple.mpegurl`, `ts` ↔ `video/mp2t`).
+  - Responses use `AssetStreamResponseFactory` for strong ETags, byte-range (`Range` / `206` / `416`), and `Cache-Control` policies. `.m3u8` playlists always stream through the CMS proxy (`allowRedirect: false`) even under `ASSET_DELIVERY_MODE=redirect` so CMS-rewritten segment URLs continue to work, while `.ts` segments may redirect to a CDN or presigned URL.
 
 ### Running a dedicated `media_transcoding` worker
 

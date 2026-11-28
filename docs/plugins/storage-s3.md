@@ -54,6 +54,7 @@ ASSET_S3_SECRET_KEY=...
 ASSET_S3_PREFIX=cms-assets
 ASSET_S3_PATH_STYLE=0
 ASSET_S3_CDN_URL=
+ASSET_S3_ALLOW_PRIVATE_ENDPOINTS=0
 ```
 
 | Variable | Default | Purpose |
@@ -66,6 +67,7 @@ ASSET_S3_CDN_URL=
 | `ASSET_S3_PREFIX` | `""` | Optional object key prefix inside the bucket (leading/trailing slashes normalized). |
 | `ASSET_S3_PATH_STYLE` | `false` (`0`) | Set to `1` for path-style URLs (`<endpoint>/<bucket>/<key>`), required by MinIO and most self-hosted S3 gateways. |
 | `ASSET_S3_CDN_URL` | `""` | Optional public CDN origin mapped to this bucket for public asset redirects. |
+| `ASSET_S3_ALLOW_PRIVATE_ENDPOINTS` | `false` (`0`) | Opt-in flag to allow loopback, RFC 1918 private, link-local, and CGNAT (`100.64.0.0/10`) IP addresses as well as `.localhost`, `.local`, `.internal`, `.localdomain`, and `.home.arpa` hostnames for self-hosted MinIO/VPC setups. Blocked by default via SSRF/DNS validation (including IPv4-mapped IPv6 addresses and virtual-hosted bucket subdomain checks). |
 
 ### Provider configuration examples
 
@@ -102,7 +104,10 @@ ASSET_S3_BUCKET=iikiti-assets
 ASSET_S3_ACCESS_KEY=minioadmin
 ASSET_S3_SECRET_KEY=...
 ASSET_S3_PATH_STYLE=1
+ASSET_S3_ALLOW_PRIVATE_ENDPOINTS=1
 ```
+
+> **Security note:** Leave `ASSET_S3_ALLOW_PRIVATE_ENDPOINTS=0` (default) when targeting public cloud endpoints (AWS S3, Cloudflare R2, GCS). Enable `ASSET_S3_ALLOW_PRIVATE_ENDPOINTS=1` only when connecting to a trusted private VPC/self-hosted gateway such as MinIO, and keep `ASSET_S3_ENDPOINT` restricted to trusted global administrators.
 
 **Google Cloud Storage (S3 Interoperability):**
 
@@ -117,7 +122,7 @@ ASSET_S3_SECRET_KEY=...
 
 ### Admin API and `SecretsApi` storage
 
-Administrators (`ROLE_ADMIN`) can manage settings at runtime via `StorageS3AdminController` (guarded by `#[RequiresPlugin('iikiti-storage-s3')]`):
+**Global administrators** (`ROLE_ADMIN` with `SiteAccessPolicy::isGlobalAdmin()`; site-scoped administrators receive `403 Forbidden`) can manage settings at runtime via `StorageS3AdminController`. Routes under `/api/admin/plugins/iikiti-storage-s3/*` are classified as application admin settings routes by `StorageS3RouteContextContributor`, and `StorageS3AdminController` enforces application-level plugin activation via `PluginActivationChecker::isActiveForApplication('iikiti-storage-s3', $application)` after resolving the application:
 
 - **`GET /api/admin/plugins/iikiti-storage-s3/config`**: returns the active driver, available drivers, and sanitized configuration (`secretKey` is never returned in plaintext).
 - **`PUT /api/admin/plugins/iikiti-storage-s3/config`**: updates Application plugin configuration (`provider`, `endpoint`, `region`, `bucket`, `accessKey`, `prefix`, `pathStyle`, `cdnUrl`).
@@ -153,7 +158,7 @@ If your application installs `league/flysystem` and wants to use another Flysyst
 
 ## Migrating existing assets (`iikiti:asset:migrate-storage`)
 
-Use `php bin/console iikiti:asset:migrate-storage` to copy uploaded asset originals and generated variants between any two configured storage drivers in keyset-paginated batches.
+Use `php bin/console iikiti:asset:migrate-storage` to copy uploaded asset originals, **historical versions (`DigitalAssetVersion`)**, and **generated variants (including HLS `.m3u8` playlists and `.ts` segments with preserved MIME types)** between any two configured storage drivers in keyset-paginated batches while deduplicating shared storage keys.
 
 ### Options
 

@@ -23,7 +23,7 @@ By default the active driver is `local` (`LocalAssetStorage`), storing files und
 | `ASSET_CDN_BASE_URL` | `""` | Optional public CDN base URL used for `public`, non-signed assets when `ASSET_DELIVERY_MODE=redirect`. |
 | `ASSET_REDIRECT_TTL_SECONDS` | `300` | Lifetime (clamped to `1..3600` seconds) for backend presigned redirect URLs when `ASSET_DELIVERY_MODE=redirect`. |
 | `ASSET_SIGNING_SECRET` | `""` | Dedicated HMAC-SHA256 secret for CMS signed URLs (`/assets/signed/...`). Falls back to `APP_SECRET` when empty. |
-| `ASSET_EXPIRY_WARNING_DAYS` | `14` | Lead window (days before `expiresAt`) for sending license-expiration warning alerts. |
+| `ASSET_EXPIRY_WARNING_DAYS` | `14` | Unified lead window (days before `expiresAt`) governing scheduled expiration warning alerts, `licenseStatus=expiring_soon|expiring_or_expired` filtering/facets, `license.isExpiringSoon`, and Admin UI badges (exposed as `expiryWarningDays` on `GET /api/admin/assets/sites`). |
 
 ### Site grants, visibility, and MFA
 
@@ -45,7 +45,7 @@ Asset delivery is served from `DigitalAssetFileController` via `AssetStreamRespo
 - **Immutable `?v=` caching:** Public asset URLs that include a valid `?v=<checksum-prefix>` query parameter (`8..64` hexadecimal characters matching the file's SHA-256 checksum prefix) receive `Cache-Control: public, max-age=31536000, immutable`. Public asset requests without a matching `?v=` receive `Cache-Control: public, max-age=3600, stale-while-revalidate=86400`.
 - **Private & signed responses:** Private assets, effectively private (expired `make_private`) assets, and signed URL deliveries always emit `Cache-Control: private, no-store`.
 - **Byte-range streaming (`Range` / `206` / `416`) and `HEAD`:** Both local and remote storage backends advertise `Accept-Ranges: bytes`, support single RFC 9110 byte ranges (`206 Partial Content` with `Content-Range`), return `416 Range Not Satisfiable` (`Content-Range: bytes */<size>`) for unsatisfiable ranges, and handle `HEAD` requests without reading object bodies.
-- **Safe headers:** Every response sends `X-Content-Type-Options: nosniff` and computes `Content-Disposition` (`inline` for safe inline-deliverable MIME types such as images/audio/video; `attachment` for documents and data files).
+- **Safe headers:** Every response sends `X-Content-Type-Options: nosniff` and computes `Content-Disposition` via `AssetStreamResponseFactory::resolveDisposition()`, which strictly enforces `AssetMimeTypeRegistry::isInlineDeliverable()` (`inline` only for safe inline-deliverable MIME types such as images/audio/video; non-inline MIME types such as XML, PDF, text, CSV, and JSON are always downgraded to `attachment` even if `inline` is requested).
 - **Redirect mode:** When `ASSET_DELIVERY_MODE=redirect`, public non-signed assets redirect (`302 Found`, `Cache-Control: private, no-store`) to `ASSET_CDN_BASE_URL` (or the backend's `publicUrl()`), and backends with `supportsTemporaryUrls()` redirect to a short-lived presigned URL bounded by `ASSET_REDIRECT_TTL_SECONDS`. If the backend does not support redirects (for example `local`), delivery falls back seamlessly to `proxy` streaming.
 
 ### Short-lived signed URLs
@@ -66,13 +66,13 @@ Content-Type: application/json
 ```
 
 - `ttlSeconds` defaults to `900` and is bounded to `1..86400` seconds.
-- `disposition` must be `inline` or `attachment`.
+- `disposition` must be `inline` or `attachment`. `AssetStreamResponseFactory::resolveDisposition()` strictly enforces `isInlineDeliverable()`, so even signed URLs minted with `disposition: "inline"` downgrade non-inline MIME types (XML, PDF, text, CSV, JSON) to `attachment`.
 - The generated URL (`/assets/signed/{publicToken}/{variant}?exp=...&site=...&d=...&sig=...`, plus optional `&v=...`) binds the token, variant, target site ID, expiration timestamp, disposition, and optional version using `ASSET_SIGNING_SECRET` (or `APP_SECRET` fallback) and constant-time verification (`hash_equals`).
 - Signing requests require `ROLE_ADMIN`, asset management rights, site grant verification, and are logged through `AuditRecorder`.
 
 ### Consumer / API split delivery
 
-In database-free `consumer` deployments (`APPLICATION_ROLE=consumer`), `DigitalAssetFileController` delegates `/assets/{publicToken}/{variant}` and `/assets/signed/{publicToken}/{variant}` to `PublicAssetApiProxy`, which proxies `GET` and `HEAD` requests to the API runtime (`PublicAssetController` at `/api/public/assets/...` and `/api/public/assets/signed/...`). `PublicAssetApiProxy` forwards `v`, `exp`, `sig`, `site`, and `d` query parameters plus `If-None-Match`, `If-Modified-Since`, and `Range` request headers, and passes through `200`, `206`, `302`, `304`, and `416` responses along with `ETag`, `Cache-Control`, `Accept-Ranges`, `Content-Range`, `Location`, `Content-Type`, `Content-Disposition`, `Content-Length`, `Last-Modified`, and `Vary`.
+In database-free `consumer` deployments (`APPLICATION_ROLE=consumer`), `DigitalAssetFileController` delegates `/assets/{publicToken}/{variant}` and `/assets/signed/{publicToken}/{variant}` to `PublicAssetApiProxy`, which proxies `GET` and `HEAD` requests to the API runtime (`PublicAssetController` at `/api/public/assets/...` and `/api/public/assets/signed/...`). When `iikiti-media-av` is active, `PublicAssetApiProxy::hls()` likewise proxies `/assets/{publicToken}/hls/{segment}` to `/api/public/assets/{publicToken}/hls/{segment}`. `PublicAssetApiProxy` forwards `v`, `exp`, `sig`, `site`, and `d` query parameters plus `If-None-Match`, `If-Modified-Since`, and `Range` request headers, and passes through `200`, `206`, `302`, `304`, and `416` responses along with `ETag`, `Cache-Control`, `Accept-Ranges`, `Content-Range`, `Location`, `Content-Type`, `Content-Disposition`, `Content-Length`, `Last-Modified`, and `Vary`.
 
 ## Uploads, supported content, and modern image processing
 
@@ -152,13 +152,13 @@ Migration `Version20261128030000` introduces three `DbObject` organization entit
 
 `GET /api/admin/assets` (and `GET /api/editor/assets`) accepts `DigitalAssetFilterCriteria` query parameters:
 
-- `q` (or `query`): text search across title, filename, alt/caption/description, and metadata
+- `q` (or `query`): text search across asset `title`, `originalName`, and linked tag names/slugs
 - `mimeCategory`: `image`, `video`, `audio`, `document`, `text`, `data`, or `other`
 - `mimeType`: exact MIME type filter
 - `siteId`, `visibility` (`public`|`private`), `processingStatus` (`pending`|`processing`|`complete`|`failed`)
 - `folderId` (numeric ID or `unfiled`), `unfiledOnly=1`, `includeSubfolders=1`
 - `collectionId`, `tagIds` (comma-separated or array)
-- `licenseStatus`: `valid`, `expiring_soon`, `expired`, or `missing`
+- `licenseStatus`: `valid`, `expiring_soon`, `expiring_or_expired`, `expired`, or `missing`
 - `sort`: `newest` (default), `oldest`, `title_asc`, `title_desc`, `size_desc`, `size_asc`
 - `page`, `itemsPerPage` (max `100`), `locale` (BCP 47)
 
@@ -230,7 +230,7 @@ Expiration is enforced at two layers:
 1. **Scheduled background check (`CheckExpiringDigitalAssets`):** `DefaultScheduleProvider` schedules `CheckExpiringDigitalAssets` every hour through Symfony Scheduler (`scheduler_default`). `CheckExpiringDigitalAssetsHandler`:
    - Scans assets expiring within `ASSET_EXPIRY_WARNING_DAYS` (default `14`) and sends notifications, warning logs, and audit entries idempotently (tracked via `expiryNotifiedAt`).
    - Scans newly expired assets (`expiredHandledAt IS NULL`), records audit entries, dispatches `DigitalAssetEvents::EXPIRED`, and—when `expiryAction` is `make_private`—flips `visibility` to `private` and invalidates `RenderedFragmentCache`.
-2. **Request-time enforcement:** `AbstractDigitalAsset::isEffectivelyPrivate()` checks `expiresAt <= now` whenever `expiryAction === 'make_private'`. Both `DigitalAssetFileController` and `AssetRenderResolver` evaluate `isEffectivelyPrivate()`, so expired `make_private` assets are immediately blocked from unauthenticated delivery and public rendering even before the next hourly scheduler tick executes.
+2. **Request-time enforcement:** `AbstractDigitalAsset::isEffectivelyPrivate()` checks `expiresAt <= now` whenever `expiryAction === 'make_private'`. `DigitalAssetFileController`, `PublicAssetController`, `HlsDeliveryController`, `AssetRenderResolver`, and `SeoMetadataResolver` all evaluate `isEffectivelyPrivate()`, so expired `make_private` assets are immediately blocked from unauthenticated delivery, HLS playback, public block rendering, and social metadata even before the next hourly scheduler tick executes.
 
 ## Admin API summary
 
@@ -251,7 +251,8 @@ All `/api/admin/assets*` endpoints require an authenticated administrator (`ROLE
 - `GET /api/admin/assets/{id}/versions/{versionNumber}/download`
 - `POST /api/admin/assets/{id}/reprocess`
 - `POST /api/admin/assets/{id}/signed-url`
-- `GET /api/admin/assets/sites`
+- `GET /api/admin/assets/sites` (accessible sites plus configured `expiryWarningDays`)
+- `GET /api/admin/assets/organization` (combined folders, collections, and tags tree/summary)
 - `GET|POST /api/admin/assets/folders`, `PUT|DELETE /api/admin/assets/folders/{id}`
 - `GET|POST /api/admin/assets/collections`, `PUT|DELETE /api/admin/assets/collections/{id}`, `POST /api/admin/assets/collections/{id}/items`, `DELETE /api/admin/assets/collections/{id}/items/{assetId}`
 - `GET|POST /api/admin/assets/tags`, `PUT|DELETE /api/admin/assets/tags/{id}`
