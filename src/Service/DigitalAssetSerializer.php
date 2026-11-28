@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace iikiti\CMS\Service;
 
 use Doctrine\ORM\EntityManagerInterface;
+use iikiti\CMS\DigitalAsset\Usage\AssetUsageIndexInterface;
 use iikiti\CMS\Entity\AbstractDigitalAsset;
 use iikiti\CMS\Entity\DigitalAssetVariant;
 use iikiti\CMS\Entity\Object\UploadedDigitalAsset;
@@ -22,11 +23,12 @@ final class DigitalAssetSerializer
 		private readonly ?DigitalAssetVariantRepository $variants = null,
 		private readonly ?LocalizedPropertyResolver $localizedProperties = null,
 		private readonly ?EntityManagerInterface $entityManager = null,
+		private readonly ?AssetUsageIndexInterface $usageIndex = null,
 	) {
 	}
 
 	/**
-	 * Serializes a list of assets while batch-loading all variants in a single query.
+	 * Serializes a list of assets while batch-loading all variants and usage counts in single queries.
 	 *
 	 * @param list<AbstractDigitalAsset> $assets
 	 *
@@ -41,37 +43,43 @@ final class DigitalAssetSerializer
 			return [];
 		}
 
+		$assetIds = [];
+		foreach ($assets as $asset) {
+			$id = $asset->getId();
+			if (null !== $id) {
+				$assetIds[] = $id;
+			}
+		}
+
 		$variantsByAssetId = [];
-		if (null !== $this->variants) {
-			$assetIds = [];
-			foreach ($assets as $asset) {
-				$id = $asset->getId();
-				if (null !== $id) {
-					$assetIds[] = $id;
+		if (null !== $this->variants && [] !== $assetIds) {
+			foreach ($this->variants->findByAssetIds($assetIds) as $variant) {
+				$ownerId = $variant->getAsset()->getId();
+				if (null !== $ownerId) {
+					$variantsByAssetId[(string) $ownerId][] = $variant;
 				}
 			}
-			if ([] !== $assetIds) {
-				foreach ($this->variants->findByAssetIds($assetIds) as $variant) {
-					$ownerId = $variant->getAsset()->getId();
-					if (null !== $ownerId) {
-						$variantsByAssetId[(string) $ownerId][] = $variant;
-					}
-				}
-			}
+		}
+
+		$usageCountsByAssetId = [];
+		if (null !== $this->usageIndex && [] !== $assetIds) {
+			$usageCountsByAssetId = $this->usageIndex->countUsageByAssetIds($assetIds);
 		}
 
 		$out = [];
 		foreach ($assets as $asset) {
 			$id = $asset->getId();
 			$preloaded = null !== $id ? ($variantsByAssetId[(string) $id] ?? []) : [];
-			$out[] = $this->serialize($asset, $requestedLocale, $includeWorkflowInstances, $preloaded);
+			$usageCount = null !== $id ? ($usageCountsByAssetId[(string) $id] ?? 0) : 0;
+			$out[] = $this->serialize($asset, $requestedLocale, $includeWorkflowInstances, $preloaded, $usageCount);
 		}
 
 		return $out;
 	}
 
 	/**
-	 * @param list<DigitalAssetVariant>|null $preloadedVariants Pass `[]` to skip variant querying (e.g. brand-new upload)
+	 * @param list<DigitalAssetVariant>|null $preloadedVariants   Pass `[]` to skip variant querying (e.g. brand-new upload)
+	 * @param ?int                           $preloadedUsageCount Pass an integer to skip querying the usage index
 	 *
 	 * @return array<string,mixed>
 	 */
@@ -80,6 +88,7 @@ final class DigitalAssetSerializer
 		?LocaleTag $requestedLocale = null,
 		bool $includeWorkflowInstances = false,
 		?array $preloadedVariants = null,
+		?int $preloadedUsageCount = null,
 	): array {
 		$siteIds = [];
 		foreach ($asset->getAccessSites() as $site) {
@@ -150,14 +159,26 @@ final class DigitalAssetSerializer
 			}
 		}
 
+		$assetId = $asset->getId();
+		$usageCount = $preloadedUsageCount;
+		if (null === $usageCount) {
+			if (null !== $this->usageIndex && null !== $assetId) {
+				$counts = $this->usageIndex->countUsageByAssetIds([$assetId]);
+				$usageCount = $counts[(string) $assetId] ?? 0;
+			} else {
+				$usageCount = 0;
+			}
+		}
+
 		$payload = [
-			'id' => $asset->getId(),
+			'id' => $assetId,
 			'type' => $asset instanceof UploadedDigitalAsset ? 'upload' : 'external',
 			'publicToken' => $publicToken,
 			'title' => $asset->getTitle(),
 			'mimeType' => $asset->getMimeType(),
 			'originalName' => $asset->getOriginalName(),
 			'size' => $asset->getSize(),
+			'checksum' => $asset->getChecksum(),
 			'uri' => $asset->getExternalUri(),
 			'visibility' => $asset->getVisibility(),
 			'siteIds' => $siteIds,
@@ -167,6 +188,18 @@ final class DigitalAssetSerializer
 			'tags' => $tags,
 			'collectionIds' => $collectionIds,
 			'processingStatus' => $asset->getProcessingStatus(),
+			'currentVersion' => $asset->getCurrentVersion(),
+			'usageCount' => $usageCount,
+			'license' => [
+				'type' => $asset->getLicenseType(),
+				'holder' => $asset->getLicenseHolder(),
+				'url' => $asset->getLicenseUrl(),
+				'notes' => $asset->getLicenseNotes(),
+				'expiresAt' => $asset->getExpiresAt()?->format(\DateTimeInterface::ATOM),
+				'expiryAction' => $asset->getExpiryAction(),
+				'isExpired' => $asset->isExpired(),
+				'isExpiringSoon' => $asset->isExpiringSoon(),
+			],
 			'width' => $asset->getWidth(),
 			'height' => $asset->getHeight(),
 			'focalPoint' => [

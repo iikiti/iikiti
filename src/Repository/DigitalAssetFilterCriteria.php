@@ -120,6 +120,11 @@ final readonly class DigitalAssetFilterCriteria
 		$tagIds = self::parseIdList($params['tagIds'] ?? ($params['tagId'] ?? null), 'tagIds');
 
 		$licenseStatus = self::nullableLowerString($params['licenseStatus'] ?? null);
+		if ('expiring' === $licenseStatus) {
+			$licenseStatus = 'expiring_soon';
+		} elseif ('licensed' === $licenseStatus) {
+			$licenseStatus = 'valid';
+		}
 		if (null !== $licenseStatus && !in_array($licenseStatus, self::ALLOWED_LICENSE_STATUSES, true)) {
 			throw new \InvalidArgumentException(sprintf('Invalid licenseStatus "%s".', $licenseStatus));
 		}
@@ -180,7 +185,7 @@ final readonly class DigitalAssetFilterCriteria
 			includeSubfolders: $this->includeSubfolders,
 			collectionId: $this->collectionId,
 			tagIds: $this->tagIds,
-			licenseStatus: $this->licenseStatus,
+			licenseStatus: 'licenseStatus' === $dimension ? null : $this->licenseStatus,
 			sort: $this->sort,
 			limit: $this->limit,
 			offset: $this->offset,

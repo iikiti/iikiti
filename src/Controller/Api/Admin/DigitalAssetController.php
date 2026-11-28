@@ -6,25 +6,34 @@ namespace iikiti\CMS\Controller\Api\Admin;
 
 use iikiti\CMS\Audit\AuditRecorder;
 use iikiti\CMS\Controller\AppController;
+use iikiti\CMS\DigitalAsset\Usage\AssetUsageIndexInterface;
+use iikiti\CMS\DigitalAsset\Usage\AssetUsageReference;
 use iikiti\CMS\Entity\AbstractDigitalAsset;
 use iikiti\CMS\Entity\DigitalAssetVariant;
+use iikiti\CMS\Entity\DigitalAssetVersion;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\UploadedDigitalAsset;
 use iikiti\CMS\Entity\Object\User;
+use iikiti\CMS\Exception\AssetInUseException;
+use iikiti\CMS\Exception\DuplicateAssetException;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\DigitalAssetFilterCriteria;
 use iikiti\CMS\Repository\DigitalAssetRepository;
 use iikiti\CMS\Repository\DigitalAssetVariantRepository;
 use iikiti\CMS\Repository\Object\SiteRepository;
 use iikiti\CMS\Service\AssetSignedUrlService;
+use iikiti\CMS\Service\AssetStreamResponseFactory;
 use iikiti\CMS\Service\DigitalAssetAccessPolicy;
 use iikiti\CMS\Service\DigitalAssetBulkActionService;
 use iikiti\CMS\Service\DigitalAssetManager;
 use iikiti\CMS\Service\DigitalAssetSerializer;
+use iikiti\CMS\Service\DigitalAssetVersionManager;
 use iikiti\CMS\Value\LocaleTag;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -134,6 +143,66 @@ final class DigitalAssetController extends AppController
 		]);
 	}
 
+	#[Route('/check-duplicate', name: 'check_duplicate', methods: ['POST'])]
+	public function checkDuplicate(
+		Request $request,
+		DigitalAssetRepository $assets,
+		DigitalAssetAccessPolicy $accessPolicy,
+		DigitalAssetSerializer $serializer,
+	): JsonResponse {
+		$user = $this->getUser();
+		if (!$user instanceof User || !$this->isGranted('ROLE_ADMIN')) {
+			return $this->forbidden();
+		}
+
+		$payload = $this->payload($request);
+		$checksum = isset($payload['checksum']) && is_string($payload['checksum'])
+			? strtolower(trim($payload['checksum']))
+			: '';
+		if (1 !== preg_match('/^[a-f0-9]{64}$/', $checksum)) {
+			return $this->json(['error' => 'checksum must be a valid 64-character SHA-256 hex digest.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+		}
+
+		try {
+			$requestedSiteIds = array_map(
+				static fn (mixed $id): string => trim((string) $id),
+				$this->siteIds($payload['siteIds'] ?? []),
+			);
+			$requestedSiteIds = array_values(array_unique(array_filter(
+				$requestedSiteIds,
+				static fn (string $id): bool => '' !== $id && ctype_digit($id),
+			)));
+		} catch (\InvalidArgumentException $exception) {
+			return $this->json(['error' => $exception->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+		}
+
+		$isGlobalAdmin = $accessPolicy->isGlobalAdmin($user);
+		if ($isGlobalAdmin) {
+			$scopeSiteIds = $requestedSiteIds;
+		} else {
+			$manageableSiteIds = array_map(
+				static fn (int|string $id): string => (string) $id,
+				$accessPolicy->getManageableSiteIds($user),
+			);
+			$scopeSiteIds = [] !== $requestedSiteIds
+				? array_values(array_intersect($requestedSiteIds, $manageableSiteIds))
+				: $manageableSiteIds;
+		}
+
+		$matches = $assets->findByChecksumForSites($checksum, $scopeSiteIds, $isGlobalAdmin);
+		if (!$isGlobalAdmin) {
+			$matches = array_values(array_filter(
+				$matches,
+				static fn (AbstractDigitalAsset $match): bool => $accessPolicy->canManageAsset($user, $match),
+			));
+		}
+
+		return $this->json([
+			'duplicate' => [] !== $matches,
+			'matches' => $serializer->serializeMany($matches, null, false),
+		]);
+	}
+
 	#[Route('/upload', name: 'upload', methods: ['POST'])]
 	public function upload(
 		Request $request,
@@ -145,12 +214,25 @@ final class DigitalAssetController extends AppController
 		}
 		$user = $this->getUser();
 		$file = $request->files->get('file');
-		if (!$user instanceof User || !$file instanceof \Symfony\Component\HttpFoundation\File\UploadedFile) {
+		if (!$user instanceof User || !$file instanceof UploadedFile) {
 			return $this->json(['error' => 'An authenticated admin and uploaded file are required.'], Response::HTTP_BAD_REQUEST);
 		}
 		try {
 			$rawFolderId = $request->request->get('folderId');
 			$folderId = is_string($rawFolderId) && '' !== trim($rawFolderId) ? trim($rawFolderId) : null;
+			$duplicatePolicy = strtolower(trim((string) $request->request->get('duplicatePolicy', DigitalAssetManager::DUPLICATE_POLICY_ALLOW)));
+			if ('' === $duplicatePolicy) {
+				$duplicatePolicy = DigitalAssetManager::DUPLICATE_POLICY_ALLOW;
+			}
+			$license = null;
+			$rawLicense = $request->request->get('license');
+			if (is_string($rawLicense) && '' !== trim($rawLicense)) {
+				$decodedLicense = json_decode($rawLicense, true);
+				if (!is_array($decodedLicense)) {
+					throw new \InvalidArgumentException('license must be a valid JSON object.');
+				}
+				$license = $decodedLicense;
+			}
 			$asset = $manager->createUpload(
 				$file,
 				(string) $request->request->get('title', ''),
@@ -159,14 +241,22 @@ final class DigitalAssetController extends AppController
 				$user,
 				$folderId,
 				$this->idList($request->request->get('tagIds', ''), 'tagIds'),
+				$duplicatePolicy,
+				$license,
 			);
+		} catch (DuplicateAssetException $exception) {
+			return $this->json([
+				'error' => $exception->getMessage(),
+				'duplicate' => true,
+				'matches' => $serializer->serializeMany($exception->getMatches(), null, false),
+			], Response::HTTP_CONFLICT);
 		} catch (\InvalidArgumentException $exception) {
 			return $this->json(['error' => $exception->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
 		} catch (AccessDeniedHttpException $exception) {
 			return $this->json(['error' => $exception->getMessage()], Response::HTTP_FORBIDDEN);
 		}
 
-		$payload = $serializer->serialize($asset, null, false, []);
+		$payload = $serializer->serialize($asset, null, false, [], 0);
 		$payload['workflowInstances'] = [];
 
 		return $this->json($payload, Response::HTTP_CREATED);
@@ -191,6 +281,7 @@ final class DigitalAssetController extends AppController
 			if (isset($payload['folderId']) && (is_int($payload['folderId']) || is_string($payload['folderId']))) {
 				$folderId = $payload['folderId'];
 			}
+			$license = isset($payload['license']) && is_array($payload['license']) ? $payload['license'] : null;
 			$asset = $manager->createExternal(
 				(string) ($payload['uri'] ?? ''),
 				(string) ($payload['title'] ?? ''),
@@ -200,6 +291,7 @@ final class DigitalAssetController extends AppController
 				isset($payload['mimeType']) ? (string) $payload['mimeType'] : null,
 				$folderId,
 				$this->idList($payload['tagIds'] ?? [], 'tagIds'),
+				$license,
 			);
 		} catch (\InvalidArgumentException $exception) {
 			return $this->json(['error' => $exception->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
@@ -207,7 +299,7 @@ final class DigitalAssetController extends AppController
 			return $this->json(['error' => $exception->getMessage()], Response::HTTP_FORBIDDEN);
 		}
 
-		$serialized = $serializer->serialize($asset, null, false, []);
+		$serialized = $serializer->serialize($asset, null, false, [], 0);
 		$serialized['workflowInstances'] = [];
 
 		return $this->json($serialized, Response::HTTP_CREATED);
@@ -272,8 +364,13 @@ final class DigitalAssetController extends AppController
 	}
 
 	#[Route('/{id}', name: 'delete', methods: ['DELETE'], requirements: ['id' => '\\d+'])]
-	public function delete(int $id, DigitalAssetRepository $assets, DigitalAssetManager $manager, DigitalAssetAccessPolicy $accessPolicy): JsonResponse
-	{
+	public function delete(
+		int $id,
+		Request $request,
+		DigitalAssetRepository $assets,
+		DigitalAssetManager $manager,
+		DigitalAssetAccessPolicy $accessPolicy,
+	): JsonResponse {
 		$user = $this->getUser();
 		if (!$user instanceof User || !$this->isGranted('ROLE_ADMIN')) {
 			return $this->forbidden();
@@ -282,9 +379,199 @@ final class DigitalAssetController extends AppController
 		if (!$asset instanceof AbstractDigitalAsset || !$accessPolicy->canManageAsset($user, $asset)) {
 			return $this->json(['error' => 'Not found'], Response::HTTP_NOT_FOUND);
 		}
-		$manager->delete($asset, $user);
+
+		$force = $this->parseBool($request->query->get('force', false));
+		try {
+			$manager->delete($asset, $user, $force);
+		} catch (AssetInUseException $exception) {
+			return $this->json([
+				'error' => $exception->getMessage(),
+				'usageCount' => $exception->getUsageCount(),
+				'usages' => $exception->getUsages(),
+			], Response::HTTP_CONFLICT);
+		}
 
 		return $this->json(['deleted' => true]);
+	}
+
+	#[Route('/{id}/usage', name: 'usage', methods: ['GET'], requirements: ['id' => '\\d+'])]
+	public function usage(
+		int $id,
+		DigitalAssetRepository $assets,
+		DigitalAssetAccessPolicy $accessPolicy,
+		AssetUsageIndexInterface $usageIndex,
+	): JsonResponse {
+		$user = $this->getUser();
+		if (!$user instanceof User || !$this->isGranted('ROLE_ADMIN')) {
+			return $this->forbidden();
+		}
+		$asset = $assets->find($id);
+		if (!$asset instanceof AbstractDigitalAsset || !$accessPolicy->canManageAsset($user, $asset)) {
+			return $this->json(['error' => 'Not found'], Response::HTTP_NOT_FOUND);
+		}
+
+		$references = $usageIndex->findUsage($id);
+
+		return $this->json([
+			'assetId' => $id,
+			'usageCount' => count($references),
+			'usages' => array_map(static fn (AssetUsageReference $ref): array => $ref->toArray(), $references),
+		]);
+	}
+
+	#[Route('/{id}/versions', name: 'versions', methods: ['GET'], requirements: ['id' => '\\d+'])]
+	public function versions(
+		int $id,
+		DigitalAssetRepository $assets,
+		DigitalAssetAccessPolicy $accessPolicy,
+		DigitalAssetVersionManager $versionManager,
+	): JsonResponse {
+		$user = $this->getUser();
+		if (!$user instanceof User || !$this->isGranted('ROLE_ADMIN')) {
+			return $this->forbidden();
+		}
+		$asset = $assets->find($id);
+		if (!$asset instanceof AbstractDigitalAsset || !$accessPolicy->canManageAsset($user, $asset)) {
+			return $this->json(['error' => 'Not found'], Response::HTTP_NOT_FOUND);
+		}
+
+		return $this->json([
+			'currentVersion' => $asset->getCurrentVersion(),
+			'versions' => $versionManager->listVersions($asset),
+		]);
+	}
+
+	#[Route('/{id}/replace', name: 'replace', methods: ['POST'], requirements: ['id' => '\\d+'])]
+	public function replace(
+		int $id,
+		Request $request,
+		DigitalAssetRepository $assets,
+		DigitalAssetAccessPolicy $accessPolicy,
+		DigitalAssetVersionManager $versionManager,
+		DigitalAssetSerializer $serializer,
+	): JsonResponse {
+		$user = $this->getUser();
+		if (!$user instanceof User || !$this->isGranted('ROLE_ADMIN')) {
+			return $this->forbidden();
+		}
+		$asset = $assets->find($id);
+		if (!$asset instanceof AbstractDigitalAsset || !$accessPolicy->canManageAsset($user, $asset)) {
+			return $this->json(['error' => 'Not found'], Response::HTTP_NOT_FOUND);
+		}
+		if (!$asset instanceof UploadedDigitalAsset) {
+			return $this->json(['error' => 'Only uploaded assets can be replaced in place.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+		}
+
+		$file = $request->files->get('file');
+		if (!$file instanceof UploadedFile) {
+			return $this->json(['error' => 'A replacement file is required.'], Response::HTTP_BAD_REQUEST);
+		}
+
+		$rawChangeNote = $request->request->get('changeNote');
+		$changeNote = is_string($rawChangeNote) && '' !== trim($rawChangeNote) ? trim($rawChangeNote) : null;
+		$allowMimeChange = $this->parseBool($request->request->get('allowMimeChange', false));
+
+		try {
+			$result = $versionManager->replace($asset, $file, $user, $changeNote, $allowMimeChange);
+		} catch (\InvalidArgumentException $exception) {
+			return $this->json(['error' => $exception->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+		} catch (AccessDeniedHttpException $exception) {
+			return $this->json(['error' => $exception->getMessage()], Response::HTTP_FORBIDDEN);
+		}
+
+		$serializedAsset = $serializer->serialize($result['asset'], null, true, []);
+		$serializedVersion = $versionManager->serializeVersion($result['version'], $result['asset']);
+
+		return $this->json(array_merge($serializedAsset, [
+			'asset' => $serializedAsset,
+			'version' => $serializedVersion,
+		]));
+	}
+
+	#[Route('/{id}/versions/{versionNumber}/rollback', name: 'version_rollback', methods: ['POST'], requirements: ['id' => '\\d+', 'versionNumber' => '\\d+'])]
+	public function rollbackVersion(
+		int $id,
+		int $versionNumber,
+		Request $request,
+		DigitalAssetRepository $assets,
+		DigitalAssetAccessPolicy $accessPolicy,
+		DigitalAssetVersionManager $versionManager,
+		DigitalAssetSerializer $serializer,
+	): JsonResponse {
+		$user = $this->getUser();
+		if (!$user instanceof User || !$this->isGranted('ROLE_ADMIN')) {
+			return $this->forbidden();
+		}
+		$asset = $assets->find($id);
+		if (!$asset instanceof AbstractDigitalAsset || !$accessPolicy->canManageAsset($user, $asset)) {
+			return $this->json(['error' => 'Not found'], Response::HTTP_NOT_FOUND);
+		}
+		if (!$asset instanceof UploadedDigitalAsset) {
+			return $this->json(['error' => 'Only uploaded assets support version rollback.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+		}
+
+		$payload = $this->payload($request);
+		$changeNote = isset($payload['changeNote']) && is_string($payload['changeNote']) && '' !== trim($payload['changeNote'])
+			? trim($payload['changeNote'])
+			: null;
+
+		try {
+			$result = $versionManager->rollback($asset, $versionNumber, $user, $changeNote);
+		} catch (\InvalidArgumentException $exception) {
+			return $this->json(['error' => $exception->getMessage()], Response::HTTP_NOT_FOUND);
+		} catch (\RuntimeException $exception) {
+			return $this->json(['error' => $exception->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+		} catch (AccessDeniedHttpException $exception) {
+			return $this->json(['error' => $exception->getMessage()], Response::HTTP_FORBIDDEN);
+		}
+
+		$serializedAsset = $serializer->serialize($result['asset'], null, true, []);
+		$serializedVersion = $versionManager->serializeVersion($result['version'], $result['asset']);
+
+		return $this->json(array_merge($serializedAsset, [
+			'asset' => $serializedAsset,
+			'version' => $serializedVersion,
+		]));
+	}
+
+	#[Route('/{id}/versions/{versionNumber}/download', name: 'version_download', methods: ['GET'], requirements: ['id' => '\\d+', 'versionNumber' => '\\d+'])]
+	public function downloadVersion(
+		int $id,
+		int $versionNumber,
+		Request $request,
+		DigitalAssetRepository $assets,
+		DigitalAssetAccessPolicy $accessPolicy,
+		DigitalAssetVersionManager $versionManager,
+		AssetStreamResponseFactory $responseFactory,
+	): Response {
+		$user = $this->getUser();
+		if (!$user instanceof User || !$this->isGranted('ROLE_ADMIN')) {
+			return $this->forbidden();
+		}
+		$asset = $assets->find($id);
+		if (!$asset instanceof AbstractDigitalAsset || !$accessPolicy->canManageAsset($user, $asset)) {
+			return $this->json(['error' => 'Not found'], Response::HTTP_NOT_FOUND);
+		}
+		if (!$asset instanceof UploadedDigitalAsset) {
+			return $this->json(['error' => 'Only uploaded assets have downloadable versions.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+		}
+
+		$version = $versionManager->findVersion($asset, $versionNumber);
+		if (!$version instanceof DigitalAssetVersion) {
+			return $this->json(['error' => 'Asset version not found.'], Response::HTTP_NOT_FOUND);
+		}
+
+		return $responseFactory->createResponse(
+			$request,
+			$version->getStorageKey(),
+			$version->getMimeType(),
+			$version->getOriginalName(),
+			'private',
+			$version->getChecksum(),
+			(int) $version->getSize(),
+			ResponseHeaderBag::DISPOSITION_ATTACHMENT,
+			true,
+		);
 	}
 
 	#[Route('/{id}/reprocess', name: 'reprocess', methods: ['POST'], requirements: ['id' => '\\d+'])]
@@ -494,5 +781,20 @@ final class DigitalAssetController extends AppController
 	private function forbidden(): JsonResponse
 	{
 		return $this->json(['error' => 'Forbidden'], Response::HTTP_FORBIDDEN);
+	}
+
+	private function parseBool(mixed $value): bool
+	{
+		if (is_bool($value)) {
+			return $value;
+		}
+		if (is_int($value)) {
+			return 0 !== $value;
+		}
+		if (is_string($value)) {
+			return in_array(strtolower(trim($value)), ['1', 'true', 'yes', 'on'], true);
+		}
+
+		return false;
 	}
 }

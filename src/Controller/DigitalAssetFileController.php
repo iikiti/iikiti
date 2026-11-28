@@ -58,7 +58,7 @@ final class DigitalAssetFileController extends AbstractController
 		if (!$asset instanceof AbstractDigitalAsset) {
 			throw $this->createNotFoundException();
 		}
-		if ('private' === $asset->getVisibility() && !($this->getUser() instanceof User)) {
+		if ($asset->isEffectivelyPrivate() && !($this->getUser() instanceof User)) {
 			throw $this->createAccessDeniedException();
 		}
 
@@ -126,12 +126,14 @@ final class DigitalAssetFileController extends AbstractController
 		?string $forcedDisposition,
 		bool $isSigned,
 	): Response {
+		$effectiveVisibility = $asset->isEffectivelyPrivate() ? 'private' : $asset->getVisibility();
+
 		if ($asset instanceof ExternalDigitalAsset) {
 			if (null === $asset->getExternalUri()) {
 				throw $this->createNotFoundException();
 			}
 			$redirect = $this->redirect($asset->getExternalUri(), Response::HTTP_FOUND);
-			if ($isSigned || 'private' === $asset->getVisibility()) {
+			if ($isSigned || 'private' === $effectiveVisibility) {
 				$redirect->headers->set('Cache-Control', 'private, no-store');
 			}
 
@@ -166,7 +168,7 @@ final class DigitalAssetFileController extends AbstractController
 			$key,
 			$mimeType,
 			$filename,
-			$asset->getVisibility(),
+			$effectiveVisibility,
 			$checksum,
 			$size,
 			$forcedDisposition,

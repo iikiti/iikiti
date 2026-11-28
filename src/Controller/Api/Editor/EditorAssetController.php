@@ -11,6 +11,7 @@ use iikiti\CMS\Entity\Object\DigitalAssetFolder;
 use iikiti\CMS\Entity\Object\DigitalAssetTag;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\User;
+use iikiti\CMS\Exception\DuplicateAssetException;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\DigitalAssetCollectionRepository;
 use iikiti\CMS\Repository\DigitalAssetFilterCriteria;
@@ -118,6 +119,39 @@ final class EditorAssetController extends AppController
 		]);
 	}
 
+	#[Route('/check-duplicate', name: 'check_duplicate', methods: ['POST'])]
+	public function checkDuplicate(
+		Request $request,
+		PermissionChecker $permissionChecker,
+		DigitalAssetRepository $assets,
+		DigitalAssetSerializer $serializer,
+	): JsonResponse {
+		if (null === $this->authorizedEditor($permissionChecker)) {
+			return $this->forbidden();
+		}
+
+		$site = $this->currentSite();
+		$siteId = $site?->getId();
+		if (null === $site || null === $siteId) {
+			return $this->json(['error' => 'Site context is not available.'], Response::HTTP_NOT_FOUND);
+		}
+
+		$payload = json_decode((string) $request->getContent(), true);
+		$checksum = is_array($payload) && isset($payload['checksum']) && is_string($payload['checksum'])
+			? strtolower(trim($payload['checksum']))
+			: '';
+		if (1 !== preg_match('/^[a-f0-9]{64}$/', $checksum)) {
+			return $this->json(['error' => 'checksum must be a valid 64-character SHA-256 hex digest.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+		}
+
+		$matches = $assets->findByChecksumForSites($checksum, [$siteId], false);
+
+		return $this->json([
+			'duplicate' => [] !== $matches,
+			'matches' => $serializer->serializeMany($matches, null, false),
+		]);
+	}
+
 	#[Route('/{id}', name: 'show', methods: ['GET'], requirements: ['id' => '\\d+'])]
 	public function show(
 		int $id,
@@ -176,6 +210,10 @@ final class EditorAssetController extends AppController
 
 		$rawFolderId = $request->request->get('folderId');
 		$folderId = is_string($rawFolderId) && '' !== trim($rawFolderId) ? trim($rawFolderId) : null;
+		$duplicatePolicy = strtolower(trim((string) $request->request->get('duplicatePolicy', DigitalAssetManager::DUPLICATE_POLICY_ALLOW)));
+		if ('' === $duplicatePolicy) {
+			$duplicatePolicy = DigitalAssetManager::DUPLICATE_POLICY_ALLOW;
+		}
 
 		try {
 			$asset = $manager->createUploadForSite(
@@ -186,7 +224,14 @@ final class EditorAssetController extends AppController
 				$user,
 				$folderId,
 				$this->idList($request->request->get('tagIds', '')),
+				$duplicatePolicy,
 			);
+		} catch (DuplicateAssetException $exception) {
+			return $this->json([
+				'error' => $exception->getMessage(),
+				'duplicate' => true,
+				'matches' => $serializer->serializeMany($exception->getMatches(), null, false),
+			], Response::HTTP_CONFLICT);
 		} catch (\InvalidArgumentException $exception) {
 			return $this->json(['error' => $exception->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
 		} catch (AccessDeniedHttpException $exception) {

@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace iikiti\CMS\Service;
 
 use Doctrine\ORM\EntityManagerInterface;
+use iikiti\CMS\Audit\AuditRecorder;
+use iikiti\CMS\DigitalAsset\Usage\AssetUsageIndexInterface;
+use iikiti\CMS\DigitalAsset\Usage\AssetUsageReference;
 use iikiti\CMS\Entity\AbstractDigitalAsset;
 use iikiti\CMS\Entity\Object\DigitalAssetFolder;
 use iikiti\CMS\Entity\Object\DigitalAssetTag;
@@ -15,9 +18,12 @@ use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Entity\Workflow\WorkflowInstance;
 use iikiti\CMS\Event\DigitalAssetEvent;
 use iikiti\CMS\Event\DigitalAssetEvents;
+use iikiti\CMS\Exception\AssetInUseException;
+use iikiti\CMS\Exception\DuplicateAssetException;
 use iikiti\CMS\Message\ProcessDigitalAsset;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\DigitalAssetFolderRepository;
+use iikiti\CMS\Repository\DigitalAssetRepository;
 use iikiti\CMS\Repository\DigitalAssetTagRepository;
 use iikiti\CMS\Repository\DigitalAssetVariantRepository;
 use iikiti\CMS\Repository\Object\SiteRepository;
@@ -33,6 +39,17 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final class DigitalAssetManager
 {
+	public const DUPLICATE_POLICY_ALLOW = 'allow';
+	public const DUPLICATE_POLICY_REJECT = 'reject';
+	public const DUPLICATE_POLICY_REUSE = 'reuse';
+
+	/** @var list<string> */
+	public const ALLOWED_DUPLICATE_POLICIES = [
+		self::DUPLICATE_POLICY_ALLOW,
+		self::DUPLICATE_POLICY_REJECT,
+		self::DUPLICATE_POLICY_REUSE,
+	];
+
 	private readonly AssetMimeTypeRegistry $mimeRegistry;
 
 	public function __construct(
@@ -48,13 +65,18 @@ final class DigitalAssetManager
 		?AssetMimeTypeRegistry $mimeRegistry = null,
 		private readonly ?DigitalAssetFolderRepository $folders = null,
 		private readonly ?DigitalAssetTagRepository $tags = null,
+		private readonly ?DigitalAssetRepository $assets = null,
+		private readonly ?DigitalAssetVersionManager $versionManager = null,
+		private readonly ?AssetUsageIndexInterface $usageIndex = null,
+		private readonly ?AuditRecorder $auditRecorder = null,
 	) {
 		$this->mimeRegistry = $mimeRegistry ?? new AssetMimeTypeRegistry([new CoreAssetMimeTypeProvider()]);
 	}
 
 	/**
-	 * @param list<mixed> $siteIds
-	 * @param list<mixed> $tagIds
+	 * @param list<mixed>              $siteIds
+	 * @param list<mixed>              $tagIds
+	 * @param array<string,mixed>|null $license
 	 */
 	public function createUpload(
 		UploadedFile $file,
@@ -64,12 +86,36 @@ final class DigitalAssetManager
 		User $creator,
 		int|string|null $folderId = null,
 		array $tagIds = [],
+		string $duplicatePolicy = self::DUPLICATE_POLICY_ALLOW,
+		?array $license = null,
 	): AbstractDigitalAsset {
 		$sites = $this->resolveSites($siteIds, $creator);
 		$folder = $this->resolveFolderForAdmin($folderId, $creator);
 		$resolvedTags = $this->resolveTags($tagIds);
 
-		return $this->persistUpload($file, $title, $visibility, $sites, $creator, $folder, $resolvedTags);
+		$isGlobalAdmin = $this->accessPolicy->isGlobalAdmin($creator);
+		$duplicateSiteIds = [];
+		foreach ($sites as $site) {
+			$sid = $site->getId();
+			if (null !== $sid) {
+				$duplicateSiteIds[] = $sid;
+			}
+		}
+
+		return $this->persistUpload(
+			$file,
+			$title,
+			$visibility,
+			$sites,
+			$creator,
+			$folder,
+			$resolvedTags,
+			$duplicatePolicy,
+			$license,
+			$duplicateSiteIds,
+			$isGlobalAdmin,
+			true,
+		);
 	}
 
 	/**
@@ -77,7 +123,8 @@ final class DigitalAssetManager
 	 * editor-facing endpoints after PermissionChecker authorization, without
 	 * requiring ROLE_ADMIN multi-site administration privileges).
 	 *
-	 * @param list<mixed> $tagIds
+	 * @param list<mixed>              $tagIds
+	 * @param array<string,mixed>|null $license
 	 */
 	public function createUploadForSite(
 		UploadedFile $file,
@@ -87,16 +134,34 @@ final class DigitalAssetManager
 		User $creator,
 		int|string|null $folderId = null,
 		array $tagIds = [],
+		string $duplicatePolicy = self::DUPLICATE_POLICY_ALLOW,
+		?array $license = null,
 	): AbstractDigitalAsset {
 		$folder = $this->resolveFolderForSite($folderId, $site);
 		$resolvedTags = $this->resolveTags($tagIds);
+		$siteId = $site->getId();
 
-		return $this->persistUpload($file, $title, $visibility, [$site], $creator, $folder, $resolvedTags);
+		return $this->persistUpload(
+			$file,
+			$title,
+			$visibility,
+			[$site],
+			$creator,
+			$folder,
+			$resolvedTags,
+			$duplicatePolicy,
+			$license,
+			null !== $siteId ? [$siteId] : [],
+			false,
+			false,
+		);
 	}
 
 	/**
-	 * @param list<Site>            $sites
-	 * @param list<DigitalAssetTag> $tags
+	 * @param list<Site>               $sites
+	 * @param list<DigitalAssetTag>    $tags
+	 * @param array<string,mixed>|null $license
+	 * @param list<int|string>         $duplicateSiteIds
 	 */
 	private function persistUpload(
 		UploadedFile $file,
@@ -106,7 +171,20 @@ final class DigitalAssetManager
 		User $creator,
 		?DigitalAssetFolder $folder = null,
 		array $tags = [],
+		string $duplicatePolicy = self::DUPLICATE_POLICY_ALLOW,
+		?array $license = null,
+		array $duplicateSiteIds = [],
+		bool $isGlobalAdmin = false,
+		bool $requireManageableDuplicates = false,
 	): AbstractDigitalAsset {
+		$normalizedPolicy = strtolower(trim($duplicatePolicy));
+		if ('' === $normalizedPolicy) {
+			$normalizedPolicy = self::DUPLICATE_POLICY_ALLOW;
+		}
+		if (!in_array($normalizedPolicy, self::ALLOWED_DUPLICATE_POLICIES, true)) {
+			throw new \InvalidArgumentException('duplicatePolicy must be one of allow, reject, or reuse.');
+		}
+
 		if (!$file->isValid()) {
 			throw new \InvalidArgumentException('The uploaded file is not valid.');
 		}
@@ -122,6 +200,29 @@ final class DigitalAssetManager
 			throw new \InvalidArgumentException(sprintf('The file must be between 1 byte and %d bytes.', $maxBytes));
 		}
 
+		$checksum = hash_file('sha256', $file->getPathname());
+		$normalizedChecksum = is_string($checksum) ? strtolower($checksum) : null;
+
+		if (
+			self::DUPLICATE_POLICY_ALLOW !== $normalizedPolicy
+			&& null !== $normalizedChecksum
+			&& null !== $this->assets
+		) {
+			$matches = $this->assets->findByChecksumForSites($normalizedChecksum, $duplicateSiteIds, $isGlobalAdmin);
+			if ($requireManageableDuplicates && !$isGlobalAdmin) {
+				$matches = array_values(array_filter(
+					$matches,
+					fn (AbstractDigitalAsset $match): bool => $this->accessPolicy->canManageAsset($creator, $match),
+				));
+			}
+			if ([] !== $matches) {
+				if (self::DUPLICATE_POLICY_REUSE === $normalizedPolicy) {
+					return $matches[0];
+				}
+				throw new DuplicateAssetException($matches);
+			}
+		}
+
 		$asset = new UploadedDigitalAsset($this->normaliseTitle($title, $file->getClientOriginalName()), $mimeType, bin2hex(random_bytes(32)));
 		$asset->setSite($this->siteRegistry::getCurrent());
 		$asset->setCreatorId($this->creatorId($creator));
@@ -131,12 +232,15 @@ final class DigitalAssetManager
 		$asset->setOriginalName($file->getClientOriginalName());
 		$asset->setSize($size);
 		$asset->setFolder($folder);
+		$asset->setCurrentVersion(1);
 		if ([] !== $tags) {
 			$asset->setTags($tags);
 		}
+		if (null !== $license) {
+			$this->applyLicensePayload($asset, $license);
+		}
 
-		$checksum = hash_file('sha256', $file->getPathname());
-		$asset->setChecksum(is_string($checksum) ? $checksum : null);
+		$asset->setChecksum($normalizedChecksum);
 
 		$storageKey = $this->storage->storeUploadedFile($file, $mimeType);
 		$asset->setStorageKey($storageKey);
@@ -144,6 +248,7 @@ final class DigitalAssetManager
 		try {
 			$this->entityManager->persist($asset);
 			$this->entityManager->flush();
+			$this->versionManager?->recordInitialVersion($asset, $creator);
 		} catch (\Throwable $exception) {
 			$this->storage->delete($storageKey);
 			throw $exception;
@@ -156,8 +261,9 @@ final class DigitalAssetManager
 	}
 
 	/**
-	 * @param list<mixed> $siteIds
-	 * @param list<mixed> $tagIds
+	 * @param list<mixed>              $siteIds
+	 * @param list<mixed>              $tagIds
+	 * @param array<string,mixed>|null $license
 	 */
 	public function createExternal(
 		string $uri,
@@ -168,6 +274,7 @@ final class DigitalAssetManager
 		?string $mimeType = null,
 		int|string|null $folderId = null,
 		array $tagIds = [],
+		?array $license = null,
 	): ExternalDigitalAsset {
 		$uri = $this->validateExternalUri($uri);
 		$mimeType = null === $mimeType || '' === trim($mimeType) ? 'application/octet-stream' : strtolower(trim($mimeType));
@@ -190,6 +297,9 @@ final class DigitalAssetManager
 		$asset->setFolder($folder);
 		if ([] !== $resolvedTags) {
 			$asset->setTags($resolvedTags);
+		}
+		if (null !== $license) {
+			$this->applyLicensePayload($asset, $license);
 		}
 		$this->entityManager->persist($asset);
 		$this->entityManager->flush();
@@ -271,6 +381,23 @@ final class DigitalAssetManager
 		if (array_key_exists('description', $payload)) {
 			$asset->setDescription($this->normaliseLocalizedTextInput($payload['description'], 'description'));
 		}
+		if (array_key_exists('license', $payload)) {
+			$rawLicense = $payload['license'];
+			if (null === $rawLicense) {
+				$asset->setLicenseType(null);
+				$asset->setLicenseHolder(null);
+				$asset->setLicenseUrl(null);
+				$asset->setLicenseNotes(null);
+				$asset->setExpiresAt(null);
+				$asset->setExpiryAction(null);
+				$asset->setExpiryNotifiedAt(null);
+				$asset->setExpiredHandledAt(null);
+			} elseif (is_array($rawLicense)) {
+				$this->applyLicensePayload($asset, $rawLicense);
+			} else {
+				throw new \InvalidArgumentException('license must be an object or null.');
+			}
+		}
 
 		if ($focalChanged && $asset instanceof UploadedDigitalAsset) {
 			$this->resetImageThumbnailWorkflowInstances($asset);
@@ -287,11 +414,24 @@ final class DigitalAssetManager
 		return $asset;
 	}
 
-	public function delete(AbstractDigitalAsset $asset, User $user): void
+	public function delete(AbstractDigitalAsset $asset, User $user, bool $force = false): void
 	{
 		if (!$this->accessPolicy->canManageAsset($user, $asset)) {
 			throw new AccessDeniedHttpException('You cannot manage assets shared with sites you do not administer.');
 		}
+
+		$assetId = $asset->getId();
+		$usages = [];
+		if (null !== $assetId && null !== $this->usageIndex) {
+			$usages = $this->usageIndex->findUsage($assetId);
+			if ([] !== $usages && !$force) {
+				throw new AssetInUseException(
+					$assetId,
+					array_map(static fn (AssetUsageReference $ref): array => $ref->toArray(), $usages),
+				);
+			}
+		}
+
 		$keys = [];
 		if (null !== $asset->getStorageKey()) {
 			$keys[] = $asset->getStorageKey();
@@ -300,7 +440,11 @@ final class DigitalAssetManager
 			$keys[] = $variant->getStorageKey();
 			$this->entityManager->remove($variant);
 		}
-		$assetId = $asset->getId();
+		if (null !== $this->versionManager) {
+			foreach ($this->versionManager->collectVersionStorageKeys($asset) as $versionKey) {
+				$keys[] = $versionKey;
+			}
+		}
 		if (null !== $assetId) {
 			foreach ($this->entityManager->getRepository(WorkflowInstance::class)->findBySubject('digital_asset', $assetId) as $instance) {
 				$this->entityManager->remove($instance);
@@ -308,9 +452,29 @@ final class DigitalAssetManager
 		}
 		$this->entityManager->remove($asset);
 		$this->entityManager->flush();
-		foreach (array_unique($keys) as $key) {
+
+		foreach (array_values(array_unique($keys)) as $key) {
+			if (null !== $this->versionManager && $this->versionManager->isStorageKeyReferenced($key, $assetId)) {
+				continue;
+			}
 			$this->storage->delete($key);
 		}
+
+		if ($force && [] !== $usages) {
+			$this->auditRecorder?->record(
+				sprintf('Force-deleted digital asset #%s despite %d active usage reference(s)', (string) ($assetId ?? ''), count($usages)),
+				'deleted',
+				'digital_asset',
+				$assetId,
+				null,
+				null,
+				[
+					'forced' => true,
+					'usageCount' => count($usages),
+				],
+			);
+		}
+
 		$this->eventDispatcher->dispatch(new DigitalAssetEvent($asset), DigitalAssetEvents::DELETED);
 	}
 
@@ -545,5 +709,83 @@ final class DigitalAssetManager
 		}
 
 		return array_values($found);
+	}
+
+	/**
+	 * @param array<string, mixed> $license
+	 */
+	private function applyLicensePayload(AbstractDigitalAsset $asset, array $license): void
+	{
+		if (array_key_exists('type', $license)) {
+			$raw = $license['type'];
+			if (null !== $raw && !is_string($raw)) {
+				throw new \InvalidArgumentException('license.type must be a string or null.');
+			}
+			$asset->setLicenseType($raw);
+		}
+		if (array_key_exists('holder', $license)) {
+			$raw = $license['holder'];
+			if (null !== $raw && !is_string($raw)) {
+				throw new \InvalidArgumentException('license.holder must be a string or null.');
+			}
+			$asset->setLicenseHolder($raw);
+		}
+		if (array_key_exists('url', $license)) {
+			$raw = $license['url'];
+			if (null !== $raw && !is_string($raw)) {
+				throw new \InvalidArgumentException('license.url must be a string or null.');
+			}
+			$asset->setLicenseUrl($raw);
+		}
+		if (array_key_exists('notes', $license)) {
+			$raw = $license['notes'];
+			if (null !== $raw && !is_string($raw)) {
+				throw new \InvalidArgumentException('license.notes must be a string or null.');
+			}
+			$asset->setLicenseNotes($raw);
+		}
+		if (array_key_exists('expiryAction', $license)) {
+			$raw = $license['expiryAction'];
+			if (null !== $raw && !is_string($raw)) {
+				throw new \InvalidArgumentException('license.expiryAction must be "alert", "make_private", or null.');
+			}
+			$asset->setExpiryAction($raw);
+		}
+		if (array_key_exists('expiresAt', $license)) {
+			$previousExpiresAt = $asset->getExpiresAt();
+			$newExpiresAt = $this->parseLicenseExpiresAt($license['expiresAt']);
+			$asset->setExpiresAt($newExpiresAt);
+
+			$extended = null === $newExpiresAt
+				|| null === $previousExpiresAt
+				|| $newExpiresAt > $previousExpiresAt;
+			if ($extended) {
+				$asset->setExpiryNotifiedAt(null);
+				$asset->setExpiredHandledAt(null);
+			}
+		}
+	}
+
+	private function parseLicenseExpiresAt(mixed $value): ?\DateTimeImmutable
+	{
+		if (null === $value || '' === $value) {
+			return null;
+		}
+		if ($value instanceof \DateTimeImmutable) {
+			return $value;
+		}
+		if (!is_string($value)) {
+			throw new \InvalidArgumentException('license.expiresAt must be an ISO-8601 datetime string or null.');
+		}
+		$trimmed = trim($value);
+		if ('' === $trimmed) {
+			return null;
+		}
+
+		try {
+			return new \DateTimeImmutable($trimmed);
+		} catch (\Throwable $exception) {
+			throw new \InvalidArgumentException('license.expiresAt must be a valid ISO-8601 date/time.', 0, $exception);
+		}
 	}
 }

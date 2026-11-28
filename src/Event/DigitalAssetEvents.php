@@ -9,6 +9,8 @@ final class DigitalAssetEvents
 	public const CREATED = 'iikiti.digital_asset.created';
 	public const UPDATED = 'iikiti.digital_asset.updated';
 	public const DELETED = 'iikiti.digital_asset.deleted';
+	public const REPLACED = 'iikiti.digital_asset.replaced';
+	public const EXPIRED = 'iikiti.digital_asset.expired';
 	public const PROCESSING_STARTED = 'iikiti.digital_asset.processing_started';
 	public const PROCESSING_COMPLETED = 'iikiti.digital_asset.processing_completed';
 	public const PROCESSING_FAILED = 'iikiti.digital_asset.processing_failed';

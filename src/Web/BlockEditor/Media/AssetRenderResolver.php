@@ -172,7 +172,7 @@ final class AssetRenderResolver
 		$eligible = [];
 		$eligibleIds = [];
 		foreach ($loadedAssets as $asset) {
-			if (!$includePrivate && 'private' === $asset->getVisibility()) {
+			if (!$includePrivate && $asset->isEffectivelyPrivate()) {
 				continue;
 			}
 			$id = self::normalizePositiveInt($asset->getId());
@@ -233,7 +233,7 @@ final class AssetRenderResolver
 			'publicToken' => $asset->getPublicToken(),
 			'mimeType' => $asset->getMimeType(),
 			'checksum' => $asset->getChecksum(),
-			'visibility' => $asset->getVisibility(),
+			'visibility' => $asset->isEffectivelyPrivate() ? 'private' : $asset->getVisibility(),
 			'width' => $asset->getWidth(),
 			'height' => $asset->getHeight(),
 			'focalPoint' => [

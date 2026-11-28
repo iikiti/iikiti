@@ -197,11 +197,18 @@ final class DigitalAssetBulkActionService
 						break;
 
 					case self::ACTION_DELETE:
-						$this->assetManager->delete($asset, $user);
+						$forceDelete = $this->parseBool($params['force'] ?? false);
+						$this->assetManager->delete($asset, $user, $forceDelete);
 						break;
 				}
 
 				$succeeded[] = $asset->getId() ?? $assetId;
+			} catch (\iikiti\CMS\Exception\AssetInUseException $exception) {
+				$failed[] = [
+					'id' => $asset->getId() ?? $assetId,
+					'reason' => $exception->getMessage(),
+					'usages' => $exception->getUsages(),
+				];
 			} catch (\Throwable $exception) {
 				$entry = [
 					'id' => $asset->getId() ?? $assetId,
@@ -445,5 +452,20 @@ final class DigitalAssetBulkActionService
 		}
 
 		return array_values(array_unique($ids));
+	}
+
+	private function parseBool(mixed $value): bool
+	{
+		if (is_bool($value)) {
+			return $value;
+		}
+		if (is_int($value)) {
+			return 0 !== $value;
+		}
+		if (is_string($value)) {
+			return in_array(strtolower(trim($value)), ['1', 'true', 'yes', 'on'], true);
+		}
+
+		return false;
 	}
 }

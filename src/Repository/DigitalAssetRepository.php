@@ -123,7 +123,8 @@ class DigitalAssetRepository extends ObjectRepository
 
 	/**
 	 * Computes faceted counts for the manageable asset listing by `mimeCategory`,
-	 * `visibility`, `processingStatus`, and `siteId`.
+	 * `visibility`, `processingStatus`, `siteId`, and `licenseStatus` (along with
+	 * `expiringCount` and `expiredCount`).
 	 *
 	 * @param list<int|string> $manageableSiteIds
 	 *
@@ -131,7 +132,10 @@ class DigitalAssetRepository extends ObjectRepository
 	 *     mimeCategory: array<string,int>,
 	 *     visibility: array<string,int>,
 	 *     processingStatus: array<string,int>,
-	 *     siteId: array<string,int>
+	 *     siteId: array<string,int>,
+	 *     licenseStatus: array<string,int>,
+	 *     expiringCount: int,
+	 *     expiredCount: int
 	 * }
 	 */
 	public function computeFacets(
@@ -144,6 +148,14 @@ class DigitalAssetRepository extends ObjectRepository
 			'visibility' => [],
 			'processingStatus' => [],
 			'siteId' => [],
+			'licenseStatus' => [
+				'valid' => 0,
+				'expiring_soon' => 0,
+				'expired' => 0,
+				'missing' => 0,
+			],
+			'expiringCount' => 0,
+			'expiredCount' => 0,
 		];
 		if (!$isGlobalAdmin && [] === $manageableSiteIds) {
 			return $empty;
@@ -204,11 +216,22 @@ class DigitalAssetRepository extends ObjectRepository
 		}
 		ksort($siteCounts);
 
+		$licenseBaseCriteria = $criteria->withoutFacet('licenseStatus');
+		$licenseCounts = [];
+		foreach (['valid', 'expiring_soon', 'expired', 'missing'] as $bucket) {
+			$qb = $this->buildManageableFilteredQuery($manageableSiteIds, $isGlobalAdmin, $licenseBaseCriteria);
+			$this->applyLicenseStatusFilter($qb, $bucket);
+			$licenseCounts[$bucket] = (int) $qb->select('COUNT(DISTINCT asset.id)')->getQuery()->getSingleScalarResult();
+		}
+
 		return [
 			'mimeCategory' => $mimeCounts,
 			'visibility' => $visibilityCounts,
 			'processingStatus' => $statusCounts,
 			'siteId' => $siteCounts,
+			'licenseStatus' => $licenseCounts,
+			'expiringCount' => $licenseCounts['expiring_soon'],
+			'expiredCount' => $licenseCounts['expired'],
 		];
 	}
 
@@ -545,34 +568,112 @@ class DigitalAssetRepository extends ObjectRepository
 		}
 	}
 
+	/**
+	 * Finds assets matching the given SHA-256 checksum strictly within the
+	 * caller's accessible/manageable sites (preventing cross-tenant existence oracles).
+	 *
+	 * @param list<int|string> $siteIds
+	 *
+	 * @return list<AbstractDigitalAsset>
+	 */
+	public function findByChecksumForSites(string $checksum, array $siteIds, bool $isGlobalAdmin): array
+	{
+		$normalized = strtolower(trim($checksum));
+		if (1 !== preg_match('/^[a-f0-9]{64}$/', $normalized)) {
+			return [];
+		}
+
+		$normalizedSiteIds = array_values(array_unique(array_filter(
+			array_map(static fn (int|string $id): string => trim((string) $id), $siteIds),
+			static fn (string $id): bool => '' !== $id && ctype_digit($id),
+		)));
+
+		if (!$isGlobalAdmin && [] === $normalizedSiteIds) {
+			return [];
+		}
+
+		$qb = $this->createQueryBuilder('asset')->
+			andWhere('asset.checksum = :checksum')->
+			setParameter('checksum', $normalized)->
+			orderBy('asset.id', 'DESC');
+
+		if ([] !== $normalizedSiteIds) {
+			$qb->andWhere(
+				'asset.id IN (SELECT dup_asset.id FROM '.AbstractDigitalAsset::class.' dup_asset INNER JOIN dup_asset.accessSites dup_site WHERE dup_site.id IN (:dupSiteIds))'
+			)->setParameter('dupSiteIds', $normalizedSiteIds);
+		}
+
+		/** @var list<AbstractDigitalAsset> $results */
+		$results = $qb->getQuery()->getResult();
+
+		return $results;
+	}
+
+	/**
+	 * Finds assets whose license expires within ($now, $until] and have not yet
+	 * had an expiring-soon notification recorded.
+	 *
+	 * @return list<AbstractDigitalAsset>
+	 */
+	public function findExpiringSoon(\DateTimeImmutable $now, \DateTimeImmutable $until): array
+	{
+		/** @var list<AbstractDigitalAsset> $results */
+		$results = $this->createQueryBuilder('asset')->
+			andWhere('asset.expiresAt IS NOT NULL')->
+			andWhere('asset.expiresAt > :now')->
+			andWhere('asset.expiresAt <= :until')->
+			andWhere('asset.expiryNotifiedAt IS NULL')->
+			setParameter('now', $now)->
+			setParameter('until', $until)->
+			orderBy('asset.expiresAt', 'ASC')->
+			addOrderBy('asset.id', 'ASC')->
+			getQuery()->
+			getResult();
+
+		return $results;
+	}
+
+	/**
+	 * Finds assets whose license has expired at or before `$now` and have not yet
+	 * been handled by the expiration scheduler.
+	 *
+	 * @return list<AbstractDigitalAsset>
+	 */
+	public function findExpiredUnhandled(\DateTimeImmutable $now): array
+	{
+		/** @var list<AbstractDigitalAsset> $results */
+		$results = $this->createQueryBuilder('asset')->
+			andWhere('asset.expiresAt IS NOT NULL')->
+			andWhere('asset.expiresAt <= :now')->
+			andWhere('asset.expiredHandledAt IS NULL')->
+			setParameter('now', $now)->
+			orderBy('asset.expiresAt', 'ASC')->
+			addOrderBy('asset.id', 'ASC')->
+			getQuery()->
+			getResult();
+
+		return $results;
+	}
+
 	private function applyLicenseStatusFilter(QueryBuilder $qb, string $licenseStatus): void
 	{
-		$nowIso = (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM);
-		$soonIso = (new \DateTimeImmutable('+30 days'))->format(\DateTimeInterface::ATOM);
+		$now = new \DateTimeImmutable();
+		$soon = $now->modify('+30 days');
 
 		match ($licenseStatus) {
 			'missing' => $qb->andWhere(
-				'asset.id NOT IN (SELECT lp_asset.id FROM '.AbstractDigitalAsset::class.' lp_asset INNER JOIN lp_asset.properties lp_prop WHERE lp_prop.name = :licensePropName)'
-			)->setParameter('licensePropName', 'license'),
-			'expired' => $qb->andWhere(
-				'asset.id IN (SELECT lp_asset.id FROM '.AbstractDigitalAsset::class.' lp_asset INNER JOIN lp_asset.properties lp_prop WHERE lp_prop.name = :licensePropName AND JSON_GET_TEXT(lp_prop.value, :licenseExpiresKey) IS NOT NULL AND JSON_GET_TEXT(lp_prop.value, :licenseExpiresKey) < :licenseNow)'
+				'asset.licenseType IS NULL AND asset.licenseHolder IS NULL AND asset.licenseUrl IS NULL AND asset.licenseNotes IS NULL AND asset.expiresAt IS NULL'
+			),
+			'expired' => $qb->andWhere('asset.expiresAt IS NOT NULL AND asset.expiresAt <= :licenseNow')->
+				setParameter('licenseNow', $now),
+			'expiring_soon', 'expiring' => $qb->andWhere(
+				'asset.expiresAt IS NOT NULL AND asset.expiresAt > :licenseNow AND asset.expiresAt <= :licenseSoon'
 			)->
-				setParameter('licensePropName', 'license')->
-				setParameter('licenseExpiresKey', 'expiresAt')->
-				setParameter('licenseNow', $nowIso),
-			'expiring_soon' => $qb->andWhere(
-				'asset.id IN (SELECT lp_asset.id FROM '.AbstractDigitalAsset::class.' lp_asset INNER JOIN lp_asset.properties lp_prop WHERE lp_prop.name = :licensePropName AND JSON_GET_TEXT(lp_prop.value, :licenseExpiresKey) IS NOT NULL AND JSON_GET_TEXT(lp_prop.value, :licenseExpiresKey) >= :licenseNow AND JSON_GET_TEXT(lp_prop.value, :licenseExpiresKey) <= :licenseSoon)'
-			)->
-				setParameter('licensePropName', 'license')->
-				setParameter('licenseExpiresKey', 'expiresAt')->
-				setParameter('licenseNow', $nowIso)->
-				setParameter('licenseSoon', $soonIso),
-			'valid' => $qb->andWhere(
-				'asset.id IN (SELECT lp_asset.id FROM '.AbstractDigitalAsset::class.' lp_asset INNER JOIN lp_asset.properties lp_prop WHERE lp_prop.name = :licensePropName AND (JSON_GET_TEXT(lp_prop.value, :licenseExpiresKey) IS NULL OR JSON_GET_TEXT(lp_prop.value, :licenseExpiresKey) > :licenseNow))'
-			)->
-				setParameter('licensePropName', 'license')->
-				setParameter('licenseExpiresKey', 'expiresAt')->
-				setParameter('licenseNow', $nowIso),
+				setParameter('licenseNow', $now)->
+				setParameter('licenseSoon', $soon),
+			'valid', 'licensed' => $qb->andWhere(
+				'(asset.licenseType IS NOT NULL OR asset.licenseHolder IS NOT NULL OR asset.licenseUrl IS NOT NULL OR asset.licenseNotes IS NOT NULL OR asset.expiresAt IS NOT NULL) AND (asset.expiresAt IS NULL OR asset.expiresAt > :licenseNow)'
+			)->setParameter('licenseNow', $now),
 			default => null,
 		};
 	}

@@ -21,6 +21,15 @@ abstract class AbstractDigitalAsset extends DbObject
 {
 	public const SITE_SPECIFIC = false;
 
+	public const EXPIRY_ACTION_ALERT = 'alert';
+	public const EXPIRY_ACTION_MAKE_PRIVATE = 'make_private';
+
+	/** @var list<string> */
+	public const ALLOWED_EXPIRY_ACTIONS = [
+		self::EXPIRY_ACTION_ALERT,
+		self::EXPIRY_ACTION_MAKE_PRIVATE,
+	];
+
 	#[ORM\Column(name: 'asset_title', type: Types::STRING, length: 255, nullable: true)]
 	private ?string $title = null;
 
@@ -76,6 +85,33 @@ abstract class AbstractDigitalAsset extends DbObject
 	#[ORM\Column(name: 'asset_media_metadata', type: Types::JSON, nullable: true, options: ['jsonb' => true])]
 	private ?array $mediaMetadata = null;
 
+	#[ORM\Column(name: 'asset_current_version', type: Types::INTEGER, nullable: true)]
+	private ?int $currentVersion = null;
+
+	#[ORM\Column(name: 'asset_license_type', type: Types::STRING, length: 64, nullable: true)]
+	private ?string $licenseType = null;
+
+	#[ORM\Column(name: 'asset_license_holder', type: Types::STRING, length: 255, nullable: true)]
+	private ?string $licenseHolder = null;
+
+	#[ORM\Column(name: 'asset_license_url', type: Types::TEXT, nullable: true)]
+	private ?string $licenseUrl = null;
+
+	#[ORM\Column(name: 'asset_license_notes', type: Types::TEXT, nullable: true)]
+	private ?string $licenseNotes = null;
+
+	#[ORM\Column(name: 'asset_expires_at', type: Types::DATETIME_IMMUTABLE, nullable: true)]
+	private ?\DateTimeImmutable $expiresAt = null;
+
+	#[ORM\Column(name: 'asset_expiry_action', type: Types::STRING, length: 16, nullable: true)]
+	private ?string $expiryAction = null;
+
+	#[ORM\Column(name: 'asset_expiry_notified_at', type: Types::DATETIME_IMMUTABLE, nullable: true)]
+	private ?\DateTimeImmutable $expiryNotifiedAt = null;
+
+	#[ORM\Column(name: 'asset_expired_handled_at', type: Types::DATETIME_IMMUTABLE, nullable: true)]
+	private ?\DateTimeImmutable $expiredHandledAt = null;
+
 	/** @var Collection<int,Site> */
 	#[ORM\ManyToMany(targetEntity: Site::class)]
 	#[ORM\JoinTable(
@@ -107,6 +143,7 @@ abstract class AbstractDigitalAsset extends DbObject
 		$this->title = trim($title);
 		$this->mimeType = strtolower(trim($mimeType));
 		$this->publicToken = $publicToken;
+		$this->currentVersion = $this->isUploaded() ? 1 : null;
 		$this->accessSites = new ArrayCollection();
 		$this->tags = new ArrayCollection();
 		$this->collections = new ArrayCollection();
@@ -384,6 +421,230 @@ abstract class AbstractDigitalAsset extends DbObject
 		$this->mediaMetadata = $mediaMetadata;
 
 		return $this;
+	}
+
+	public function getCurrentVersion(): int
+	{
+		return $this->currentVersion ?? ($this->isUploaded() ? 1 : 0);
+	}
+
+	public function setCurrentVersion(?int $currentVersion): static
+	{
+		if (null !== $currentVersion && $currentVersion < 1) {
+			throw new \InvalidArgumentException('Asset version number must be a positive integer.');
+		}
+		$this->currentVersion = $currentVersion;
+
+		return $this;
+	}
+
+	public function getLicenseType(): ?string
+	{
+		return $this->licenseType;
+	}
+
+	public function setLicenseType(?string $licenseType): static
+	{
+		if (null === $licenseType) {
+			$this->licenseType = null;
+
+			return $this;
+		}
+		$trimmed = trim($licenseType);
+		if ('' === $trimmed) {
+			$this->licenseType = null;
+
+			return $this;
+		}
+		if (mb_strlen($trimmed) > 64) {
+			throw new \InvalidArgumentException('License type must not exceed 64 characters.');
+		}
+		$this->licenseType = $trimmed;
+
+		return $this;
+	}
+
+	public function getLicenseHolder(): ?string
+	{
+		return $this->licenseHolder;
+	}
+
+	public function setLicenseHolder(?string $licenseHolder): static
+	{
+		if (null === $licenseHolder) {
+			$this->licenseHolder = null;
+
+			return $this;
+		}
+		$trimmed = trim($licenseHolder);
+		if ('' === $trimmed) {
+			$this->licenseHolder = null;
+
+			return $this;
+		}
+		if (mb_strlen($trimmed) > 255) {
+			throw new \InvalidArgumentException('License holder must not exceed 255 characters.');
+		}
+		$this->licenseHolder = $trimmed;
+
+		return $this;
+	}
+
+	public function getLicenseUrl(): ?string
+	{
+		return $this->licenseUrl;
+	}
+
+	public function setLicenseUrl(?string $licenseUrl): static
+	{
+		if (null === $licenseUrl) {
+			$this->licenseUrl = null;
+
+			return $this;
+		}
+		$trimmed = trim($licenseUrl);
+		if ('' === $trimmed) {
+			$this->licenseUrl = null;
+
+			return $this;
+		}
+		$parts = parse_url($trimmed);
+		$scheme = is_array($parts) ? strtolower((string) ($parts['scheme'] ?? '')) : '';
+		if (
+			strlen($trimmed) > 2048
+			|| !is_array($parts)
+			|| !in_array($scheme, ['http', 'https'], true)
+			|| empty($parts['host'])
+			|| false === filter_var($trimmed, FILTER_VALIDATE_URL)
+		) {
+			throw new \InvalidArgumentException('License URL must be a valid HTTP or HTTPS URL.');
+		}
+		$this->licenseUrl = $trimmed;
+
+		return $this;
+	}
+
+	public function getLicenseNotes(): ?string
+	{
+		return $this->licenseNotes;
+	}
+
+	public function setLicenseNotes(?string $licenseNotes): static
+	{
+		if (null === $licenseNotes) {
+			$this->licenseNotes = null;
+
+			return $this;
+		}
+		$trimmed = trim($licenseNotes);
+		$this->licenseNotes = '' === $trimmed ? null : $trimmed;
+
+		return $this;
+	}
+
+	public function getExpiresAt(): ?\DateTimeImmutable
+	{
+		return $this->expiresAt;
+	}
+
+	public function setExpiresAt(?\DateTimeImmutable $expiresAt): static
+	{
+		$this->expiresAt = $expiresAt;
+
+		return $this;
+	}
+
+	public function getExpiryAction(): ?string
+	{
+		return $this->expiryAction;
+	}
+
+	public function setExpiryAction(?string $expiryAction): static
+	{
+		if (null === $expiryAction) {
+			$this->expiryAction = null;
+
+			return $this;
+		}
+		$normalized = strtolower(trim($expiryAction));
+		if ('' === $normalized) {
+			$this->expiryAction = null;
+
+			return $this;
+		}
+		if (!in_array($normalized, self::ALLOWED_EXPIRY_ACTIONS, true)) {
+			throw new \InvalidArgumentException('Expiry action must be "alert" or "make_private".');
+		}
+		$this->expiryAction = $normalized;
+
+		return $this;
+	}
+
+	public function getExpiryNotifiedAt(): ?\DateTimeImmutable
+	{
+		return $this->expiryNotifiedAt;
+	}
+
+	public function setExpiryNotifiedAt(?\DateTimeImmutable $expiryNotifiedAt): static
+	{
+		$this->expiryNotifiedAt = $expiryNotifiedAt;
+
+		return $this;
+	}
+
+	public function getExpiredHandledAt(): ?\DateTimeImmutable
+	{
+		return $this->expiredHandledAt;
+	}
+
+	public function setExpiredHandledAt(?\DateTimeImmutable $expiredHandledAt): static
+	{
+		$this->expiredHandledAt = $expiredHandledAt;
+
+		return $this;
+	}
+
+	public function hasLicenseInfo(): bool
+	{
+		return null !== $this->licenseType
+			|| null !== $this->licenseHolder
+			|| null !== $this->licenseUrl
+			|| null !== $this->licenseNotes
+			|| null !== $this->expiresAt;
+	}
+
+	public function isExpired(?\DateTimeImmutable $now = null): bool
+	{
+		if (null === $this->expiresAt) {
+			return false;
+		}
+
+		$clock = $now ?? new \DateTimeImmutable();
+
+		return $this->expiresAt <= $clock;
+	}
+
+	public function isExpiringSoon(int $warningDays = 14, ?\DateTimeImmutable $now = null): bool
+	{
+		if (null === $this->expiresAt || $warningDays < 1) {
+			return false;
+		}
+
+		$clock = $now ?? new \DateTimeImmutable();
+		if ($this->expiresAt <= $clock) {
+			return false;
+		}
+
+		return $this->expiresAt <= $clock->modify(sprintf('+%d days', $warningDays));
+	}
+
+	public function isEffectivelyPrivate(?\DateTimeImmutable $now = null): bool
+	{
+		if ('private' === $this->getVisibility()) {
+			return true;
+		}
+
+		return $this->isExpired($now) && self::EXPIRY_ACTION_MAKE_PRIVATE === $this->expiryAction;
 	}
 
 	/** @return Collection<int,Site> */

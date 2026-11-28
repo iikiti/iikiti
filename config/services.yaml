@@ -22,6 +22,8 @@ parameters:
     asset_cdn_base_url: '%env(default:asset_cdn_base_url_default:ASSET_CDN_BASE_URL)%'
     asset_redirect_ttl_seconds_default: 300
     asset_redirect_ttl_seconds: '%env(int:default:asset_redirect_ttl_seconds_default:ASSET_REDIRECT_TTL_SECONDS)%'
+    asset_expiry_warning_days_default: 14
+    asset_expiry_warning_days: '%env(int:default:asset_expiry_warning_days_default:ASSET_EXPIRY_WARNING_DAYS)%'
     scheduler_adapter_default: symfony
     scheduler_adapter_key: '%env(default:scheduler_adapter_default:SCHEDULER_ADAPTER)%'
     lazy_queue_enabled_default: true
@@ -101,6 +103,8 @@ services:
             - '../src/Crypto/ApplicationKeyring.php'
             - '../src/Storage/AssetMimeTypeDefinition.php'
             - '../src/Storage/LocalTempFile.php'
+            - '../src/DigitalAsset/Usage/AssetUsageReference.php'
+            - '../src/Exception/'
             - '../src/Repository/DigitalAssetFilterCriteria.php'
             - '../src/Entity/'
             - '../src/Kernel.php'
@@ -209,6 +213,9 @@ services:
 
     iikiti\CMS\Web\BlockEditor\Usage\BlockUsageIndexInterface:
         alias: iikiti\CMS\Web\BlockEditor\Usage\BlockUsageIndexer
+
+    iikiti\CMS\DigitalAsset\Usage\AssetUsageIndexInterface:
+        alias: iikiti\CMS\DigitalAsset\Usage\AssetUsageIndexer
 
     # Auto-tag block editor extensibility interfaces so plugins (and core) register
     # block types / embed providers / query sources / save workflows / transports
