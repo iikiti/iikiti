@@ -369,3 +369,174 @@ export interface FirewallIpRuleImportResult {
 	importedCount: number;
 	rules: FirewallIpRule[];
 }
+
+/* ------------------------------------------------------------------ */
+/* Digital Assets (DAM)                                               */
+/* ------------------------------------------------------------------ */
+
+export type DigitalAssetVisibility = 'private' | 'public';
+export type DigitalAssetProcessingStatus = 'pending' | 'processing' | 'complete' | 'failed' | string;
+export type DigitalAssetExpiryAction = 'alert' | 'make_private';
+
+export interface DigitalAssetFocalPoint {
+	x: number;
+	y: number;
+}
+
+export interface DigitalAssetWorkflowInstance {
+	workflow: string;
+	version: number;
+	status: string;
+	executionState: string;
+	attempts: number;
+	error: string | null;
+}
+
+export interface DigitalAssetVariant {
+	key: string;
+	mimeType: string;
+	width: number | null;
+	height: number | null;
+	size?: number | null;
+	checksum?: string | null;
+	format?: string | null;
+	quality?: number | null;
+	focalCrop?: boolean;
+	url: string;
+}
+
+export interface DigitalAssetFolder {
+	id: number | string;
+	name: string;
+	slug?: string;
+	parentId: number | string | null;
+	description?: string | null;
+	assetCount?: number;
+	children?: DigitalAssetFolder[];
+	depth?: number;
+}
+
+export interface DigitalAssetCollection {
+	id: number | string;
+	name: string;
+	slug?: string;
+	description?: string | null;
+	assetCount?: number;
+	itemIds?: Array<number | string>;
+}
+
+export interface DigitalAssetTag {
+	id: number | string;
+	name: string;
+	slug?: string;
+	color?: string | null;
+	assetCount?: number;
+}
+
+export interface DigitalAssetLicense {
+	type?: string | null;
+	holder?: string | null;
+	url?: string | null;
+	notes?: string | null;
+	expiresAt?: string | null;
+	expiryAction?: DigitalAssetExpiryAction | null;
+}
+
+export interface DigitalAssetUsage {
+	entityType: string;
+	entityId: number | string;
+	title?: string | null;
+	label?: string | null;
+	field?: string | null;
+	context?: string | null;
+	isDraft?: boolean;
+	url?: string | null;
+	adminUrl?: string | null;
+	siteId?: number | string | null;
+	siteName?: string | null;
+}
+
+export interface DigitalAssetVersion {
+	versionNumber: number;
+	mimeType?: string | null;
+	originalName?: string | null;
+	size?: number | null;
+	checksum?: string | null;
+	changeNote?: string | null;
+	createdAt?: string | null;
+	createdBy?: string | null;
+	isCurrent?: boolean;
+	downloadUrl?: string | null;
+	url?: string | null;
+}
+
+export interface DigitalAssetFacets {
+	mimeCategory?: Record<string, number>;
+	mimeCategories?: Record<string, number>;
+	visibility?: Record<string, number>;
+	visibilities?: Record<string, number>;
+	processingStatus?: Record<string, number>;
+	processingStatuses?: Record<string, number>;
+	siteId?: Record<string, number>;
+	licenseStatus?: Record<string, number>;
+	licenseStatuses?: Record<string, number>;
+	folders?: Array<{ id: number | string; name: string; count?: number }>;
+	tags?: Array<{ id: number | string; name: string; slug?: string; count?: number }>;
+	unfiledCount?: number;
+	totalCount?: number;
+}
+
+export interface DigitalAssetSiteOption {
+	id: number | string;
+	name: string;
+	domain: string;
+	defaultLocale?: string | null;
+	supportedContentLocales?: string[];
+}
+
+export interface DigitalAsset {
+	id: number | string;
+	type: 'upload' | 'external';
+	publicToken?: string;
+	title: string;
+	mimeType: string;
+	originalName: string | null;
+	size: number | string | null;
+	checksum?: string | null;
+	uri: string | null;
+	visibility: DigitalAssetVisibility;
+	siteIds: Array<number | string>;
+	processingStatus: DigitalAssetProcessingStatus;
+	width?: number | null;
+	height?: number | null;
+	focalPoint?: DigitalAssetFocalPoint | null;
+	dominantColor?: string | null;
+	blurhash?: string | null;
+	durationMs?: number | null;
+	mediaMetadata?: Record<string, any> | null;
+	defaultAlt?: string | null;
+	defaultAltLocale?: string | null;
+	defaultAltTranslations?: Record<string, string>;
+	defaultCaption?: string | null;
+	defaultCaptionLocale?: string | null;
+	defaultCaptionTranslations?: Record<string, string>;
+	description?: string | null;
+	descriptionLocale?: string | null;
+	descriptionTranslations?: Record<string, string>;
+	folderId?: number | string | null;
+	folder?: { id: number | string; name: string } | null;
+	tagIds?: Array<number | string>;
+	tags?: DigitalAssetTag[];
+	collectionIds?: Array<number | string>;
+	license?: DigitalAssetLicense | null;
+	usageCount?: number;
+	currentVersion?: number;
+	createdAt?: string | null;
+	updatedAt?: string | null;
+	workflowInstances?: DigitalAssetWorkflowInstance[];
+	variants: DigitalAssetVariant[];
+	fileUrl: string;
+	thumbnailUrl?: string | null;
+	previewUrl?: string | null;
+}
+

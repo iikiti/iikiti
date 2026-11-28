@@ -101,6 +101,7 @@ services:
             - '../src/Crypto/ApplicationKeyring.php'
             - '../src/Storage/AssetMimeTypeDefinition.php'
             - '../src/Storage/LocalTempFile.php'
+            - '../src/Repository/DigitalAssetFilterCriteria.php'
             - '../src/Entity/'
             - '../src/Kernel.php'
             - '../src/Tests/'

@@ -6,6 +6,8 @@ namespace iikiti\CMS\Service;
 
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\AbstractDigitalAsset;
+use iikiti\CMS\Entity\Object\DigitalAssetFolder;
+use iikiti\CMS\Entity\Object\DigitalAssetTag;
 use iikiti\CMS\Entity\Object\ExternalDigitalAsset;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\UploadedDigitalAsset;
@@ -15,6 +17,8 @@ use iikiti\CMS\Event\DigitalAssetEvent;
 use iikiti\CMS\Event\DigitalAssetEvents;
 use iikiti\CMS\Message\ProcessDigitalAsset;
 use iikiti\CMS\Registry\SiteRegistry;
+use iikiti\CMS\Repository\DigitalAssetFolderRepository;
+use iikiti\CMS\Repository\DigitalAssetTagRepository;
 use iikiti\CMS\Repository\DigitalAssetVariantRepository;
 use iikiti\CMS\Repository\Object\SiteRepository;
 use iikiti\CMS\StateMachine\AssetProcessingStateMachine;
@@ -42,29 +46,67 @@ final class DigitalAssetManager
 		private readonly EventDispatcherInterface $eventDispatcher,
 		private readonly AssetProcessingStateMachine $assetProcessingStateMachine,
 		?AssetMimeTypeRegistry $mimeRegistry = null,
+		private readonly ?DigitalAssetFolderRepository $folders = null,
+		private readonly ?DigitalAssetTagRepository $tags = null,
 	) {
 		$this->mimeRegistry = $mimeRegistry ?? new AssetMimeTypeRegistry([new CoreAssetMimeTypeProvider()]);
 	}
 
-	/** @param list<mixed> $siteIds */
-	public function createUpload(UploadedFile $file, string $title, string $visibility, array $siteIds, User $creator): AbstractDigitalAsset
-	{
-		return $this->persistUpload($file, $title, $visibility, $this->resolveSites($siteIds, $creator), $creator);
+	/**
+	 * @param list<mixed> $siteIds
+	 * @param list<mixed> $tagIds
+	 */
+	public function createUpload(
+		UploadedFile $file,
+		string $title,
+		string $visibility,
+		array $siteIds,
+		User $creator,
+		int|string|null $folderId = null,
+		array $tagIds = [],
+	): AbstractDigitalAsset {
+		$sites = $this->resolveSites($siteIds, $creator);
+		$folder = $this->resolveFolderForAdmin($folderId, $creator);
+		$resolvedTags = $this->resolveTags($tagIds);
+
+		return $this->persistUpload($file, $title, $visibility, $sites, $creator, $folder, $resolvedTags);
 	}
 
 	/**
 	 * Uploads a digital asset scoped strictly to the specified site (used by
 	 * editor-facing endpoints after PermissionChecker authorization, without
 	 * requiring ROLE_ADMIN multi-site administration privileges).
+	 *
+	 * @param list<mixed> $tagIds
 	 */
-	public function createUploadForSite(UploadedFile $file, string $title, string $visibility, Site $site, User $creator): AbstractDigitalAsset
-	{
-		return $this->persistUpload($file, $title, $visibility, [$site], $creator);
+	public function createUploadForSite(
+		UploadedFile $file,
+		string $title,
+		string $visibility,
+		Site $site,
+		User $creator,
+		int|string|null $folderId = null,
+		array $tagIds = [],
+	): AbstractDigitalAsset {
+		$folder = $this->resolveFolderForSite($folderId, $site);
+		$resolvedTags = $this->resolveTags($tagIds);
+
+		return $this->persistUpload($file, $title, $visibility, [$site], $creator, $folder, $resolvedTags);
 	}
 
-	/** @param list<Site> $sites */
-	private function persistUpload(UploadedFile $file, string $title, string $visibility, array $sites, User $creator): AbstractDigitalAsset
-	{
+	/**
+	 * @param list<Site>            $sites
+	 * @param list<DigitalAssetTag> $tags
+	 */
+	private function persistUpload(
+		UploadedFile $file,
+		string $title,
+		string $visibility,
+		array $sites,
+		User $creator,
+		?DigitalAssetFolder $folder = null,
+		array $tags = [],
+	): AbstractDigitalAsset {
 		if (!$file->isValid()) {
 			throw new \InvalidArgumentException('The uploaded file is not valid.');
 		}
@@ -88,6 +130,10 @@ final class DigitalAssetManager
 		$asset->setVisibility($visibility);
 		$asset->setOriginalName($file->getClientOriginalName());
 		$asset->setSize($size);
+		$asset->setFolder($folder);
+		if ([] !== $tags) {
+			$asset->setTags($tags);
+		}
 
 		$checksum = hash_file('sha256', $file->getPathname());
 		$asset->setChecksum(is_string($checksum) ? $checksum : null);
@@ -109,23 +155,42 @@ final class DigitalAssetManager
 		return $asset;
 	}
 
-	/** @param list<mixed> $siteIds */
-	public function createExternal(string $uri, string $title, string $visibility, array $siteIds, User $creator, ?string $mimeType = null): ExternalDigitalAsset
-	{
+	/**
+	 * @param list<mixed> $siteIds
+	 * @param list<mixed> $tagIds
+	 */
+	public function createExternal(
+		string $uri,
+		string $title,
+		string $visibility,
+		array $siteIds,
+		User $creator,
+		?string $mimeType = null,
+		int|string|null $folderId = null,
+		array $tagIds = [],
+	): ExternalDigitalAsset {
 		$uri = $this->validateExternalUri($uri);
 		$mimeType = null === $mimeType || '' === trim($mimeType) ? 'application/octet-stream' : strtolower(trim($mimeType));
 		if (strlen($mimeType) > 127 || !preg_match('~^[a-z0-9.+-]+/[a-z0-9.+-]+$~', $mimeType)) {
 			throw new \InvalidArgumentException('Invalid MIME type.');
 		}
 
+		$sites = $this->resolveSites($siteIds, $creator);
+		$folder = $this->resolveFolderForAdmin($folderId, $creator);
+		$resolvedTags = $this->resolveTags($tagIds);
+
 		$asset = new ExternalDigitalAsset($this->normaliseTitle($title, $uri), $mimeType, bin2hex(random_bytes(32)));
 		$asset->setSite($this->siteRegistry::getCurrent());
 		$asset->setCreatorId($this->creatorId($creator));
 		$asset->setCreatedDate(new \DateTimeImmutable());
-		$asset->setAccessSites($this->resolveSites($siteIds, $creator));
+		$asset->setAccessSites($sites);
 		$asset->setVisibility($visibility);
 		$asset->setExternalUri($uri);
 		$asset->setProcessingStatus('complete');
+		$asset->setFolder($folder);
+		if ([] !== $resolvedTags) {
+			$asset->setTags($resolvedTags);
+		}
 		$this->entityManager->persist($asset);
 		$this->entityManager->flush();
 		$this->eventDispatcher->dispatch(new DigitalAssetEvent($asset), DigitalAssetEvents::CREATED);
@@ -150,6 +215,22 @@ final class DigitalAssetManager
 				throw new \InvalidArgumentException('Site grants must be a list of site IDs.');
 			}
 			$asset->setAccessSites($this->resolveSites(array_values($payload['siteIds']), $user));
+		}
+		if (array_key_exists('folderId', $payload)) {
+			$rawFolderId = $payload['folderId'];
+			if (null === $rawFolderId || '' === $rawFolderId) {
+				$asset->setFolder(null);
+			} elseif (is_int($rawFolderId) || is_string($rawFolderId)) {
+				$asset->setFolder($this->resolveFolderForAdmin($rawFolderId, $user));
+			} else {
+				throw new \InvalidArgumentException('folderId must be a positive integer or null.');
+			}
+		}
+		if (array_key_exists('tagIds', $payload)) {
+			if (!is_array($payload['tagIds'])) {
+				throw new \InvalidArgumentException('tagIds must be a list of tag IDs.');
+			}
+			$asset->setTags($this->resolveTags(array_values($payload['tagIds'])));
 		}
 		if (array_key_exists('uri', $payload)) {
 			if (!$asset instanceof ExternalDigitalAsset) {
@@ -371,5 +452,98 @@ final class DigitalAssetManager
 				$this->entityManager->remove($instance);
 			}
 		}
+	}
+
+	private function resolveFolderForAdmin(int|string|null $folderId, User $user): ?DigitalAssetFolder
+	{
+		$folder = $this->findFolder($folderId);
+		if (null === $folder) {
+			return null;
+		}
+		if (
+			!$this->accessPolicy->isGlobalAdmin($user)
+			&& !$folder->isGlobalAccess()
+			&& !$this->accessPolicy->canManageAllSites($user, $folder->getAccessSites()->toArray())
+		) {
+			throw new AccessDeniedHttpException('You cannot assign assets to a folder you do not administer.');
+		}
+
+		return $folder;
+	}
+
+	private function resolveFolderForSite(int|string|null $folderId, Site $site): ?DigitalAssetFolder
+	{
+		$folder = $this->findFolder($folderId);
+		if (null === $folder) {
+			return null;
+		}
+		if (!$folder->isAccessibleToSite($site)) {
+			throw new AccessDeniedHttpException('The selected folder is not accessible to this site.');
+		}
+
+		return $folder;
+	}
+
+	private function findFolder(int|string|null $folderId): ?DigitalAssetFolder
+	{
+		if (null === $folderId) {
+			return null;
+		}
+		$trimmed = trim((string) $folderId);
+		if ('' === $trimmed) {
+			return null;
+		}
+		if (!ctype_digit($trimmed) || '0' === $trimmed) {
+			throw new \InvalidArgumentException('folderId must be a positive integer.');
+		}
+
+		$folder = null !== $this->folders
+			? $this->folders->find($trimmed)
+			: $this->entityManager->find(DigitalAssetFolder::class, $trimmed);
+		if (!$folder instanceof DigitalAssetFolder) {
+			throw new \InvalidArgumentException('Selected folder does not exist.');
+		}
+
+		return $folder;
+	}
+
+	/**
+	 * @param list<mixed> $tagIds
+	 *
+	 * @return list<DigitalAssetTag>
+	 */
+	private function resolveTags(array $tagIds): array
+	{
+		if ([] === $tagIds) {
+			return [];
+		}
+
+		$ids = [];
+		foreach ($tagIds as $tagId) {
+			if (!is_int($tagId) && !is_string($tagId)) {
+				throw new \InvalidArgumentException('Tag IDs must be positive integers.');
+			}
+			$trimmed = trim((string) $tagId);
+			if ('' === $trimmed) {
+				continue;
+			}
+			if (!ctype_digit($trimmed) || '0' === $trimmed) {
+				throw new \InvalidArgumentException('Tag IDs must be positive integers.');
+			}
+			$ids[] = $trimmed;
+		}
+		$ids = array_values(array_unique($ids));
+		if ([] === $ids) {
+			return [];
+		}
+
+		$found = null !== $this->tags
+			? $this->tags->findByIds($ids)
+			: $this->entityManager->getRepository(DigitalAssetTag::class)->findBy(['id' => $ids]);
+		if (count($found) !== count($ids)) {
+			throw new \InvalidArgumentException('One or more selected tags do not exist.');
+		}
+
+		return array_values($found);
 	}
 }

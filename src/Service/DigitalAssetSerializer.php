@@ -127,6 +127,29 @@ final class DigitalAssetSerializer
 		$defaultCaption = $this->serializeLocalizedProperty($asset, 'default_caption', $requestedLocale);
 		$description = $this->serializeLocalizedProperty($asset, 'description', $requestedLocale);
 
+		$folder = $asset->getFolder();
+		$tagIds = [];
+		$tags = [];
+		foreach ($asset->getTags() as $tag) {
+			$tagId = $tag->getId();
+			if (null !== $tagId) {
+				$tagIds[] = $tagId;
+			}
+			$tags[] = [
+				'id' => $tagId,
+				'name' => $tag->getName(),
+				'slug' => $tag->getSlug(),
+			];
+		}
+
+		$collectionIds = [];
+		foreach ($asset->getCollections() as $collection) {
+			$collectionId = $collection->getId();
+			if (null !== $collectionId) {
+				$collectionIds[] = $collectionId;
+			}
+		}
+
 		$payload = [
 			'id' => $asset->getId(),
 			'type' => $asset instanceof UploadedDigitalAsset ? 'upload' : 'external',
@@ -138,6 +161,11 @@ final class DigitalAssetSerializer
 			'uri' => $asset->getExternalUri(),
 			'visibility' => $asset->getVisibility(),
 			'siteIds' => $siteIds,
+			'folderId' => $folder?->getId(),
+			'folderPath' => $folder?->getPath(),
+			'tagIds' => $tagIds,
+			'tags' => $tags,
+			'collectionIds' => $collectionIds,
 			'processingStatus' => $asset->getProcessingStatus(),
 			'width' => $asset->getWidth(),
 			'height' => $asset->getHeight(),

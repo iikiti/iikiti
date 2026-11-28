@@ -9,13 +9,16 @@ use iikiti\CMS\Controller\AppController;
 use iikiti\CMS\Entity\AbstractDigitalAsset;
 use iikiti\CMS\Entity\DigitalAssetVariant;
 use iikiti\CMS\Entity\Object\Site;
+use iikiti\CMS\Entity\Object\UploadedDigitalAsset;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Registry\SiteRegistry;
+use iikiti\CMS\Repository\DigitalAssetFilterCriteria;
 use iikiti\CMS\Repository\DigitalAssetRepository;
 use iikiti\CMS\Repository\DigitalAssetVariantRepository;
 use iikiti\CMS\Repository\Object\SiteRepository;
 use iikiti\CMS\Service\AssetSignedUrlService;
 use iikiti\CMS\Service\DigitalAssetAccessPolicy;
+use iikiti\CMS\Service\DigitalAssetBulkActionService;
 use iikiti\CMS\Service\DigitalAssetManager;
 use iikiti\CMS\Service\DigitalAssetSerializer;
 use iikiti\CMS\Value\LocaleTag;
@@ -41,26 +44,61 @@ final class DigitalAssetController extends AppController
 		}
 		try {
 			$requestedLocale = $this->requestedLocale($request);
+			$criteria = DigitalAssetFilterCriteria::fromRequest($request, 25, 100);
 		} catch (\InvalidArgumentException $exception) {
 			return $this->json(['error' => $exception->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
 		}
-		$page = max(1, $request->query->getInt('page', 1));
-		$perPage = min(100, max(1, $request->query->getInt('itemsPerPage', 25)));
-		if ($accessPolicy->isGlobalAdmin($user)) {
-			$records = $assets->findBy([], ['id' => 'DESC'], $perPage, ($page - 1) * $perPage);
-			$totalItems = $assets->count([]);
-		} else {
-			$siteIds = $accessPolicy->getManageableSiteIds($user);
-			$records = $assets->findManageableBySites($siteIds, $perPage, ($page - 1) * $perPage);
-			$totalItems = $assets->countManageableBySites($siteIds);
-		}
+
+		$isGlobalAdmin = $accessPolicy->isGlobalAdmin($user);
+		$manageableSiteIds = $isGlobalAdmin ? [] : $accessPolicy->getManageableSiteIds($user);
+
+		$records = $assets->findManageableFiltered($manageableSiteIds, $isGlobalAdmin, $criteria);
+		$totalItems = $assets->countManageableFiltered($manageableSiteIds, $isGlobalAdmin, $criteria);
+		$facets = $assets->computeFacets($manageableSiteIds, $isGlobalAdmin, $criteria);
+		$page = (int) floor($criteria->offset / $criteria->limit) + 1;
 
 		return $this->json([
 			'assets' => $serializer->serializeMany($records, $requestedLocale, true),
 			'totalItems' => $totalItems,
 			'page' => $page,
-			'itemsPerPage' => $perPage,
+			'itemsPerPage' => $criteria->limit,
+			'facets' => $facets,
 		]);
+	}
+
+	#[Route('/bulk', name: 'bulk', methods: ['POST'])]
+	public function bulk(
+		Request $request,
+		DigitalAssetBulkActionService $bulkActions,
+	): JsonResponse {
+		$user = $this->getUser();
+		if (!$user instanceof User || !$this->isGranted('ROLE_ADMIN')) {
+			return $this->forbidden();
+		}
+
+		$payload = $this->payload($request);
+		$action = isset($payload['action']) && is_string($payload['action']) ? $payload['action'] : '';
+		$assetIds = $payload['assetIds'] ?? null;
+		if (!is_array($assetIds)) {
+			return $this->json(['error' => 'assetIds must be a list of asset IDs.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+		}
+
+		$params = isset($payload['params']) && is_array($payload['params']) ? $payload['params'] : [];
+		foreach (['folderId', 'tagIds', 'tagNames', 'namespace', 'collectionId', 'visibility', 'siteIds', 'force'] as $key) {
+			if (!array_key_exists($key, $params) && array_key_exists($key, $payload)) {
+				$params[$key] = $payload[$key];
+			}
+		}
+
+		try {
+			$result = $bulkActions->execute($action, array_values($assetIds), $params, $user);
+		} catch (\InvalidArgumentException $exception) {
+			return $this->json(['error' => $exception->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+		} catch (AccessDeniedHttpException $exception) {
+			return $this->json(['error' => $exception->getMessage()], Response::HTTP_FORBIDDEN);
+		}
+
+		return $this->json($result);
 	}
 
 	#[Route('/sites', name: 'sites', methods: ['GET'])]
@@ -111,15 +149,21 @@ final class DigitalAssetController extends AppController
 			return $this->json(['error' => 'An authenticated admin and uploaded file are required.'], Response::HTTP_BAD_REQUEST);
 		}
 		try {
+			$rawFolderId = $request->request->get('folderId');
+			$folderId = is_string($rawFolderId) && '' !== trim($rawFolderId) ? trim($rawFolderId) : null;
 			$asset = $manager->createUpload(
 				$file,
 				(string) $request->request->get('title', ''),
 				(string) $request->request->get('visibility', 'private'),
 				$this->siteIds($request->request->get('siteIds', '')),
 				$user,
+				$folderId,
+				$this->idList($request->request->get('tagIds', ''), 'tagIds'),
 			);
 		} catch (\InvalidArgumentException $exception) {
 			return $this->json(['error' => $exception->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+		} catch (AccessDeniedHttpException $exception) {
+			return $this->json(['error' => $exception->getMessage()], Response::HTTP_FORBIDDEN);
 		}
 
 		$payload = $serializer->serialize($asset, null, false, []);
@@ -143,6 +187,10 @@ final class DigitalAssetController extends AppController
 		}
 		$payload = $this->payload($request);
 		try {
+			$folderId = null;
+			if (isset($payload['folderId']) && (is_int($payload['folderId']) || is_string($payload['folderId']))) {
+				$folderId = $payload['folderId'];
+			}
 			$asset = $manager->createExternal(
 				(string) ($payload['uri'] ?? ''),
 				(string) ($payload['title'] ?? ''),
@@ -150,9 +198,13 @@ final class DigitalAssetController extends AppController
 				$this->siteIds($payload['siteIds'] ?? []),
 				$user,
 				isset($payload['mimeType']) ? (string) $payload['mimeType'] : null,
+				$folderId,
+				$this->idList($payload['tagIds'] ?? [], 'tagIds'),
 			);
 		} catch (\InvalidArgumentException $exception) {
 			return $this->json(['error' => $exception->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+		} catch (AccessDeniedHttpException $exception) {
+			return $this->json(['error' => $exception->getMessage()], Response::HTTP_FORBIDDEN);
 		}
 
 		$serialized = $serializer->serialize($asset, null, false, []);
@@ -233,6 +285,48 @@ final class DigitalAssetController extends AppController
 		$manager->delete($asset, $user);
 
 		return $this->json(['deleted' => true]);
+	}
+
+	#[Route('/{id}/reprocess', name: 'reprocess', methods: ['POST'], requirements: ['id' => '\\d+'])]
+	public function reprocess(
+		int $id,
+		Request $request,
+		DigitalAssetRepository $assets,
+		DigitalAssetManager $manager,
+		DigitalAssetAccessPolicy $accessPolicy,
+		DigitalAssetSerializer $serializer,
+		?AuditRecorder $auditRecorder = null,
+	): JsonResponse {
+		$user = $this->getUser();
+		if (!$user instanceof User || !$this->isGranted('ROLE_ADMIN')) {
+			return $this->forbidden();
+		}
+		try {
+			$requestedLocale = $this->requestedLocale($request);
+		} catch (\InvalidArgumentException $exception) {
+			return $this->json(['error' => $exception->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+		}
+		$asset = $assets->find($id);
+		if (!$asset instanceof AbstractDigitalAsset || !$accessPolicy->canManageAsset($user, $asset)) {
+			return $this->json(['error' => 'Not found'], Response::HTTP_NOT_FOUND);
+		}
+		if (!$asset instanceof UploadedDigitalAsset) {
+			return $this->json(['error' => 'Only uploaded assets can be reprocessed.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+		}
+
+		$manager->queueProcessing($asset);
+
+		$auditRecorder?->record(
+			sprintf('Queued reprocessing for digital asset #%s', (string) $asset->getId()),
+			'updated',
+			'digital_asset',
+			$asset->getId(),
+		);
+
+		$serialized = $serializer->serialize($asset, $requestedLocale, true);
+		$serialized['queued'] = true;
+
+		return $this->json($serialized);
 	}
 
 	#[Route('/{id}/signed-url', name: 'signed_url', methods: ['POST'], requirements: ['id' => '\\d+'])]
@@ -355,6 +449,35 @@ final class DigitalAssetController extends AppController
 		}
 		if (!is_array($value)) {
 			throw new \InvalidArgumentException('Site grants must be a list of site IDs.');
+		}
+
+		return array_values($value);
+	}
+
+	/** @return list<mixed> */
+	private function idList(mixed $value, string $fieldName): array
+	{
+		if (null === $value || '' === $value) {
+			return [];
+		}
+		if (is_string($value)) {
+			$trimmed = trim($value);
+			if ('' === $trimmed) {
+				return [];
+			}
+			if (str_starts_with($trimmed, '[')) {
+				$decoded = json_decode($trimmed, true);
+				if (!is_array($decoded)) {
+					throw new \InvalidArgumentException(sprintf('%s must be a list of IDs.', $fieldName));
+				}
+
+				return array_values($decoded);
+			}
+
+			return array_values(array_filter(array_map('trim', explode(',', $trimmed)), static fn (string $v): bool => '' !== $v));
+		}
+		if (!is_array($value)) {
+			throw new \InvalidArgumentException(sprintf('%s must be a list of IDs.', $fieldName));
 		}
 
 		return array_values($value);

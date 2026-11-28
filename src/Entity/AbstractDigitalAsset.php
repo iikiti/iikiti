@@ -8,6 +8,9 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use iikiti\CMS\Entity\Object\DigitalAssetCollection;
+use iikiti\CMS\Entity\Object\DigitalAssetFolder;
+use iikiti\CMS\Entity\Object\DigitalAssetTag;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Repository\DigitalAssetRepository;
 use iikiti\CMS\Value\LocalizedValue;
@@ -82,12 +85,31 @@ abstract class AbstractDigitalAsset extends DbObject
 	)]
 	private Collection $accessSites;
 
+	#[ORM\ManyToOne(targetEntity: DigitalAssetFolder::class)]
+	#[ORM\JoinColumn(name: 'asset_folder_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+	private ?DigitalAssetFolder $folder = null;
+
+	/** @var Collection<int,DigitalAssetTag> */
+	#[ORM\ManyToMany(targetEntity: DigitalAssetTag::class)]
+	#[ORM\JoinTable(
+		name: 'digital_asset_tags',
+		joinColumns: [new ORM\JoinColumn(name: 'asset_id', referencedColumnName: 'id', onDelete: 'CASCADE')],
+		inverseJoinColumns: [new ORM\JoinColumn(name: 'tag_id', referencedColumnName: 'id', onDelete: 'CASCADE')],
+	)]
+	private Collection $tags;
+
+	/** @var Collection<int,DigitalAssetCollection> */
+	#[ORM\ManyToMany(targetEntity: DigitalAssetCollection::class, mappedBy: 'assets')]
+	private Collection $collections;
+
 	public function __construct(string $title, string $mimeType, string $publicToken)
 	{
 		$this->title = trim($title);
 		$this->mimeType = strtolower(trim($mimeType));
 		$this->publicToken = $publicToken;
 		$this->accessSites = new ArrayCollection();
+		$this->tags = new ArrayCollection();
+		$this->collections = new ArrayCollection();
 		$this->setProperties(new ArrayCollection());
 	}
 
@@ -393,6 +415,126 @@ abstract class AbstractDigitalAsset extends DbObject
 		}
 
 		return false;
+	}
+
+	public function getFolder(): ?DigitalAssetFolder
+	{
+		return $this->folder;
+	}
+
+	public function setFolder(?DigitalAssetFolder $folder): static
+	{
+		$this->folder = $folder;
+
+		return $this;
+	}
+
+	/** @return Collection<int,DigitalAssetTag> */
+	public function getTags(): Collection
+	{
+		if (!isset($this->tags)) {
+			$this->tags = new ArrayCollection();
+		}
+
+		return $this->tags;
+	}
+
+	/** @param iterable<mixed> $tags */
+	public function setTags(iterable $tags): static
+	{
+		$this->getTags()->clear();
+		foreach ($tags as $tag) {
+			if (!$tag instanceof DigitalAssetTag) {
+				throw new \InvalidArgumentException('Asset tags must be DigitalAssetTag instances.');
+			}
+			if (!$this->hasTag($tag)) {
+				$this->getTags()->add($tag);
+			}
+		}
+		$this->syncTagsProperty();
+
+		return $this;
+	}
+
+	public function addTag(DigitalAssetTag $tag): static
+	{
+		if (!$this->hasTag($tag)) {
+			$this->getTags()->add($tag);
+		}
+		$this->syncTagsProperty();
+
+		return $this;
+	}
+
+	public function removeTag(DigitalAssetTag $tag): static
+	{
+		$collection = $this->getTags();
+		foreach ($collection as $key => $existing) {
+			if ($this->isSameTag($existing, $tag)) {
+				$collection->remove($key);
+			}
+		}
+		$this->syncTagsProperty();
+
+		return $this;
+	}
+
+	public function hasTag(DigitalAssetTag $tag): bool
+	{
+		foreach ($this->getTags() as $existing) {
+			if ($this->isSameTag($existing, $tag)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Synchronizes normalized tag names into the `'tags'` ObjectProperty so
+	 * PostgreSQLSearchEngine indexes asset tags consistently.
+	 */
+	public function syncTagsProperty(): void
+	{
+		$names = [];
+		foreach ($this->getTags() as $tag) {
+			$normalized = mb_strtolower(trim($tag->getName()));
+			if ('' !== $normalized) {
+				$names[$normalized] = true;
+			}
+		}
+
+		if ([] === $names) {
+			$this->getProperties()->remove('tags');
+
+			return;
+		}
+
+		$sorted = array_keys($names);
+		sort($sorted, SORT_STRING);
+		$this->setProperty('tags', $sorted);
+	}
+
+	/** @return Collection<int,DigitalAssetCollection> */
+	public function getCollections(): Collection
+	{
+		if (!isset($this->collections)) {
+			$this->collections = new ArrayCollection();
+		}
+
+		return $this->collections;
+	}
+
+	private function isSameTag(DigitalAssetTag $a, DigitalAssetTag $b): bool
+	{
+		if ($a === $b) {
+			return true;
+		}
+		if (null !== $a->getId() && null !== $b->getId()) {
+			return (string) $a->getId() === (string) $b->getId();
+		}
+
+		return $a->getNamespace() === $b->getNamespace() && $a->getSlug() === $b->getSlug();
 	}
 
 	public function setExtractedText(string $text): static

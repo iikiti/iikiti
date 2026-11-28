@@ -6,12 +6,20 @@ namespace iikiti\CMS\Controller\Api\Editor;
 
 use iikiti\CMS\Controller\AppController;
 use iikiti\CMS\Entity\AbstractDigitalAsset;
+use iikiti\CMS\Entity\Object\DigitalAssetCollection;
+use iikiti\CMS\Entity\Object\DigitalAssetFolder;
+use iikiti\CMS\Entity\Object\DigitalAssetTag;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Registry\SiteRegistry;
+use iikiti\CMS\Repository\DigitalAssetCollectionRepository;
+use iikiti\CMS\Repository\DigitalAssetFilterCriteria;
+use iikiti\CMS\Repository\DigitalAssetFolderRepository;
 use iikiti\CMS\Repository\DigitalAssetRepository;
+use iikiti\CMS\Repository\DigitalAssetTagRepository;
 use iikiti\CMS\Security\PermissionChecker;
 use iikiti\CMS\Service\DigitalAssetManager;
+use iikiti\CMS\Service\DigitalAssetOrganizationManager;
 use iikiti\CMS\Service\DigitalAssetSerializer;
 use iikiti\CMS\Value\LocaleTag;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -19,6 +27,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\AsController;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
@@ -50,24 +59,62 @@ final class EditorAssetController extends AppController
 
 		try {
 			$requestedLocale = $this->requestedLocale($request);
+			$criteria = DigitalAssetFilterCriteria::fromRequest($request, 24, 100);
 		} catch (\InvalidArgumentException $exception) {
 			return $this->json(['error' => $exception->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
 		}
 
-		$query = $this->queryParam($request, 'q');
-		$mimeCategory = $this->queryParam($request, 'mimeCategory');
-		$mimeType = $this->queryParam($request, 'mimeType');
-		$page = max(1, $request->query->getInt('page', 1));
-		$perPage = min(100, max(1, $request->query->getInt('itemsPerPage', 24)));
-
-		$records = $assets->findAccessibleToSiteFiltered($site, $query, $mimeCategory, $mimeType, $perPage, ($page - 1) * $perPage);
-		$totalItems = $assets->countAccessibleToSiteFiltered($site, $query, $mimeCategory, $mimeType);
+		$records = $assets->findAccessibleToSiteByCriteria($site, $criteria);
+		$totalItems = $assets->countAccessibleToSiteByCriteria($site, $criteria);
+		$page = (int) floor($criteria->offset / $criteria->limit) + 1;
 
 		return $this->json([
 			'assets' => $serializer->serializeMany($records, $requestedLocale, false),
 			'totalItems' => $totalItems,
 			'page' => $page,
-			'itemsPerPage' => $perPage,
+			'itemsPerPage' => $criteria->limit,
+		]);
+	}
+
+	#[Route('/organization', name: 'organization', methods: ['GET'])]
+	public function organization(
+		PermissionChecker $permissionChecker,
+		DigitalAssetFolderRepository $folders,
+		DigitalAssetTagRepository $tags,
+		DigitalAssetCollectionRepository $collections,
+		DigitalAssetOrganizationManager $organizationManager,
+	): JsonResponse {
+		if (null === $this->authorizedEditor($permissionChecker)) {
+			return $this->forbidden();
+		}
+
+		$site = $this->currentSite();
+		if (null === $site) {
+			return $this->json(['error' => 'Site context is not available.'], Response::HTTP_NOT_FOUND);
+		}
+
+		$accessibleFolders = $folders->findAccessibleToSite($site);
+		$allTags = $tags->findAllOrdered();
+		$accessibleCollections = $collections->findAccessibleToSite($site);
+
+		return $this->json([
+			'folders' => array_map(
+				static fn (DigitalAssetFolder $folder): array => $organizationManager->serializeFolder($folder),
+				$accessibleFolders,
+			),
+			'tags' => array_map(
+				static fn (DigitalAssetTag $tag): array => $organizationManager->serializeTag($tag),
+				$allTags,
+			),
+			'collections' => array_map(
+				static fn (DigitalAssetCollection $collection): array => [
+					'id' => $collection->getId(),
+					'name' => $collection->getName(),
+					'slug' => $collection->getSlug(),
+					'description' => $collection->getDescription(),
+				],
+				$accessibleCollections,
+			),
 		]);
 	}
 
@@ -127,6 +174,9 @@ final class EditorAssetController extends AppController
 		$visibilityRaw = strtolower(trim((string) $request->request->get('visibility', 'public')));
 		$visibility = '' !== $visibilityRaw ? $visibilityRaw : 'public';
 
+		$rawFolderId = $request->request->get('folderId');
+		$folderId = is_string($rawFolderId) && '' !== trim($rawFolderId) ? trim($rawFolderId) : null;
+
 		try {
 			$asset = $manager->createUploadForSite(
 				$file,
@@ -134,9 +184,13 @@ final class EditorAssetController extends AppController
 				$visibility,
 				$site,
 				$user,
+				$folderId,
+				$this->idList($request->request->get('tagIds', '')),
 			);
 		} catch (\InvalidArgumentException $exception) {
 			return $this->json(['error' => $exception->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+		} catch (AccessDeniedHttpException $exception) {
+			return $this->json(['error' => $exception->getMessage()], Response::HTTP_FORBIDDEN);
 		}
 
 		return $this->json($serializer->serialize($asset, null, false, []), Response::HTTP_CREATED);
@@ -168,22 +222,40 @@ final class EditorAssetController extends AppController
 		return SiteRegistry::getCurrent();
 	}
 
-	private function queryParam(Request $request, string $name): ?string
-	{
-		$value = $request->query->get($name);
-		if (!is_string($value)) {
-			return null;
-		}
-		$trimmed = trim($value);
-
-		return '' !== $trimmed ? $trimmed : null;
-	}
-
 	private function requestedLocale(Request $request): ?LocaleTag
 	{
 		$locale = $request->query->get('locale');
 
 		return is_string($locale) ? LocaleTag::tryFromString($locale) : null;
+	}
+
+	/** @return list<mixed> */
+	private function idList(mixed $value): array
+	{
+		if (null === $value || '' === $value) {
+			return [];
+		}
+		if (is_string($value)) {
+			$trimmed = trim($value);
+			if ('' === $trimmed) {
+				return [];
+			}
+			if (str_starts_with($trimmed, '[')) {
+				$decoded = json_decode($trimmed, true);
+				if (!is_array($decoded)) {
+					throw new \InvalidArgumentException('tagIds must be a list of tag IDs.');
+				}
+
+				return array_values($decoded);
+			}
+
+			return array_values(array_filter(array_map('trim', explode(',', $trimmed)), static fn (string $v): bool => '' !== $v));
+		}
+		if (!is_array($value)) {
+			throw new \InvalidArgumentException('tagIds must be a list of tag IDs.');
+		}
+
+		return array_values($value);
 	}
 
 	private function forbidden(): JsonResponse

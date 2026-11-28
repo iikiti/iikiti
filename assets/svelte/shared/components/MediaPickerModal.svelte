@@ -13,6 +13,7 @@
 		resolveAssetEndpoint,
 		resolvePreviewUrl,
 	} from '$lib/mediaHelpers.js';
+	import { buildFolderTree, flattenFolderTree } from '$lib/damHelpers.js';
 
 	type TabId = 'library' | 'upload' | 'url';
 	type MimeCategory = 'all' | 'image' | 'video' | 'audio' | 'document';
@@ -57,8 +58,9 @@
 
 	// Library state
 	let assets = $state<Record<string, any>[]>([]);
-	let folders = $state<Array<{ id: string | number; name: string }>>([]);
+	let folders = $state<Array<{ id: string | number; name: string; parentId?: string | number | null; depth?: number }>>([]);
 	let tags = $state<Array<{ id?: string | number; name: string; slug?: string }>>([]);
+	let orgLoaded = $state(false);
 	let totalItems = $state(0);
 	let page = $state(1);
 	const itemsPerPage = 24;
@@ -149,6 +151,39 @@
 		return 'file-text';
 	}
 
+	async function loadOrganization(): Promise<void> {
+		try {
+			const orgUrl = resolveAssetEndpoint(apiBase, apiEndpoint, '/organization');
+			const response = await fetch(orgUrl, {
+				method: 'GET',
+				credentials: 'same-origin',
+				headers: {
+					Accept: 'application/json',
+					...resolveHeaders(false),
+				},
+			});
+			if (!response.ok) return;
+			const data = await response.json().catch(() => null);
+			if (!data || typeof data !== 'object') return;
+			if (Array.isArray(data.folders)) {
+				folders = flattenFolderTree(buildFolderTree(data.folders));
+				orgLoaded = true;
+			}
+			if (Array.isArray(data.tags)) {
+				tags = data.tags
+					.filter((t: any) => t && typeof t === 'object' && (t.name || t.slug))
+					.map((t: any) => ({
+						id: t.id,
+						name: String(t.name ?? t.slug),
+						slug: String(t.slug ?? t.name),
+					}));
+				orgLoaded = true;
+			}
+		} catch {
+			// Organization endpoint is optional; fall back to list facets when unavailable.
+		}
+	}
+
 	async function loadAssets(targetPage = page): Promise<void> {
 		const seq = ++loadSeq;
 		loading = true;
@@ -185,7 +220,14 @@
 				params.set('folderId', selectedFolder);
 			}
 			if (selectedTag) {
-				params.set('tag', selectedTag);
+				const matchedTag = tags.find(
+					(t) => (t.id !== undefined && String(t.id) === selectedTag) || (t.slug ?? t.name) === selectedTag,
+				);
+				if (matchedTag?.id !== undefined && matchedTag.id !== null) {
+					params.set('tagIds', String(matchedTag.id));
+				} else {
+					params.set('tag', selectedTag);
+				}
 			}
 
 			const url = `${resolveAssetEndpoint(apiBase, apiEndpoint)}?${params.toString()}`;
@@ -208,8 +250,10 @@
 			assets = parsed.assets;
 			totalItems = parsed.totalItems;
 			page = parsed.page;
-			folders = parsed.folders;
-			tags = parsed.tags;
+			if (!orgLoaded) {
+				if (parsed.folders.length > 0) folders = parsed.folders;
+				if (parsed.tags.length > 0) tags = parsed.tags;
+			}
 			brokenPreviewIds = {};
 		} catch (cause) {
 			if (seq === loadSeq) {
@@ -373,6 +417,8 @@
 		urlInput = initialUrl || '';
 		urlError = '';
 		urlPreviewBroken = false;
+		orgLoaded = false;
+		void loadOrganization();
 		void loadAssets(1);
 	});
 
@@ -489,7 +535,7 @@
 							>
 								<option value="">All folders</option>
 								{#each folders as folder (String(folder.id))}
-									<option value={String(folder.id)}>{folder.name}</option>
+									<option value={String(folder.id)}>{folder.depth ? `${'— '.repeat(folder.depth)}${folder.name}` : folder.name}</option>
 								{/each}
 							</select>
 						{/if}
@@ -506,8 +552,8 @@
 								}}
 							>
 								<option value="">All tags</option>
-								{#each tags as tag (tag.slug ?? tag.name)}
-									<option value={tag.slug ?? tag.name}>{tag.name}</option>
+								{#each tags as tag (String(tag.id ?? tag.slug ?? tag.name))}
+									<option value={tag.id !== undefined && tag.id !== null ? String(tag.id) : (tag.slug ?? tag.name)}>{tag.name}</option>
 								{/each}
 							</select>
 						{/if}
