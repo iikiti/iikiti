@@ -13,6 +13,8 @@ parameters:
 		- plugins/iikiti-embeds/src
 		- plugins/iikiti-custom-css/src
 		- plugins/iikiti-forms/src
+		- plugins/iikiti-storage-s3/src
+		- plugins/iikiti-media-av/src
 		- tests
 	scanFiles:
 		- migrations/Version20261114170000.php

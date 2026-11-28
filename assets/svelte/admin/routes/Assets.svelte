@@ -1,281 +1,893 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import type { ApiClient } from '$lib/api';
 	import PageHeader from '$components/PageHeader.svelte';
-	import Button from '$components/Button.svelte';
 	import ErrorBoundary from '$components/ErrorBoundary.svelte';
 	import LoadingState from '$components/LoadingState.svelte';
+	import EmptyState from '$components/EmptyState.svelte';
+	import Pagination from '$components/Pagination.svelte';
+	import ModalDialog from '$components/ModalDialog.svelte';
+	import Icon from '$components/Icon.svelte';
+	import AssetSidebar, { type SmartViewId } from './assets/AssetSidebar.svelte';
+	import AssetToolbar, { type AssetFilterState } from './assets/AssetToolbar.svelte';
+	import AssetGrid from './assets/AssetGrid.svelte';
+	import AssetList from './assets/AssetList.svelte';
+	import BulkActionBar from './assets/BulkActionBar.svelte';
+	import UploadDropzone from './assets/UploadDropzone.svelte';
+	import ExternalUriModal from './assets/ExternalUriModal.svelte';
+	import AssetDetailModal from './assets/AssetDetailModal.svelte';
+	import {
+		buildAssetQueryParams,
+		createSelectionRange,
+		toggleSelectAll,
+		toggleSelection,
+	} from '$lib/damHelpers.js';
+	import type {
+		DigitalAsset,
+		DigitalAssetCollection,
+		DigitalAssetFacets,
+		DigitalAssetFolder,
+		DigitalAssetSiteOption,
+		DigitalAssetTag,
+		DigitalAssetUsage,
+	} from '$types';
+
+	const VIEW_MODE_KEY = 'iikiti.dam.viewMode';
 
 	interface Props {
-		api: any;
+		api: ApiClient;
 		debug?: boolean;
 	}
 
-	interface SiteOption {
-		id: number | string;
-		name: string;
-		domain: string;
-	}
-
-	interface AssetRecord {
-		id: number | string;
-		type: 'upload' | 'external';
-		title: string;
-		mimeType: string;
-		originalName: string | null;
-		size: number | string | null;
-		uri: string | null;
-		visibility: 'private' | 'public';
-		siteIds: Array<number | string>;
-		processingStatus: string;
-		workflowInstances: Array<{ workflow: string; version: number; status: string; executionState: string; attempts: number; error: string | null }>;
-		variants: Array<{ key: string; mimeType: string; width: number | null; height: number | null; url: string }>;
-		fileUrl: string;
-	}
-
 	let { api }: Props = $props();
-	let assets: AssetRecord[] = $state([]);
-	let sites: SiteOption[] = $state([]);
+
+	// Workspace data
+	let assets = $state<DigitalAsset[]>([]);
+	let sites = $state<DigitalAssetSiteOption[]>([]);
+	let defaultSiteId = $state<string | number | null>(null);
+	let defaultLocale = $state<string | null>(null);
+	let supportedContentLocales = $state<string[]>([]);
+	let expiryWarningDays = $state(14);
+	let folders = $state<DigitalAssetFolder[]>([]);
+	let collections = $state<DigitalAssetCollection[]>([]);
+	let tags = $state<DigitalAssetTag[]>([]);
+	let facets = $state<DigitalAssetFacets | null>(null);
+
+	// Pagination & status
 	let totalItems = $state(0);
 	let page = $state(1);
+	const itemsPerPage = 25;
 	let loading = $state(true);
-	let saving = $state(false);
-	let error: string | null = $state(null);
-	let message: string | null = $state(null);
-	let mode: 'upload' | 'uri' = $state('upload');
-	let editing: AssetRecord | null = $state(null);
-	let title = $state('');
-	let uri = $state('');
-	let mimeType = $state('');
-	let visibility: 'private' | 'public' = $state('private');
-	let siteIds: string[] = $state([]);
-	let file: File | null = $state(null);
+	let error = $state<string | null>(null);
+	let notice = $state<string | null>(null);
+	let loadSeq = 0;
 
-	const siteOptions = $derived(sites.map((site) => ({ ...site, id: String(site.id) })));
-	const totalPages = $derived(Math.max(1, Math.ceil(totalItems / 25)));
+	// Filters & view mode
+	let viewMode = $state<'grid' | 'list'>('grid');
+	let activeSmartView = $state<SmartViewId | null>('all');
+	let filters = $state<AssetFilterState>({
+		q: '',
+		mimeCategory: 'all',
+		siteId: '',
+		visibility: '',
+		processingStatus: '',
+		licenseStatus: '',
+		sort: 'newest',
+		folderId: null,
+		includeSubfolders: false,
+		collectionId: null,
+		tagIds: [],
+	});
 
-	async function load() {
+	// Selection state
+	let selectedIds = $state<Set<string>>(new Set());
+	let lastSelectedId = $state<string | null>(null);
+
+	// Modals & full-window drop overlay
+	let uploadOpen = $state(false);
+	let droppedFiles = $state<File[]>([]);
+	let windowFileDragDepth = $state(0);
+	let externalUriOpen = $state(false);
+	let inspectingAsset = $state<DigitalAsset | null>(null);
+
+	// Single-asset delete & 409 in-use conflict modal
+	let deletingAsset = $state<DigitalAsset | null>(null);
+	let deleteConflictError = $state('');
+	let deleteConflictUsageCount = $state(0);
+	let deleteConflictUsages = $state<DigitalAssetUsage[]>([]);
+	let forceSingleDelete = $state(false);
+	let deletingBusy = $state(false);
+
+	const totalPages = $derived(Math.max(1, Math.ceil(totalItems / itemsPerPage)));
+	const visibleIds = $derived(assets.map((asset) => String(asset.id)));
+	const foldersById = $derived(new Map(folders.map((f) => [String(f.id), f])));
+	const tagsById = $derived(new Map(tags.map((t) => [String(t.id), t])));
+
+	function readStoredViewMode(): 'grid' | 'list' {
+		try {
+			const stored = localStorage.getItem(VIEW_MODE_KEY);
+			return stored === 'list' ? 'list' : 'grid';
+		} catch {
+			return 'grid';
+		}
+	}
+
+	function setViewMode(mode: 'grid' | 'list') {
+		viewMode = mode;
+		try {
+			localStorage.setItem(VIEW_MODE_KEY, mode);
+		} catch {
+			/* ignore storage errors */
+		}
+	}
+
+	function showNotice(message: string) {
+		notice = message;
+		error = null;
+	}
+
+	async function loadOrganization(): Promise<void> {
+		const [foldersRes, collectionsRes, tagsRes] = await Promise.allSettled([
+			api.getAssetFolders(),
+			api.getAssetCollections(),
+			api.getAssetTags(),
+		]);
+		if (foldersRes.status === 'fulfilled' && Array.isArray(foldersRes.value)) {
+			folders = foldersRes.value;
+		}
+		if (collectionsRes.status === 'fulfilled' && Array.isArray(collectionsRes.value)) {
+			collections = collectionsRes.value;
+		}
+		if (tagsRes.status === 'fulfilled' && Array.isArray(tagsRes.value)) {
+			tags = tagsRes.value;
+		}
+	}
+
+	async function loadSites(): Promise<void> {
+		const siteData = await api.getDigitalAssetSites();
+		sites = siteData?.sites ?? [];
+		defaultSiteId = siteData?.defaultSiteId ?? null;
+		defaultLocale = siteData?.defaultLocale ?? null;
+		supportedContentLocales = Array.isArray(siteData?.supportedContentLocales)
+			? siteData.supportedContentLocales
+			: [];
+		const parsedWarningDays = Number(siteData?.expiryWarningDays);
+		expiryWarningDays = Number.isFinite(parsedWarningDays) && parsedWarningDays > 0
+			? Math.floor(parsedWarningDays)
+			: 14;
+	}
+
+	async function loadAssets(targetPage = page): Promise<void> {
+		const seq = ++loadSeq;
 		loading = true;
 		error = null;
 		try {
-			const [assetData, siteData] = await Promise.all([
-				api.request(`/admin/assets?page=${page}&itemsPerPage=25`),
-				api.request('/admin/assets/sites'),
-			]);
-			assets = assetData.assets ?? [];
-			totalItems = assetData.totalItems ?? assets.length;
-			sites = siteData.sites ?? [];
-			if (siteIds.length === 0 && siteData.defaultSiteId != null) {
-				siteIds = [String(siteData.defaultSiteId)];
+			const query = buildAssetQueryParams({
+				...filters,
+				page: targetPage,
+				itemsPerPage,
+			});
+			const data = await api.getDigitalAssets(query);
+			if (seq !== loadSeq) return;
+			const loadedAssets = Array.isArray(data?.assets) ? data.assets : [];
+			const loadedTotal = Number(data?.totalItems ?? loadedAssets.length);
+			const loadedPage = Number(data?.page ?? targetPage) || 1;
+			if (loadedAssets.length === 0 && loadedTotal > 0 && loadedPage > 1) {
+				const lastValidPage = Math.max(1, Math.ceil(loadedTotal / itemsPerPage));
+				if (lastValidPage !== loadedPage) {
+					page = lastValidPage;
+					void loadAssets(lastValidPage);
+					return;
+				}
 			}
+			assets = loadedAssets;
+			totalItems = loadedTotal;
+			page = loadedPage;
+			facets = data?.facets ?? null;
 		} catch (e: any) {
-			error = e.message ?? 'Failed to load digital assets';
+			if (seq === loadSeq) {
+				error = e?.message ?? 'Failed to load digital assets.';
+			}
 		} finally {
+			if (seq === loadSeq) {
+				loading = false;
+			}
+		}
+	}
+
+	async function initialize(): Promise<void> {
+		viewMode = readStoredViewMode();
+		loading = true;
+		error = null;
+		try {
+			await Promise.all([loadSites(), loadOrganization(), loadAssets(1)]);
+		} catch (e: any) {
+			error = e?.message ?? 'Failed to initialize Digital Assets workspace.';
 			loading = false;
 		}
 	}
 
-	onMount(load);
+	onMount(() => {
+		void initialize();
+	});
 
-	function resetForm() {
-		editing = null;
-		title = '';
-		uri = '';
-		mimeType = '';
-		visibility = 'private';
-		file = null;
+	// Filter mutations ------------------------------------------------------
+
+	function updateFilters(patch: Partial<AssetFilterState>) {
+		filters = { ...filters, ...patch };
+		if (
+			patch.folderId !== undefined ||
+			patch.collectionId !== undefined ||
+			patch.processingStatus !== undefined ||
+			patch.licenseStatus !== undefined
+		) {
+			syncSmartViewHighlight();
+		}
+		page = 1;
+		selectedIds = new Set();
+		lastSelectedId = null;
+		void loadAssets(1);
 	}
 
-	function editAsset(asset: AssetRecord) {
-		editing = asset;
-		title = asset.title;
-		uri = asset.uri ?? '';
-		mimeType = asset.mimeType;
-		visibility = asset.visibility;
-		siteIds = asset.siteIds.map(String);
-		window.scrollTo({ top: 0, behavior: 'smooth' });
-	}
-
-	async function submit(event: SubmitEvent) {
-		event.preventDefault();
-		saving = true;
-		error = null;
-		message = null;
-		try {
-			if (editing) {
-				const changes: Record<string, unknown> = { title, visibility, siteIds };
-				if (editing.type === 'external') {
-					changes.uri = uri;
-				}
-				await api.request(`/admin/assets/${editing.id}`, {
-					method: 'PUT',
-					body: JSON.stringify(changes),
-				});
-				message = 'Asset updated.';
-			} else if (mode === 'upload') {
-				if (!file) {
-					throw new Error('Select a file to upload.');
-				}
-				const form = new FormData();
-				form.set('file', file);
-				form.set('title', title);
-				form.set('visibility', visibility);
-				form.set('siteIds', JSON.stringify(siteIds));
-				await api.request('/admin/assets/upload', { method: 'POST', body: form });
-				message = 'Asset uploaded. Processing will continue in the background.';
-			} else {
-				await api.request('/admin/assets/uri', {
-					method: 'POST',
-					body: JSON.stringify({ title, uri, mimeType, visibility, siteIds }),
-				});
-				message = 'External asset added.';
-			}
-			resetForm();
-			page = 1;
-			await load();
-		} catch (e: any) {
-			error = e.message ?? 'Failed to save asset';
-		} finally {
-			saving = false;
+	function syncSmartViewHighlight() {
+		if (filters.folderId === 'unfiled' && !filters.collectionId) {
+			activeSmartView = 'unfiled';
+		} else if (filters.processingStatus === 'failed' && !filters.folderId && !filters.collectionId) {
+			activeSmartView = 'failed';
+		} else if (
+			(filters.licenseStatus === 'expiring_or_expired' ||
+				filters.licenseStatus === 'expiring_soon' ||
+				filters.licenseStatus === 'expired') &&
+			!filters.folderId &&
+			!filters.collectionId
+		) {
+			activeSmartView = 'expiring';
+		} else if (!filters.folderId && !filters.collectionId && !filters.processingStatus && !filters.licenseStatus) {
+			activeSmartView = 'all';
+		} else {
+			activeSmartView = null;
 		}
 	}
 
-	async function removeAsset(asset: AssetRecord) {
-		if (!window.confirm(`Delete “${asset.title}” and its stored files?`)) {
+	function resetAllFilters() {
+		activeSmartView = 'all';
+		filters = {
+			q: '',
+			mimeCategory: 'all',
+			siteId: '',
+			visibility: '',
+			processingStatus: '',
+			licenseStatus: '',
+			sort: 'newest',
+			folderId: null,
+			includeSubfolders: false,
+			collectionId: null,
+			tagIds: [],
+		};
+		page = 1;
+		selectedIds = new Set();
+		lastSelectedId = null;
+		void loadAssets(1);
+	}
+
+	function selectSmartView(view: SmartViewId) {
+		activeSmartView = view;
+		const base: Partial<AssetFilterState> = {
+			folderId: null,
+			includeSubfolders: false,
+			collectionId: null,
+			processingStatus: '',
+			licenseStatus: '',
+		};
+		if (view === 'unfiled') {
+			base.folderId = 'unfiled';
+		} else if (view === 'failed') {
+			base.processingStatus = 'failed';
+		} else if (view === 'expiring') {
+			base.licenseStatus = 'expiring_or_expired';
+		}
+		filters = { ...filters, ...base };
+		page = 1;
+		selectedIds = new Set();
+		void loadAssets(1);
+	}
+
+	function selectFolder(folderId: string | null) {
+		activeSmartView = folderId === null ? 'all' : null;
+		filters = {
+			...filters,
+			folderId,
+			collectionId: null,
+			includeSubfolders: folderId ? filters.includeSubfolders : false,
+		};
+		page = 1;
+		selectedIds = new Set();
+		void loadAssets(1);
+	}
+
+	function selectCollection(collectionId: string | null) {
+		activeSmartView = collectionId === null ? 'all' : null;
+		filters = {
+			...filters,
+			collectionId,
+			folderId: null,
+			includeSubfolders: false,
+		};
+		page = 1;
+		selectedIds = new Set();
+		void loadAssets(1);
+	}
+
+	function toggleTagFilter(tagId: string) {
+		const exists = filters.tagIds.includes(tagId);
+		const nextTagIds = exists
+			? filters.tagIds.filter((id) => id !== tagId)
+			: [...filters.tagIds, tagId];
+		updateFilters({ tagIds: nextTagIds });
+	}
+
+	// Selection handlers ----------------------------------------------------
+
+	function handleToggleSelect(id: string, shiftKey: boolean) {
+		if (shiftKey && lastSelectedId) {
+			const range = createSelectionRange(visibleIds, lastSelectedId, id);
+			const merged = new Set(selectedIds);
+			for (const item of range) {
+				merged.add(item);
+			}
+			selectedIds = merged;
+		} else {
+			selectedIds = toggleSelection(selectedIds, id);
+		}
+		lastSelectedId = id;
+	}
+
+	function handleToggleSelectAll() {
+		selectedIds = toggleSelectAll(selectedIds, visibleIds);
+	}
+
+	// Sidebar CRUD & Drag-to-Folder ----------------------------------------
+
+	async function handleCreateFolder(payload: { name: string; parentId: string | null }) {
+		try {
+			await api.createAssetFolder(payload);
+			await loadOrganization();
+			showNotice(`Folder “${payload.name}” created.`);
+		} catch (e: any) {
+			error = e?.message ?? 'Failed to create folder.';
+		}
+	}
+
+	async function handleRenameFolder(id: string | number, name: string) {
+		try {
+			await api.updateAssetFolder(id, { name });
+			await loadOrganization();
+			showNotice(`Folder renamed to “${name}”.`);
+		} catch (e: any) {
+			error = e?.message ?? 'Failed to rename folder.';
+		}
+	}
+
+	async function handleReparentFolder(id: string | number, parentId: string | null) {
+		try {
+			await api.updateAssetFolder(id, { parentId });
+			await loadOrganization();
+			showNotice('Folder moved.');
+		} catch (e: any) {
+			error = e?.message ?? 'Failed to move folder.';
+		}
+	}
+
+	async function handleDeleteFolder(folder: DigitalAssetFolder) {
+		if (!window.confirm(`Delete folder “${folder.name}”? Assets inside will become unfiled.`)) {
 			return;
 		}
 		try {
-			await api.request(`/admin/assets/${asset.id}`, { method: 'DELETE' });
-			message = 'Asset deleted.';
-			await load();
+			await api.deleteAssetFolder(folder.id);
+			if (filters.folderId === String(folder.id)) {
+				filters = { ...filters, folderId: null, includeSubfolders: false };
+				activeSmartView = 'all';
+			}
+			await Promise.all([loadOrganization(), loadAssets(page)]);
+			showNotice(`Folder “${folder.name}” deleted.`);
 		} catch (e: any) {
-			error = e.message ?? 'Failed to delete asset';
+			error = e?.message ?? 'Failed to delete folder.';
 		}
 	}
 
-	function siteLabels(ids: Array<string | number>): string {
-		return ids.map((id) => siteOptions.find((site) => site.id === String(id))?.name ?? String(id)).join(', ');
+	async function handleCreateCollection(payload: { name: string; description?: string }) {
+		try {
+			await api.createAssetCollection(payload);
+			await loadOrganization();
+			showNotice(`Collection “${payload.name}” created.`);
+		} catch (e: any) {
+			error = e?.message ?? 'Failed to create collection.';
+		}
 	}
 
-	function formatSize(size: number | string | null): string {
-		const value = Number(size ?? 0);
-		if (value < 1024) return `${value} B`;
-		if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
-		return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+	async function handleDeleteCollection(collection: DigitalAssetCollection) {
+		if (!window.confirm(`Delete collection “${collection.name}”? Assets themselves will not be deleted.`)) {
+			return;
+		}
+		try {
+			await api.deleteAssetCollection(collection.id);
+			if (filters.collectionId === String(collection.id)) {
+				filters = { ...filters, collectionId: null };
+				activeSmartView = 'all';
+			}
+			await Promise.all([loadOrganization(), loadAssets(page)]);
+			showNotice(`Collection “${collection.name}” deleted.`);
+		} catch (e: any) {
+			error = e?.message ?? 'Failed to delete collection.';
+		}
+	}
+
+	async function handleCreateTag(payload: { name: string }) {
+		try {
+			await api.createAssetTag(payload);
+			await loadOrganization();
+			showNotice(`Tag “${payload.name}” created.`);
+		} catch (e: any) {
+			error = e?.message ?? 'Failed to create tag.';
+		}
+	}
+
+	async function handleDeleteTag(tag: DigitalAssetTag) {
+		if (!window.confirm(`Delete tag “${tag.name}”?`)) return;
+		try {
+			await api.deleteAssetTag(tag.id);
+			if (filters.tagIds.includes(String(tag.id))) {
+				filters = { ...filters, tagIds: filters.tagIds.filter((id) => id !== String(tag.id)) };
+			}
+			await Promise.all([loadOrganization(), loadAssets(page)]);
+			showNotice(`Tag “${tag.name}” deleted.`);
+		} catch (e: any) {
+			error = e?.message ?? 'Failed to delete tag.';
+		}
+	}
+
+	async function handleMoveAssetsToFolder(assetIds: string[], folderId: string | null) {
+		try {
+			await api.bulkDigitalAssetAction({
+				assetIds,
+				action: 'move_folder',
+				params: { folderId },
+			});
+			selectedIds = new Set();
+			await Promise.all([loadOrganization(), loadAssets(page)]);
+			const targetLabel = folderId ? (foldersById.get(folderId)?.name ?? 'folder') : 'Unfiled';
+			showNotice(`Moved ${assetIds.length} asset${assetIds.length === 1 ? '' : 's'} to ${targetLabel}.`);
+		} catch (e: any) {
+			error = e?.message ?? 'Failed to move assets.';
+		}
+	}
+
+	async function handleAddAssetsToCollection(assetIds: string[], collectionId: string) {
+		try {
+			await api.addAssetsToCollection(collectionId, assetIds);
+			selectedIds = new Set();
+			await loadOrganization();
+			const col = collections.find((c) => String(c.id) === collectionId);
+			showNotice(`Added ${assetIds.length} asset${assetIds.length === 1 ? '' : 's'} to ${col?.name ?? 'collection'}.`);
+		} catch (e: any) {
+			error = e?.message ?? 'Failed to add assets to collection.';
+		}
+	}
+
+	// Asset actions ---------------------------------------------------------
+
+	async function handleReprocessAsset(asset: DigitalAsset) {
+		try {
+			await api.reprocessDigitalAsset(asset.id);
+			showNotice(`Queued reprocessing for “${asset.title}”.`);
+			await loadAssets(page);
+		} catch (e: any) {
+			error = e?.message ?? 'Failed to reprocess asset.';
+		}
+	}
+
+	function requestDeleteAsset(asset: DigitalAsset) {
+		deletingAsset = asset;
+		deleteConflictError = '';
+		deleteConflictUsageCount = 0;
+		deleteConflictUsages = [];
+		forceSingleDelete = false;
+	}
+
+	async function confirmSingleDelete(event: SubmitEvent) {
+		event.preventDefault();
+		if (!deletingAsset || deletingBusy) return;
+		deletingBusy = true;
+		deleteConflictError = '';
+		try {
+			await api.deleteDigitalAsset(deletingAsset.id, forceSingleDelete);
+			const removedId = String(deletingAsset.id);
+			const removedTitle = deletingAsset.title;
+			deletingAsset = null;
+			if (inspectingAsset && String(inspectingAsset.id) === removedId) {
+				inspectingAsset = null;
+			}
+			if (selectedIds.has(removedId)) {
+				const next = new Set(selectedIds);
+				next.delete(removedId);
+				selectedIds = next;
+			}
+			await Promise.all([loadOrganization(), loadAssets(page)]);
+			showNotice(`Deleted “${removedTitle}”.`);
+		} catch (e: any) {
+			if (e?.status === 409 && e?.body) {
+				deleteConflictError = e.body.error ?? 'This asset is currently referenced by content.';
+				deleteConflictUsageCount = Number(e.body.usageCount ?? (e.body.usages?.length ?? 0));
+				deleteConflictUsages = Array.isArray(e.body.usages) ? e.body.usages : [];
+			} else {
+				deleteConflictError = e?.message ?? 'Failed to delete asset.';
+			}
+		} finally {
+			deletingBusy = false;
+		}
+	}
+
+	function handleAssetUpdated(updated: DigitalAsset) {
+		assets = assets.map((a) => (String(a.id) === String(updated.id) ? { ...a, ...updated } : a));
+		if (inspectingAsset && String(inspectingAsset.id) === String(updated.id)) {
+			inspectingAsset = { ...inspectingAsset, ...updated };
+		}
+		void loadOrganization();
+	}
+
+	// Global OS File Drag-and-Drop Overlay ----------------------------------
+
+	function isExternalFileDrag(event: DragEvent): boolean {
+		const types = Array.from(event.dataTransfer?.types ?? []);
+		return (
+			types.includes('Files') &&
+			!types.includes('application/x-iikiti-asset-ids') &&
+			!types.includes('application/x-iikiti-folder-id')
+		);
+	}
+
+	function onWindowDragEnter(event: DragEvent) {
+		if (uploadOpen || !isExternalFileDrag(event)) return;
+		event.preventDefault();
+		windowFileDragDepth += 1;
+	}
+
+	function onWindowDragOver(event: DragEvent) {
+		if (uploadOpen || !isExternalFileDrag(event)) return;
+		event.preventDefault();
+		if (event.dataTransfer) {
+			event.dataTransfer.dropEffect = 'copy';
+		}
+	}
+
+	function onWindowDragLeave(event: DragEvent) {
+		if (uploadOpen || !isExternalFileDrag(event)) return;
+		if (event.relatedTarget === null) {
+			windowFileDragDepth = 0;
+			return;
+		}
+		windowFileDragDepth = Math.max(0, windowFileDragDepth - 1);
+	}
+
+	function onWindowDrop(event: DragEvent) {
+		if (uploadOpen || !isExternalFileDrag(event)) return;
+		event.preventDefault();
+		windowFileDragDepth = 0;
+		const files = Array.from(event.dataTransfer?.files ?? []);
+		if (files.length > 0) {
+			droppedFiles = files;
+			uploadOpen = true;
+		}
 	}
 </script>
 
-<PageHeader title="Digital Assets" description="Upload files or register HTTPS assets; site grants control where each asset can be used." />
+<svelte:window
+	ondragenter={onWindowDragEnter}
+	ondragover={onWindowDragOver}
+	ondragleave={onWindowDragLeave}
+	ondrop={onWindowDrop}
+	ondragend={() => (windowFileDragDepth = 0)}
+	onblur={() => (windowFileDragDepth = 0)}
+/>
+
+<!-- Full-window file drop overlay -->
+{#if windowFileDragDepth > 0 && !uploadOpen}
+	<div
+		class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs"
+		aria-hidden="true"
+	>
+		<div class="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-accent bg-surface px-12 py-10 text-center shadow-xl">
+			<div class="rounded-full bg-accent-subtle p-4 text-accent">
+				<Icon name="upload" size={32} />
+			</div>
+			<p class="text-lg font-semibold text-text">Drop files anywhere to upload</p>
+			<p class="text-sm text-text-muted">Files will be queued with SHA-256 duplicate protection.</p>
+		</div>
+	</div>
+{/if}
+
+<PageHeader
+	title="Digital Assets"
+	description="Organize, process, localize, version, and share images, video, audio, and documents across your sites."
+/>
 
 {#if error}
-	<div class="mb-4"><ErrorBoundary message={error} onRetry={load} /></div>
-{/if}
-{#if message}
-	<p class="mb-4 rounded border border-border bg-surface p-3 text-sm text-text">{message}</p>
+	<div class="mb-4">
+		<ErrorBoundary message={error} onRetry={() => void loadAssets(page)} />
+	</div>
 {/if}
 
-<form class="mb-8 space-y-4 rounded-lg border border-border bg-surface p-5" onsubmit={submit}>
-	<div class="flex flex-wrap items-center justify-between gap-3">
-		<h2 class="text-lg font-semibold">{editing ? `Edit ${editing.title}` : 'Add an asset'}</h2>
-		{#if editing}
-			<Button variant="secondary" onclick={resetForm}>Cancel edit</Button>
-		{:else}
-			<div class="flex gap-2">
-				<Button variant={mode === 'upload' ? 'primary' : 'secondary'} onclick={() => (mode = 'upload')}>Upload file</Button>
-				<Button variant={mode === 'uri' ? 'primary' : 'secondary'} onclick={() => (mode = 'uri')}>External URI</Button>
+{#if notice}
+	<div class="mb-4 flex items-center justify-between gap-2 rounded-lg border border-success/40 bg-success-subtle px-3.5 py-2.5 text-sm text-success" role="status">
+		<span>{notice}</span>
+		<button type="button" class="rounded p-0.5 hover:opacity-75" aria-label="Dismiss message" onclick={() => (notice = null)}>
+			<Icon name="x" size={14} />
+		</button>
+	</div>
+{/if}
+
+<div class="flex flex-col items-start gap-5 lg:flex-row">
+	<AssetSidebar
+		{folders}
+		{collections}
+		{tags}
+		{facets}
+		{activeSmartView}
+		activeFolderId={filters.folderId}
+		includeSubfolders={filters.includeSubfolders}
+		activeCollectionId={filters.collectionId}
+		selectedTagIds={filters.tagIds}
+		onSelectSmartView={selectSmartView}
+		onSelectFolder={selectFolder}
+		onToggleIncludeSubfolders={(value) => updateFilters({ includeSubfolders: value })}
+		onSelectCollection={selectCollection}
+		onToggleTag={toggleTagFilter}
+		onCreateFolder={handleCreateFolder}
+		onRenameFolder={handleRenameFolder}
+		onReparentFolder={handleReparentFolder}
+		onDeleteFolder={handleDeleteFolder}
+		onCreateCollection={handleCreateCollection}
+		onDeleteCollection={handleDeleteCollection}
+		onCreateTag={handleCreateTag}
+		onDeleteTag={handleDeleteTag}
+		onMoveAssetsToFolder={handleMoveAssetsToFolder}
+		onAddAssetsToCollection={handleAddAssetsToCollection}
+	/>
+
+	<div class="min-w-0 flex-1 space-y-4">
+		<AssetToolbar
+			{filters}
+			{viewMode}
+			{sites}
+			{folders}
+			{collections}
+			{tags}
+			{facets}
+			{totalItems}
+			onUpdateFilters={updateFilters}
+			onResetFilters={resetAllFilters}
+			onChangeViewMode={setViewMode}
+			onOpenUpload={() => {
+				droppedFiles = [];
+				uploadOpen = true;
+			}}
+			onOpenExternalUri={() => (externalUriOpen = true)}
+		/>
+
+		{#if loading && assets.length === 0}
+			<LoadingState label="Loading digital assets…" />
+		{:else if assets.length === 0}
+			<div class="rounded-xl border border-border bg-surface p-4">
+				<EmptyState
+					icon="image"
+					title="No digital assets found"
+					description="Drag and drop files here, upload new assets, or clear your active filters."
+				/>
+				<div class="mb-6 flex flex-wrap justify-center gap-2">
+					<button
+						type="button"
+						class="admin-btn admin-btn-primary admin-btn-sm gap-1.5"
+						onclick={() => {
+							droppedFiles = [];
+							uploadOpen = true;
+						}}
+					>
+						<Icon name="upload" size={14} />
+						<span>Upload Files</span>
+					</button>
+					<button type="button" class="admin-btn admin-btn-secondary admin-btn-sm" onclick={resetAllFilters}>
+						Reset Filters
+					</button>
+				</div>
 			</div>
-		{/if}
-	</div>
-
-	<label class="block text-sm text-text">
-		<span class="mb-1 block">Title</span>
-		<input class="admin-input w-full" bind:value={title} maxlength="255" required />
-	</label>
-
-	{#if editing}
-		{#if editing.type === 'external'}
-			<label class="block text-sm text-text">
-				<span class="mb-1 block">HTTPS URI</span>
-				<input class="admin-input w-full" type="url" bind:value={uri} required />
-			</label>
-		{/if}
-	{:else if mode === 'upload'}
-		<label class="block text-sm text-text">
-			<span class="mb-1 block">File (maximum 25 MB)</span>
-			<input class="admin-input w-full" type="file" required onchange={(event) => (file = (event.currentTarget as HTMLInputElement).files?.[0] ?? null)} />
-		</label>
-	{:else}
-		<div class="grid gap-4 md:grid-cols-2">
-			<label class="block text-sm text-text">
-				<span class="mb-1 block">HTTPS URI</span>
-				<input class="admin-input w-full" type="url" bind:value={uri} required />
-			</label>
-			<label class="block text-sm text-text">
-				<span class="mb-1 block">MIME type (optional)</span>
-				<input class="admin-input w-full" bind:value={mimeType} placeholder="application/pdf" />
-			</label>
-		</div>
-	{/if}
-
-	<div class="grid gap-4 md:grid-cols-2">
-		<label class="block text-sm text-text">
-			<span class="mb-1 block">Visibility</span>
-			<select class="admin-input w-full" bind:value={visibility}>
-				<option value="private">Private (authenticated users only)</option>
-				<option value="public">Public to granted sites</option>
-			</select>
-		</label>
-		<label class="block text-sm text-text">
-			<span class="mb-1 block">Sites with access</span>
-			<select class="admin-input w-full min-h-24" multiple bind:value={siteIds}>
-				{#each siteOptions as site (site.id)}
-					<option value={site.id}>{site.name} — {site.domain}</option>
-				{/each}
-			</select>
-			<span class="mt-1 block text-xs text-text-muted">New assets are granted to the current site by default. Use Ctrl/Cmd to select multiple sites.</span>
-		</label>
-	</div>
-
-	<div class="flex justify-end">
-		<Button variant="primary" type="submit" disabled={saving}>{saving ? 'Saving…' : editing ? 'Save changes' : 'Add asset'}</Button>
-	</div>
-</form>
-
-{#if loading}
-	<LoadingState label="Loading assets…" />
-{:else}
-	<div class="overflow-x-auto rounded-lg border border-border">
-		<table class="admin-table min-w-full divide-y divide-border">
-			<thead><tr><th>Title</th><th>Type</th><th>Sites</th><th>Visibility</th><th>Processing</th><th>Actions</th></tr></thead>
-			<tbody class="divide-y divide-border">
-				{#each assets as asset (asset.id)}
-					<tr>
-						<td>
-							<div class="font-medium text-text">{asset.title}</div>
-							<div class="text-xs text-text-muted">{asset.mimeType} · {formatSize(asset.size)}</div>
-							{#if asset.uri}<a class="text-xs text-accent underline" href={asset.uri} target="_blank" rel="noopener noreferrer">External source</a>{:else}<a class="text-xs text-accent underline" href={asset.fileUrl} target="_blank" rel="noopener noreferrer">Open file</a>{/if}
-						</td>
-						<td>{asset.type}</td>
-						<td>{siteLabels(asset.siteIds) || 'No site grants'}</td>
-						<td>{asset.visibility}</td>
-						<td>
-							<div>{asset.processingStatus}</div>
-			{#each asset.workflowInstances as run (`${run.workflow}:${run.version}`)}
-				<div class="text-xs text-text-muted">{run.workflow} v{run.version}: {run.status} ({run.executionState}){#if run.error} — {run.error}{/if}</div>
-			{/each}
-						</td>
-						<td><div class="flex gap-2"><Button variant="secondary" onclick={() => editAsset(asset)}>Edit</Button><Button variant="danger" onclick={() => removeAsset(asset)}>Delete</Button></div></td>
-					</tr>
+		{:else}
+			<div class:opacity-60={loading} class="transition-opacity">
+				{#if viewMode === 'grid'}
+					<AssetGrid
+						{assets}
+						{selectedIds}
+						{tagsById}
+						{expiryWarningDays}
+						onToggleSelect={handleToggleSelect}
+						onToggleSelectAll={handleToggleSelectAll}
+						onInspect={(asset) => (inspectingAsset = asset)}
+					/>
 				{:else}
-					<tr><td colspan="6" class="py-8 text-center text-text-muted">No assets yet.</td></tr>
-				{/each}
-			</tbody>
-		</table>
+					<AssetList
+						{assets}
+						{selectedIds}
+						{sites}
+						{foldersById}
+						{tagsById}
+						{expiryWarningDays}
+						onToggleSelect={handleToggleSelect}
+						onToggleSelectAll={handleToggleSelectAll}
+						onInspect={(asset) => (inspectingAsset = asset)}
+						onReprocess={(asset) => void handleReprocessAsset(asset)}
+						onDelete={requestDeleteAsset}
+					/>
+				{/if}
+			</div>
+
+			<Pagination
+				currentPage={page}
+				{totalPages}
+				{totalItems}
+				{itemsPerPage}
+				onPageChange={(nextPage) => {
+					page = nextPage;
+					selectedIds = new Set();
+					void loadAssets(nextPage);
+				}}
+			/>
+		{/if}
+
+		<BulkActionBar
+			{api}
+			{selectedIds}
+			{folders}
+			{collections}
+			{tags}
+			{sites}
+			onClearSelection={() => {
+				selectedIds = new Set();
+				lastSelectedId = null;
+			}}
+			onPartialDelete={async (succeededIds, msg) => {
+				const removed = new Set(succeededIds.map(String));
+				selectedIds = new Set(Array.from(selectedIds).filter((id) => !removed.has(id)));
+				if (lastSelectedId && removed.has(lastSelectedId)) {
+					lastSelectedId = null;
+				}
+				showNotice(msg);
+				await Promise.all([loadOrganization(), loadAssets(page)]);
+			}}
+			onActionComplete={async (msg) => {
+				showNotice(msg);
+				await Promise.all([loadOrganization(), loadAssets(page)]);
+			}}
+			onError={(msg) => (error = msg)}
+		/>
 	</div>
-	<div class="mt-4 flex items-center justify-between text-sm text-text-muted">
-		<span>Page {page} of {totalPages}; {totalItems} assets</span>
-		<div class="flex gap-2">
-			<Button variant="secondary" disabled={page <= 1} onclick={() => { page -= 1; load(); }}>Previous</Button>
-			<Button variant="secondary" disabled={page >= totalPages} onclick={() => { page += 1; load(); }}>Next</Button>
-		</div>
-	</div>
+</div>
+
+<!-- Multi-file Upload Queue Modal -->
+<UploadDropzone
+	{api}
+	open={uploadOpen}
+	initialFiles={droppedFiles}
+	{folders}
+	{tags}
+	{sites}
+	{defaultSiteId}
+	defaultFolderId={filters.folderId}
+	onClose={() => {
+		uploadOpen = false;
+		droppedFiles = [];
+	}}
+	onUploadsComplete={(count) => {
+		if (count > 0) {
+			showNotice(`Uploaded ${count} asset${count === 1 ? '' : 's'}. Background processing started.`);
+			page = 1;
+			void Promise.all([loadOrganization(), loadAssets(1)]);
+		}
+	}}
+/>
+
+<!-- External HTTPS URI Modal -->
+<ExternalUriModal
+	{api}
+	open={externalUriOpen}
+	{folders}
+	{tags}
+	{sites}
+	{defaultSiteId}
+	defaultFolderId={filters.folderId}
+	onClose={() => (externalUriOpen = false)}
+	onCreated={async () => {
+		showNotice('External asset added.');
+		page = 1;
+		await Promise.all([loadOrganization(), loadAssets(1)]);
+	}}
+/>
+
+<!-- Rich Asset Detail Modal -->
+<AssetDetailModal
+	{api}
+	asset={inspectingAsset}
+	open={inspectingAsset !== null}
+	{sites}
+	{folders}
+	{tags}
+	{defaultLocale}
+	{supportedContentLocales}
+	{expiryWarningDays}
+	onClose={() => (inspectingAsset = null)}
+	onAssetUpdated={handleAssetUpdated}
+	onRequestDelete={(asset) => requestDeleteAsset(asset)}
+/>
+
+<!-- Single Asset Delete & 409 In-Use Conflict Modal -->
+{#if deletingAsset}
+	<ModalDialog
+		title={`Delete “${deletingAsset.title}”`}
+		open={true}
+		onClose={() => {
+			if (!deletingBusy) deletingAsset = null;
+		}}
+		width={520}
+	>
+		<form class="space-y-4 p-2" onsubmit={confirmSingleDelete}>
+			<p class="text-sm text-text">
+				Permanently delete <strong>{deletingAsset.title}</strong> and its stored derivative files?
+			</p>
+
+			{#if deleteConflictError}
+				<div class="rounded-lg border border-danger/40 bg-danger-subtle p-3 text-sm text-danger" role="alert">
+					{deleteConflictError}
+				</div>
+			{/if}
+
+			{#if deleteConflictUsageCount > 0 || deleteConflictUsages.length > 0}
+				<div class="max-h-52 space-y-2 overflow-y-auto rounded-lg border border-warning/40 bg-warning-subtle/50 p-3 text-xs">
+					<div class="font-semibold text-warning">
+						Referenced in {deleteConflictUsageCount || deleteConflictUsages.length} place{(deleteConflictUsageCount || deleteConflictUsages.length) === 1 ? '' : 's'}:
+					</div>
+					<ul class="list-disc space-y-1 pl-4 text-text">
+						{#each deleteConflictUsages as usage, idx (idx)}
+							<li>
+								<strong>{usage.entityType}</strong>: {usage.title || usage.label || `#${usage.entityId}`}
+								{#if usage.isDraft}
+									<span class="text-warning">(Draft)</span>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				</div>
+
+				<label class="flex cursor-pointer items-center gap-2 rounded-lg border border-danger/30 bg-danger-subtle/40 p-2.5 text-sm text-text">
+					<input type="checkbox" bind:checked={forceSingleDelete} />
+					<span><strong>Force Delete:</strong> remove anyway despite active references</span>
+				</label>
+			{/if}
+
+			<div class="flex justify-end gap-2">
+				<button
+					type="button"
+					class="admin-btn admin-btn-secondary admin-btn-sm"
+					disabled={deletingBusy}
+					onclick={() => (deletingAsset = null)}
+				>
+					Cancel
+				</button>
+				<button
+					type="submit"
+					class="admin-btn admin-btn-danger admin-btn-sm"
+					disabled={deletingBusy || ((deleteConflictUsageCount > 0 || deleteConflictUsages.length > 0) && !forceSingleDelete)}
+				>
+					{deletingBusy ? 'Deleting…' : forceSingleDelete ? 'Force Delete' : 'Delete Asset'}
+				</button>
+			</div>
+		</form>
+	</ModalDialog>
 {/if}

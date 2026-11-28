@@ -101,6 +101,157 @@ final class PublicAssetApiProxyTest extends TestCase
 		self::assertSame(['https://api.example.test/api/public/plugin-assets/iikiti-forms/dist/my%20file.js'], $requestedUrls);
 	}
 
+	public function testForwardsQueryParametersConditionalAndRangeHeadersAndPassesThrough206(): void
+	{
+		$token = str_repeat('c', 64);
+		$client = new MockHttpClient(static function (string $method, string $url, array $options) use ($token): MockResponse {
+			self::assertSame('GET', $method);
+			self::assertSame('https://api.example.test/api/public/assets/'.$token.'/original?v=deadbeef1234', $url);
+			self::assertSame('bytes=0-3', self::header($options['headers'], 'Range'));
+			self::assertSame('"deadbeef"', self::header($options['headers'], 'If-None-Match'));
+
+			return new MockResponse('ABCD', [
+				'http_code' => 206,
+				'response_headers' => [
+					'Content-Type: application/octet-stream',
+					'Content-Range: bytes 0-3/16',
+					'Accept-Ranges: bytes',
+					'Content-Length: 4',
+					'Vary: Accept-Encoding',
+					'ETag: "0123456789abcdef"',
+				],
+			]);
+		});
+		$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
+		$proxy = new PublicAssetApiProxy(
+			$api,
+			new ApiSessionTokenProvider($api),
+			new FiberTaskRunner($client),
+			new GuestApiTokenManager('test-secret'),
+		);
+
+		$request = Request::create(
+			'https://www.example.test/assets/'.$token.'/original?v=deadbeef1234&ignored=1',
+			'GET',
+			[],
+			[],
+			[],
+			[
+				'HTTP_RANGE' => 'bytes=0-3',
+				'HTTP_IF_NONE_MATCH' => '"deadbeef"',
+			],
+		);
+		$response = $proxy->file($request, $token, 'original');
+
+		self::assertSame(206, $response->getStatusCode());
+		self::assertSame('ABCD', $response->getContent());
+		self::assertSame('bytes 0-3/16', $response->headers->get('Content-Range'));
+		self::assertSame('bytes', $response->headers->get('Accept-Ranges'));
+		self::assertSame('Accept-Encoding', $response->headers->get('Vary'));
+	}
+
+	public function testProxiesSignedFileWithHead304And416Responses(): void
+	{
+		$token = str_repeat('d', 64);
+		$sig = str_repeat('e', 64);
+		$responses = [
+			static function (string $method, string $url) use ($token, $sig): MockResponse {
+				self::assertSame('HEAD', $method);
+				self::assertSame(
+					'https://api.example.test/api/public/assets/signed/'.$token.'/original?v=2&exp=1764300900&sig='.$sig.'&site=5&d=attachment',
+					$url,
+				);
+
+				return new MockResponse('should-be-stripped', [
+					'http_code' => 200,
+					'response_headers' => [
+						'Content-Type: application/pdf',
+						'Content-Length: 4096',
+						'Accept-Ranges: bytes',
+						'Cache-Control: private, no-store',
+					],
+				]);
+			},
+			static fn (): MockResponse => new MockResponse('', [
+				'http_code' => 304,
+				'response_headers' => [
+					'ETag: "abc"',
+					'Cache-Control: public, max-age=3600',
+				],
+			]),
+			static fn (): MockResponse => new MockResponse('', [
+				'http_code' => 416,
+				'response_headers' => [
+					'Content-Range: bytes */4096',
+					'Accept-Ranges: bytes',
+				],
+			]),
+		];
+		$client = new MockHttpClient($responses);
+		$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
+		$proxy = new PublicAssetApiProxy(
+			$api,
+			new ApiSessionTokenProvider($api),
+			new FiberTaskRunner($client),
+			new GuestApiTokenManager('test-secret'),
+		);
+
+		$headRequest = Request::create(
+			'https://www.example.test/assets/signed/'.$token.'/original?exp=1764300900&site=5&d=attachment&v=2&sig='.$sig,
+			'HEAD',
+		);
+		$headResponse = $proxy->signedFile($headRequest, $token, 'original');
+		self::assertSame(200, $headResponse->getStatusCode());
+		self::assertSame('', $headResponse->getContent());
+		self::assertSame('4096', $headResponse->headers->get('Content-Length'));
+		self::assertSame('bytes', $headResponse->headers->get('Accept-Ranges'));
+
+		$notModified = $proxy->file(Request::create('https://www.example.test/assets/'.$token.'/original'), $token, 'original');
+		self::assertSame(304, $notModified->getStatusCode());
+		self::assertSame('', $notModified->getContent());
+		self::assertSame('"abc"', $notModified->headers->get('ETag'));
+
+		$unsatisfiable = $proxy->file(Request::create('https://www.example.test/assets/'.$token.'/original'), $token, 'original');
+		self::assertSame(416, $unsatisfiable->getStatusCode());
+		self::assertSame('bytes */4096', $unsatisfiable->headers->get('Content-Range'));
+		self::assertSame('bytes', $unsatisfiable->headers->get('Accept-Ranges'));
+	}
+
+	public function testProxiesHlsPlaylistAndRejectsInvalidSegments(): void
+	{
+		$token = str_repeat('f', 64);
+		$requested = [];
+		$client = new MockHttpClient(static function (string $method, string $url) use (&$requested): MockResponse {
+			$requested[] = [$method, $url];
+
+			return new MockResponse("#EXTM3U\n", [
+				'http_code' => 200,
+				'response_headers' => [
+					'Content-Type: application/vnd.apple.mpegurl',
+					'Content-Disposition: inline; filename="master.m3u8"',
+				],
+			]);
+		});
+		$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
+		$proxy = new PublicAssetApiProxy(
+			$api,
+			new ApiSessionTokenProvider($api),
+			new FiberTaskRunner($client),
+			new GuestApiTokenManager('test-secret'),
+		);
+
+		$request = Request::create('https://www.example.test/assets/'.$token.'/hls/master.m3u8');
+		self::assertSame(404, $proxy->hls($request, $token, '../evil.m3u8')->getStatusCode());
+		self::assertSame(404, $proxy->hls($request, 'not-a-token', 'master.m3u8')->getStatusCode());
+		self::assertSame([], $requested);
+
+		$ok = $proxy->hls($request, $token, 'master.m3u8');
+		self::assertSame(200, $ok->getStatusCode());
+		self::assertSame("#EXTM3U\n", $ok->getContent());
+		self::assertSame('application/vnd.apple.mpegurl', $ok->headers->get('Content-Type'));
+		self::assertSame([['GET', 'https://api.example.test/api/public/assets/'.$token.'/hls/master.m3u8']], $requested);
+	}
+
 	/** @param array<array-key,mixed> $headers */
 	private static function header(array $headers, string $name): ?string
 	{

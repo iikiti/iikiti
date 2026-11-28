@@ -60,6 +60,8 @@ final class BlockRendererTest extends TestCase
 			throw new \RuntimeException('iikiti_query must not be called when the renderer supplies items');
 		}, ['is_safe' => ['html']]));
 		$twig->addFunction(new \Twig\TwigFunction('iikiti_icon', static fn (): string => '<svg viewBox="0 0 24 24"><path d="M0 0"></path></svg>', ['is_safe' => ['html']]));
+		$assetResolver = new \iikiti\CMS\Web\BlockEditor\Media\AssetRenderResolver();
+		$twig->addFunction(new \Twig\TwigFunction('iikiti_asset_media', static fn (mixed $source, array $options = [], array $prefetched = []): ?array => $assetResolver->resolveForRender($source, $options, $prefetched)));
 		$twig->addExtension(new LocalizedTextExtension());
 
 		return new BlockRenderer(

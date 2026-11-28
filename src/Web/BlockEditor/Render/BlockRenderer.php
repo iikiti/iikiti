@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Web\BlockEditor\Render;
 
+use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Web\BlockEditor\BlockType\BlockType;
 use iikiti\CMS\Web\BlockEditor\BlockType\BlockTypeRegistry;
 use iikiti\CMS\Web\BlockEditor\CustomCssCompilerInterface;
+use iikiti\CMS\Web\BlockEditor\Media\AssetRenderResolver;
 use iikiti\CMS\Web\BlockEditor\Query\QueryDefinition;
 use iikiti\CMS\Web\BlockEditor\Query\QueryExecutor;
 use iikiti\CMS\Web\BlockEditor\Query\QueryFieldCatalog;
@@ -44,7 +46,7 @@ final class BlockRenderer
 	private const EDIT_HINT = '<p>Edit this page with <code>?edit</code>.</p>';
 
 	/** Schema field types whose resolved binding values may be overlaid. */
-	private const BINDABLE_FIELD_TYPES = ['text', 'textarea', 'richtext', 'url'];
+	private const BINDABLE_FIELD_TYPES = ['text', 'textarea', 'richtext', 'url', 'media'];
 
 	private const CSS_LENGTH_PROPERTIES = [
 		'width', 'height', 'min-width', 'max-width', 'min-height', 'max-height', 'margin', 'padding', 'gap',
@@ -62,6 +64,7 @@ final class BlockRenderer
 		private readonly QueryFieldCatalog $queryFields,
 		private readonly CustomCssCompilerInterface $customCssCompiler,
 		?WidgetFragmentPlanner $fragmentPlanner = null,
+		private readonly ?AssetRenderResolver $assetRenderResolver = null,
 	) {
 		$this->fragmentPlanner = $fragmentPlanner ?? new WidgetFragmentPlanner($registry);
 	}
@@ -106,6 +109,7 @@ final class BlockRenderer
 			}
 		}
 
+		$context = $this->prefetchAssetsForNodes($nodes, $context);
 		$html = $this->renderNodesWithRules($nodes, $context, $rules, $fragmentPlan, $rootPath ?? '', $fragmentTargetPath);
 
 		return $html.$this->responsiveStylesheet($rules['responsive']).$this->customCssStylesheet($rules['customCss'], $context);
@@ -130,6 +134,7 @@ final class BlockRenderer
 		}
 
 		$rules = ['responsive' => [], 'customCss' => []];
+		$context = $this->prefetchAssetsForNodes($tree, $context);
 
 		$html = $this->renderNodesWithRules($tree, $context, $rules, $fragmentPlan, $rootPath ?? '', $fragmentTargetPath);
 
@@ -164,6 +169,7 @@ final class BlockRenderer
 	public function renderNode(array $node, BlockRenderContext $context): string
 	{
 		$rules = ['responsive' => [], 'customCss' => []];
+		$context = $this->prefetchAssetsForNodes([$node], $context);
 
 		$html = $this->renderNodeWithRules($node, $context, $rules);
 
@@ -178,6 +184,7 @@ final class BlockRenderer
 		}
 
 		$rules = ['responsive' => [], 'customCss' => []];
+		$context = $this->prefetchAssetsForNodes([$node], $context);
 		$html = $this->renderNodeWithRules($node, $context, $rules, $fragmentPlan, $path, $path);
 
 		return $html.$this->responsiveStylesheet($rules['responsive']).$this->customCssStylesheet($rules['customCss'], $context);
@@ -650,6 +657,7 @@ final class BlockRenderer
 				// template rendering); null outside a `query` child context.
 				'item' => $context->item,
 				'iikiti_prefetched_embeds' => $context->prefetchedEmbeds,
+				'iikiti_prefetched_assets' => $context->prefetchedAssets,
 				'render_cache' => $context->renderCacheTags ?? new RenderCacheTagCollector(),
 			] + $extraVars);
 		} catch (\Throwable $e) {
@@ -715,11 +723,55 @@ final class BlockRenderer
 	}
 
 	/**
-	 * Site scope for query execution: the render context's site, falling back to
-	 * the current request's site (mirrors BlockTwigExtension::query()). Outside
-	 * a site-scoped request (e.g. plain unit rendering) queries run unscoped.
+	 * Batch-prefetches all DAM assets referenced by the block tree (and any
+	 * dynamic-region child trees in the render context) in 2 queries before
+	 * Twig templates run, avoiding N+1 lookups.
+	 *
+	 * @param array<mixed> $nodes
 	 */
-	private function siteIdFor(BlockRenderContext $context): ?int
+	private function prefetchAssetsForNodes(array $nodes, BlockRenderContext $context): BlockRenderContext
+	{
+		if (null === $this->assetRenderResolver) {
+			return $context;
+		}
+
+		$assetIds = AssetRenderResolver::collectAssetIds($nodes);
+		foreach ($context->dynamicBlocks as $dynamicNodes) {
+			if (is_array($dynamicNodes)) {
+				foreach (AssetRenderResolver::collectAssetIds($dynamicNodes) as $id) {
+					$assetIds[] = $id;
+				}
+			}
+		}
+
+		$missingIds = [];
+		foreach (array_values(array_unique($assetIds)) as $id) {
+			if (!array_key_exists($id, $context->prefetchedAssets)) {
+				$missingIds[] = $id;
+			}
+		}
+		if ([] === $missingIds) {
+			return $context;
+		}
+
+		$site = $this->siteFor($context);
+		if (null === $site) {
+			return $context;
+		}
+
+		$loaded = $this->assetRenderResolver->prefetchForSite(
+			$missingIds,
+			$site,
+			$context->editorMode || $context->canEdit,
+		);
+		if ([] === $loaded) {
+			return $context;
+		}
+
+		return $context->withPrefetchedAssets($context->prefetchedAssets + $loaded);
+	}
+
+	private function siteFor(BlockRenderContext $context): ?Site
 	{
 		$site = $context->site;
 		if (null === $site) {
@@ -731,6 +783,18 @@ final class BlockRenderer
 				return null; // no site scope active
 			}
 		}
+
+		return $site;
+	}
+
+	/**
+	 * Site scope for query execution: the render context's site, falling back to
+	 * the current request's site (mirrors BlockTwigExtension::query()). Outside
+	 * a site-scoped request (e.g. plain unit rendering) queries run unscoped.
+	 */
+	private function siteIdFor(BlockRenderContext $context): ?int
+	{
+		$site = $this->siteFor($context);
 
 		return null !== $site ? (int) $site->getId() : null;
 	}

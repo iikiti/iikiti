@@ -140,7 +140,7 @@ final class ContentOptimizationSettings
 			$hasOverride = array_key_exists($key, $overrides);
 			$defaultValue = $hasDefault ? $defaults[$key] : null;
 			$overrideValue = $hasOverride ? $overrides[$key] : null;
-			if (is_array($defaultValue) || is_array($overrideValue)) {
+			if ('defaultSocialImage' !== $key && (is_array($defaultValue) || is_array($overrideValue))) {
 				$nested = $this->resolve(is_array($defaultValue) ? $defaultValue : [], is_array($overrideValue) ? $overrideValue : []);
 				$effective[$key] = $nested['effective'];
 				$sources[$key] = $nested['sources'];
@@ -209,7 +209,7 @@ final class ContentOptimizationSettings
 			$value = match ($field) {
 				'titleTemplate' => $this->stringField($seo, $field, self::MAX_TITLE_LENGTH),
 				'defaultDescription' => $this->stringField($seo, $field, self::MAX_DESCRIPTION_LENGTH),
-				'defaultSocialImage' => $this->urlField($seo, $field),
+				'defaultSocialImage' => $this->socialImageField($seo, $field),
 				'defaultRobots' => $this->validateRobots($this->objectField($seo, $field), $required),
 			};
 			if (!is_array($value) || [] !== $value) {
@@ -456,6 +456,117 @@ final class ContentOptimizationSettings
 		}
 
 		return $value;
+	}
+
+	/** @return string|array<string,mixed> */
+	private function socialImageField(\stdClass $object, string $field): string|array
+	{
+		$raw = $object->{$field} ?? null;
+		if (null === $raw) {
+			return '';
+		}
+		if (is_string($raw)) {
+			return $this->urlField($object, $field);
+		}
+		if (!$raw instanceof \stdClass) {
+			throw new \InvalidArgumentException(sprintf('Field "%s" must be a URL string or media object.', $field));
+		}
+
+		$this->assertFields($raw, [
+			'source',
+			'assetId',
+			'publicToken',
+			'url',
+			'previewUrl',
+			'thumbnailUrl',
+			'mimeType',
+			'width',
+			'height',
+			'focalPoint',
+			'dominantColor',
+			'defaultAlt',
+		]);
+		$source = strtolower($this->stringField($raw, 'source', 16));
+
+		if ('empty' === $source) {
+			return '';
+		}
+
+		if ('asset' === $source) {
+			$rawAssetId = property_exists($raw, 'assetId') ? $raw->assetId : null;
+			if (null === $rawAssetId || '' === $rawAssetId) {
+				return '';
+			}
+			$assetId = null;
+			if (is_int($rawAssetId) && $rawAssetId > 0) {
+				$assetId = $rawAssetId;
+			} elseif (is_string($rawAssetId) && ctype_digit(trim($rawAssetId)) && (int) trim($rawAssetId) > 0) {
+				$assetId = (int) trim($rawAssetId);
+			}
+			if (null === $assetId) {
+				throw new \InvalidArgumentException(sprintf('Field "%s" assetId must be a positive integer.', $field));
+			}
+
+			$result = [
+				'source' => 'asset',
+				'assetId' => $assetId,
+			];
+
+			if (property_exists($raw, 'publicToken') && null !== $raw->publicToken && '' !== $raw->publicToken) {
+				$token = strtolower($this->stringField($raw, 'publicToken', 64));
+				if (1 !== preg_match('/^[a-f0-9]{64}$/', $token)) {
+					throw new \InvalidArgumentException(sprintf('Field "%s" publicToken is invalid.', $field));
+				}
+				$result['publicToken'] = $token;
+			}
+
+			foreach (['url', 'previewUrl', 'thumbnailUrl'] as $urlKey) {
+				if (property_exists($raw, $urlKey) && null !== $raw->{$urlKey} && '' !== $raw->{$urlKey}) {
+					$url = $this->urlField($raw, $urlKey);
+					if ('' !== $url) {
+						$result[$urlKey] = $url;
+					}
+				}
+			}
+
+			if (property_exists($raw, 'focalPoint') && null !== $raw->focalPoint) {
+				$focal = $raw->focalPoint;
+				if (
+					!$focal instanceof \stdClass
+					|| !property_exists($focal, 'x')
+					|| !property_exists($focal, 'y')
+					|| (!is_int($focal->x) && !is_float($focal->x))
+					|| (!is_int($focal->y) && !is_float($focal->y))
+				) {
+					throw new \InvalidArgumentException(sprintf('Field "%s" focalPoint must provide numeric x and y coordinates.', $field));
+				}
+				$x = (float) $focal->x;
+				$y = (float) $focal->y;
+				if (!is_finite($x) || !is_finite($y) || $x < 0.0 || $x > 1.0 || $y < 0.0 || $y > 1.0) {
+					throw new \InvalidArgumentException(sprintf('Field "%s" focalPoint coordinates must be between 0.0 and 1.0.', $field));
+				}
+				$result['focalPoint'] = ['x' => $x, 'y' => $y];
+			}
+
+			return $result;
+		}
+
+		if ('url' === $source) {
+			if (!property_exists($raw, 'url') || null === $raw->url) {
+				return '';
+			}
+			$url = $this->urlField($raw, 'url');
+			if ('' === $url) {
+				return '';
+			}
+
+			return [
+				'source' => 'url',
+				'url' => $url,
+			];
+		}
+
+		throw new \InvalidArgumentException(sprintf('Field "%s" media source must be "asset" or "url".', $field));
 	}
 
 	private function urlField(\stdClass $object, string $field): string

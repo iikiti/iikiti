@@ -40,23 +40,31 @@ final class BlockRenderContext
 		/** @var array<string,string> */
 		public readonly array $prefetchedEmbeds = [],
 		public readonly ?RenderCacheTagCollector $renderCacheTags = null,
+		/** @var array<int,array<string,mixed>> */
+		public readonly array $prefetchedAssets = [],
 	) {
 	}
 
 	public function withEditorMode(bool $editorMode): self
 	{
-		return new self($editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $this->item, $this->queryDepth, $this->customCssCollector, $this->prefetchedEmbeds, $this->renderCacheTags);
+		return new self($editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $this->item, $this->queryDepth, $this->customCssCollector, $this->prefetchedEmbeds, $this->renderCacheTags, $this->prefetchedAssets);
 	}
 
 	/** @param array<string,string> $embeds */
 	public function withPrefetchedEmbeds(array $embeds): self
 	{
-		return new self($this->editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $this->item, $this->queryDepth, $this->customCssCollector, $embeds, $this->renderCacheTags);
+		return new self($this->editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $this->item, $this->queryDepth, $this->customCssCollector, $embeds, $this->renderCacheTags, $this->prefetchedAssets);
+	}
+
+	/** @param array<int,array<string,mixed>> $assets */
+	public function withPrefetchedAssets(array $assets): self
+	{
+		return new self($this->editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $this->item, $this->queryDepth, $this->customCssCollector, $this->prefetchedEmbeds, $this->renderCacheTags, $assets);
 	}
 
 	public function withRenderCacheTags(?RenderCacheTagCollector $tags): self
 	{
-		return new self($this->editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $this->item, $this->queryDepth, $this->customCssCollector, $this->prefetchedEmbeds, $tags);
+		return new self($this->editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $this->item, $this->queryDepth, $this->customCssCollector, $this->prefetchedEmbeds, $tags, $this->prefetchedAssets);
 	}
 
 	/**
@@ -66,6 +74,6 @@ final class BlockRenderContext
 	 */
 	public function withItem(mixed $item): self
 	{
-		return new self($this->editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $item, $this->queryDepth + 1, $this->customCssCollector, $this->prefetchedEmbeds, $this->renderCacheTags);
+		return new self($this->editorMode, $this->canEdit, $this->site, $this->object, $this->request, $this->dynamicBlocks, $item, $this->queryDepth + 1, $this->customCssCollector, $this->prefetchedEmbeds, $this->renderCacheTags, $this->prefetchedAssets);
 	}
 }

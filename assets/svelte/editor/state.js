@@ -294,12 +294,23 @@ export function init(config, blockTypesList) {
  * @param {Record<string, Record<string, unknown>>} bt
  * @returns {Record<string, unknown>}
  */
+function cloneDefaultValue(value) {
+	if (value === null || typeof value !== 'object') return value;
+	if (typeof structuredClone === 'function') {
+		return structuredClone(value);
+	}
+	return JSON.parse(JSON.stringify(value));
+}
+
 export function defaultContentFor(type, bt) {
 	const schema = bt[type];
 	if (!schema) return {};
-	const defaults = {};
+	const schemaContent = schema.defaults && typeof schema.defaults === 'object' ? schema.defaults.content : null;
+	const defaults = schemaContent && typeof schemaContent === 'object' && !Array.isArray(schemaContent)
+		? cloneDefaultValue(schemaContent)
+		: {};
 	for (const f of (schema.contentFields ?? []) || []) {
-		if ('default' in f) defaults[f.key] = f.default;
+		if ('default' in f) defaults[f.key] = cloneDefaultValue(f.default);
 	}
 	return defaults;
 }

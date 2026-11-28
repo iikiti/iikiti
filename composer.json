@@ -118,7 +118,9 @@
             "iikiti\\Extension\\IconsLucide\\": "plugins/iikiti-icons-lucide/src/",
             "iikiti\\Extension\\Embeds\\": "plugins/iikiti-embeds/src/",
             "iikiti\\Extension\\CustomCss\\": "plugins/iikiti-custom-css/src/",
-            "iikiti\\Extension\\Forms\\": "plugins/iikiti-forms/src/"
+            "iikiti\\Extension\\Forms\\": "plugins/iikiti-forms/src/",
+            "iikiti\\Extension\\StorageS3\\": "plugins/iikiti-storage-s3/src/",
+            "iikiti\\Extension\\MediaAv\\": "plugins/iikiti-media-av/src/"
         },
 		"classmap": ["config/"]
     },

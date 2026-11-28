@@ -29,4 +29,28 @@ class DigitalAssetVariantRepository extends ServiceEntityRepository
 
 		return $result instanceof DigitalAssetVariant ? $result : null;
 	}
+
+	/**
+	 * Batch-loads all variants for the provided asset IDs in a single query.
+	 *
+	 * @param list<int|string> $assetIds
+	 *
+	 * @return list<DigitalAssetVariant>
+	 */
+	public function findByAssetIds(array $assetIds): array
+	{
+		if ([] === $assetIds) {
+			return [];
+		}
+
+		/** @var list<DigitalAssetVariant> $results */
+		$results = $this->createQueryBuilder('variant')->
+			andWhere('IDENTITY(variant.asset) IN (:assetIds)')->
+			setParameter('assetIds', array_values(array_unique($assetIds)))->
+			orderBy('variant.id', 'ASC')->
+			getQuery()->
+			getResult();
+
+		return $results;
+	}
 }

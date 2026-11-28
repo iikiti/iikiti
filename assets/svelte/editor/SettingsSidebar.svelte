@@ -442,7 +442,7 @@
 						{@const SubControl = resolveFieldControl(sub.type as string) ?? TextControl}
 						{@const scopedId = `${String(n.id ?? 'repeater')}-${index}-${String(sub.key)}`}
 						{@const scopedField = { ...sub, controlId: scopedId, labelId: `${scopedId}-label` }}
-						{#if sub.type === 'toggle'}
+						{#if sub.type === 'toggle' || sub.type === 'media'}
 							<div class="iikiti-settings__repeater-field">
 								<span id={`${scopedId}-label`} class="iikiti-settings__repeater-label">{sub.label}</span>
 								<SubControl

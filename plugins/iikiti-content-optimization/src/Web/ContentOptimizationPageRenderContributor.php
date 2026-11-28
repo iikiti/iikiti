@@ -88,6 +88,7 @@ final class ContentOptimizationPageRenderContributor implements PageRenderContri
 			$pageTitle,
 			$pageUrl,
 			$siteName,
+			$site,
 		);
 		$openGraphLocale = $this->openGraphLocale($request);
 		if (null !== $openGraphLocale) {
@@ -118,6 +119,9 @@ final class ContentOptimizationPageRenderContributor implements PageRenderContri
 			'og:type' => $og['type'],
 			'og:locale' => (string) ($metadata['locale'] ?? ''),
 			'og:image' => $og['image'],
+			'og:image:width' => '' !== $og['image'] && is_int($og['imageWidth'] ?? null) && $og['imageWidth'] > 0 ? (string) $og['imageWidth'] : '',
+			'og:image:height' => '' !== $og['image'] && is_int($og['imageHeight'] ?? null) && $og['imageHeight'] > 0 ? (string) $og['imageHeight'] : '',
+			'og:image:alt' => '' !== $og['image'] && is_string($og['imageAlt'] ?? null) ? $og['imageAlt'] : '',
 			'og:url' => $og['url'],
 		] as $property => $value) {
 			if ('' !== $value) {
@@ -131,6 +135,7 @@ final class ContentOptimizationPageRenderContributor implements PageRenderContri
 			'twitter:title' => $tw['title'],
 			'twitter:description' => $tw['description'],
 			'twitter:image' => $tw['image'],
+			'twitter:image:alt' => '' !== $tw['image'] && is_string($tw['imageAlt'] ?? null) ? $tw['imageAlt'] : '',
 		] as $name => $value) {
 			if ('' !== $value) {
 				$headHtml[] = sprintf('<meta name="%s" content="%s">', $name, $this->escAttr($value));

@@ -20,6 +20,7 @@ final class RouteContextClassifier
 		'home',
 		'page',
 		'digital_asset_file',
+		'digital_asset_signed_file',
 		'public_fragment',
 		'public_plugin_asset',
 		'admin_home',

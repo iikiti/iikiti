@@ -42,3 +42,11 @@ export { default as Toast } from './Toast.svelte';
 export { default as Tooltip } from './Tooltip.svelte';
 export { default as NotificationCenter } from './NotificationCenter.svelte';
 export { default as BatchProgress } from './BatchProgress.svelte';
+export { default as MediaPickerModal } from './MediaPickerModal.svelte';
+export {
+	normalizeMediaValue,
+	buildAssetMediaValue,
+	buildUrlMediaValue,
+	resolvePreviewUrl,
+	formatObjectPosition,
+} from '../lib/mediaHelpers.js';

@@ -1,12 +1,32 @@
-{% set source = content.source ?? {} %}
-{% set url = source.url ?? '' %}
-{% set alt = content.alt ?? '' %}
-{% set caption = content.caption ?? '' %}
-{% if not url %}
-    <span class="iikiti-image-placeholder">Image URL missing.</span>
+{% set media = iikiti_asset_media(content.source ?? {}, {
+    alt: content.alt ?? '',
+    decorative: content.decorative ?? false,
+    caption: content.caption ?? '',
+    link: content.link ?? '',
+    sizes: content.sizes ?? '100vw',
+    loading: content.loading ?? 'lazy',
+    fetchpriority: content.fetchpriority ?? 'auto',
+    focalPoint: content.focalPointOverride ?? null,
+    includePrivate: editor_mode ?? false
+}, iikiti_prefetched_assets ?? {}) %}
+{% if not media or not media.src %}
+    <span class="iikiti-image-placeholder">Image missing.</span>
 {% else %}
-    {% if content.link %}<a href="{{ content.link|e }}" class="iikiti-image-link">{% endif %}
-    <img src="{{ url|e }}" alt="{{ alt|e }}" class="iikiti-image" style="{{ style|raw }}">
-    {% if content.link %}</a>{% endif %}
-    {% if caption %}<figcaption class="iikiti-image-caption">{{ caption|raw }}</figcaption>{% endif %}
+    {% set baseStyle = style|default('')|trim %}
+    {% set posStyle = media.objectPosition ? 'object-position:' ~ media.objectPosition ~ ';' : '' %}
+    {% set imgStyle = (baseStyle ? baseStyle ~ (baseStyle ends with ';' ? '' : ';') : '') ~ posStyle %}
+    {% if media.caption %}<figure class="iikiti-image-figure">{% endif %}
+    {% if media.link %}<a href="{{ media.link|e }}" class="iikiti-image-link">{% endif %}
+    {% if media.sources is not empty %}
+        <picture class="iikiti-picture">
+            {% for source in media.sources %}
+                <source type="{{ source.type|e }}" srcset="{{ source.srcset|e }}" sizes="{{ media.sizes|e }}">
+            {% endfor %}
+            <img src="{{ media.src|e }}"{% if media.srcset %} srcset="{{ media.srcset|e }}" sizes="{{ media.sizes|e }}"{% endif %}{% if media.width %} width="{{ media.width }}"{% endif %}{% if media.height %} height="{{ media.height }}"{% endif %} alt="{{ media.alt|e }}" loading="{{ media.loading|e }}" decoding="{{ media.decoding|e }}"{% if media.fetchpriority != 'auto' %} fetchpriority="{{ media.fetchpriority|e }}"{% endif %} class="iikiti-image"{% if imgStyle %} style="{{ imgStyle|e }}"{% endif %}>
+        </picture>
+    {% else %}
+        <img src="{{ media.src|e }}"{% if media.srcset %} srcset="{{ media.srcset|e }}" sizes="{{ media.sizes|e }}"{% endif %}{% if media.width %} width="{{ media.width }}"{% endif %}{% if media.height %} height="{{ media.height }}"{% endif %} alt="{{ media.alt|e }}" loading="{{ media.loading|e }}" decoding="{{ media.decoding|e }}"{% if media.fetchpriority != 'auto' %} fetchpriority="{{ media.fetchpriority|e }}"{% endif %} class="iikiti-image"{% if imgStyle %} style="{{ imgStyle|e }}"{% endif %}>
+    {% endif %}
+    {% if media.link %}</a>{% endif %}
+    {% if media.caption %}<figcaption class="iikiti-image-caption">{{ media.caption|e }}</figcaption></figure>{% endif %}
 {% endif %}

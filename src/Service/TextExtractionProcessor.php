@@ -7,13 +7,14 @@ namespace iikiti\CMS\Service;
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\AbstractDigitalAsset;
 use iikiti\CMS\Entity\AssetWorkflowDefinition;
+use iikiti\CMS\Storage\AssetStorageInterface;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Process\Process;
 
 final class TextExtractionProcessor implements DigitalAssetProcessorInterface
 {
 	public function __construct(
-		private readonly AssetStorage $storage,
+		private readonly AssetStorageInterface $storage,
 		private readonly EntityManagerInterface $entityManager,
 		private readonly Filesystem $filesystem = new Filesystem(),
 	) {
@@ -38,24 +39,29 @@ final class TextExtractionProcessor implements DigitalAssetProcessorInterface
 		if (null === $sourceKey) {
 			throw new \RuntimeException('Uploaded text asset has no stored file.');
 		}
-		$source = $this->storage->pathFor($sourceKey);
 		$maxBytes = filter_var($workflow->getOptions()['max_text_bytes'] ?? 1000000, FILTER_VALIDATE_INT);
 		if (false === $maxBytes || $maxBytes < 1 || $maxBytes > 5000000) {
 			throw new \InvalidArgumentException('Text extraction byte limit must be between 1 and 5,000,000.');
 		}
 
-		if ('application/pdf' === $asset->getMimeType()) {
-			$text = $this->extractPdf($source, $workflow, $maxBytes);
-		} else {
-			$text = file_get_contents($source, false, null, 0, $maxBytes + 1);
-			if (!is_string($text)) {
-				throw new \RuntimeException('Text asset could not be read.');
+		$localSource = $this->storage->materializeToLocalTemp($sourceKey);
+		try {
+			$source = $localSource->path;
+			if ('application/pdf' === $asset->getMimeType()) {
+				$text = $this->extractPdf($source, $workflow, $maxBytes);
+			} else {
+				$text = file_get_contents($source, false, null, 0, $maxBytes + 1);
+				if (!is_string($text)) {
+					throw new \RuntimeException('Text asset could not be read.');
+				}
 			}
+			$text = mb_scrub(str_replace("\0", '', $text), 'UTF-8');
+			$text = mb_strcut($text, 0, $maxBytes, 'UTF-8');
+			$asset->setExtractedText(trim($text));
+			$this->entityManager->flush();
+		} finally {
+			$localSource->cleanup();
 		}
-		$text = mb_scrub(str_replace("\0", '', $text), 'UTF-8');
-		$text = mb_strcut($text, 0, $maxBytes, 'UTF-8');
-		$asset->setExtractedText(trim($text));
-		$this->entityManager->flush();
 	}
 
 	private function extractPdf(string $source, AssetWorkflowDefinition $workflow, int $maxBytes): string
@@ -64,7 +70,7 @@ final class TextExtractionProcessor implements DigitalAssetProcessorInterface
 		if (false === $maxPages || $maxPages < 1 || $maxPages > 2000) {
 			throw new \InvalidArgumentException('PDF page limit must be between 1 and 2,000.');
 		}
-		$outputPath = $this->storage->createTemporaryPath('txt');
+		$outputPath = $this->storage->createTemporaryPath('text/plain');
 		try {
 			$process = new Process(['pdftotext', '-f', '1', '-l', (string) $maxPages, '-enc', 'UTF-8', '-nopgbrk', $source, $outputPath]);
 			$process->setTimeout(30)->mustRun();

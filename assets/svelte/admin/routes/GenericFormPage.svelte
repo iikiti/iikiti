@@ -32,6 +32,9 @@
 			required: f.required ?? false,
 			placeholder: f.placeholder,
 			options: f.options,
+			accept: f.accept,
+			allowExternalUrl: f.allowExternalUrl,
+			valueFormat: f.valueFormat,
 		})),
 	);
 
@@ -139,7 +142,7 @@
 		<ErrorBoundary message={error} onRetry={isCreate ? undefined : load} />
 	{/if}
 
-	<Form fields={formFields} values={values} onsubmit={handleSubmit}>
+	<Form fields={formFields} values={values} {api} onsubmit={handleSubmit}>
 		<Button variant="secondary" onclick={() => history.back()}>Cancel</Button>
 		<Button variant="primary" type="submit" disabled={loading}>
 			{loading ? 'Saving…' : (isCreate ? 'Create' : 'Save')}

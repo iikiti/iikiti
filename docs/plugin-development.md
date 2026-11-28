@@ -1302,3 +1302,189 @@ In API mode the event receives the current site. Consumer-composed pages receive
 the API-resolved options through the private, no-store render manifest, so the
 final response uses the same site and plugin decisions without loading site
 configuration in the consumer runtime.
+
+## Digital Asset Manager extension API
+
+Plugins can extend the Digital Asset Manager (DAM) across storage backends,
+allowed MIME types, "Where Used" reference extraction, and reusable media picker
+controls without modifying core code. See
+[`digital-asset-manager.md`](digital-asset-manager.md) for runtime delivery and
+lifecycle details, and [`plugins/storage-s3.md`](plugins/storage-s3.md) /
+[`plugins/media-av.md`](plugins/media-av.md) for first-party reference
+implementations.
+
+### Custom storage backends (`AssetStorageProviderInterface`)
+
+Implement `iikiti\CMS\Storage\AssetStorageProviderInterface` to register an
+additional binary storage driver selectable via `ASSET_STORAGE_DRIVER`. The
+interface carries `#[AutoconfigureTag('iikiti.asset_storage_provider')]`, so
+autoconfigured plugin services are discovered automatically by
+`AssetStorageRegistry`:
+
+```php
+<?php
+
+namespace Acme\Plugin\Storage\Storage;
+
+use iikiti\CMS\Storage\AssetStorageInterface;
+use iikiti\CMS\Storage\AssetStorageProviderInterface;
+
+final readonly class AzureBlobStorageProvider implements AssetStorageProviderInterface
+{
+    public function __construct(private AzureBlobConfig $config) {}
+
+    public function getDriverName(): string
+    {
+        return 'azure';
+    }
+
+    public function isConfigured(): bool
+    {
+        return $this->config->isComplete();
+    }
+
+    public function createStorage(): AssetStorageInterface
+    {
+        return new AzureBlobAssetStorage($this->config);
+    }
+}
+```
+
+Storage implementations must enforce strict storage-key validation, support
+streaming (`readStream()`, `writeStream()`, `materializeToLocalTemp()`), and
+return `false` from `isLocal()` when objects are not stored on local disk. If
+the backend supports presigned downloads, return `true` from
+`supportsTemporaryUrls()` and implement `temporaryUrl()` so
+`ASSET_DELIVERY_MODE=redirect` can offload downloads.
+
+### Custom MIME types (`AssetMimeTypeProviderInterface`)
+
+Implement `iikiti\CMS\Storage\AssetMimeTypeProviderInterface`
+(`#[AutoconfigureTag('iikiti.asset_mime_type_provider')]`) to allow additional
+upload MIME types, file extensions, size caps, and inline-delivery rules in
+`AssetMimeTypeRegistry`:
+
+```php
+<?php
+
+namespace Acme\Plugin\Cad\Storage;
+
+use iikiti\CMS\Storage\AssetMimeTypeDefinition;
+use iikiti\CMS\Storage\AssetMimeTypeProviderInterface;
+
+final readonly class CadMimeTypeProvider implements AssetMimeTypeProviderInterface
+{
+    public function getDefinitions(): array
+    {
+        return [
+            new AssetMimeTypeDefinition(
+                mimeType: 'model/gltf-binary',
+                extension: 'glb',
+                category: 'other',
+                maxBytes: 52_428_800,
+                inlineDelivery: false,
+            ),
+        ];
+    }
+}
+```
+
+`AssetMimeTypeRegistry::BLOCKED_MIME_TYPES` (`image/svg+xml`, `text/html`,
+`application/xhtml+xml`, `application/javascript`, `text/javascript`) are
+unconditionally rejected by the registry even if a plugin attempts to register
+them. Never register active browser-executable formats with
+`inlineDelivery: true`, and pair custom MIME types with a tagged
+`DigitalAssetProcessorInterface` workflow when background processing is needed.
+
+### Custom "Where Used" extractors (`AssetUsageExtractorInterface`)
+
+The DAM prevents accidental deletion of referenced assets by maintaining the
+`digital_asset_usages` index via `AssetUsageIndexer`. Core extractors cover
+block trees (`BlockTreeAssetUsageExtractor`) and Page/Template/Site/Application
+settings (`SettingsAssetUsageExtractor`). If a plugin stores DAM references in
+custom JSON structures inside block trees or object settings, implement
+`iikiti\CMS\DigitalAsset\Usage\AssetUsageExtractorInterface`
+(`#[AutoconfigureTag('iikiti.asset_usage_extractor')]`):
+
+```php
+<?php
+
+namespace Acme\Plugin\Gallery\Usage;
+
+use iikiti\CMS\DigitalAsset\Usage\AssetUsageExtractorInterface;
+
+final class GalleryAssetUsageExtractor implements AssetUsageExtractorInterface
+{
+    public function extractFromValue(mixed $value, string $basePath): array
+    {
+        if (!is_array($value) || !isset($value['galleryItems']) || !is_array($value['galleryItems'])) {
+            return [];
+        }
+
+        $refs = [];
+        foreach ($value['galleryItems'] as $index => $item) {
+            if (is_array($item) && isset($item['mediaId']) && is_int($item['mediaId']) && $item['mediaId'] > 0) {
+                $refs[] = [
+                    'assetId' => $item['mediaId'],
+                    'fieldPath' => sprintf('%s.galleryItems[%d].mediaId', $basePath, $index),
+                ];
+            }
+        }
+
+        return $refs;
+    }
+}
+```
+
+Each returned entry must provide `fieldPath` plus either a positive integer
+`assetId` or a 64-character lowercase hex `publicToken`. After installing or
+updating a plugin that adds an extractor, run
+`php bin/console iikiti:asset:usage:rebuild` to backfill existing records.
+
+### Reusable `type: 'media'` field control
+
+Core registers a `media` field control (`MediaPickerControl` +
+`MediaPickerModal`) across the Block Editor sidebar, Page/Template Settings
+sidebar, and shared admin `Form.svelte` component. Plugin block types, editor
+settings sections, and admin form screens can declare `type: 'media'` fields
+directly without bundling a custom media picker:
+
+```php
+new BlockType(
+    type: 'acme-hero',
+    label: 'Hero Banner',
+    category: 'media',
+    contentFields: [
+        [
+            'key' => 'background',
+            'label' => 'Background image',
+            'type' => 'media',
+            'accept' => 'image/*',
+            'allowExternalUrl' => true,
+            'valueFormat' => 'object',
+        ],
+    ],
+    renderTemplate: '@AcmeHero/blocks/hero.twig',
+);
+```
+
+Supported field options:
+
+- `accept` (`string`, default `'image/*'`): MIME filter passed to the media
+  picker and inline upload input (for example `'image/*'`, `'video/*,audio/*'`,
+  or `'application/pdf'`).
+- `allowExternalUrl` (`bool`, default `true`): Enables or hides the External URL
+  tab in `MediaPickerModal`.
+- `valueFormat` (`'object' | 'url'`, default `'object'`):
+  - `'object'` stores a structured DAM reference
+    (`{ source: 'asset', assetId, publicToken, url, focalPoint, ... }` or
+    `{ source: 'url', url }`), enables the interactive click/keyboard
+    focal-point picker on images, and integrates automatically with
+    `AssetRenderResolver`, `iikiti_asset_media()`, and `AssetUsageIndexer`.
+  - `'url'` stores a plain URL string for legacy or external-only integrations.
+
+In Twig block templates, pass an `'object'` media field value to
+`iikiti_asset_media(content.background ?? {}, { sizes: '100vw', includePrivate: editor_mode ?? false }, iikiti_prefetched_assets ?? {})`
+to render responsive AVIF/WebP `<picture>` markup with focal-point
+`object-position` and zero N+1 queries.
+

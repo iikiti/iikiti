@@ -20,11 +20,11 @@ Use `getSiteId()` and `setSiteId()` for the scalar site value. `setSite(Site)` i
 
 1. Create a concrete `#[ORM\Entity]` subclass of `DbObject` and assign it an entity-specific repository extending `ObjectRepository`.
 2. Choose whether it is site-specific. Set the `SITE_SPECIFIC` class constant to `false` for global objects and persist them with `site_id = 0`.
-3. Map subtype-only fields to nullable columns in `objects`; avoid column-name collisions across siblings. Plugin `DbObject` subclasses must also annotate `#[DbObjectDiscriminator('type')]` (or implement `DbObjectSubtypeProviderInterface`); unmapped rows fall back to read-only generated `UnknownDbObject` proxies (see [`core-vs-plugins.md`](core-vs-plugins.md)).
+3. Map subtype-only fields to nullable columns in `objects`; avoid column-name collisions across siblings. Whenever a migration adds or removes columns on `objects`, use `iikiti\CMS\Doctrine\ObjectLookupViewBuilder` (`fetchObjectColumns()` + `buildRefreshSql()`) to drop and recreate the `object_lookup` view and its `INSTEAD OF` insert/update/delete triggers so ORM reads and writes expose the new columns. Plugin `DbObject` subclasses must also annotate `#[DbObjectDiscriminator('type')]` (or implement `DbObjectSubtypeProviderInterface`); unmapped rows fall back to read-only generated `UnknownDbObject` proxies (see [`core-vs-plugins.md`](core-vs-plugins.md)).
 4. Put global uniqueness on the object identity registry and add physical indexes to the partitioned `objects` root in a schema migration. Do not add global unique indexes to the partitioned table unless the partition columns are part of the key.
 5. Add the discriminator/data migration, repository tests, and update this exception list if an entity or repository must remain standalone.
 
-`ApiToken`, `IconSetEntity`, and `IconEntity` are DbObject subtypes. API tokens are global objects with site id `0`, while `creator_id` and `api_token_user_id` identify their owner. Icon sets and icons are global objects; icons reference their set through `icon_set_id`.
+`ApiToken`, `IconSetEntity`, `IconEntity`, `DigitalAssetFolder`, `DigitalAssetCollection`, and `DigitalAssetTag` are DbObject subtypes. API tokens are global objects with site id `0`, while `creator_id` and `api_token_user_id` identify their owner. Icon sets and icons are global objects; icons reference their set through `icon_set_id`. DAM organization entities (`DigitalAssetFolder`, `DigitalAssetCollection`, `DigitalAssetTag`) are also global `DbObject` subtypes (`SITE_SPECIFIC = false`, `site_id = 0`) storing nullable STI columns on `objects` (with many-to-many join tables `digital_asset_folder_site_grants`, `digital_asset_collection_items`, and `digital_asset_tags`).
 
 ## Partitioned object storage and localization
 
@@ -50,6 +50,10 @@ insert/update/delete triggers. All `DbObject` Doctrine mappings use this view,
 preserving the public single-ID API, ORM `find()`, lazy associations, and
 generated IDs. Direct writes to `objects` or `object_identity` bypass that
 contract and are unsupported; use the ORM or the partition/identity services.
+When a schema migration adds or removes nullable STI columns on `objects`, call
+`iikiti\CMS\Doctrine\ObjectLookupViewBuilder::buildRefreshSql()` so the view
+projection and `iikiti_object_lookup_{insert,update,delete}` trigger functions
+stay synchronized with the physical table columns.
 The standard Doctrine schema tool cannot manage this view/partition/trigger
 layout. The migrations are authoritative for these relations. The partition
 cutover migration is intentionally irreversible; rollback requires restoring
@@ -80,6 +84,8 @@ Standalone entities and their repositories must have a concrete reason to avoid 
 | `Role` / `RoleRepository` | Global security configuration synchronized with the runtime authorization system, not user/site-owned CMS content. |
 | `PluginRecord` / `PluginRecordRepository` | Plugin installation bookkeeping has system-level rows and custom nullable VARCHAR `site_id` semantics. |
 | `DigitalAssetVariant` | A rendition/variant child row owned by a digital asset object, rather than an independently addressable CMS object. |
+| `DigitalAssetVersion` / `DigitalAssetVersionRepository` (`digital_asset_versions`) | Immutable binary version-history child rows owned by an uploaded digital asset (`asset_id` cascading FK with unique `(asset_id, version_number)`). Stores historical storage keys, checksums, dimensions, and change notes for replace-in-place and rollback rather than independently addressable CMS objects. |
+| `DigitalAssetUsage` / `DigitalAssetUsageRepository` (`digital_asset_usages`) | Derived inverted "Where Used" reference index mapping `(asset_id, context_type, context_id, field_path, is_draft)` across pages, templates, sites, applications, and plugin payloads. Rewritten on every content save and fully rebuildable via `iikiti:asset:usage:rebuild`, so it is operational index metadata rather than user-authored CMS content. |
 | `WorkflowDefinition`, `WorkflowDefinitionVersion`, `WorkflowDefinitionSiteAssignment`, `WorkflowInstance`, `WorkflowInstanceEvent`, `WorkflowTask` and their workflow repositories | A specialized workflow runtime with versioned graphs, nullable site/subject ownership, plugin/system owners, and association/history rows. Its lifecycle and optional ownership do not fit the required DbObject creator/site columns. `WorkflowDefinitionSiteAssignment` is a join table. |
 | `BatchJob`, `BatchItem`, `BatchItemDependency`, `BatchEvent`, `BatchSchedule`, `BatchScheduleRun` | Operational queue, dependency, progress-event and schedule state. These high-volume records need worker claims, retries, and lifecycle independent from editable CMS content; they are not site-owned content objects. |
 | `site_transfer_identity`, `site_transfer_object_map`, `site_transfer_credentials`, `batch_item_dependency_refs` | Migration-owned DBAL tables for the persistent installation UUID, source-to-destination identity mapping, encrypted short-lived transfer credentials, and bounded dependency staging. They are operational lookup/staging tables, not Doctrine entities. |

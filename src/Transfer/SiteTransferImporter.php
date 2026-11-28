@@ -17,17 +17,13 @@ use iikiti\CMS\Entity\Object\ExternalDigitalAsset;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\UploadedDigitalAsset;
 use iikiti\CMS\Repository\Object\SiteRepository;
-use iikiti\CMS\Service\AssetStorage;
+use iikiti\CMS\Storage\AssetMimeTypeRegistry;
+use iikiti\CMS\Storage\AssetStorageInterface;
+use iikiti\CMS\Storage\CoreAssetMimeTypeProvider;
 
 final class SiteTransferImporter
 {
-	private const MAX_ASSET_BYTES = 26214400;
-
-	private const MIME_EXTENSIONS = [
-		'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif', 'image/webp' => 'webp',
-		'application/pdf' => 'pdf', 'text/plain' => 'txt', 'text/markdown' => 'md', 'text/csv' => 'csv',
-		'application/json' => 'json', 'application/xml' => 'xml', 'text/xml' => 'xml',
-	];
+	private readonly AssetMimeTypeRegistry $mimeRegistry;
 
 	public function __construct(
 		private readonly EntityManagerInterface $entityManager,
@@ -35,10 +31,12 @@ final class SiteTransferImporter
 		private readonly SiteTransferCatalog $catalog,
 		private readonly SiteTransferCredentialVault $credentials,
 		private readonly RemoteSiteClient $remote,
-		private readonly AssetStorage $storage,
+		private readonly AssetStorageInterface $storage,
 		private readonly SiteRepository $sites,
 		private readonly DatabaseTableNameResolver $tableNames,
+		?AssetMimeTypeRegistry $mimeRegistry = null,
 	) {
+		$this->mimeRegistry = $mimeRegistry ?? new AssetMimeTypeRegistry([new CoreAssetMimeTypeProvider()]);
 	}
 
 	/** @param array<string,mixed> $payload */
@@ -173,17 +171,18 @@ final class SiteTransferImporter
 		$size = null;
 		$checksum = null;
 		if ($isUploaded) {
-			if (!isset(self::MIME_EXTENSIONS[$mimeType])) {
+			if (!$this->mimeRegistry->isAllowed($mimeType)) {
 				throw new \InvalidArgumentException('Source asset MIME type is not supported for upload.');
 			}
+			$maxAssetBytes = $this->mimeRegistry->maxBytesFor($mimeType);
 			$token = $this->credentials->get($context->batchId);
 			$response = $this->remote->downloadAsset((string) $payload['sourceUrl'], (string) $payload['exportId'], $sourceId, $token);
 			$headers = $response->getHeaders(false);
 			$declaredSize = isset($headers['content-length'][0]) ? (int) $headers['content-length'][0] : null;
-			if (null !== $declaredSize && ($declaredSize < 1 || $declaredSize > self::MAX_ASSET_BYTES)) {
-				throw new \InvalidArgumentException('Source asset is outside the supported 1–25 MB size range.');
+			if (null !== $declaredSize && ($declaredSize < 1 || $declaredSize > $maxAssetBytes)) {
+				throw new \InvalidArgumentException(sprintf('Source asset is outside the supported 1–%d byte size range.', $maxAssetBytes));
 			}
-			$tempPath = $this->storage->createTemporaryPath(self::MIME_EXTENSIONS[$mimeType]);
+			$tempPath = $this->storage->createTemporaryPath($mimeType);
 			$handle = fopen($tempPath, 'wb');
 			if (false === $handle) {
 				@unlink($tempPath);
@@ -197,8 +196,8 @@ final class SiteTransferImporter
 					}
 					$contents = $chunk->getContent();
 					$bytes += strlen($contents);
-					if ($bytes > self::MAX_ASSET_BYTES) {
-						throw new \InvalidArgumentException('Source asset exceeds the 25 MB transfer limit.');
+					if ($bytes > $maxAssetBytes) {
+						throw new \InvalidArgumentException(sprintf('Source asset exceeds the %d byte transfer limit.', $maxAssetBytes));
 					}
 					if (strlen($contents) !== fwrite($handle, $contents)) {
 						throw new \RuntimeException('Unable to write the streamed asset to protected temporary storage.');

@@ -11,6 +11,7 @@
 	import type { BlockNode } from './state';
 	import { resolveBlockPreview, sidebarVersion } from './extensions';
 	import Icon from '$components/Icon.svelte';
+	import { formatObjectPosition, normalizeMediaValue, resolvePreviewUrl } from '$lib/mediaHelpers.js';
 	import IconPreview from './previews/IconPreview.svelte';
 	import BlockView from './BlockView.svelte';
 
@@ -134,10 +135,27 @@
 		<span class={widgetClass} id={elementId || undefined}>{node.content?.text ?? ''}</span>
 	{/if}
 {:else if node.type === 'image'}
-	{#if node.content?.source?.url}
-		<img src={node.content.source.url} alt={node.content.alt ?? ''} class="{widgetClass} iikiti-image" id={elementId || undefined} style={targetStyle || undefined} />
+	{@const media = normalizeMediaValue(node.content?.source)}
+	{@const previewSrc = resolvePreviewUrl(media)}
+	{@const altText = node.content?.decorative ? '' : (String(node.content?.alt ?? '').trim() || media.defaultAlt)}
+	{@const cleanTargetStyle = targetStyle.trim().replace(/;+$/, '')}
+	{@const imageStyle = [
+		cleanTargetStyle,
+		`object-position: ${formatObjectPosition(media.focalPoint)}`,
+		media.dominantColor ? `background-color: ${media.dominantColor}` : '',
+	].filter(Boolean).join('; ')}
+	{#if previewSrc}
+		<img
+			src={previewSrc}
+			alt={altText}
+			width={media.width ?? undefined}
+			height={media.height ?? undefined}
+			class="{widgetClass} iikiti-image"
+			id={elementId || undefined}
+			style={imageStyle || undefined}
+		/>
 	{:else}
-		<em class="{widgetClass} iikiti-block--placeholder" id={elementId || undefined}>Image URL missing</em>
+		<em class="{widgetClass} iikiti-block--placeholder" id={elementId || undefined}>Image missing — choose media</em>
 	{/if}
 {:else if node.type === 'icon'}
 	<IconPreview {node} {widgetClass} {elementId} {targetStyle} iconSvgs={$iconSvgs} iconGlyphs={$iconGlyphs} />

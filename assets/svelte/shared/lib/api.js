@@ -470,6 +470,334 @@ export class ApiClient {
 			body: JSON.stringify({ version }),
 		});
 	}
+
+	/* ------------------------------------------------------------------ */
+	/* Digital Assets (DAM)                                               */
+	/* ------------------------------------------------------------------ */
+
+	/**
+	 * @param {string | URLSearchParams | Record<string, any>} [params]
+	 */
+	async getDigitalAssets(params = '') {
+		let query = '';
+		if (typeof params === 'string') {
+			query = params.replace(/^\?/, '');
+		} else if (params instanceof URLSearchParams) {
+			query = params.toString();
+		} else if (params && typeof params === 'object') {
+			query = new URLSearchParams(
+				Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''),
+			).toString();
+		}
+		const path = query ? `/admin/assets?${query}` : '/admin/assets';
+		return this.request(path);
+	}
+
+	async getDigitalAssetSites() {
+		return this.request('/admin/assets/sites');
+	}
+
+	/**
+	 * @param {string|number} id
+	 * @param {string|null} [locale]
+	 */
+	async getDigitalAsset(id, locale = null) {
+		const suffix = locale ? `?locale=${encodeURIComponent(locale)}` : '';
+		return this.request(`/admin/assets/${encodeURIComponent(String(id))}${suffix}`);
+	}
+
+	/**
+	 * @param {string|number} id
+	 * @param {Record<string, any>} payload
+	 * @param {string|null} [locale]
+	 */
+	async updateDigitalAsset(id, payload, locale = null) {
+		const suffix = locale ? `?locale=${encodeURIComponent(locale)}` : '';
+		return this.request(`/admin/assets/${encodeURIComponent(String(id))}${suffix}`, {
+			method: 'PUT',
+			body: JSON.stringify(payload),
+		});
+	}
+
+	/**
+	 * @param {string|number} id
+	 * @param {boolean} [force=false]
+	 */
+	async deleteDigitalAsset(id, force = false) {
+		const suffix = force ? '?force=1' : '?force=0';
+		return this.request(`/admin/assets/${encodeURIComponent(String(id))}${suffix}`, {
+			method: 'DELETE',
+		});
+	}
+
+	/** @param {string|number} id */
+	async reprocessDigitalAsset(id) {
+		return this.request(`/admin/assets/${encodeURIComponent(String(id))}/reprocess`, {
+			method: 'POST',
+		});
+	}
+
+	/** @param {Record<string, any>} payload */
+	async createDigitalAssetUri(payload) {
+		return this.request('/admin/assets/uri', {
+			method: 'POST',
+			body: JSON.stringify(payload),
+		});
+	}
+
+	/**
+	 * @param {string|number} id
+	 * @param {Record<string, any>} payload
+	 */
+	async createDigitalAssetSignedUrl(id, payload) {
+		return this.request(`/admin/assets/${encodeURIComponent(String(id))}/signed-url`, {
+			method: 'POST',
+			body: JSON.stringify(payload),
+		});
+	}
+
+	/** @param {Record<string, any>} payload */
+	async bulkDigitalAssetAction(payload) {
+		return this.request('/admin/assets/bulk', {
+			method: 'POST',
+			body: JSON.stringify(payload),
+		});
+	}
+
+	/** @param {{ checksum: string, siteIds?: Array<string|number> }} payload */
+	async checkDigitalAssetDuplicate(payload) {
+		return this.request('/admin/assets/check-duplicate', {
+			method: 'POST',
+			body: JSON.stringify(payload),
+		});
+	}
+
+	/** @param {string|number} id */
+	async getDigitalAssetUsage(id) {
+		return this.request(`/admin/assets/${encodeURIComponent(String(id))}/usage`);
+	}
+
+	/** @param {string|number} id */
+	async getDigitalAssetVersions(id) {
+		return this.request(`/admin/assets/${encodeURIComponent(String(id))}/versions`);
+	}
+
+	/**
+	 * @param {string|number} id
+	 * @param {FormData} formData
+	 */
+	async replaceDigitalAsset(id, formData) {
+		return this.request(`/admin/assets/${encodeURIComponent(String(id))}/replace`, {
+			method: 'POST',
+			body: formData,
+		});
+	}
+
+	/**
+	 * @param {string|number} id
+	 * @param {number|string} versionNumber
+	 * @param {Record<string, any>} [payload]
+	 */
+	async rollbackDigitalAssetVersion(id, versionNumber, payload = {}) {
+		return this.request(
+			`/admin/assets/${encodeURIComponent(String(id))}/versions/${encodeURIComponent(String(versionNumber))}/rollback`,
+			{
+				method: 'POST',
+				body: JSON.stringify(payload),
+			},
+		);
+	}
+
+	/**
+	 * Uploads a digital asset with upload progress tracking via `XMLHttpRequest`
+	 * (falling back to `fetch` when XHR is unavailable).
+	 *
+	 * @param {FormData} formData
+	 * @param {(percent: number) => void} [onProgress]
+	 * @param {AbortSignal} [signal]
+	 * @returns {Promise<any>}
+	 */
+	uploadDigitalAssetWithProgress(formData, onProgress, signal) {
+		if (typeof XMLHttpRequest === 'undefined') {
+			return this.request('/admin/assets/upload', {
+				method: 'POST',
+				body: formData,
+				signal,
+			}).then((result) => {
+				onProgress?.(100);
+				return result;
+			});
+		}
+
+		return new Promise((resolve, reject) => {
+			if (signal?.aborted) {
+				const abortErr = new Error('Upload cancelled');
+				abortErr.name = 'AbortError';
+				reject(abortErr);
+				return;
+			}
+
+			const xhr = new XMLHttpRequest();
+			xhr.open('POST', `${this.baseUrl}/admin/assets/upload`, true);
+			xhr.withCredentials = true;
+
+			const headers = this.getHeaders(formData);
+			delete headers['Content-Type'];
+			for (const [key, value] of Object.entries(headers)) {
+				if (value !== undefined && value !== null) {
+					xhr.setRequestHeader(key, String(value));
+				}
+			}
+
+			const onAbort = () => {
+				xhr.abort();
+			};
+			if (signal) {
+				signal.addEventListener('abort', onAbort, { once: true });
+			}
+
+			const cleanup = () => {
+				if (signal) {
+					signal.removeEventListener('abort', onAbort);
+				}
+			};
+
+			xhr.upload.onprogress = (event) => {
+				if (event.lengthComputable && event.total > 0) {
+					const pct = Math.min(100, Math.round((event.loaded / event.total) * 100));
+					onProgress?.(pct);
+				}
+			};
+
+			xhr.onload = () => {
+				cleanup();
+				let body = {};
+				try {
+					body = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+				} catch {
+					body = {};
+				}
+				if (xhr.status >= 200 && xhr.status < 300) {
+					onProgress?.(100);
+					resolve(body);
+				} else {
+					const err = new Error(`${xhr.status}: ${body.error ?? body.title ?? xhr.statusText}`);
+					err.status = xhr.status;
+					err.body = body;
+					reject(err);
+				}
+			};
+
+			xhr.onerror = () => {
+				cleanup();
+				reject(new Error('Network error while uploading asset.'));
+			};
+
+			xhr.onabort = () => {
+				cleanup();
+				const abortErr = new Error('Upload cancelled');
+				abortErr.name = 'AbortError';
+				reject(abortErr);
+			};
+
+			xhr.send(formData);
+		});
+	}
+
+	// Folders --------------------------------------------------------------
+
+	async getAssetFolders() {
+		const data = await this.request('/admin/assets/folders');
+		return data?.folders ?? this.extractItems(data);
+	}
+
+	async createAssetFolder(payload) {
+		return this.request('/admin/assets/folders', {
+			method: 'POST',
+			body: JSON.stringify(payload),
+		});
+	}
+
+	async updateAssetFolder(id, payload) {
+		return this.request(`/admin/assets/folders/${encodeURIComponent(String(id))}`, {
+			method: 'PUT',
+			body: JSON.stringify(payload),
+		});
+	}
+
+	async deleteAssetFolder(id) {
+		return this.request(`/admin/assets/folders/${encodeURIComponent(String(id))}`, {
+			method: 'DELETE',
+		});
+	}
+
+	// Collections ----------------------------------------------------------
+
+	async getAssetCollections() {
+		const data = await this.request('/admin/assets/collections');
+		return data?.collections ?? this.extractItems(data);
+	}
+
+	async createAssetCollection(payload) {
+		return this.request('/admin/assets/collections', {
+			method: 'POST',
+			body: JSON.stringify(payload),
+		});
+	}
+
+	async updateAssetCollection(id, payload) {
+		return this.request(`/admin/assets/collections/${encodeURIComponent(String(id))}`, {
+			method: 'PUT',
+			body: JSON.stringify(payload),
+		});
+	}
+
+	async deleteAssetCollection(id) {
+		return this.request(`/admin/assets/collections/${encodeURIComponent(String(id))}`, {
+			method: 'DELETE',
+		});
+	}
+
+	async addAssetsToCollection(collectionId, assetIds) {
+		return this.request(`/admin/assets/collections/${encodeURIComponent(String(collectionId))}/items`, {
+			method: 'POST',
+			body: JSON.stringify({ assetIds }),
+		});
+	}
+
+	async removeAssetFromCollection(collectionId, assetId) {
+		return this.request(
+			`/admin/assets/collections/${encodeURIComponent(String(collectionId))}/items/${encodeURIComponent(String(assetId))}`,
+			{ method: 'DELETE' },
+		);
+	}
+
+	// Tags -----------------------------------------------------------------
+
+	async getAssetTags() {
+		const data = await this.request('/admin/assets/tags');
+		return data?.tags ?? this.extractItems(data);
+	}
+
+	async createAssetTag(payload) {
+		return this.request('/admin/assets/tags', {
+			method: 'POST',
+			body: JSON.stringify(payload),
+		});
+	}
+
+	async updateAssetTag(id, payload) {
+		return this.request(`/admin/assets/tags/${encodeURIComponent(String(id))}`, {
+			method: 'PUT',
+			body: JSON.stringify(payload),
+		});
+	}
+
+	async deleteAssetTag(id) {
+		return this.request(`/admin/assets/tags/${encodeURIComponent(String(id))}`, {
+			method: 'DELETE',
+		});
+	}
 }
 
 export class ApiError extends Error {
