@@ -13,6 +13,7 @@
 /* Source scanning — no tailwind.config.js exists in this project, so declare
    the source roots explicitly (v4 respects @source before auto-scan). */
 @source "../svelte/admin/**/*.{svelte,ts}";
+@source "../svelte/shared/**/*.{svelte,ts,js}";
 @source "../admin.js";
 @source "../../plugins/*/assets/admin/**/*.{svelte,ts}";
 @source "../../templates/admin/**/*.twig";

@@ -15,6 +15,7 @@ import SelectControl from './controls/SelectControl.svelte';
 import ToggleControl from './controls/ToggleControl.svelte';
 import CssLengthControl from './controls/CssLengthControl.svelte';
 import ColorControl from './controls/ColorControl.svelte';
+import MediaPickerControl from './controls/MediaPickerControl.svelte';
 import { queryBindingDecorator } from './queryBinding.js';
 
 let registered = false;
@@ -179,7 +180,7 @@ export function registerCoreSidebar() {
 	registerFieldControl('url', TextControl);
 	registerFieldControl('color', ColorControl);
 	registerFieldControl('cssLength', CssLengthControl);
-	registerFieldControl('media', TextControl);
+	registerFieldControl('media', MediaPickerControl);
 	registerFieldControl('filters', TextControl);
 	registerFieldControl('spacing', TextControl);
 	registerFieldControl('number', TextControl);

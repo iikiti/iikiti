@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { PageHeader } from '@iikiti/ui';
+	import { MediaPickerModal, PageHeader } from '@iikiti/ui';
 	import type { ApiClient } from '$lib/api';
 
 	interface Props {
@@ -144,7 +144,25 @@
 	let canRetry = $state(false);
 	let notice = $state('');
 	let fieldErrors = $state<Record<string, string>>({});
+	let socialImagePickerOpen = $state(false);
 	let loadSequence = 0;
+
+	function socialImagePickerHeaders(): Record<string, string> {
+		return api.getHeaders(null, scope === 'site' ? selectedSiteHost() : null);
+	}
+
+	function openSocialImagePicker(): void {
+		if (scope === 'site' && !hasOverride('seo.defaultSocialImage')) {
+			beginOverride('seo.defaultSocialImage');
+		}
+		socialImagePickerOpen = true;
+	}
+
+	function handleSocialImageSelect(selected: Record<string, unknown>): void {
+		const url = typeof selected.url === 'string' ? selected.url : '';
+		updateField('seo.defaultSocialImage', url);
+		socialImagePickerOpen = false;
+	}
 
 	const hasScopeTarget = $derived(scope === 'application' ? applicationId !== '' : siteId !== '');
 	const robotsHeaderRules = $derived([
@@ -1137,7 +1155,19 @@
 			<div class="grid gap-5 md:grid-cols-2">
 				{@render textField('seo.titleTemplate', 'Title template', 'Use {pageTitle} for the content title and {siteName} for the site name.')}
 				{@render textField('seo.defaultDescription', 'Default description', 'Used when a page does not define a search description.')}
-				{@render textField('seo.defaultSocialImage', 'Default social image URL', 'A site-hosted absolute or relative URL. No remote preview is loaded here.')}
+				<div class="space-y-2">
+					{@render textField('seo.defaultSocialImage', 'Default social image URL', 'A site-hosted DAM asset URL or absolute HTTPS URL.')}
+					<div class="flex flex-wrap items-center gap-2">
+						<button
+							type="button"
+							class="admin-btn admin-btn-sm admin-btn-secondary"
+							onclick={openSocialImagePicker}
+							disabled={saving}
+						>
+							Choose from DAM
+						</button>
+					</div>
+				</div>
 			</div>
 		</div>
 
@@ -1149,3 +1179,16 @@
 		</div>
 	</form>
 {/if}
+
+<MediaPickerModal
+	open={socialImagePickerOpen}
+	onClose={() => (socialImagePickerOpen = false)}
+	onSelect={handleSocialImageSelect}
+	accept="image/*"
+	allowExternalUrl={true}
+	initialUrl={String(fieldValue('seo.defaultSocialImage') ?? '')}
+	apiEndpoint="/api/admin/assets"
+	apiBase={api.baseUrl}
+	fetchHeaders={socialImagePickerHeaders}
+	title="Choose default social image"
+/>

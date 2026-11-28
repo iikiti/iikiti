@@ -41,3 +41,40 @@ test('registerContentOptimizationEditor registers preview control as readOnlyDis
 	expect(previewField.preview.canonicalUrl).toBe('/pricing');
 	expect(previewField.preview.twitterCard).toBe('summary_large_image');
 });
+
+test('registerContentOptimizationEditor exposes media fields for social images and forwards DAM asset objects to preview', () => {
+	let section = null;
+	registerContentOptimizationEditor({
+		registerFieldControl: () => {},
+		registerSettingsSection: (def) => { section = def; },
+	});
+
+	const assetValue = {
+		source: 'asset',
+		assetId: 42,
+		publicToken: 'tok_social_123',
+		url: '/assets/tok_social_123/original',
+		previewUrl: '/assets/tok_social_123/medium',
+		width: 1200,
+		height: 630,
+	};
+
+	const groups = section.build({
+		values: {
+			iikiti_content_optimization_og_image: assetValue,
+		},
+	});
+
+	const ogField = groups.find((g) => g.id === 'open-graph').nodes.find((n) => n.field.key === 'iikiti_content_optimization_og_image').field;
+	const twitterField = groups.find((g) => g.id === 'twitter').nodes.find((n) => n.field.key === 'iikiti_content_optimization_twitter_image').field;
+	const previewField = groups.find((g) => g.id === 'preview').nodes[0].field;
+
+	expect(ogField.type).toBe('media');
+	expect(ogField.accept).toBe('image/*');
+	expect(ogField.allowExternalUrl).toBe(true);
+	expect(twitterField.type).toBe('media');
+	expect(twitterField.accept).toBe('image/*');
+	expect(twitterField.allowExternalUrl).toBe(true);
+	expect(previewField.preview.openGraphImage).toEqual(assetValue);
+	expect(previewField.preview.twitterImage).toEqual(assetValue);
+});

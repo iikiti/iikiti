@@ -187,10 +187,21 @@ final class CoreBlockTypeProvider implements BlockTypeInterface
 			category: 'media',
 			acceptsChildren: false,
 			contentFields: [
-				['key' => 'source', 'label' => 'Source', 'type' => 'media', 'required' => true],
-				['key' => 'alt', 'label' => 'Alt text', 'type' => 'text', 'required' => true],
+				['key' => 'source', 'label' => 'Source', 'type' => 'media', 'required' => true, 'accept' => 'image/*', 'allowExternalUrl' => true],
+				['key' => 'alt', 'label' => 'Alt text', 'type' => 'text', 'required' => false, 'placeholder' => 'Inherits asset default alt text'],
+				['key' => 'decorative', 'label' => 'Decorative image', 'type' => 'toggle', 'default' => false],
 				['key' => 'caption', 'label' => 'Caption', 'type' => 'text'],
 				['key' => 'link', 'label' => 'Link URL', 'type' => 'url'],
+				['key' => 'sizes', 'label' => 'Sizes', 'type' => 'text', 'default' => '100vw'],
+				['key' => 'loading', 'label' => 'Loading', 'type' => 'select', 'default' => 'lazy', 'options' => [
+					['value' => 'lazy', 'label' => 'Lazy'],
+					['value' => 'eager', 'label' => 'Eager'],
+				]],
+				['key' => 'fetchpriority', 'label' => 'Fetch priority', 'type' => 'select', 'default' => 'auto', 'options' => [
+					['value' => 'auto', 'label' => 'Auto'],
+					['value' => 'high', 'label' => 'High'],
+					['value' => 'low', 'label' => 'Low'],
+				]],
 			],
 			styleFields: [
 				['key' => 'width', 'label' => 'Width', 'type' => 'number', 'prefix' => 'px'],
@@ -199,7 +210,16 @@ final class CoreBlockTypeProvider implements BlockTypeInterface
 			renderTemplate: 'blocks/image.twig',
 			editorComponent: 'ImageBlock',
 			elementFields: CommonBlockFields::elementFields(),
-			defaults: ['content' => ['source' => ['source' => 'url', 'url' => '']], 'style' => ['base' => []]],
+			defaults: [
+				'content' => [
+					'source' => ['source' => 'asset', 'assetId' => null, 'url' => ''],
+					'decorative' => false,
+					'sizes' => '100vw',
+					'loading' => 'lazy',
+					'fetchpriority' => 'auto',
+				],
+				'style' => ['base' => []],
+			],
 		);
 	}
 

@@ -1,4 +1,6 @@
 <script>
+	import { formatObjectPosition, normalizeMediaValue, resolvePreviewUrl } from '$lib/mediaHelpers.js';
+
 	let { field } = $props();
 	const preview = $derived(field.preview ?? {});
 	const title = $derived(preview.title || 'Page title');
@@ -19,7 +21,32 @@
 		}
 		return canonical;
 	});
-	const hasOpenGraphImage = $derived(Boolean(preview.openGraphImage));
+
+	const ogMedia = $derived(normalizeMediaValue(preview.openGraphImage));
+	const ogPreviewUrl = $derived(resolvePreviewUrl(ogMedia));
+	const twitterMedia = $derived(normalizeMediaValue(preview.twitterImage));
+	const twitterPreviewUrl = $derived(resolvePreviewUrl(twitterMedia));
+
+	let ogImageFailed = $state(false);
+	let twitterImageFailed = $state(false);
+
+	$effect(() => {
+		void ogPreviewUrl;
+		ogImageFailed = false;
+	});
+
+	$effect(() => {
+		void twitterPreviewUrl;
+		twitterImageFailed = false;
+	});
+
+	function imageStatusLabel(media) {
+		if (media.source === 'empty') return 'No image selected';
+		const dims = media.width && media.height ? ` (${media.width}×${media.height})` : '';
+		return media.source === 'asset'
+			? `DAM asset${media.assetId ? ` #${media.assetId}` : ''}${dims}`
+			: `External image URL${dims}`;
+	}
 </script>
 
 <div class="preview-cards" role="region" aria-labelledby={`${String(field.key)}-label`}>
@@ -31,8 +58,22 @@
 	</article>
 
 	<article class="preview-card preview-card--social">
-		<div class="preview-image">
-			{hasOpenGraphImage ? 'Image URL configured' : 'No image selected'}
+		<div
+			class="preview-image"
+			class:preview-image--has-thumb={Boolean(ogPreviewUrl) && !ogImageFailed}
+			style={ogMedia.dominantColor ? `background-color: ${ogMedia.dominantColor}` : undefined}
+		>
+			{#if ogPreviewUrl && !ogImageFailed}
+				<img
+					src={ogPreviewUrl}
+					alt={ogMedia.defaultAlt || openGraphTitle}
+					style={`object-position: ${formatObjectPosition(ogMedia.focalPoint)}`}
+					onerror={() => (ogImageFailed = true)}
+				/>
+				<span class="preview-image-badge">{imageStatusLabel(ogMedia)}</span>
+			{:else}
+				<span>{imageStatusLabel(ogMedia)}</span>
+			{/if}
 		</div>
 		<div class="preview-social-copy">
 			<p class="preview-eyebrow">Open Graph | {preview.openGraphType || 'website'}</p>
@@ -42,8 +83,22 @@
 	</article>
 
 	<article class="preview-card preview-card--twitter">
-		<div class="preview-image">
-			{preview.twitterImage ? 'Image URL configured' : 'No image selected'}
+		<div
+			class="preview-image"
+			class:preview-image--has-thumb={Boolean(twitterPreviewUrl) && !twitterImageFailed}
+			style={twitterMedia.dominantColor ? `background-color: ${twitterMedia.dominantColor}` : undefined}
+		>
+			{#if twitterPreviewUrl && !twitterImageFailed}
+				<img
+					src={twitterPreviewUrl}
+					alt={twitterMedia.defaultAlt || twitterTitle}
+					style={`object-position: ${formatObjectPosition(twitterMedia.focalPoint)}`}
+					onerror={() => (twitterImageFailed = true)}
+				/>
+				<span class="preview-image-badge">{imageStatusLabel(twitterMedia)}</span>
+			{:else}
+				<span>{imageStatusLabel(twitterMedia)}</span>
+			{/if}
 		</div>
 		<div class="preview-social-copy">
 			<p class="preview-eyebrow">X / Twitter | {preview.twitterCard || 'summary_large_image'}</p>
@@ -52,7 +107,7 @@
 		</div>
 	</article>
 
-	<p class="preview-note">Preview text updates as you edit. Remote images are not loaded.</p>
+	<p class="preview-note">Preview updates as you edit.</p>
 </div>
 
 <style>
@@ -78,6 +133,7 @@
 		background: var(--ik-panel-bg, #fff);
 		color: var(--ik-panel-text, #202124);
 		overflow-wrap: anywhere;
+		overflow: hidden;
 	}
 
 	.preview-card p {
@@ -114,6 +170,7 @@
 	}
 
 	.preview-image {
+		position: relative;
 		display: grid;
 		min-height: 42px;
 		margin: -9px -9px 8px;
@@ -122,6 +179,31 @@
 		background: color-mix(in srgb, var(--ik-panel-text, #202124) 6%, var(--ik-panel-bg, #fff));
 		color: var(--ik-panel-text-muted, #5f6368);
 		font-size: 1rem;
+		overflow: hidden;
+	}
+
+	.preview-image--has-thumb {
+		padding: 0;
+		aspect-ratio: 1.91 / 1;
+	}
+
+	.preview-image img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: block;
+	}
+
+	.preview-image-badge {
+		position: absolute;
+		left: 6px;
+		bottom: 6px;
+		padding: 2px 6px;
+		border-radius: 4px;
+		background: rgba(15, 15, 12, 0.72);
+		color: #fff;
+		font-size: 0.75rem;
+		line-height: 1.3;
 	}
 
 	.preview-note {

@@ -1,4 +1,5 @@
 import SeoPreviewControl from './SeoPreviewControl.svelte';
+import { normalizeMediaValue } from '../../../../assets/svelte/shared/lib/mediaHelpers.js';
 
 const PREFIX = 'iikiti_content_optimization_';
 const PREVIEW_CONTROL = 'iikiti-content-optimization-preview';
@@ -29,7 +30,7 @@ function previewDefaults() {
 		siteName: asText(defaults.siteName),
 		titleTemplate: asText(defaults.titleTemplate) || '{pageTitle}',
 		description: asText(defaults.description),
-		image: asText(defaults.image),
+		image: defaults.image ?? '',
 	};
 }
 
@@ -42,6 +43,14 @@ export function resolveTitleTemplate(defaults) {
 
 function resolveValue(value, fallback = '') {
 	return asText(value).trim() || fallback;
+}
+
+function resolveMediaSetting(value, fallback = '') {
+	const normalized = normalizeMediaValue(value);
+	if (normalized.source !== 'empty') {
+		return value;
+	}
+	return fallback;
 }
 
 function field(key, label, type, options = {}) {
@@ -68,7 +77,7 @@ export function registerContentOptimizationEditor(sidebar) {
 			const description = resolveValue(values[fields.description], defaults.description);
 			const openGraphTitle = resolveValue(values[fields.openGraphTitle], title);
 			const openGraphDescription = resolveValue(values[fields.openGraphDescription], description);
-			const openGraphImage = resolveValue(values[fields.openGraphImage], defaults.image);
+			const openGraphImage = resolveMediaSetting(values[fields.openGraphImage], defaults.image);
 
 			return [
 			group('search', 'Search', [
@@ -102,7 +111,7 @@ export function registerContentOptimizationEditor(sidebar) {
 						{ value: 'article', label: 'Article' },
 					],
 				}),
-				field(fields.openGraphImage, 'Social image URL', 'url', { placeholder: 'https://example.com/image.jpg' }),
+				field(fields.openGraphImage, 'Social image', 'media', { accept: 'image/*', allowExternalUrl: true }),
 			]),
 			group('twitter', 'X / Twitter', [
 				field(fields.twitterCard, 'Card style', 'select', {
@@ -114,7 +123,7 @@ export function registerContentOptimizationEditor(sidebar) {
 				}),
 				field(fields.twitterTitle, 'Card title', 'text', { characterGuide: 60 }),
 				field(fields.twitterDescription, 'Card description', 'textarea', { rows: 3, characterGuide: 160 }),
-				field(fields.twitterImage, 'Card image URL', 'url', { placeholder: 'https://example.com/image.jpg' }),
+				field(fields.twitterImage, 'Card image', 'media', { accept: 'image/*', allowExternalUrl: true }),
 			]),
 			group('preview', 'Previews', [
 				field(fields.preview, 'Search and social previews (read-only)', PREVIEW_CONTROL, {
@@ -130,7 +139,7 @@ export function registerContentOptimizationEditor(sidebar) {
 						twitterCard: asText(values[fields.twitterCard]) || 'summary_large_image',
 						twitterTitle: resolveValue(values[fields.twitterTitle], openGraphTitle),
 						twitterDescription: resolveValue(values[fields.twitterDescription], openGraphDescription),
-						twitterImage: resolveValue(values[fields.twitterImage], openGraphImage),
+						twitterImage: resolveMediaSetting(values[fields.twitterImage], openGraphImage),
 					},
 				}),
 			]),

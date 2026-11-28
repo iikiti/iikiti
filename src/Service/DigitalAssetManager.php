@@ -49,6 +49,22 @@ final class DigitalAssetManager
 	/** @param list<mixed> $siteIds */
 	public function createUpload(UploadedFile $file, string $title, string $visibility, array $siteIds, User $creator): AbstractDigitalAsset
 	{
+		return $this->persistUpload($file, $title, $visibility, $this->resolveSites($siteIds, $creator), $creator);
+	}
+
+	/**
+	 * Uploads a digital asset scoped strictly to the specified site (used by
+	 * editor-facing endpoints after PermissionChecker authorization, without
+	 * requiring ROLE_ADMIN multi-site administration privileges).
+	 */
+	public function createUploadForSite(UploadedFile $file, string $title, string $visibility, Site $site, User $creator): AbstractDigitalAsset
+	{
+		return $this->persistUpload($file, $title, $visibility, [$site], $creator);
+	}
+
+	/** @param list<Site> $sites */
+	private function persistUpload(UploadedFile $file, string $title, string $visibility, array $sites, User $creator): AbstractDigitalAsset
+	{
 		if (!$file->isValid()) {
 			throw new \InvalidArgumentException('The uploaded file is not valid.');
 		}
@@ -64,7 +80,6 @@ final class DigitalAssetManager
 			throw new \InvalidArgumentException(sprintf('The file must be between 1 byte and %d bytes.', $maxBytes));
 		}
 
-		$sites = $this->resolveSites($siteIds, $creator);
 		$asset = new UploadedDigitalAsset($this->normaliseTitle($title, $file->getClientOriginalName()), $mimeType, bin2hex(random_bytes(32)));
 		$asset->setSite($this->siteRegistry::getCurrent());
 		$asset->setCreatorId($this->creatorId($creator));

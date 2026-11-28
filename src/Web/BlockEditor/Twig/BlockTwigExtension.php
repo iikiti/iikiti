@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace iikiti\CMS\Web\BlockEditor\Twig;
 
-use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Entity\DbObject;
+use iikiti\CMS\Entity\Object\Site;
+use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Service\LocalizedPropertyResolver;
 use iikiti\CMS\Web\BlockEditor\Embed\EmbedResolverInterface;
+use iikiti\CMS\Web\BlockEditor\Media\AssetRenderResolver;
 use iikiti\CMS\Web\BlockEditor\Query\QueryDefinition;
 use iikiti\CMS\Web\BlockEditor\Query\QueryExecutor;
 use iikiti\CMS\Web\Icon\FontIconSetInterface;
@@ -23,6 +25,7 @@ use Twig\TwigFunction;
  * - `iikiti_query(definition)`          -> list of result rows for a query block
  * - `iikiti_region(id, role, name, allowed, html)` -> region wrapper markup
  * - `iikiti_icon(name, renderer, ...)`  -> icon block markup (svg; unknown -> empty)
+ * - `iikiti_asset_media(source, options, prefetched)` -> responsive DAM `<picture>` descriptor
  */
 final class BlockTwigExtension extends AbstractExtension
 {
@@ -35,6 +38,7 @@ final class BlockTwigExtension extends AbstractExtension
 		private readonly IconResolver $iconResolver,
 		private readonly IconFontAssets $iconFontAssets,
 		private readonly ?LocalizedPropertyResolver $localizedProperties = null,
+		private readonly ?AssetRenderResolver $assetRenderResolver = null,
 	) {
 	}
 
@@ -50,7 +54,30 @@ final class BlockTwigExtension extends AbstractExtension
 			),
 			new TwigFunction('iikiti_icon', [$this, 'icon'], ['is_safe' => ['html']]),
 			new TwigFunction('iikiti_localized_property', [$this, 'localizedProperty']),
+			new TwigFunction('iikiti_asset_media', [$this, 'renderAssetMedia']),
 		];
+	}
+
+	/**
+	 * Resolves a DAM asset reference or legacy image URL into a responsive
+	 * `<picture>` / `<img>` descriptor.
+	 *
+	 * @param array<string,mixed>            $options
+	 * @param array<int,array<string,mixed>> $prefetched
+	 *
+	 * @return array<string,mixed>|null
+	 */
+	public function renderAssetMedia(
+		mixed $source,
+		array $options = [],
+		array $prefetched = [],
+		?Site $site = null,
+		bool $includePrivate = false,
+	): ?array {
+		$resolvedSite = $site ?? (SiteRegistry::hasCurrent() ? SiteRegistry::getCurrent() : null);
+		$resolver = $this->assetRenderResolver ?? new AssetRenderResolver();
+
+		return $resolver->resolveForRender($source, $options, $prefetched, $resolvedSite, $includePrivate);
 	}
 
 	public function localizedProperty(DbObject $object, string $propertyName): mixed
