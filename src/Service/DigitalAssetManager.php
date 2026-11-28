@@ -260,7 +260,11 @@ final class DigitalAssetManager
 				$persistInitialUpload();
 			}
 		} catch (\Throwable $exception) {
-			$this->storage->delete($storageKey);
+			try {
+				$this->storage->delete($storageKey);
+			} catch (\Throwable) {
+				// Best-effort cleanup of newly uploaded blob on persistence failure.
+			}
 			throw $exception;
 		}
 
@@ -467,7 +471,11 @@ final class DigitalAssetManager
 			if (null !== $this->versionManager && $this->versionManager->isStorageKeyReferenced($key, $assetId)) {
 				continue;
 			}
-			$this->storage->delete($key);
+			try {
+				$this->storage->delete($key);
+			} catch (\Throwable) {
+				// Best-effort cleanup of storage objects after DB deletion has committed.
+			}
 		}
 
 		if ($force && [] !== $usages) {
@@ -488,9 +496,20 @@ final class DigitalAssetManager
 		$this->eventDispatcher->dispatch(new DigitalAssetEvent($asset), DigitalAssetEvents::DELETED);
 	}
 
-	public function queueProcessing(AbstractDigitalAsset $asset): void
+	public function queueProcessing(AbstractDigitalAsset $asset, bool $resetCompletedWorkflows = false): void
 	{
 		if ($asset instanceof UploadedDigitalAsset) {
+			if ($resetCompletedWorkflows) {
+				$assetId = $asset->getId();
+				if (null !== $assetId) {
+					$workflowRepo = $this->entityManager->getRepository(WorkflowInstance::class);
+					if (method_exists($workflowRepo, 'findBySubject')) {
+						foreach ($workflowRepo->findBySubject('digital_asset', $assetId) as $instance) {
+							$this->entityManager->remove($instance);
+						}
+					}
+				}
+			}
 			$this->assetProcessingStateMachine->requeue($asset);
 			$this->entityManager->flush();
 			$this->messageBus->dispatch(new ProcessDigitalAsset($this->persistedId($asset)));

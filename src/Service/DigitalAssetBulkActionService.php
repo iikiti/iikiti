@@ -13,12 +13,15 @@ use iikiti\CMS\Entity\Object\DigitalAssetTag;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\UploadedDigitalAsset;
 use iikiti\CMS\Entity\Object\User;
+use iikiti\CMS\Event\DigitalAssetEvent;
+use iikiti\CMS\Event\DigitalAssetEvents;
 use iikiti\CMS\Repository\DigitalAssetCollectionRepository;
 use iikiti\CMS\Repository\DigitalAssetFolderRepository;
 use iikiti\CMS\Repository\DigitalAssetRepository;
 use iikiti\CMS\Repository\DigitalAssetTagRepository;
 use iikiti\CMS\Repository\Object\SiteRepository;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Executes bulk operations on digital assets while enforcing
@@ -63,6 +66,7 @@ final class DigitalAssetBulkActionService
 		private readonly DigitalAssetManager $assetManager,
 		private readonly DigitalAssetOrganizationManager $organizationManager,
 		private readonly ?AuditRecorder $auditRecorder = null,
+		private readonly ?EventDispatcherInterface $eventDispatcher = null,
 	) {
 	}
 
@@ -109,7 +113,7 @@ final class DigitalAssetBulkActionService
 				break;
 			case self::ACTION_COLLECTION_ADD:
 			case self::ACTION_COLLECTION_REMOVE:
-				$targetCollection = $this->resolveTargetCollection($params);
+				$targetCollection = $this->resolveTargetCollection($params, $user);
 				break;
 			case self::ACTION_SET_VISIBILITY:
 				$targetVisibility = $this->resolveVisibility($params);
@@ -125,6 +129,8 @@ final class DigitalAssetBulkActionService
 		$succeeded = [];
 		$failed = [];
 		$needsFlush = false;
+		/** @var list<AbstractDigitalAsset> $updatedAssets */
+		$updatedAssets = [];
 
 		foreach ($normalizedIds as $assetId) {
 			$asset = $this->assets->find($assetId);
@@ -151,6 +157,7 @@ final class DigitalAssetBulkActionService
 							$asset->addTag($tag);
 						}
 						$needsFlush = true;
+						$updatedAssets[] = $asset;
 						break;
 
 					case self::ACTION_TAG_REMOVE:
@@ -158,31 +165,37 @@ final class DigitalAssetBulkActionService
 							$asset->removeTag($tag);
 						}
 						$needsFlush = true;
+						$updatedAssets[] = $asset;
 						break;
 
 					case self::ACTION_MOVE_FOLDER:
 						$asset->setFolder($targetFolder);
 						$needsFlush = true;
+						$updatedAssets[] = $asset;
 						break;
 
 					case self::ACTION_COLLECTION_ADD:
 						$targetCollection?->addAsset($asset);
 						$needsFlush = true;
+						$updatedAssets[] = $asset;
 						break;
 
 					case self::ACTION_COLLECTION_REMOVE:
 						$targetCollection?->removeAsset($asset);
 						$needsFlush = true;
+						$updatedAssets[] = $asset;
 						break;
 
 					case self::ACTION_SET_VISIBILITY:
 						$asset->setVisibility((string) $targetVisibility);
 						$needsFlush = true;
+						$updatedAssets[] = $asset;
 						break;
 
 					case self::ACTION_SET_SITE_GRANTS:
 						$asset->setAccessSites($targetSites);
 						$needsFlush = true;
+						$updatedAssets[] = $asset;
 						break;
 
 					case self::ACTION_REPROCESS:
@@ -193,7 +206,7 @@ final class DigitalAssetBulkActionService
 							];
 							continue 2;
 						}
-						$this->assetManager->queueProcessing($asset);
+						$this->assetManager->queueProcessing($asset, resetCompletedWorkflows: true);
 						break;
 
 					case self::ACTION_DELETE:
@@ -227,6 +240,12 @@ final class DigitalAssetBulkActionService
 
 		if ($needsFlush && [] !== $succeeded) {
 			$this->entityManager->flush();
+		}
+
+		if (null !== $this->eventDispatcher && [] !== $updatedAssets) {
+			foreach ($updatedAssets as $updatedAsset) {
+				$this->eventDispatcher->dispatch(new DigitalAssetEvent($updatedAsset), DigitalAssetEvents::UPDATED);
+			}
 		}
 
 		$this->auditRecorder?->record(
@@ -375,7 +394,7 @@ final class DigitalAssetBulkActionService
 	}
 
 	/** @param array<string,mixed> $params */
-	private function resolveTargetCollection(array $params): DigitalAssetCollection
+	private function resolveTargetCollection(array $params, User $user): DigitalAssetCollection
 	{
 		$raw = $params['collectionId'] ?? null;
 		if (!is_int($raw) && !(is_string($raw) && ctype_digit(trim($raw)))) {
@@ -384,6 +403,9 @@ final class DigitalAssetBulkActionService
 		$collection = $this->collections->find(trim((string) $raw));
 		if (!$collection instanceof DigitalAssetCollection) {
 			throw new \InvalidArgumentException('Target collection was not found.');
+		}
+		if (!$this->organizationManager->canManageCollection($user, $collection)) {
+			throw new AccessDeniedHttpException('You do not have permission to modify this collection.');
 		}
 
 		return $collection;

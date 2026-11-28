@@ -47,6 +47,7 @@
 	let defaultSiteId = $state<string | number | null>(null);
 	let defaultLocale = $state<string | null>(null);
 	let supportedContentLocales = $state<string[]>([]);
+	let expiryWarningDays = $state(14);
 	let folders = $state<DigitalAssetFolder[]>([]);
 	let collections = $state<DigitalAssetCollection[]>([]);
 	let tags = $state<DigitalAssetTag[]>([]);
@@ -150,6 +151,10 @@
 		supportedContentLocales = Array.isArray(siteData?.supportedContentLocales)
 			? siteData.supportedContentLocales
 			: [];
+		const parsedWarningDays = Number(siteData?.expiryWarningDays);
+		expiryWarningDays = Number.isFinite(parsedWarningDays) && parsedWarningDays > 0
+			? Math.floor(parsedWarningDays)
+			: 14;
 	}
 
 	async function loadAssets(targetPage = page): Promise<void> {
@@ -164,9 +169,20 @@
 			});
 			const data = await api.getDigitalAssets(query);
 			if (seq !== loadSeq) return;
-			assets = Array.isArray(data?.assets) ? data.assets : [];
-			totalItems = Number(data?.totalItems ?? assets.length);
-			page = Number(data?.page ?? targetPage) || 1;
+			const loadedAssets = Array.isArray(data?.assets) ? data.assets : [];
+			const loadedTotal = Number(data?.totalItems ?? loadedAssets.length);
+			const loadedPage = Number(data?.page ?? targetPage) || 1;
+			if (loadedAssets.length === 0 && loadedTotal > 0 && loadedPage > 1) {
+				const lastValidPage = Math.max(1, Math.ceil(loadedTotal / itemsPerPage));
+				if (lastValidPage !== loadedPage) {
+					page = lastValidPage;
+					void loadAssets(lastValidPage);
+					return;
+				}
+			}
+			assets = loadedAssets;
+			totalItems = loadedTotal;
+			page = loadedPage;
 			facets = data?.facets ?? null;
 		} catch (e: any) {
 			if (seq === loadSeq) {
@@ -691,6 +707,7 @@
 						{assets}
 						{selectedIds}
 						{tagsById}
+						{expiryWarningDays}
 						onToggleSelect={handleToggleSelect}
 						onToggleSelectAll={handleToggleSelectAll}
 						onInspect={(asset) => (inspectingAsset = asset)}
@@ -702,6 +719,7 @@
 						{sites}
 						{foldersById}
 						{tagsById}
+						{expiryWarningDays}
 						onToggleSelect={handleToggleSelect}
 						onToggleSelectAll={handleToggleSelectAll}
 						onInspect={(asset) => (inspectingAsset = asset)}
@@ -803,6 +821,7 @@
 	{tags}
 	{defaultLocale}
 	{supportedContentLocales}
+	{expiryWarningDays}
 	onClose={() => (inspectingAsset = null)}
 	onAssetUpdated={handleAssetUpdated}
 	onRequestDelete={(asset) => requestDeleteAsset(asset)}

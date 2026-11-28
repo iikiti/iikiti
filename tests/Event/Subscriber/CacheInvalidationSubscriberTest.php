@@ -63,4 +63,54 @@ final class CacheInvalidationSubscriberTest extends TestCase
 
 		self::assertSame(2, $renderCount);
 	}
+
+	public function testScheduledCollectionUpdatesAndDeletionsInvalidateOwnerAndRenderedFragments(): void
+	{
+		$asset = new \iikiti\CMS\Entity\Object\UploadedDigitalAsset('Asset', 'image/png', str_repeat('c', 64));
+		$collection = $this->createStub(\Doctrine\ORM\PersistentCollection::class);
+		$collection->method('getOwner')->willReturn($asset);
+
+		$unitOfWork = $this->createStub(UnitOfWork::class);
+		$unitOfWork->method('getScheduledEntityInsertions')->willReturn([]);
+		$unitOfWork->method('getScheduledEntityUpdates')->willReturn([]);
+		$unitOfWork->method('getScheduledEntityDeletions')->willReturn([]);
+		$unitOfWork->method('getScheduledCollectionUpdates')->willReturn([$collection]);
+		$unitOfWork->method('getScheduledCollectionDeletions')->willReturn([]);
+
+		$entityManager = $this->createStub(EntityManagerInterface::class);
+		$entityManager->method('getUnitOfWork')->willReturn($unitOfWork);
+
+		$invalidated = [];
+		$cacheManager = $this->createMock(DatabaseCacheManager::class);
+		$cacheManager->expects(self::exactly(2))->method('invalidate')->willReturnCallback(static function (string $class) use (&$invalidated): void {
+			$invalidated[] = $class;
+		});
+
+		$renderedCache = new RenderedFragmentCache(
+			new TagAwareAdapter(new ArrayAdapter()),
+			$this->createStub(EntityManagerInterface::class),
+			$this->createStub(Security::class),
+		);
+		$site = new Site();
+		(new \ReflectionClass(DbObject::class))->getProperty('id')->setValue($site, 12);
+		$context = new BlockRenderContext(false, site: $site, request: Request::create('/page'));
+		$renderCount = 0;
+		$render = static function () use (&$renderCount): array {
+			++$renderCount;
+
+			return ['html' => '<p>cached-m2m</p>', 'styles' => []];
+		};
+		$node = ['cacheMode' => 'global'];
+		$renderedCache->remember($node, $context, str_repeat('a', 64), str_repeat('b', 64), $render);
+
+		$subscriber = new CacheInvalidationSubscriber($cacheManager, $renderedCache);
+		$subscriber->onFlush(new OnFlushEventArgs($entityManager));
+		$subscriber->postFlush(new PostFlushEventArgs($entityManager));
+
+		$renderedCache->remember($node, $context, str_repeat('a', 64), str_repeat('b', 64), $render);
+
+		self::assertSame(2, $renderCount);
+		self::assertContains(\iikiti\CMS\Entity\Object\UploadedDigitalAsset::class, $invalidated);
+		self::assertContains(DbObject::class, $invalidated);
+	}
 }

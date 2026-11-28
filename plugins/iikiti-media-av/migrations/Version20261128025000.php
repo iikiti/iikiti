@@ -57,10 +57,14 @@ final class Version20261128025000 extends AbstractMigration
 	public function down(Schema $schema): void
 	{
 		$definitions = $this->table('workflow_definitions');
+		$versions = $this->table('workflow_definition_versions');
+		$instances = $this->table('workflow_instances');
 		$this->addSql(
 			sprintf(
-				"DELETE FROM %s WHERE owner_type = 'plugin' AND owner_key = 'iikiti-media-av' AND workflow_key IN ('ffmpeg-video', 'ffmpeg-audio')",
+				"DELETE FROM %s wd WHERE wd.owner_type = 'plugin' AND wd.owner_key = 'iikiti-media-av' AND wd.workflow_key IN ('ffmpeg-video', 'ffmpeg-audio') AND NOT EXISTS (SELECT 1 FROM %s wi INNER JOIN %s wv ON wv.id = wi.definition_version_id WHERE wv.definition_id = wd.id)",
 				$definitions,
+				$instances,
+				$versions,
 			),
 		);
 	}

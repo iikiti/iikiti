@@ -16,6 +16,7 @@ use iikiti\CMS\Entity\Object\Page;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\Template;
 use iikiti\CMS\Entity\ObjectProperty;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Keeps the `digital_asset_usages` projection synchronized whenever templates,
@@ -24,7 +25,8 @@ use iikiti\CMS\Entity\ObjectProperty;
  */
 #[AsDoctrineListener(Events::onFlush)]
 #[AsDoctrineListener(Events::postFlush)]
-final class AssetUsageIndexSubscriber
+#[AsDoctrineListener(Events::onClear)]
+final class AssetUsageIndexSubscriber implements ResetInterface
 {
 	/** @var array<int, DbObject> */
 	private array $pendingReindexEntities = [];
@@ -37,6 +39,18 @@ final class AssetUsageIndexSubscriber
 	public function __construct(
 		private readonly AssetUsageIndexer $indexer,
 	) {
+	}
+
+	public function onClear(): void
+	{
+		$this->reset();
+	}
+
+	public function reset(): void
+	{
+		$this->pendingReindexEntities = [];
+		$this->pendingDeletes = [];
+		$this->processing = false;
 	}
 
 	public function onFlush(OnFlushEventArgs $args): void

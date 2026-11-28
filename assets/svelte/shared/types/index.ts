@@ -409,7 +409,9 @@ export interface DigitalAssetFolder {
 	id: number | string;
 	name: string;
 	slug?: string;
+	path?: string;
 	parentId: number | string | null;
+	siteIds?: Array<number | string>;
 	description?: string | null;
 	assetCount?: number;
 	children?: DigitalAssetFolder[];
@@ -422,6 +424,7 @@ export interface DigitalAssetCollection {
 	slug?: string;
 	description?: string | null;
 	assetCount?: number;
+	assetIds?: Array<number | string>;
 	itemIds?: Array<number | string>;
 }
 
@@ -429,6 +432,7 @@ export interface DigitalAssetTag {
 	id: number | string;
 	name: string;
 	slug?: string;
+	namespace?: string | null;
 	color?: string | null;
 	assetCount?: number;
 }
@@ -440,6 +444,8 @@ export interface DigitalAssetLicense {
 	notes?: string | null;
 	expiresAt?: string | null;
 	expiryAction?: DigitalAssetExpiryAction | null;
+	isExpired?: boolean;
+	isExpiringSoon?: boolean;
 }
 
 export interface DigitalAssetUsage {
@@ -483,6 +489,8 @@ export interface DigitalAssetFacets {
 	folders?: Array<{ id: number | string; name: string; count?: number }>;
 	tags?: Array<{ id: number | string; name: string; slug?: string; count?: number }>;
 	unfiledCount?: number;
+	expiringCount?: number;
+	expiredCount?: number;
 	totalCount?: number;
 }
 
@@ -524,6 +532,7 @@ export interface DigitalAsset {
 	descriptionLocale?: string | null;
 	descriptionTranslations?: Record<string, string>;
 	folderId?: number | string | null;
+	folderPath?: string | null;
 	folder?: { id: number | string; name: string } | null;
 	tagIds?: Array<number | string>;
 	tags?: DigitalAssetTag[];

@@ -174,6 +174,34 @@ final class DigitalAssetOrganizationTest extends TestCase
 		self::assertCount(0, $collection->getAssets());
 	}
 
+	public function testSerializerExcludesHlsVariantsFallsBackToPosterAndHonorsWarningDays(): void
+	{
+		$token = str_repeat('e', 64);
+		$video = new UploadedDigitalAsset('Intro Video', 'video/mp4', $token);
+		$this->assignId($video, 81);
+		$video->setExpiresAt((new \DateTimeImmutable())->modify('+20 days'));
+
+		$poster = new \iikiti\CMS\Entity\DigitalAssetVariant($video, 'poster', 'ab/'.str_repeat('1', 64).'.jpg', 'image/jpeg', 1200, 1280, 720, str_repeat('a', 64));
+		$posterWebp = new \iikiti\CMS\Entity\DigitalAssetVariant($video, 'poster_webp', 'ab/'.str_repeat('2', 64).'.webp', 'image/webp', 800, 1280, 720, str_repeat('b', 64));
+		$hlsMaster = new \iikiti\CMS\Entity\DigitalAssetVariant($video, 'hls_master', 'ab/'.str_repeat('3', 64).'.m3u8', 'application/vnd.apple.mpegurl', 200, null, null, str_repeat('c', 64));
+		$hlsSeg = new \iikiti\CMS\Entity\DigitalAssetVariant($video, 'hls_480p_seg_0000', 'ab/'.str_repeat('4', 64).'.ts', 'video/mp2t', 50000, 854, 480, str_repeat('d', 64));
+
+		$serializer14 = new DigitalAssetSerializer(null, null, null, null, 14);
+		$data14 = $serializer14->serialize($video, null, false, [$poster, $posterWebp, $hlsMaster, $hlsSeg], 0);
+
+		$variantKeys = array_column($data14['variants'], 'key');
+		self::assertSame(['poster', 'poster_webp'], $variantKeys);
+		self::assertSame('/assets/'.$token.'/poster_webp?v=bbbbbbbb', $data14['thumbnailUrl']);
+		self::assertSame('/assets/'.$token.'/poster_webp?v=bbbbbbbb', $data14['previewUrl']);
+		self::assertFalse($data14['license']['isExpiringSoon']);
+
+		$serializer30 = new DigitalAssetSerializer(null, null, null, null, 30);
+		$data30 = $serializer30->serialize($video, null, false, [$poster], 0);
+		self::assertSame('/assets/'.$token.'/poster?v=aaaaaaaa', $data30['thumbnailUrl']);
+		self::assertSame('/assets/'.$token.'/poster?v=aaaaaaaa', $data30['previewUrl']);
+		self::assertTrue($data30['license']['isExpiringSoon']);
+	}
+
 	private function assignId(DbObject $object, int $id): void
 	{
 		(new \ReflectionProperty(DbObject::class, 'id'))->setValue($object, $id);

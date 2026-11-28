@@ -23,6 +23,7 @@
 	let previewBroken = $state(false);
 
 	const controlId = $derived(String(field.controlId ?? field.key ?? 'media'));
+	const labelId = $derived(String(field.labelId ?? `${String(field.key ?? 'media')}-label`));
 	const accept = $derived(typeof field.accept === 'string' && field.accept.trim() ? field.accept.trim() : 'image/*');
 	const allowExternalUrl = $derived(field.allowExternalUrl !== false);
 	const valueFormat = $derived(field.valueFormat === 'url' ? 'url' : 'object');
@@ -110,7 +111,7 @@
 	}
 </script>
 
-<div class="iikiti-media-control" id={controlId}>
+<div class="iikiti-media-control" role="group" aria-labelledby={labelId}>
 	{#if hasMedia}
 		<div class="iikiti-media-control__card">
 			<div
@@ -187,6 +188,7 @@
 	<div class="iikiti-media-control__actions">
 		<button
 			type="button"
+			id={controlId}
 			class="iikiti-media-control__btn iikiti-media-control__btn--primary"
 			onclick={() => (pickerOpen = true)}
 		>

@@ -91,6 +91,8 @@
 	let uploadProgress = $state(0);
 	let uploadError = $state('');
 	let uploadDuplicateMatches = $state<Record<string, any>[]>([]);
+	let activeUploadXhr: XMLHttpRequest | null = null;
+	let activeUploadAbort: AbortController | null = null;
 
 	// External URL state
 	let urlInput = $state('');
@@ -358,9 +360,23 @@
 		}
 	}
 
+	function abortActiveUpload() {
+		if (activeUploadXhr) {
+			const xhr = activeUploadXhr;
+			activeUploadXhr = null;
+			xhr.abort();
+		}
+		if (activeUploadAbort) {
+			const controller = activeUploadAbort;
+			activeUploadAbort = null;
+			controller.abort();
+		}
+	}
+
 	function uploadViaXhr(endpoint: string, formData: FormData, headers: Record<string, string>): Promise<Record<string, any>> {
 		return new Promise((resolve, reject) => {
 			const xhr = new XMLHttpRequest();
+			activeUploadXhr = xhr;
 			xhr.open('POST', endpoint, true);
 			xhr.withCredentials = true;
 			for (const [key, val] of Object.entries(headers)) {
@@ -372,6 +388,7 @@
 				}
 			};
 			xhr.onload = () => {
+				if (activeUploadXhr === xhr) activeUploadXhr = null;
 				let parsed: Record<string, any> = {};
 				try {
 					parsed = JSON.parse(xhr.responseText || '{}');
@@ -388,13 +405,21 @@
 					reject(err);
 				}
 			};
-			xhr.onerror = () => reject(new Error('Network error while uploading file.'));
-			xhr.onabort = () => reject(new Error('Upload was cancelled.'));
+			xhr.onerror = () => {
+				if (activeUploadXhr === xhr) activeUploadXhr = null;
+				reject(new Error('Network error while uploading file.'));
+			};
+			xhr.onabort = () => {
+				if (activeUploadXhr === xhr) activeUploadXhr = null;
+				const err = new Error('Upload was cancelled.');
+				err.name = 'AbortError';
+				reject(err);
+			};
 			xhr.send(formData);
 		});
 	}
 
-	async function performUpload(duplicatePolicy?: 'allow') {
+	async function performUpload(duplicatePolicy: 'reject' | 'allow' = 'reject') {
 		if (!uploadFile || uploading) return;
 		if (!uploadMimeAccepted) {
 			uploadError = `Selected file type (${uploadFile.type || 'unknown'}) is not accepted here (${accept}).`;
@@ -413,9 +438,7 @@
 			formData.set('file', uploadFile);
 			formData.set('title', uploadTitle.trim() || uploadFile.name.replace(/\.[^.]+$/, ''));
 			formData.set('visibility', uploadVisibility);
-			if (duplicatePolicy === 'allow') {
-				formData.set('duplicatePolicy', 'allow');
-			}
+			formData.set('duplicatePolicy', duplicatePolicy);
 
 			const endpoint = resolveAssetEndpoint(apiBase, apiEndpoint, '/upload');
 			const headers = {
@@ -427,27 +450,39 @@
 			if (typeof XMLHttpRequest !== 'undefined') {
 				payload = await uploadViaXhr(endpoint, formData, headers);
 			} else {
-				const response = await fetch(endpoint, {
-					method: 'POST',
-					credentials: 'same-origin',
-					headers,
-					body: formData,
-				});
-				payload = await response.json().catch(() => ({}));
-				if (!response.ok) {
-					const err: UploadHttpError = new Error(payload.error ?? payload.title ?? `Upload failed (${response.status})`);
-					err.status = response.status;
-					err.body = payload;
-					throw err;
+				const controller = new AbortController();
+				activeUploadAbort = controller;
+				try {
+					const response = await fetch(endpoint, {
+						method: 'POST',
+						credentials: 'same-origin',
+						headers,
+						body: formData,
+						signal: controller.signal,
+					});
+					payload = await response.json().catch(() => ({}));
+					if (!response.ok) {
+						const err: UploadHttpError = new Error(payload.error ?? payload.title ?? `Upload failed (${response.status})`);
+						err.status = response.status;
+						err.body = payload;
+						throw err;
+					}
+					uploadProgress = 100;
+				} finally {
+					if (activeUploadAbort === controller) activeUploadAbort = null;
 				}
-				uploadProgress = 100;
 			}
+
+			if (!open) return;
 
 			uploadDuplicateMatches = [];
 			const createdAsset = (payload.asset && typeof payload.asset === 'object' ? payload.asset : payload) as Record<string, any>;
 			onSelect?.(buildAssetMediaValue(createdAsset));
 			onClose?.();
 		} catch (cause) {
+			if (!open || (cause instanceof Error && cause.name === 'AbortError')) {
+				return;
+			}
 			const httpErr = cause as UploadHttpError;
 			if (httpErr?.status === 409 && httpErr.body && typeof httpErr.body === 'object') {
 				const body = httpErr.body;
@@ -471,7 +506,7 @@
 
 	async function handleUploadSubmit(event: SubmitEvent) {
 		event.preventDefault();
-		await performUpload();
+		await performUpload('reject');
 	}
 
 	function handleExternalUrlSubmit(event: SubmitEvent) {
@@ -517,9 +552,11 @@
 		} else if (!open) {
 			wasOpen = false;
 			clearTimeout(searchTimer);
+			abortActiveUpload();
 		}
 		return () => {
 			clearTimeout(searchTimer);
+			abortActiveUpload();
 		};
 	});
 

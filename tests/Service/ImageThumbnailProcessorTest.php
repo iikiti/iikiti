@@ -332,4 +332,79 @@ TXT;
 		self::assertFalse($storage->exists($oldVariantKey));
 		self::assertTrue($storage->exists($existingVariant->getStorageKey()));
 	}
+
+	public function testProcessRemovesObsoleteImageVariantsWhilePreservingNonImageVariants(): void
+	{
+		if (!function_exists('imagecreatetruecolor') || !function_exists('imagepng')) {
+			self::markTestSkipped('GD PNG support is required.');
+		}
+
+		$storage = new LocalAssetStorage($this->directory, $this->filesystem);
+		$sourceKey = 'ab/'.str_repeat('8', 64).'.png';
+		$sourcePath = $storage->pathFor($sourceKey);
+		$this->filesystem->mkdir(dirname($sourcePath), 0700);
+		$sourceImg = imagecreatetruecolor(640, 480);
+		self::assertInstanceOf(\GdImage::class, $sourceImg);
+		imagepng($sourceImg, $sourcePath);
+
+		$obsoleteKey = 'cd/'.str_repeat('9', 64).'.webp';
+		$obsoletePath = $storage->pathFor($obsoleteKey);
+		$this->filesystem->mkdir(dirname($obsoletePath), 0700);
+		file_put_contents($obsoletePath, 'stale-webp');
+
+		$posterKey = 'ef/'.str_repeat('1', 64).'.jpg';
+		$posterPath = $storage->pathFor($posterKey);
+		$this->filesystem->mkdir(dirname($posterPath), 0700);
+		file_put_contents($posterPath, 'poster-bytes');
+
+		$hlsKey = 'ef/'.str_repeat('2', 64).'.m3u8';
+		$hlsPath = $storage->pathFor($hlsKey);
+		$this->filesystem->mkdir(dirname($hlsPath), 0700);
+		file_put_contents($hlsPath, "#EXTM3U\n");
+
+		$asset = new UploadedDigitalAsset('Banner', 'image/png', str_repeat('a', 64));
+		$asset->setStorageKey($sourceKey);
+
+		$obsoleteVariant = new DigitalAssetVariant($asset, 'w640_webp', $obsoleteKey, 'image/webp', 10, 640, 480, str_repeat('0', 64));
+		$posterVariant = new DigitalAssetVariant($asset, 'poster', $posterKey, 'image/jpeg', 12, 640, 480, str_repeat('0', 64));
+		$hlsVariant = new DigitalAssetVariant($asset, 'hls_master', $hlsKey, 'application/vnd.apple.mpegurl', 8, null, null, str_repeat('0', 64));
+
+		$variantsRepo = $this->createMock(DigitalAssetVariantRepository::class);
+		$variantsRepo->method('findByAssetAndKey')->willReturn(null);
+		$variantsRepo->method('findByAsset')->willReturn([$obsoleteVariant, $posterVariant, $hlsVariant]);
+
+		$removed = [];
+		$entityManager = $this->createMock(EntityManagerInterface::class);
+		$entityManager->method('remove')->willReturnCallback(static function (object $entity) use (&$removed): void {
+			$removed[] = $entity;
+		});
+
+		$processor = new ImageThumbnailProcessor(
+			$storage,
+			$variantsRepo,
+			$entityManager,
+			$this->filesystem,
+			formatDetector: static fn (): array => ['png'],
+			commandRunner: static function (array $command): void {
+				$outputPath = $command[count($command) - 1];
+				$out = imagecreatetruecolor(320, 240);
+				self::assertInstanceOf(\GdImage::class, $out);
+				imagepng($out, $outputPath);
+			},
+		);
+
+		$workflow = new AssetWorkflowDefinition('image-thumbnails', 'Thumbnails', 'image_thumbnail', 'image/*', [], [
+			'variants' => [
+				['name' => 'thumbnail', 'width' => 320, 'height' => 320],
+			],
+			'responsive_widths' => [],
+		]);
+
+		$processor->process($asset, $workflow);
+
+		self::assertSame([$obsoleteVariant], $removed);
+		self::assertFalse($storage->exists($obsoleteKey));
+		self::assertTrue($storage->exists($posterKey));
+		self::assertTrue($storage->exists($hlsKey));
+	}
 }

@@ -8,7 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Audit\AuditRecorder;
 use iikiti\CMS\Entity\Object\Application;
 use iikiti\CMS\Entity\Object\User;
-use iikiti\CMS\Plugin\Attribute\RequiresPlugin;
+use iikiti\CMS\Plugin\PluginActivationChecker;
 use iikiti\CMS\Registry\ApplicationRegistry;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\Object\ApplicationRepository;
@@ -34,7 +34,6 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * object storage plugin configuration.
  */
 #[AsController]
-#[RequiresPlugin(S3StorageConfig::PLUGIN_SLUG)]
 final class StorageS3AdminController extends AbstractController
 {
 	private const MAX_BODY_BYTES = 16384;
@@ -65,6 +64,7 @@ final class StorageS3AdminController extends AbstractController
 		#[Autowire('%kernel.cache_dir%')]
 		private readonly string $cacheDirectory,
 		private readonly SiteAccessPolicy $siteAccessPolicy,
+		private readonly PluginActivationChecker $activationChecker,
 		private readonly ?AssetMimeTypeRegistry $mimeRegistry = null,
 		private readonly ?AuditRecorder $auditRecorder = null,
 	) {
@@ -76,6 +76,9 @@ final class StorageS3AdminController extends AbstractController
 		$this->requireGlobalAdmin();
 
 		$application = $this->resolveApplication();
+		if (!$this->activationChecker->isActiveForApplication(S3StorageConfig::PLUGIN_SLUG, $application)) {
+			throw $this->createNotFoundException();
+		}
 		$config = $this->configResolver->resolveForApplication($application);
 
 		return new JsonResponse([
@@ -92,6 +95,9 @@ final class StorageS3AdminController extends AbstractController
 		$this->requireGlobalAdmin();
 
 		$application = $this->resolveApplication();
+		if (!$this->activationChecker->isActiveForApplication(S3StorageConfig::PLUGIN_SLUG, $application)) {
+			throw $this->createNotFoundException();
+		}
 		$existing = $this->configResolver->resolveForApplication($application);
 
 		try {
@@ -142,6 +148,11 @@ final class StorageS3AdminController extends AbstractController
 	{
 		$this->requireGlobalAdmin();
 
+		$application = $this->resolveApplication();
+		if (!$this->activationChecker->isActiveForApplication(S3StorageConfig::PLUGIN_SLUG, $application)) {
+			throw $this->createNotFoundException();
+		}
+
 		$writeProbe = true;
 		$rawContent = trim($request->getContent());
 		if ('' !== $rawContent) {
@@ -163,7 +174,6 @@ final class StorageS3AdminController extends AbstractController
 			}
 		}
 
-		$application = $this->resolveApplication();
 		$config = $this->configResolver->resolveForApplication($application);
 		if (!$config->isConfigured()) {
 			return new JsonResponse([
@@ -174,6 +184,7 @@ final class StorageS3AdminController extends AbstractController
 
 		try {
 			S3StorageConfig::assertSafeEndpointUrl($config->resolvedEndpoint(), 'endpoint', resolveDns: true);
+			S3StorageConfig::assertSafeEndpointUrl($config->buildBucketUrl(), 'endpoint', resolveDns: true);
 		} catch (\InvalidArgumentException $exception) {
 			return new JsonResponse([
 				'ok' => false,

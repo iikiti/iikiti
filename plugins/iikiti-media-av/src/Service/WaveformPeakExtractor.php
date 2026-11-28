@@ -170,6 +170,7 @@ final readonly class WaveformPeakExtractor
 		$blockAmplitudes = [];
 		$currentBlockMax = 0;
 		$currentBlockSamples = 0;
+		$samplesPerBlock = self::BLOCK_SAMPLES;
 		$maxStoredBlocks = max(4096, $buckets * 8);
 
 		$ingestPcm = static function (string $bytes) use (
@@ -177,6 +178,7 @@ final readonly class WaveformPeakExtractor
 			&$blockAmplitudes,
 			&$currentBlockMax,
 			&$currentBlockSamples,
+			&$samplesPerBlock,
 			$maxStoredBlocks,
 		): void {
 			$data = $carryByte.$bytes;
@@ -206,7 +208,7 @@ final readonly class WaveformPeakExtractor
 					$currentBlockMax = $amplitude;
 				}
 				++$currentBlockSamples;
-				if ($currentBlockSamples >= self::BLOCK_SAMPLES) {
+				if ($currentBlockSamples >= $samplesPerBlock) {
 					$blockAmplitudes[] = $currentBlockMax;
 					$currentBlockMax = 0;
 					$currentBlockSamples = 0;
@@ -219,6 +221,7 @@ final readonly class WaveformPeakExtractor
 								: $blockAmplitudes[$i];
 						}
 						$blockAmplitudes = $coalesced;
+						$samplesPerBlock *= 2;
 					}
 				}
 			}

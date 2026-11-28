@@ -7,7 +7,7 @@
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const EXPIRING_SOON_DAYS = 30;
+export const EXPIRING_SOON_DAYS = 14;
 
 /**
  * @typedef {object} FolderRecord
@@ -615,8 +615,30 @@ export function createUploadQueueManager(options) {
 				item.status = 'cancelled';
 				item.error = null;
 			} else {
-				item.status = 'error';
-				item.error = cause instanceof Error ? cause.message : String(cause ?? 'Upload failed');
+				const conflictData =
+					cause?.body && typeof cause.body === 'object'
+						? cause.body
+						: cause?.data && typeof cause.data === 'object'
+							? cause.data
+							: null;
+				const conflictMatches = Array.isArray(conflictData?.matches)
+					? conflictData.matches
+					: conflictData?.asset && typeof conflictData.asset === 'object'
+						? [conflictData.asset]
+						: [];
+				const isDuplicateConflict =
+					(cause?.status === 409 && (Boolean(conflictData?.duplicate) || conflictMatches.length > 0)) ||
+					Boolean(conflictData?.duplicate);
+
+				if (isDuplicateConflict) {
+					item.status = 'duplicate_prompt';
+					item.duplicateMatches = conflictMatches;
+					item.progress = 0;
+					item.error = null;
+				} else {
+					item.status = 'error';
+					item.error = cause instanceof Error ? cause.message : String(cause ?? 'Upload failed');
+				}
 			}
 			emit();
 		} finally {
@@ -815,14 +837,15 @@ export function formatDuration(ms) {
  *
  * - `'none'`: no license or no valid `expiresAt`
  * - `'expired'`: `expiresAt <= now`
- * - `'expiring'`: expires within 30 days
- * - `'active'`: expires more than 30 days in the future
+ * - `'expiring'`: expires within `warningDays` days (default 14)
+ * - `'active'`: expires more than `warningDays` days in the future
  *
  * @param {{ expiresAt?: string | Date | null } | null | undefined} license
  * @param {Date | number | string} [now]
+ * @param {number} [warningDays]
  * @returns {'none'|'active'|'expiring'|'expired'}
  */
-export function getExpiryStatus(license, now = new Date()) {
+export function getExpiryStatus(license, now = new Date(), warningDays = EXPIRING_SOON_DAYS) {
 	if (!license || typeof license !== 'object' || !license.expiresAt) {
 		return 'none';
 	}
@@ -839,10 +862,15 @@ export function getExpiryStatus(license, now = new Date()) {
 		return 'none';
 	}
 
+	const parsedWarningDays = Number(warningDays);
+	const resolvedWarningDays = Number.isFinite(parsedWarningDays) && parsedWarningDays >= 0
+		? parsedWarningDays
+		: EXPIRING_SOON_DAYS;
+
 	if (expiresMs <= nowMs) {
 		return 'expired';
 	}
-	if (expiresMs - nowMs <= EXPIRING_SOON_DAYS * DAY_MS) {
+	if (expiresMs - nowMs <= resolvedWarningDays * DAY_MS) {
 		return 'expiring';
 	}
 	return 'active';

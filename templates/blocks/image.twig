@@ -15,6 +15,7 @@
     {% set baseStyle = style|default('')|trim %}
     {% set posStyle = media.objectPosition ? 'object-position:' ~ media.objectPosition ~ ';' : '' %}
     {% set imgStyle = (baseStyle ? baseStyle ~ (baseStyle ends with ';' ? '' : ';') : '') ~ posStyle %}
+    {% if media.caption %}<figure class="iikiti-image-figure">{% endif %}
     {% if media.link %}<a href="{{ media.link|e }}" class="iikiti-image-link">{% endif %}
     {% if media.sources is not empty %}
         <picture class="iikiti-picture">
@@ -27,5 +28,5 @@
         <img src="{{ media.src|e }}"{% if media.srcset %} srcset="{{ media.srcset|e }}" sizes="{{ media.sizes|e }}"{% endif %}{% if media.width %} width="{{ media.width }}"{% endif %}{% if media.height %} height="{{ media.height }}"{% endif %} alt="{{ media.alt|e }}" loading="{{ media.loading|e }}" decoding="{{ media.decoding|e }}"{% if media.fetchpriority != 'auto' %} fetchpriority="{{ media.fetchpriority|e }}"{% endif %} class="iikiti-image"{% if imgStyle %} style="{{ imgStyle|e }}"{% endif %}>
     {% endif %}
     {% if media.link %}</a>{% endif %}
-    {% if media.caption %}<figcaption class="iikiti-image-caption">{{ media.caption|e }}</figcaption>{% endif %}
+    {% if media.caption %}<figcaption class="iikiti-image-caption">{{ media.caption|e }}</figcaption></figure>{% endif %}
 {% endif %}

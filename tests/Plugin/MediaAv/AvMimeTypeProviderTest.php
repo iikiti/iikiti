@@ -88,4 +88,39 @@ final class AvMimeTypeProviderTest extends TestCase
 		self::assertStringContainsString('/assets/'.$token.'/hls/720p_seg_0001.ts', $rewritten);
 		self::assertStringContainsString('#EXT-X-ENDLIST', $rewritten);
 	}
+
+	public function testRespectsPluginActivationLazilyWithRegistryReset(): void
+	{
+		$active = false;
+		$toggleProvider = new class ($active) implements \iikiti\CMS\Storage\AssetMimeTypeProviderInterface {
+			public function __construct(private bool &$active)
+			{
+			}
+
+			public function getDefinitions(): array
+			{
+				return $this->active
+					? (new AvMimeTypeProvider())->getDefinitions()
+					: [];
+			}
+		};
+
+		$registry = new AssetMimeTypeRegistry([
+			new CoreAssetMimeTypeProvider(),
+			$toggleProvider,
+		]);
+
+		// Lazy evaluation: toggling before first lookup takes effect without reset.
+		$active = true;
+		self::assertTrue($registry->isAllowed('video/mp4'));
+		self::assertFalse($registry->isAllowed('application/vnd.apple.mpegurl'));
+		self::assertTrue($registry->isAllowedForInternalStream('application/vnd.apple.mpegurl'));
+		self::assertTrue($registry->isAllowedForInternalStream('video/mp2t'));
+
+		// After deactivating and calling reset(), AV MIME types are no longer allowed.
+		$active = false;
+		$registry->reset();
+		self::assertFalse($registry->isAllowed('video/mp4'));
+		self::assertTrue($registry->isAllowed('image/png'));
+	}
 }

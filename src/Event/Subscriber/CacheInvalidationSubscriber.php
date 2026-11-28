@@ -59,6 +59,22 @@ class CacheInvalidationSubscriber
 			}
 		}
 
+		$collections = array_merge(
+			$uow->getScheduledCollectionUpdates(),
+			$uow->getScheduledCollectionDeletions(),
+		);
+		foreach ($collections as $collection) {
+			$owner = $collection->getOwner();
+			if (null === $owner) {
+				continue;
+			}
+			$classes[] = get_class($owner);
+			if ($owner instanceof DbObject) {
+				$classes[] = DbObject::class;
+				$this->renderedFragmentsAffected = true;
+			}
+		}
+
 		$this->affectedClasses = array_values(array_unique(array_filter($classes)));
 	}
 

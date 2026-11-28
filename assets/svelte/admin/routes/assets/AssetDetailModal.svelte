@@ -10,6 +10,7 @@
 		clampUnit,
 		formatBytes,
 		isImageMimeType,
+		resolveAssetEndpoint,
 		resolvePreviewUrl,
 	} from '$lib/mediaHelpers.js';
 	import {
@@ -40,6 +41,7 @@
 		tags: DigitalAssetTag[];
 		defaultLocale?: string | null;
 		supportedContentLocales?: string[];
+		expiryWarningDays?: number;
 		onClose: () => void;
 		onAssetUpdated: (updated: DigitalAsset) => void;
 		onRequestDelete?: (asset: DigitalAsset) => void;
@@ -54,6 +56,7 @@
 		tags,
 		defaultLocale = null,
 		supportedContentLocales = [],
+		expiryWarningDays = 14,
 		onClose,
 		onAssetUpdated,
 		onRequestDelete,
@@ -87,6 +90,8 @@
 	let error = $state('');
 	let copiedKey = $state('');
 	let detailSeq = 0;
+	let usageSeq = 0;
+	let versionsSeq = 0;
 	let formDirty = $state(false);
 
 	// Overview form state
@@ -204,7 +209,7 @@
 	});
 
 	const licenseExpiryStatus = $derived(
-		getExpiryStatus({ expiresAt: licenseExpiresAt || null }),
+		getExpiryStatus({ expiresAt: licenseExpiresAt || null }, undefined, expiryWarningDays),
 	);
 
 	function hydrateFromAsset(next: DigitalAsset) {
@@ -265,6 +270,10 @@
 		if (!open || !asset) {
 			lastHydratedId = '';
 			detailSeq += 1;
+			usageSeq += 1;
+			versionsSeq += 1;
+			loadingUsage = false;
+			loadingVersions = false;
 			formDirty = false;
 			if (replaceFileInput) replaceFileInput.value = '';
 			return;
@@ -273,6 +282,10 @@
 		if (idKey !== lastHydratedId) {
 			lastHydratedId = idKey;
 			untrack(() => {
+				usageSeq += 1;
+				versionsSeq += 1;
+				loadingUsage = false;
+				loadingVersions = false;
 				activeTab = 'overview';
 				notice = '';
 				error = '';
@@ -461,32 +474,42 @@
 	}
 
 	async function loadUsage(id: string | number) {
+		const seq = ++usageSeq;
 		usageLoadedForId = String(id);
 		loadingUsage = true;
 		usageError = '';
 		try {
 			const data = await api.getDigitalAssetUsage(id);
+			if (seq !== usageSeq || !open || String(currentAsset?.id ?? '') !== String(id)) return;
 			usageCount = Number(data?.usageCount ?? (Array.isArray(data?.usages) ? data.usages.length : 0));
 			usages = Array.isArray(data?.usages) ? data.usages : [];
 		} catch (e: any) {
+			if (seq !== usageSeq || !open || String(currentAsset?.id ?? '') !== String(id)) return;
 			usageError = e?.message ?? 'Unable to load asset usage references.';
 		} finally {
-			loadingUsage = false;
+			if (seq === usageSeq) {
+				loadingUsage = false;
+			}
 		}
 	}
 
 	async function loadVersions(id: string | number) {
+		const seq = ++versionsSeq;
 		versionsLoadedForId = String(id);
 		loadingVersions = true;
 		versionsError = '';
 		try {
 			const data = await api.getDigitalAssetVersions(id);
+			if (seq !== versionsSeq || !open || String(currentAsset?.id ?? '') !== String(id)) return;
 			currentVersionNumber = data?.currentVersion ?? null;
 			versions = Array.isArray(data?.versions) ? data.versions : [];
 		} catch (e: any) {
+			if (seq !== versionsSeq || !open || String(currentAsset?.id ?? '') !== String(id)) return;
 			versionsError = e?.message ?? 'Unable to load asset versions.';
 		} finally {
-			loadingVersions = false;
+			if (seq === versionsSeq) {
+				loadingVersions = false;
+			}
 		}
 	}
 
@@ -498,7 +521,8 @@
 		try {
 			const headers = api.getHeaders();
 			delete headers['Content-Type'];
-			const response = await fetch(targetUrl, {
+			const resolvedUrl = resolveAssetEndpoint(api.baseUrl, targetUrl);
+			const response = await fetch(resolvedUrl, {
 				method: 'GET',
 				credentials: 'same-origin',
 				headers,
@@ -542,14 +566,15 @@
 				formData.set('allowMimeChange', '1');
 			}
 			const updated = await api.replaceDigitalAsset(currentAsset.id, formData);
+			const updatedAsset = (updated?.asset ?? updated) as DigitalAsset | undefined;
 			replaceFile = null;
 			replaceChangeNote = '';
 			replaceAllowMimeChange = false;
 			if (replaceFileInput) replaceFileInput.value = '';
-			if (updated?.id) {
+			if (updatedAsset?.id) {
 				detailSeq += 1;
-				hydrateFromAsset(updated);
-				onAssetUpdated(updated);
+				hydrateFromAsset(updatedAsset);
+				onAssetUpdated(updatedAsset);
 			}
 			await loadVersions(currentAsset.id);
 			notice = 'File replaced in place. A new version has been recorded.';
@@ -570,10 +595,11 @@
 			const updated = await api.rollbackDigitalAssetVersion(currentAsset.id, versionNumber, {
 				changeNote: `Rolled back to v${versionNumber}`,
 			});
-			if (updated?.id) {
+			const updatedAsset = (updated?.asset ?? updated) as DigitalAsset | undefined;
+			if (updatedAsset?.id) {
 				detailSeq += 1;
-				hydrateFromAsset(updated);
-				onAssetUpdated(updated);
+				hydrateFromAsset(updatedAsset);
+				onAssetUpdated(updatedAsset);
 			}
 			await loadVersions(currentAsset.id);
 			notice = `Rolled back to version v${versionNumber}.`;
@@ -1481,7 +1507,7 @@
 						{#if licenseExpiryStatus === 'expired'}
 							<Badge status="danger">Expired</Badge>
 						{:else if licenseExpiryStatus === 'expiring'}
-							<Badge status="warning">Expiring within 30 days</Badge>
+							<Badge status="warning">Expiring within {expiryWarningDays} days</Badge>
 						{:else if licenseExpiryStatus === 'active'}
 							<Badge status="success">Active</Badge>
 						{:else}
@@ -1497,6 +1523,7 @@
 								list="dam-license-presets"
 								bind:value={licenseType}
 								oninput={() => (formDirty = true)}
+								maxlength={64}
 								placeholder="e.g. CC BY 4.0, Royalty-Free, All Rights Reserved"
 							/>
 							<datalist id="dam-license-presets">
@@ -1512,6 +1539,7 @@
 								class="admin-input admin-input-md"
 								bind:value={licenseHolder}
 								oninput={() => (formDirty = true)}
+								maxlength={255}
 								placeholder="Photographer, agency, or organization"
 							/>
 						</label>

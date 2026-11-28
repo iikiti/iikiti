@@ -8,6 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\AbstractDigitalAsset;
 use iikiti\CMS\Entity\AssetWorkflowDefinition;
 use iikiti\CMS\Entity\DigitalAssetVariant;
+use iikiti\CMS\Plugin\PluginActivationChecker;
 use iikiti\CMS\Repository\DigitalAssetVariantRepository;
 use iikiti\CMS\Service\DigitalAssetProcessorInterface;
 use iikiti\CMS\Storage\AssetStorageInterface;
@@ -55,6 +56,7 @@ final class FfmpegMediaProcessor implements DigitalAssetProcessorInterface
 		#[Autowire('%media_av_hls_enabled%')]
 		private readonly bool $hlsEnabled = false,
 		private readonly Filesystem $filesystem = new Filesystem(),
+		private readonly ?PluginActivationChecker $activationChecker = null,
 	) {
 	}
 
@@ -74,6 +76,10 @@ final class FfmpegMediaProcessor implements DigitalAssetProcessorInterface
 
 	public function process(AbstractDigitalAsset $asset, AssetWorkflowDefinition $workflow): void
 	{
+		if (null !== $this->activationChecker && !$this->activationChecker->isActive('iikiti-media-av')) {
+			return;
+		}
+
 		$sourceKey = $asset->getStorageKey();
 		if (null === $sourceKey) {
 			throw new \RuntimeException('Uploaded media asset has no stored file.');
@@ -105,6 +111,9 @@ final class FfmpegMediaProcessor implements DigitalAssetProcessorInterface
 			if ($probed['hasVideo'] && false !== ($options['poster'] ?? true)) {
 				$offsetSeconds = $this->computePosterOffsetSeconds($probed['durationMs'], $options['poster_offset_percent'] ?? 10);
 				$this->extractPosterVariants($asset, $sourcePath, $offsetSeconds);
+			} else {
+				$this->removeVariantIfExists($asset, 'poster');
+				$this->removeVariantIfExists($asset, 'poster_webp');
 			}
 
 			if ($probed['hasAudio'] && false !== ($options['waveform'] ?? true)) {
@@ -228,11 +237,16 @@ final class FfmpegMediaProcessor implements DigitalAssetProcessorInterface
 
 			$this->persistImageVariant($asset, 'poster', $jpegTemp, 'image/jpeg', $jpegDimensions[0], $jpegDimensions[1]);
 
+			$webpPersisted = false;
 			if ($webpReady) {
 				$webpDims = @getimagesize($webpTemp);
 				if (false !== $webpDims) {
 					$this->persistImageVariant($asset, 'poster_webp', $webpTemp, 'image/webp', $webpDims[0], $webpDims[1]);
+					$webpPersisted = true;
 				}
+			}
+			if (!$webpPersisted) {
+				$this->removeVariantIfExists($asset, 'poster_webp');
 			}
 		} finally {
 			$this->filesystem->remove($jpegTemp);
@@ -303,12 +317,38 @@ final class FfmpegMediaProcessor implements DigitalAssetProcessorInterface
 		try {
 			$this->entityManager->flush();
 		} catch (\Throwable $exception) {
-			$this->storage->delete($storageKey);
+			try {
+				$this->storage->delete($storageKey);
+			} catch (\Throwable) {
+				// Best-effort cleanup of newly stored file on flush failure.
+			}
 			throw $exception;
 		}
 
 		if (null !== $previousKey && $previousKey !== $storageKey) {
-			$this->storage->delete($previousKey);
+			try {
+				$this->storage->delete($previousKey);
+			} catch (\Throwable) {
+				// Best-effort cleanup of superseded poster variant storage key.
+			}
+		}
+	}
+
+	private function removeVariantIfExists(AbstractDigitalAsset $asset, string $variantKey): void
+	{
+		$existing = $this->variants->findByAssetAndKey($asset, $variantKey);
+		if (null === $existing) {
+			return;
+		}
+
+		$staleKey = $existing->getStorageKey();
+		$this->entityManager->remove($existing);
+		$this->entityManager->flush();
+
+		try {
+			$this->storage->delete($staleKey);
+		} catch (\Throwable) {
+			// Best-effort cleanup of obsolete poster variant storage key.
 		}
 	}
 

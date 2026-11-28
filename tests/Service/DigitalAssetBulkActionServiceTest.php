@@ -14,6 +14,9 @@ use iikiti\CMS\Entity\Object\ExternalDigitalAsset;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\UploadedDigitalAsset;
 use iikiti\CMS\Entity\Object\User;
+use iikiti\CMS\Entity\Workflow\WorkflowInstance;
+use iikiti\CMS\Event\DigitalAssetEvent;
+use iikiti\CMS\Event\DigitalAssetEvents;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\DigitalAssetCollectionRepository;
 use iikiti\CMS\Repository\DigitalAssetFolderRepository;
@@ -21,6 +24,7 @@ use iikiti\CMS\Repository\DigitalAssetRepository;
 use iikiti\CMS\Repository\DigitalAssetTagRepository;
 use iikiti\CMS\Repository\DigitalAssetVariantRepository;
 use iikiti\CMS\Repository\Object\SiteRepository;
+use iikiti\CMS\Repository\Workflow\WorkflowInstanceRepository;
 use iikiti\CMS\Service\DigitalAssetAccessPolicy;
 use iikiti\CMS\Service\DigitalAssetBulkActionService;
 use iikiti\CMS\Service\DigitalAssetManager;
@@ -29,6 +33,7 @@ use iikiti\CMS\StateMachine\AssetProcessingStateMachine;
 use iikiti\CMS\Storage\AssetStorageInterface;
 use iikiti\CMS\Tests\Support\StateMachineFactory;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Security\Core\Role\RoleHierarchyInterface;
@@ -65,7 +70,15 @@ final class DigitalAssetBulkActionServiceTest extends TestCase
 		$em = $this->createMock(EntityManagerInterface::class);
 		$em->expects(self::once())->method('flush');
 
-		$service = $this->createService($em, assets: $assets, tags: $tags);
+		$dispatchedEvents = [];
+		$dispatcher = $this->createStub(EventDispatcherInterface::class);
+		$dispatcher->method('dispatch')->willReturnCallback(static function (object $event, ?string $eventName = null) use (&$dispatchedEvents): object {
+			$dispatchedEvents[] = [$event, $eventName];
+
+			return $event;
+		});
+
+		$service = $this->createService($em, assets: $assets, tags: $tags, dispatcher: $dispatcher);
 		$siteAdmin = $this->user(['10' => ['ROLE_ADMIN']], 7);
 
 		$result = $service->execute(
@@ -82,6 +95,9 @@ final class DigitalAssetBulkActionServiceTest extends TestCase
 		self::assertTrue($manageable->hasTag($tag));
 		self::assertFalse($sharedRestricted->hasTag($tag));
 		self::assertSame(['featured'], $manageable->getProperties()->get('tags')?->getValue());
+		self::assertCount(1, $dispatchedEvents);
+		self::assertInstanceOf(DigitalAssetEvent::class, $dispatchedEvents[0][0]);
+		self::assertSame(DigitalAssetEvents::UPDATED, $dispatchedEvents[0][1]);
 	}
 
 	public function testBulkMoveFolderAndCollectionAndVisibilityOperations(): void
@@ -97,6 +113,7 @@ final class DigitalAssetBulkActionServiceTest extends TestCase
 
 		$collection = new DigitalAssetCollection('Summer');
 		$this->assignId($collection, 40);
+		$collection->setCreatorId(7);
 
 		$assets = $this->createStub(DigitalAssetRepository::class);
 		$assets->method('find')->willReturn($asset);
@@ -132,7 +149,35 @@ final class DigitalAssetBulkActionServiceTest extends TestCase
 		self::assertFalse($collection->hasAsset($asset));
 	}
 
-	public function testBulkReprocessRejectsExternalAssetsWithoutAbortingUploadedAssets(): void
+	public function testBulkCollectionActionsRejectUnauthorizedCollectionModification(): void
+	{
+		$siteA = $this->site(10);
+		$asset = new UploadedDigitalAsset('Poster', 'image/jpeg', str_repeat('f', 64));
+		$this->assignId($asset, 205);
+		$asset->setAccessSites([$siteA]);
+
+		$otherCollection = new DigitalAssetCollection('Other Admin Collection');
+		$this->assignId($otherCollection, 41);
+		$otherCollection->setCreatorId(99);
+
+		$assets = $this->createStub(DigitalAssetRepository::class);
+		$assets->method('find')->willReturn($asset);
+
+		$collections = $this->createStub(DigitalAssetCollectionRepository::class);
+		$collections->method('find')->willReturn($otherCollection);
+
+		$service = $this->createService(
+			$this->createStub(EntityManagerInterface::class),
+			assets: $assets,
+			collections: $collections,
+		);
+		$siteAdmin = $this->user(['10' => ['ROLE_ADMIN']], 7);
+
+		$this->expectException(AccessDeniedHttpException::class);
+		$service->execute(DigitalAssetBulkActionService::ACTION_COLLECTION_ADD, [205], ['collectionId' => 41], $siteAdmin);
+	}
+
+	public function testBulkReprocessRejectsExternalAssetsAndResetsCompletedWorkflows(): void
 	{
 		$siteA = $this->site(10);
 		$uploaded = new UploadedDigitalAsset('Photo', 'image/png', str_repeat('d', 64));
@@ -150,10 +195,18 @@ final class DigitalAssetBulkActionServiceTest extends TestCase
 			default => null,
 		});
 
+		$completedInstance = $this->createStub(WorkflowInstance::class);
+		$workflowRepo = $this->createStub(WorkflowInstanceRepository::class);
+		$workflowRepo->method('findBySubject')->with('digital_asset', 301)->willReturn([$completedInstance]);
+
+		$em = $this->createMock(EntityManagerInterface::class);
+		$em->method('getRepository')->with(WorkflowInstance::class)->willReturn($workflowRepo);
+		$em->expects(self::once())->method('remove')->with($completedInstance);
+
 		$bus = $this->createMock(MessageBusInterface::class);
 		$bus->expects(self::once())->method('dispatch')->willReturnCallback(static fn (object $m): Envelope => new Envelope($m));
 
-		$service = $this->createService($this->createStub(EntityManagerInterface::class), assets: $assets, bus: $bus);
+		$service = $this->createService($em, assets: $assets, bus: $bus);
 		$admin = $this->user([0 => ['ROLE_SYSTEM']], 1);
 
 		$result = $service->execute(DigitalAssetBulkActionService::ACTION_REPROCESS, [301, 302], [], $admin);
@@ -179,6 +232,7 @@ final class DigitalAssetBulkActionServiceTest extends TestCase
 		?DigitalAssetCollectionRepository $collections = null,
 		?DigitalAssetTagRepository $tags = null,
 		?MessageBusInterface $bus = null,
+		?EventDispatcherInterface $dispatcher = null,
 	): DigitalAssetBulkActionService {
 		$siteRepo = $this->createStub(SiteRepository::class);
 		$hierarchy = $this->createStub(RoleHierarchyInterface::class);
@@ -196,6 +250,8 @@ final class DigitalAssetBulkActionServiceTest extends TestCase
 			$messageBus->method('dispatch')->willReturnCallback(static fn (object $m): Envelope => new Envelope($m));
 		}
 
+		$eventDispatcher = $dispatcher ?? $this->createStub(EventDispatcherInterface::class);
+
 		$assetManager = new DigitalAssetManager(
 			$em,
 			$this->createStub(DigitalAssetVariantRepository::class),
@@ -204,7 +260,7 @@ final class DigitalAssetBulkActionServiceTest extends TestCase
 			$policy,
 			$this->createStub(AssetStorageInterface::class),
 			$messageBus,
-			$this->createStub(EventDispatcherInterface::class),
+			$eventDispatcher,
 			StateMachineFactory::wire(new AssetProcessingStateMachine()),
 			null,
 			$foldersRepo,
@@ -232,6 +288,8 @@ final class DigitalAssetBulkActionServiceTest extends TestCase
 			$policy,
 			$assetManager,
 			$orgManager,
+			null,
+			$eventDispatcher,
 		);
 	}
 

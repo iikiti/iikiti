@@ -52,17 +52,19 @@ final class DigitalAssetFileController extends AbstractController
 			return $this->apiProxy->file($request, $publicToken, $variant);
 		}
 		$user = $this->security->getUser();
-		if ($user instanceof User && !$this->mfaGate->allowsFullyAuthenticatedUser()) {
-			throw new AccessDeniedHttpException('Complete the MFA challenge before accessing private assets.');
-		}
 
 		$site = $siteRegistry::getCurrent();
 		$asset = $assets->findPublicTokenForSite($publicToken, $site);
 		if (!$asset instanceof AbstractDigitalAsset) {
 			throw $this->createNotFoundException();
 		}
-		if ($asset->isEffectivelyPrivate() && !($this->getUser() instanceof User)) {
-			throw $this->createAccessDeniedException();
+		if ($asset->isEffectivelyPrivate()) {
+			if (!($user instanceof User)) {
+				throw $this->createAccessDeniedException();
+			}
+			if (!$this->mfaGate->allowsFullyAuthenticatedUser()) {
+				throw new AccessDeniedHttpException('Complete the MFA challenge before accessing private assets.');
+			}
 		}
 
 		return $this->deliverAsset($request, $asset, $variant, $variants, null, false, null);

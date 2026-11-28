@@ -170,9 +170,6 @@
 	}
 
 	function openSocialImagePicker(): void {
-		if (scope === 'site' && !hasOverride('seo.defaultSocialImage')) {
-			beginOverride('seo.defaultSocialImage');
-		}
 		socialImagePickerOpen = true;
 	}
 

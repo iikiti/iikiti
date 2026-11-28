@@ -137,7 +137,7 @@
 {:else if node.type === 'image'}
 	{@const media = normalizeMediaValue(node.content?.source)}
 	{@const previewSrc = resolvePreviewUrl(media)}
-	{@const altText = String(node.content?.alt ?? '').trim() || media.defaultAlt}
+	{@const altText = node.content?.decorative ? '' : (String(node.content?.alt ?? '').trim() || media.defaultAlt)}
 	{@const cleanTargetStyle = targetStyle.trim().replace(/;+$/, '')}
 	{@const imageStyle = [
 		cleanTargetStyle,

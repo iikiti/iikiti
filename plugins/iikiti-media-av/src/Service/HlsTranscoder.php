@@ -250,7 +250,7 @@ final class HlsTranscoder
 				);
 			}
 
-			$masterStored = $this->storeString($masterContent, 'm3u8');
+			$masterStored = $this->storeString($masterContent, 'm3u8', self::PLAYLIST_MIME_TYPE);
 			$storedNewKeys[] = $masterStored['storageKey'];
 			$newVariants[self::MASTER_VARIANT_KEY] = [
 				'storageKey' => $masterStored['storageKey'],
@@ -407,7 +407,7 @@ final class HlsTranscoder
 				continue;
 			}
 
-			$stored = $this->storeFile($segmentFile, 'ts');
+			$stored = $this->storeFile($segmentFile, 'ts', self::SEGMENT_MIME_TYPE);
 			$storedNewKeys[] = $stored['storageKey'];
 			$newVariants[$variantKey] = [
 				'storageKey' => $stored['storageKey'],
@@ -420,7 +420,7 @@ final class HlsTranscoder
 		}
 
 		$rewrittenPlaylist = self::rewritePlaylist($rawPlaylist, $publicToken);
-		$storedPlaylist = $this->storeString($rewrittenPlaylist, 'm3u8');
+		$storedPlaylist = $this->storeString($rewrittenPlaylist, 'm3u8', self::PLAYLIST_MIME_TYPE);
 		$storedNewKeys[] = $storedPlaylist['storageKey'];
 		$playlistVariantKey = self::variantKeyForSegment($renditionName.'.m3u8');
 		if (null === $playlistVariantKey) {
@@ -442,7 +442,7 @@ final class HlsTranscoder
 	/**
 	 * @return array{storageKey:string,size:int,checksum:string}
 	 */
-	private function storeFile(string $path, string $extension): array
+	private function storeFile(string $path, string $extension, string $mimeType): array
 	{
 		$size = @filesize($path);
 		$checksum = @hash_file('sha256', $path);
@@ -457,7 +457,7 @@ final class HlsTranscoder
 
 		$storageKey = $this->generateStorageKey($extension);
 		try {
-			$this->storage->writeStream($storageKey, $handle, null);
+			$this->storage->writeStream($storageKey, $handle, $mimeType);
 		} finally {
 			fclose($handle);
 		}
@@ -472,7 +472,7 @@ final class HlsTranscoder
 	/**
 	 * @return array{storageKey:string,size:int,checksum:string}
 	 */
-	private function storeString(string $content, string $extension): array
+	private function storeString(string $content, string $extension, string $mimeType): array
 	{
 		$stream = fopen('php://temp', 'w+b');
 		if (false === $stream) {
@@ -483,7 +483,7 @@ final class HlsTranscoder
 		try {
 			fwrite($stream, $content);
 			rewind($stream);
-			$this->storage->writeStream($storageKey, $stream, null);
+			$this->storage->writeStream($storageKey, $stream, $mimeType);
 		} finally {
 			fclose($stream);
 		}

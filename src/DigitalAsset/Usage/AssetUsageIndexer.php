@@ -15,6 +15,7 @@ use iikiti\CMS\Entity\Object\Template;
 use iikiti\CMS\Entity\ObjectProperty;
 use iikiti\CMS\Repository\DigitalAssetRepository;
 use iikiti\CMS\Repository\DigitalAssetUsageRepository;
+use iikiti\CMS\Repository\ObjectRepository;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 /**
@@ -129,76 +130,101 @@ final class AssetUsageIndexer implements AssetUsageIndexInterface
 	#[\Override]
 	public function rebuildAll(): int
 	{
-		$this->tokenCache = [];
-		$this->usages->deleteAll();
+		return $this->entityManager->getConnection()->transactional(function (): int {
+			$this->tokenCache = [];
+			$this->usages->deleteAll();
 
-		$indexedContexts = 0;
+			$indexedContexts = 0;
 
-		foreach ($this->entityManager->getRepository(Template::class)->findAll() as $template) {
-			$id = $template->getId();
-			if (null === $id) {
-				continue;
+			foreach ($this->findAllWithoutSiteFilter(Template::class) as $template) {
+				$id = $template->getId();
+				if (null === $id) {
+					continue;
+				}
+				$this->usages->replaceContextUsages('template', $id, $this->extractForEntity($template, 'template'));
+				++$indexedContexts;
 			}
-			$this->usages->replaceContextUsages('template', $id, $this->extractForEntity($template, 'template'));
-			++$indexedContexts;
+
+			foreach ($this->findAllWithoutSiteFilter(Site::class) as $site) {
+				$id = $site->getId();
+				if (null === $id) {
+					continue;
+				}
+				$this->usages->replaceContextUsages('site', $id, $this->extractForEntity($site, 'site'));
+				++$indexedContexts;
+			}
+
+			foreach ($this->findAllWithoutSiteFilter(Application::class) as $application) {
+				$id = $application->getId();
+				if (null === $id) {
+					continue;
+				}
+				$this->usages->replaceContextUsages('application', $id, $this->extractForEntity($application, 'application'));
+				++$indexedContexts;
+			}
+
+			/** @var array<string, DbObject> $pageObjects */
+			$pageObjects = [];
+			foreach ($this->findAllWithoutSiteFilter(Page::class) as $page) {
+				$id = $page->getId();
+				if (null !== $id) {
+					$pageObjects[(string) $id] = $page;
+				}
+			}
+
+			foreach (
+				$this->entityManager->getRepository(ObjectProperty::class)->findBy([
+					'name' => ['dynamic_blocks', 'dynamic_blocks_draft', 'settings', 'settings_draft'],
+				]) as $property
+			) {
+				$owner = $property->getObject();
+				if (!$owner instanceof DbObject) {
+					continue;
+				}
+				if ($owner instanceof Template || $owner instanceof Site || $owner instanceof Application) {
+					continue;
+				}
+				$ownerId = $owner->getId();
+				if (null !== $ownerId) {
+					$pageObjects[(string) $ownerId] = $owner;
+				}
+			}
+
+			foreach ($pageObjects as $object) {
+				$id = $object->getId();
+				if (null === $id) {
+					continue;
+				}
+				$contextType = self::contextTypeForObject($object);
+				$this->usages->replaceContextUsages($contextType, $id, $this->extractForEntity($object, $contextType));
+				++$indexedContexts;
+			}
+
+			return $indexedContexts;
+		});
+	}
+
+	/**
+	 * @template T of DbObject
+	 *
+	 * @param class-string<T> $entityClass
+	 *
+	 * @return list<T>
+	 */
+	private function findAllWithoutSiteFilter(string $entityClass): array
+	{
+		$repository = $this->entityManager->getRepository($entityClass);
+		if ($repository instanceof ObjectRepository) {
+			/** @var list<T> $results */
+			$results = array_values($repository->findAll(['filterBySite' => false]));
+
+			return $results;
 		}
 
-		foreach ($this->entityManager->getRepository(Site::class)->findAll() as $site) {
-			$id = $site->getId();
-			if (null === $id) {
-				continue;
-			}
-			$this->usages->replaceContextUsages('site', $id, $this->extractForEntity($site, 'site'));
-			++$indexedContexts;
-		}
+		/** @var list<T> $results */
+		$results = array_values($repository->findAll());
 
-		foreach ($this->entityManager->getRepository(Application::class)->findAll() as $application) {
-			$id = $application->getId();
-			if (null === $id) {
-				continue;
-			}
-			$this->usages->replaceContextUsages('application', $id, $this->extractForEntity($application, 'application'));
-			++$indexedContexts;
-		}
-
-		/** @var array<string, DbObject> $pageObjects */
-		$pageObjects = [];
-		foreach ($this->entityManager->getRepository(Page::class)->findAll() as $page) {
-			$id = $page->getId();
-			if (null !== $id) {
-				$pageObjects[(string) $id] = $page;
-			}
-		}
-
-		foreach (
-			$this->entityManager->getRepository(ObjectProperty::class)->findBy([
-				'name' => ['dynamic_blocks', 'dynamic_blocks_draft', 'settings', 'settings_draft'],
-			]) as $property
-		) {
-			$owner = $property->getObject();
-			if (!$owner instanceof DbObject) {
-				continue;
-			}
-			if ($owner instanceof Template || $owner instanceof Site || $owner instanceof Application) {
-				continue;
-			}
-			$ownerId = $owner->getId();
-			if (null !== $ownerId) {
-				$pageObjects[(string) $ownerId] = $owner;
-			}
-		}
-
-		foreach ($pageObjects as $object) {
-			$id = $object->getId();
-			if (null === $id) {
-				continue;
-			}
-			$contextType = self::contextTypeForObject($object);
-			$this->usages->replaceContextUsages($contextType, $id, $this->extractForEntity($object, $contextType));
-			++$indexedContexts;
-		}
-
-		return $indexedContexts;
+		return $results;
 	}
 
 	public function deleteContext(string $contextType, int|string $contextId): void

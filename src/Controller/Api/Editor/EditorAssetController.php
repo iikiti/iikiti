@@ -239,7 +239,12 @@ final class EditorAssetController extends AppController
 			return $this->json(['error' => $exception->getMessage()], Response::HTTP_FORBIDDEN);
 		}
 
-		return $this->json($serializer->serialize($asset, null, false, []), Response::HTTP_CREATED);
+		$isReuse = DigitalAssetManager::DUPLICATE_POLICY_REUSE === $duplicatePolicy;
+
+		return $this->json(
+			$serializer->serialize($asset, null, false, $isReuse ? null : [], $isReuse ? null : 0),
+			Response::HTTP_CREATED,
+		);
 	}
 
 	private function authorizedEditor(PermissionChecker $permissionChecker): ?User

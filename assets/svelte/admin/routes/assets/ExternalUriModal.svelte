@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import ModalDialog from '$components/ModalDialog.svelte';
 	import { isValidHttpsUrl } from '$lib/mediaHelpers.js';
 	import { buildFolderTree, flattenFolderTree } from '$lib/damHelpers.js';
@@ -45,16 +46,23 @@
 
 	const flatFolders = $derived(flattenFolderTree(buildFolderTree(folders)));
 
+	let wasOpen = false;
 	$effect(() => {
-		if (!open) return;
-		title = '';
-		uri = '';
-		mimeType = '';
-		visibility = 'private';
-		folderId = defaultFolderId && defaultFolderId !== 'unfiled' ? String(defaultFolderId) : '';
-		siteIds = defaultSiteId != null ? [String(defaultSiteId)] : sites[0] ? [String(sites[0].id)] : [];
-		tagIds = [];
-		formError = '';
+		if (open && !wasOpen) {
+			wasOpen = true;
+			untrack(() => {
+				title = '';
+				uri = '';
+				mimeType = '';
+				visibility = 'private';
+				folderId = defaultFolderId && defaultFolderId !== 'unfiled' ? String(defaultFolderId) : '';
+				siteIds = defaultSiteId != null ? [String(defaultSiteId)] : sites[0] ? [String(sites[0].id)] : [];
+				tagIds = [];
+				formError = '';
+			});
+		} else if (!open && wasOpen) {
+			wasOpen = false;
+		}
 	});
 
 	async function submit(event: SubmitEvent) {

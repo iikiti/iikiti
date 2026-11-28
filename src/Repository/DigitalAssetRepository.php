@@ -11,6 +11,7 @@ use iikiti\CMS\Entity\Object\DigitalAssetFolder;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Service\DatabaseCacheManager;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /** @extends ObjectRepository<AbstractDigitalAsset> */
 class DigitalAssetRepository extends ObjectRepository
@@ -28,8 +29,13 @@ class DigitalAssetRepository extends ObjectRepository
 		'text/xml',
 	];
 
-	public function __construct(ManagerRegistry $registry, SiteRegistry $siteRegistry, DatabaseCacheManager $cacheManager)
-	{
+	public function __construct(
+		ManagerRegistry $registry,
+		SiteRegistry $siteRegistry,
+		DatabaseCacheManager $cacheManager,
+		#[Autowire('%asset_expiry_warning_days%')]
+		private readonly int $expiryWarningDays = 14,
+	) {
 		parent::__construct($registry, $siteRegistry, $cacheManager, AbstractDigitalAsset::class);
 	}
 
@@ -69,7 +75,10 @@ class DigitalAssetRepository extends ObjectRepository
 			return 0;
 		}
 
-		return count($this->manageableQuery($siteIds)->select('asset.id')->getQuery()->getScalarResult());
+		return (int) $this->manageableQuery($siteIds)->
+			select('COUNT(DISTINCT asset.id)')->
+			getQuery()->
+			getSingleScalarResult();
 	}
 
 	/**
@@ -658,8 +667,8 @@ class DigitalAssetRepository extends ObjectRepository
 	private function applyLicenseStatusFilter(QueryBuilder $qb, string $licenseStatus): void
 	{
 		$now = new \DateTimeImmutable();
-		$soon = $now->modify('+30 days');
-		$expiringWindow = $now->modify('+14 days');
+		$warningWindowDays = max(1, $this->expiryWarningDays);
+		$warningUntil = $now->modify(sprintf('+%d days', $warningWindowDays));
 
 		match ($licenseStatus) {
 			'missing' => $qb->andWhere(
@@ -668,15 +677,15 @@ class DigitalAssetRepository extends ObjectRepository
 			'expired' => $qb->andWhere('asset.expiresAt IS NOT NULL AND asset.expiresAt <= :licenseNow')->
 				setParameter('licenseNow', $now),
 			'expiring_soon', 'expiring' => $qb->andWhere(
-				'asset.expiresAt IS NOT NULL AND asset.expiresAt > :licenseNow AND asset.expiresAt <= :licenseSoon'
+				'asset.expiresAt IS NOT NULL AND asset.expiresAt > :licenseNow AND asset.expiresAt <= :licenseWarningUntil'
 			)->
 				setParameter('licenseNow', $now)->
-				setParameter('licenseSoon', $soon),
-			'expiring_or_expired' => $qb->andWhere('asset.expiresAt IS NOT NULL AND asset.expiresAt <= :licenseExpiringWindow')->
-				setParameter('licenseExpiringWindow', $expiringWindow),
+				setParameter('licenseWarningUntil', $warningUntil),
+			'expiring_or_expired' => $qb->andWhere('asset.expiresAt IS NOT NULL AND asset.expiresAt <= :licenseWarningUntil')->
+				setParameter('licenseWarningUntil', $warningUntil),
 			'valid', 'licensed' => $qb->andWhere(
-				'(asset.licenseType IS NOT NULL OR asset.licenseHolder IS NOT NULL OR asset.licenseUrl IS NOT NULL OR asset.licenseNotes IS NOT NULL OR asset.expiresAt IS NOT NULL) AND (asset.expiresAt IS NULL OR asset.expiresAt > :licenseNow)'
-			)->setParameter('licenseNow', $now),
+				'(asset.licenseType IS NOT NULL OR asset.licenseHolder IS NOT NULL OR asset.licenseUrl IS NOT NULL OR asset.licenseNotes IS NOT NULL OR asset.expiresAt IS NOT NULL) AND (asset.expiresAt IS NULL OR asset.expiresAt > :licenseWarningUntil)'
+			)->setParameter('licenseWarningUntil', $warningUntil),
 			default => null,
 		};
 	}
@@ -697,11 +706,9 @@ class DigitalAssetRepository extends ObjectRepository
 	private function manageableQuery(array $siteIds): QueryBuilder
 	{
 		return $this->createQueryBuilder('asset')->
-			innerJoin('asset.accessSites', 'manageableSite')->
-			leftJoin('asset.accessSites', 'allSite')->
-			andWhere('manageableSite.id IN (:siteIds)')->
-			groupBy('asset.id')->
-			having('COUNT(DISTINCT allSite.id) = COUNT(DISTINCT manageableSite.id)')->
+			andWhere(
+				'asset.id IN (SELECT m_asset.id FROM '.AbstractDigitalAsset::class.' m_asset INNER JOIN m_asset.accessSites m_site LEFT JOIN m_asset.accessSites m_all WHERE m_site.id IN (:siteIds) GROUP BY m_asset.id HAVING COUNT(DISTINCT m_all.id) = COUNT(DISTINCT m_site.id))'
+			)->
 			setParameter('siteIds', $siteIds);
 	}
 }

@@ -375,6 +375,55 @@ describe('createUploadQueueManager', () => {
 		queue.clearCompleted();
 		expect(queue.getSnapshot().items).toHaveLength(0);
 	});
+
+	test('transitions to duplicate_prompt on HTTP 409 duplicate conflict fallback during upload (body and data shapes)', async () => {
+		let attempt = 0;
+		const queue = createUploadQueueManager({
+			concurrency: 2,
+			// Simulates non-HTTPS origin where crypto.subtle is unavailable
+			hashFile: async () => null,
+			uploadFile: async (item) => {
+				attempt += 1;
+				if (item.name === 'same-batch-body.png' && item.duplicatePolicy !== 'allow') {
+					const err = new Error('409: Duplicate asset');
+					err.status = 409;
+					err.body = { duplicate: true, matches: [{ id: 501, title: 'Existing Body Match' }] };
+					throw err;
+				}
+				if (item.name === 'same-batch-data.png' && item.duplicatePolicy !== 'allow') {
+					const err = new Error('409: Duplicate asset');
+					err.status = 409;
+					err.data = { duplicate: true, matches: [{ id: 502, title: 'Existing Data Match' }] };
+					throw err;
+				}
+				return { id: 600 + attempt, title: item.title };
+			},
+		});
+
+		const added = queue.enqueue([
+			{ name: 'same-batch-body.png', size: 120, type: 'image/png' },
+			{ name: 'same-batch-data.png', size: 120, type: 'image/png' },
+		]);
+
+		await flush();
+		let snap = queue.getSnapshot();
+		expect(snap.counts.duplicate_prompt).toBe(2);
+		expect(snap.items[0].status).toBe('duplicate_prompt');
+		expect(snap.items[0].duplicateMatches).toEqual([{ id: 501, title: 'Existing Body Match' }]);
+		expect(snap.items[0].error).toBeNull();
+		expect(snap.items[1].status).toBe('duplicate_prompt');
+		expect(snap.items[1].duplicateMatches).toEqual([{ id: 502, title: 'Existing Data Match' }]);
+
+		queue.resolveDuplicate(added[0].id, 'upload_anyway');
+		queue.resolveDuplicate(added[1].id, 'reuse');
+
+		await flush();
+		snap = queue.getSnapshot();
+		expect(snap.items[0].status).toBe('done');
+		expect(snap.items[0].duplicatePolicy).toBe('allow');
+		expect(snap.items[1].status).toBe('done');
+		expect(snap.items[1].result).toEqual({ id: 502, title: 'Existing Data Match' });
+	});
 });
 
 describe('formatDuration', () => {
@@ -393,15 +442,25 @@ describe('formatDuration', () => {
 describe('getExpiryStatus', () => {
 	const now = new Date('2026-06-01T00:00:00Z');
 
-	test('returns none, active, expiring, and expired accurately', () => {
+	test('uses 14-day default warning window for none, active, expiring, and expired', () => {
 		expect(getExpiryStatus(null, now)).toBe('none');
 		expect(getExpiryStatus({}, now)).toBe('none');
 		expect(getExpiryStatus({ expiresAt: 'not-a-date' }, now)).toBe('none');
 		expect(getExpiryStatus({ expiresAt: '2026-05-31T23:59:59Z' }, now)).toBe('expired');
 		expect(getExpiryStatus({ expiresAt: '2026-06-01T00:00:00Z' }, now)).toBe('expired');
+		// Exactly 14 days away -> expiring
 		expect(getExpiryStatus({ expiresAt: '2026-06-15T00:00:00Z' }, now)).toBe('expiring');
-		expect(getExpiryStatus({ expiresAt: '2026-07-01T00:00:00Z' }, now)).toBe('expiring');
-		expect(getExpiryStatus({ expiresAt: '2026-08-15T00:00:00Z' }, now)).toBe('active');
+		// 15 days away -> active under 14-day default
+		expect(getExpiryStatus({ expiresAt: '2026-06-16T00:00:00Z' }, now)).toBe('active');
+		expect(getExpiryStatus({ expiresAt: '2026-07-01T00:00:00Z' }, now)).toBe('active');
+	});
+
+	test('supports custom warningDays parameter', () => {
+		expect(getExpiryStatus({ expiresAt: '2026-06-20T00:00:00Z' }, now, 30)).toBe('expiring');
+		expect(getExpiryStatus({ expiresAt: '2026-07-01T00:00:00Z' }, now, 30)).toBe('expiring');
+		expect(getExpiryStatus({ expiresAt: '2026-07-02T00:00:00Z' }, now, 30)).toBe('active');
+		expect(getExpiryStatus({ expiresAt: '2026-06-10T00:00:00Z' }, now, 7)).toBe('active');
+		expect(getExpiryStatus({ expiresAt: '2026-06-08T00:00:00Z' }, now, 7)).toBe('expiring');
 	});
 });
 

@@ -30,6 +30,9 @@ use iikiti\CMS\Service\DigitalAssetManager;
 use iikiti\CMS\Service\DigitalAssetSerializer;
 use iikiti\CMS\Service\DigitalAssetVersionManager;
 use iikiti\CMS\Value\LocaleTag;
+use Psr\Container\ContainerInterface;
+use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -41,6 +44,15 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/api/admin/assets', name: 'api_admin_digital_assets_')]
 final class DigitalAssetController extends AppController
 {
+	public function __construct(
+		Security $security,
+		ContainerInterface $container,
+		#[Autowire('%asset_expiry_warning_days%')]
+		private readonly int $expiryWarningDays = 14,
+	) {
+		parent::__construct($security, $container);
+	}
+
 	#[Route('', name: 'index', methods: ['GET'])]
 	public function index(
 		Request $request,
@@ -141,6 +153,7 @@ final class DigitalAssetController extends AppController
 			'defaultSiteId' => $currentSite->getId(),
 			'defaultLocale' => $currentLocales['defaultLocale'],
 			'supportedContentLocales' => $currentLocales['supportedContentLocales'],
+			'expiryWarningDays' => max(1, $this->expiryWarningDays),
 		]);
 	}
 
@@ -258,8 +271,12 @@ final class DigitalAssetController extends AppController
 			return $this->json(['error' => $exception->getMessage()], Response::HTTP_FORBIDDEN);
 		}
 
-		$payload = $serializer->serialize($asset, null, false, [], 0);
-		$payload['workflowInstances'] = [];
+		if (DigitalAssetManager::DUPLICATE_POLICY_REUSE === $duplicatePolicy) {
+			$payload = $serializer->serialize($asset, null, true, null, null);
+		} else {
+			$payload = $serializer->serialize($asset, null, false, [], 0);
+			$payload['workflowInstances'] = [];
+		}
 
 		return $this->json($payload, Response::HTTP_CREATED);
 	}
@@ -603,7 +620,7 @@ final class DigitalAssetController extends AppController
 			return $this->json(['error' => 'Only uploaded assets can be reprocessed.'], Response::HTTP_UNPROCESSABLE_ENTITY);
 		}
 
-		$manager->queueProcessing($asset);
+		$manager->queueProcessing($asset, resetCompletedWorkflows: true);
 
 		$auditRecorder?->record(
 			sprintf('Queued reprocessing for digital asset #%s', (string) $asset->getId()),
@@ -662,7 +679,7 @@ final class DigitalAssetController extends AppController
 			$version = $parsedVersion;
 		}
 
-		if (array_key_exists('siteId', $payload) && null !== $payload['siteId'] && '' !== (string) $payload['siteId']) {
+		if (array_key_exists('siteId', $payload) && null !== $payload['siteId'] && '' !== $payload['siteId']) {
 			if (!is_int($payload['siteId']) && !(is_string($payload['siteId']) && ctype_digit($payload['siteId']))) {
 				return $this->json(['error' => 'siteId must be a positive integer.'], Response::HTTP_UNPROCESSABLE_ENTITY);
 			}

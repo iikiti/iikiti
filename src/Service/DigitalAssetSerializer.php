@@ -12,6 +12,7 @@ use iikiti\CMS\Entity\Object\UploadedDigitalAsset;
 use iikiti\CMS\Entity\Workflow\WorkflowInstance;
 use iikiti\CMS\Repository\DigitalAssetVariantRepository;
 use iikiti\CMS\Value\LocaleTag;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Shared API serializer for digital assets used by both admin and editor endpoints
@@ -24,6 +25,8 @@ final class DigitalAssetSerializer
 		private readonly ?LocalizedPropertyResolver $localizedProperties = null,
 		private readonly ?EntityManagerInterface $entityManager = null,
 		private readonly ?AssetUsageIndexInterface $usageIndex = null,
+		#[Autowire('%asset_expiry_warning_days%')]
+		private readonly int $expiryWarningDays = 14,
 	) {
 	}
 
@@ -101,8 +104,13 @@ final class DigitalAssetSerializer
 		$variantData = [];
 		$thumbnailUrl = null;
 		$previewUrl = null;
+		$posterWebpUrl = null;
+		$posterUrl = null;
 		foreach ($variantEntities as $variant) {
 			$key = $variant->getKey();
+			if (str_starts_with($key, 'hls_')) {
+				continue;
+			}
 			$versionedUrl = self::buildAssetUrl($publicToken, $key, $variant->getChecksum());
 			$variantData[] = [
 				'key' => $key,
@@ -120,7 +128,19 @@ final class DigitalAssetSerializer
 				$thumbnailUrl = $versionedUrl;
 			} elseif ('preview' === $key) {
 				$previewUrl = $versionedUrl;
+			} elseif ('poster_webp' === $key) {
+				$posterWebpUrl = $versionedUrl;
+			} elseif ('poster' === $key) {
+				$posterUrl = $versionedUrl;
 			}
+		}
+
+		$posterFallback = $posterWebpUrl ?? $posterUrl;
+		if (null === $thumbnailUrl && null !== $posterFallback) {
+			$thumbnailUrl = $posterFallback;
+		}
+		if (null === $previewUrl && null !== $posterFallback) {
+			$previewUrl = $posterFallback;
 		}
 
 		$fileUrl = '/assets/'.$publicToken.'/original';
@@ -198,7 +218,7 @@ final class DigitalAssetSerializer
 				'expiresAt' => $asset->getExpiresAt()?->format(\DateTimeInterface::ATOM),
 				'expiryAction' => $asset->getExpiryAction(),
 				'isExpired' => $asset->isExpired(),
-				'isExpiringSoon' => $asset->isExpiringSoon(),
+				'isExpiringSoon' => $asset->isExpiringSoon(max(1, $this->expiryWarningDays)),
 			],
 			'width' => $asset->getWidth(),
 			'height' => $asset->getHeight(),

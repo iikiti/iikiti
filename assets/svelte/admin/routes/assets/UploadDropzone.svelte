@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import ModalDialog from '$components/ModalDialog.svelte';
 	import Icon from '$components/Icon.svelte';
 	import Badge from '$components/Badge.svelte';
@@ -93,9 +94,7 @@
 			if (Array.isArray(item.meta?.tagIds) && item.meta.tagIds.length > 0) {
 				formData.set('tagIds', JSON.stringify(item.meta.tagIds));
 			}
-			if (item.duplicatePolicy === 'allow') {
-				formData.set('duplicatePolicy', 'allow');
-			}
+			formData.set('duplicatePolicy', item.duplicatePolicy === 'allow' ? 'allow' : 'reject');
 			const result = await api.uploadDigitalAssetWithProgress(formData, onProgress, signal);
 			completedInSession += 1;
 			return result;
@@ -128,18 +127,19 @@
 	$effect(() => {
 		if (open && !wasOpen) {
 			wasOpen = true;
-			completedInSession = 0;
-			targetFolderId = defaultFolderId && defaultFolderId !== 'unfiled' ? String(defaultFolderId) : '';
-			if (targetSiteIds.length === 0) {
-				if (defaultSiteId != null) {
-					targetSiteIds = [String(defaultSiteId)];
-				} else if (sites.length > 0) {
-					targetSiteIds = [String(sites[0].id)];
+			untrack(() => {
+				targetFolderId = defaultFolderId && defaultFolderId !== 'unfiled' ? String(defaultFolderId) : '';
+				if (targetSiteIds.length === 0) {
+					if (defaultSiteId != null) {
+						targetSiteIds = [String(defaultSiteId)];
+					} else if (sites.length > 0) {
+						targetSiteIds = [String(sites[0].id)];
+					}
 				}
-			}
-			if (initialFiles && initialFiles.length > 0) {
-				enqueueFiles(initialFiles);
-			}
+				if (initialFiles && initialFiles.length > 0) {
+					enqueueFiles(initialFiles);
+				}
+			});
 		} else if (!open && wasOpen) {
 			wasOpen = false;
 		}

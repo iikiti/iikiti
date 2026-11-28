@@ -81,56 +81,58 @@ class DigitalAssetUsageRepository extends ServiceEntityRepository
 		$normalizedType = strtolower(trim($contextType));
 		$connection = $this->getEntityManager()->getConnection();
 
-		$this->deleteForContext($normalizedType, $contextId);
+		$connection->transactional(function () use ($connection, $normalizedType, $contextId, $usages): void {
+			$this->deleteForContext($normalizedType, $contextId);
 
-		if ([] === $usages) {
-			return;
-		}
-
-		$usagesTable = $this->resolveTableName('digital_asset_usages');
-		$objectLookupTable = $this->resolveTableName('object_lookup');
-		$sql = sprintf(
-			"INSERT INTO %s (asset_id, context_type, context_id, field_path, is_draft, site_id, updated_at) SELECT ol.id, CAST(:contextType AS VARCHAR(32)), CAST(:contextId AS BIGINT), CAST(:fieldPath AS VARCHAR(255)), CAST(:isDraft AS BOOLEAN), CAST(:siteId AS BIGINT), CAST(:updatedAt AS TIMESTAMP) FROM %s ol WHERE ol.id = :assetId AND LOWER(ol.type) IN ('uploadeddigitalasset', 'externaldigitalasset')",
-			$usagesTable,
-			$objectLookupTable,
-		);
-
-		$now = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
-		$seen = [];
-		foreach ($usages as $row) {
-			$assetId = (int) $row['assetId'];
-			if ($assetId < 1) {
-				continue;
+			if ([] === $usages) {
+				return;
 			}
-			$fieldPath = mb_substr(trim($row['fieldPath']), 0, 255);
-			$isDraft = (bool) $row['isDraft'];
-			$siteId = (int) $row['siteId'];
 
-			$dedupeKey = $assetId.'|'.$fieldPath.'|'.($isDraft ? '1' : '0');
-			if (isset($seen[$dedupeKey])) {
-				continue;
-			}
-			$seen[$dedupeKey] = true;
-
-			$connection->executeStatement(
-				$sql,
-				[
-					'assetId' => $assetId,
-					'contextType' => $normalizedType,
-					'contextId' => (int) $contextId,
-					'fieldPath' => $fieldPath,
-					'isDraft' => $isDraft,
-					'siteId' => $siteId,
-					'updatedAt' => $now,
-				],
-				[
-					'assetId' => ParameterType::INTEGER,
-					'contextId' => ParameterType::INTEGER,
-					'isDraft' => ParameterType::BOOLEAN,
-					'siteId' => ParameterType::INTEGER,
-				],
+			$usagesTable = $this->resolveTableName('digital_asset_usages');
+			$objectLookupTable = $this->resolveTableName('object_lookup');
+			$sql = sprintf(
+				"INSERT INTO %s (asset_id, context_type, context_id, field_path, is_draft, site_id, updated_at) SELECT ol.id, CAST(:contextType AS VARCHAR(32)), CAST(:contextId AS BIGINT), CAST(:fieldPath AS VARCHAR(255)), CAST(:isDraft AS BOOLEAN), CAST(:siteId AS BIGINT), CAST(:updatedAt AS TIMESTAMP) FROM %s ol WHERE ol.id = :assetId AND LOWER(ol.type) IN ('uploadeddigitalasset', 'externaldigitalasset')",
+				$usagesTable,
+				$objectLookupTable,
 			);
-		}
+
+			$now = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
+			$seen = [];
+			foreach ($usages as $row) {
+				$assetId = (int) $row['assetId'];
+				if ($assetId < 1) {
+					continue;
+				}
+				$fieldPath = mb_substr(trim($row['fieldPath']), 0, 255);
+				$isDraft = (bool) $row['isDraft'];
+				$siteId = (int) $row['siteId'];
+
+				$dedupeKey = $assetId.'|'.$fieldPath.'|'.($isDraft ? '1' : '0');
+				if (isset($seen[$dedupeKey])) {
+					continue;
+				}
+				$seen[$dedupeKey] = true;
+
+				$connection->executeStatement(
+					$sql,
+					[
+						'assetId' => $assetId,
+						'contextType' => $normalizedType,
+						'contextId' => (int) $contextId,
+						'fieldPath' => $fieldPath,
+						'isDraft' => $isDraft,
+						'siteId' => $siteId,
+						'updatedAt' => $now,
+					],
+					[
+						'assetId' => ParameterType::INTEGER,
+						'contextId' => ParameterType::INTEGER,
+						'isDraft' => ParameterType::BOOLEAN,
+						'siteId' => ParameterType::INTEGER,
+					],
+				);
+			}
+		});
 	}
 
 	public function deleteForContext(string $contextType, int|string $contextId): void

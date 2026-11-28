@@ -227,6 +227,7 @@ final class ImageThumbnailProcessor implements DigitalAssetProcessorInterface
 				throw new \InvalidArgumentException('At least one image variant is required.');
 			}
 
+			$generatedVariantKeys = [];
 			foreach ($jobs as $job) {
 				$temporaryPath = $this->storage->createTemporaryPath($job['mimeType']);
 				try {
@@ -278,14 +279,50 @@ final class ImageThumbnailProcessor implements DigitalAssetProcessorInterface
 					try {
 						$this->entityManager->flush();
 					} catch (\Throwable $exception) {
-						$this->storage->delete($storageKey);
+						try {
+							$this->storage->delete($storageKey);
+						} catch (\Throwable) {
+							// Best-effort cleanup of newly stored variant on flush failure.
+						}
 						throw $exception;
 					}
+					$generatedVariantKeys[$job['name']] = true;
 					if (null !== $previousStorageKey && $previousStorageKey !== $storageKey) {
-						$this->storage->delete($previousStorageKey);
+						try {
+							$this->storage->delete($previousStorageKey);
+						} catch (\Throwable) {
+							// Best-effort cleanup of superseded variant storage key.
+						}
 					}
 				} finally {
 					$this->filesystem->remove($temporaryPath);
+				}
+			}
+
+			$staleStorageKeys = [];
+			$removedObsolete = false;
+			foreach ($this->variants->findByAsset($asset) as $existingVariant) {
+				$existingKey = $existingVariant->getKey();
+				if (
+					isset($generatedVariantKeys[$existingKey])
+					|| str_starts_with($existingKey, 'hls_')
+					|| 'poster' === $existingKey
+					|| str_starts_with($existingKey, 'poster_')
+				) {
+					continue;
+				}
+				$staleStorageKeys[] = $existingVariant->getStorageKey();
+				$this->entityManager->remove($existingVariant);
+				$removedObsolete = true;
+			}
+			if ($removedObsolete) {
+				$this->entityManager->flush();
+				foreach (array_values(array_unique($staleStorageKeys)) as $staleKey) {
+					try {
+						$this->storage->delete($staleKey);
+					} catch (\Throwable) {
+						// Best-effort cleanup of obsolete image variant storage key.
+					}
 				}
 			}
 		} finally {

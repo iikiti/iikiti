@@ -9,6 +9,7 @@ use iikiti\CMS\Entity\DigitalAssetVariant;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Plugin\Attribute\RequiresPlugin;
+use iikiti\CMS\Plugin\PluginActivationChecker;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\DigitalAssetRepository;
 use iikiti\CMS\Repository\DigitalAssetVariantRepository;
@@ -30,7 +31,6 @@ use Symfony\Component\Routing\Attribute\Route;
  * plugin activation, MFA completion, site access grants, consumer proxying,
  * effective license privacy, and extension/MIME consistency.
  */
-#[RequiresPlugin('iikiti-media-av')]
 final class HlsDeliveryController extends AbstractController
 {
 	public function __construct(
@@ -40,6 +40,7 @@ final class HlsDeliveryController extends AbstractController
 		private readonly ?PublicAssetApiProxy $apiProxy = null,
 		#[Autowire('%application_role%')]
 		private readonly string $applicationRole = 'standalone',
+		private readonly ?PluginActivationChecker $activationChecker = null,
 	) {
 	}
 
@@ -67,9 +68,10 @@ final class HlsDeliveryController extends AbstractController
 		return $this->deliverHls($request, $publicToken, $segment, $assets, $variants, $siteRegistry);
 	}
 
+	#[RequiresPlugin('iikiti-media-av')]
 	#[Route(
 		'/api/public/assets/{publicToken}/hls/{segment}',
-		name: 'api_public_media_av_hls_delivery',
+		name: 'api_public_asset_media_av_hls',
 		requirements: [
 			'publicToken' => '[a-f0-9]{64}',
 			'segment' => '[a-z0-9][a-z0-9_-]{0,55}\.(?:m3u8|ts)',
@@ -85,9 +87,6 @@ final class HlsDeliveryController extends AbstractController
 		SiteRegistry $siteRegistry,
 	): Response {
 		$user = $this->security->getUser();
-		if ($user instanceof User && !$this->mfaGate->allowsFullyAuthenticatedUser()) {
-			throw new AccessDeniedHttpException('Complete the MFA challenge before accessing private assets.');
-		}
 		if (!$user instanceof User && !$user instanceof GuestApiUser) {
 			throw new AccessDeniedHttpException('A site-scoped API credential is required.');
 		}
@@ -112,10 +111,11 @@ final class HlsDeliveryController extends AbstractController
 		DigitalAssetVariantRepository $variants,
 		SiteRegistry $siteRegistry,
 	): Response {
-		$user = $this->security->getUser();
-		if ($user instanceof User && !$this->mfaGate->allowsFullyAuthenticatedUser()) {
-			throw new AccessDeniedHttpException('Complete the MFA challenge before accessing private assets.');
+		if (null !== $this->activationChecker && !$this->activationChecker->isActive('iikiti-media-av')) {
+			throw $this->createNotFoundException();
 		}
+
+		$user = $this->security->getUser();
 
 		$site = $siteRegistry::getCurrent();
 		$asset = $assets->findPublicTokenForSite($publicToken, $site);
@@ -124,8 +124,13 @@ final class HlsDeliveryController extends AbstractController
 		}
 
 		$isEffectivelyPrivate = $asset->isEffectivelyPrivate();
-		if ($isEffectivelyPrivate && !($user instanceof User)) {
-			throw $this->createAccessDeniedException();
+		if ($isEffectivelyPrivate) {
+			if (!($user instanceof User)) {
+				throw $this->createAccessDeniedException();
+			}
+			if (!$this->mfaGate->allowsFullyAuthenticatedUser()) {
+				throw new AccessDeniedHttpException('Complete the MFA challenge before accessing private assets.');
+			}
 		}
 
 		$variantKey = HlsTranscoder::variantKeyForSegment($segment);
@@ -160,6 +165,7 @@ final class HlsDeliveryController extends AbstractController
 			null,
 			false,
 			true,
+			!str_ends_with($segment, '.m3u8'),
 		);
 	}
 }

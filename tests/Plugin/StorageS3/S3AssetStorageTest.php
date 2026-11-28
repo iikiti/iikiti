@@ -171,7 +171,14 @@ final class S3AssetStorageTest extends TestCase
 			'http://127.0.0.1:9000',
 			'http://169.254.169.254/latest/meta-data',
 			'http://10.0.0.5:9000',
+			'http://100.64.0.1:9000',
+			'http://100.127.255.254:9000',
 			'http://[::1]:9000',
+			'http://[::ffff:127.0.0.1]:9000',
+			'http://[::ffff:7f00:1]:9000',
+			'http://[::ffff:a9fe:a9fe]/latest/meta-data',
+			'http://[0:0:0:0:0:ffff:127.0.0.1]:9000',
+			'http://[::ffff:100.64.0.1]:9000',
 			'http://localhost:9000',
 			'http://minio.local:9000',
 			'http://metadata.google.internal',
@@ -187,6 +194,45 @@ final class S3AssetStorageTest extends TestCase
 		// Public endpoint succeeds.
 		$public = new S3StorageConfig(endpoint: 'https://s3.us-east-1.amazonaws.com', allowPrivateEndpoints: false);
 		self::assertSame('https://s3.us-east-1.amazonaws.com', $public->endpoint);
+	}
+
+	public function testWriteStreamAcceptsInternalHlsMimeTypesWithProperContentType(): void
+	{
+		$capturedHeaders = [];
+		$httpClient = new MockHttpClient(static function (string $method, string $url, array $options) use (&$capturedHeaders): MockResponse {
+			$capturedHeaders[] = is_array($options['headers'] ?? null) ? $options['headers'] : [];
+
+			return new MockResponse('', ['http_code' => 200]);
+		});
+
+		$storage = new S3AssetStorage(
+			config: new S3StorageConfig(
+				endpoint: 'https://s3.us-east-1.amazonaws.com',
+				bucket: 'cms-assets',
+				accessKey: 'AKIAEXAMPLE',
+				secretKey: 'SECRETEXAMPLE',
+			),
+			httpClient: $httpClient,
+			cacheDirectory: $this->cacheDir,
+		);
+
+		$m3u8 = fopen('php://memory', 'r+b');
+		self::assertIsResource($m3u8);
+		fwrite($m3u8, "#EXTM3U\n");
+		rewind($m3u8);
+		$storage->writeStream('ab/'.str_repeat('4', 64).'.m3u8', $m3u8, 'application/vnd.apple.mpegurl');
+		fclose($m3u8);
+
+		$ts = fopen('php://memory', 'r+b');
+		self::assertIsResource($ts);
+		fwrite($ts, 'ts-payload');
+		rewind($ts);
+		$storage->writeStream('ab/'.str_repeat('5', 64).'.ts', $ts, 'video/mp2t');
+		fclose($ts);
+
+		self::assertCount(2, $capturedHeaders);
+		self::assertTrue(self::hasHeaderPrefix($capturedHeaders[0], 'Content-Type', 'application/vnd.apple.mpegurl'));
+		self::assertTrue(self::hasHeaderPrefix($capturedHeaders[1], 'Content-Type', 'video/mp2t'));
 	}
 
 	public function testPathForThrowsLogicExceptionAndRejectsInvalidKeys(): void

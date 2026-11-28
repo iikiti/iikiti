@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace iikiti\Extension\MediaAv\Storage;
 
+use iikiti\CMS\Plugin\PluginActivationChecker;
 use iikiti\CMS\Storage\AssetMimeTypeDefinition;
 use iikiti\CMS\Storage\AssetMimeTypeProviderInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -21,6 +22,7 @@ final readonly class AvMimeTypeProvider implements AssetMimeTypeProviderInterfac
 	public function __construct(
 		#[Autowire('%media_av_max_upload_bytes%')]
 		private int $maxUploadBytes = self::DEFAULT_MAX_UPLOAD_BYTES,
+		private ?PluginActivationChecker $activationChecker = null,
 	) {
 		if ($this->maxUploadBytes < 1) {
 			throw new \InvalidArgumentException('MEDIA_AV_MAX_UPLOAD_BYTES must be a positive integer.');
@@ -32,6 +34,10 @@ final readonly class AvMimeTypeProvider implements AssetMimeTypeProviderInterfac
 	 */
 	public function getDefinitions(): array
 	{
+		if (null !== $this->activationChecker && !$this->activationChecker->isActive('iikiti-media-av')) {
+			return [];
+		}
+
 		return [
 			new AssetMimeTypeDefinition('video/mp4', 'mp4', 'video', $this->maxUploadBytes, true),
 			new AssetMimeTypeDefinition('video/webm', 'webm', 'video', $this->maxUploadBytes, true),

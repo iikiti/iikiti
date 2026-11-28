@@ -58,12 +58,13 @@ final readonly class AssetStreamResponseFactory
 		?string $forcedDisposition = null,
 		bool $isSigned = false,
 		bool $allowInternalHlsInline = false,
+		bool $allowRedirect = true,
 	): Response {
 		$safeFilename = $this->sanitizeFilename($filename);
 		$disposition = $this->resolveDisposition($mimeType, $forcedDisposition, $allowInternalHlsInline);
 		$cacheControl = $this->resolveCacheControl($request, $visibility, $checksum, $isSigned);
 
-		if (self::DELIVERY_MODE_REDIRECT === strtolower(trim($this->deliveryMode))) {
+		if ($allowRedirect && self::DELIVERY_MODE_REDIRECT === strtolower(trim($this->deliveryMode))) {
 			$redirect = $this->tryCreateRedirectResponse($storageKey, $mimeType, $safeFilename, $visibility, $disposition, $isSigned);
 			if (null !== $redirect) {
 				return $redirect;

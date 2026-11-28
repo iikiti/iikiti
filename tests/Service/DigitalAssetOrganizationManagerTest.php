@@ -211,6 +211,34 @@ final class DigitalAssetOrganizationManagerTest extends TestCase
 		}
 	}
 
+	public function testSiteAdminCanUpdateAndDeleteOwnManageableCollection(): void
+	{
+		$siteA = $this->site(10);
+		$assetA = new UploadedDigitalAsset('Site A', 'image/png', str_repeat('a', 64));
+		$this->assignId($assetA, 101);
+		$assetA->setAccessSites([$siteA]);
+
+		$ownCollection = new DigitalAssetCollection('Site A Picks');
+		$this->assignId($ownCollection, 2);
+		$ownCollection->setCreatorId(5);
+		$ownCollection->addAsset($assetA);
+
+		$collections = $this->createStub(DigitalAssetCollectionRepository::class);
+		$collections->method('findBySlug')->willReturn(null);
+
+		$em = $this->createMock(EntityManagerInterface::class);
+		$em->expects(self::once())->method('remove')->with($ownCollection);
+		$em->expects(self::exactly(2))->method('flush');
+
+		$manager = $this->createManager($em, collections: $collections);
+		$siteAdmin = $this->user(['10' => ['ROLE_ADMIN']], 5);
+
+		$updated = $manager->updateCollection($ownCollection, ['name' => 'Site A Renamed'], $siteAdmin);
+		self::assertSame('Site A Renamed', $updated->getName());
+
+		$manager->deleteCollection($ownCollection, $siteAdmin);
+	}
+
 	public function testDeleteFolderEnforcesDescendantPermissionsAndDeduplicatesPromotedRootSlug(): void
 	{
 		$siteA = $this->site(10);

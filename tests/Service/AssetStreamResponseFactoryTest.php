@@ -133,6 +133,26 @@ final class AssetStreamResponseFactoryTest extends TestCase
 		self::assertSame(Response::HTTP_FOUND, $privateRedirect->getStatusCode());
 		self::assertStringStartsWith('https://storage.example.test/presigned/', $privateRedirect->getTargetUrl());
 		self::assertStringContainsString('no-store', (string) $privateRedirect->headers->get('Cache-Control'));
+
+		// HLS playlists disable redirects so /assets/{token}/hls/{segment} paths remain valid on the CMS origin.
+		$hlsKey = 'cd/'.str_repeat('d', 64).'.m3u8';
+		$hlsStorage = $this->createInMemoryRemoteStorage([$hlsKey => "#EXTM3U\n"], supportsTemporaryUrls: true);
+		$hlsFactory = new AssetStreamResponseFactory($hlsStorage, null, 'redirect', 'https://cdn.example.test/assets');
+		$playlistResponse = $hlsFactory->createResponse(
+			Request::create('/assets/test/hls/master.m3u8'),
+			$hlsKey,
+			'application/vnd.apple.mpegurl',
+			'master.m3u8',
+			'public',
+			null,
+			8,
+			null,
+			false,
+			true,
+			false,
+		);
+		self::assertInstanceOf(StreamedResponse::class, $playlistResponse);
+		self::assertSame(Response::HTTP_OK, $playlistResponse->getStatusCode());
 	}
 
 	public function testForcedInlineDowngradesNonInlineTypesToAttachmentAndAllowsInternalHlsOptIn(): void

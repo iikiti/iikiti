@@ -129,7 +129,7 @@
 				{:else if field.type === 'media'}
 					{@const media = normalizeMediaValue(formData[field.key])}
 					{@const previewSrc = resolvePreviewUrl(media)}
-					<div id={field.key} class="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-surface p-2.5">
+					<div class="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-surface p-2.5" role="group" aria-labelledby={`${field.key}-label`}>
 						{#if media.source !== 'empty'}
 							<div
 								class="flex h-14 w-20 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-hover"
@@ -162,6 +162,7 @@
 						<div class="flex items-center gap-2">
 							<button
 								type="button"
+								id={field.key}
 								class="admin-btn admin-btn-sm admin-btn-secondary"
 								onclick={() => (activeMediaField = field)}
 							>

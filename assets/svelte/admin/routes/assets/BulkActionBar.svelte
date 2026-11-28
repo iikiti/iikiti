@@ -110,14 +110,16 @@
 
 	async function runReprocess() {
 		if (busy || selectedCount === 0) return;
+		const targetIds = selectedList;
+		const requestedCount = targetIds.length;
 		busy = true;
 		try {
 			const res = await api.bulkDigitalAssetAction({
-				assetIds: selectedList,
+				assetIds: targetIds,
 				action: 'reprocess',
 			});
 			onClearSelection();
-			await onActionComplete(summarizeBulkResult(res, 'Queued reprocessing for'));
+			await onActionComplete(summarizeBulkResult(res, 'Queued reprocessing for', requestedCount));
 		} catch (e: any) {
 			onError(e?.message ?? 'Failed to queue bulk reprocessing.');
 		} finally {
@@ -131,17 +133,19 @@
 			dialogError = 'Select at least one tag.';
 			return;
 		}
+		const targetIds = selectedList;
+		const requestedCount = targetIds.length;
 		busy = true;
 		dialogError = '';
 		try {
 			const res = await api.bulkDigitalAssetAction({
-				assetIds: selectedList,
+				assetIds: targetIds,
 				action: tagMode,
 				params: { tagIds: chosenTagIds },
 			});
 			activeDialog = null;
 			onClearSelection();
-			await onActionComplete(summarizeBulkResult(res, tagMode === 'tag_add' ? 'Tagged' : 'Untagged'));
+			await onActionComplete(summarizeBulkResult(res, tagMode === 'tag_add' ? 'Tagged' : 'Untagged', requestedCount));
 		} catch (e: any) {
 			dialogError = e?.message ?? 'Unable to update tags.';
 		} finally {
@@ -151,17 +155,19 @@
 
 	async function submitMoveFolder(event: SubmitEvent) {
 		event.preventDefault();
+		const targetIds = selectedList;
+		const requestedCount = targetIds.length;
 		busy = true;
 		dialogError = '';
 		try {
 			const res = await api.bulkDigitalAssetAction({
-				assetIds: selectedList,
+				assetIds: targetIds,
 				action: 'move_folder',
 				params: { folderId: chosenFolderId || null },
 			});
 			activeDialog = null;
 			onClearSelection();
-			await onActionComplete(summarizeBulkResult(res, 'Moved'));
+			await onActionComplete(summarizeBulkResult(res, 'Moved', requestedCount));
 		} catch (e: any) {
 			dialogError = e?.message ?? 'Unable to move assets.';
 		} finally {
@@ -175,13 +181,16 @@
 			dialogError = 'Select a collection.';
 			return;
 		}
+		const targetIds = selectedList;
+		const requestedCount = targetIds.length;
 		busy = true;
 		dialogError = '';
 		try {
-			await api.addAssetsToCollection(chosenCollectionId, selectedList);
+			const res = await api.addAssetsToCollection(chosenCollectionId, targetIds);
+			const addedCount = Array.isArray(res?.addedAssetIds) ? res.addedAssetIds.length : requestedCount;
 			activeDialog = null;
 			onClearSelection();
-			await onActionComplete(`Added ${selectedCount} asset${selectedCount === 1 ? '' : 's'} to collection.`);
+			await onActionComplete(`Added ${addedCount} asset${addedCount === 1 ? '' : 's'} to collection.`);
 		} catch (e: any) {
 			dialogError = e?.message ?? 'Unable to add assets to collection.';
 		} finally {
@@ -191,17 +200,19 @@
 
 	async function submitVisibility(event: SubmitEvent) {
 		event.preventDefault();
+		const targetIds = selectedList;
+		const requestedCount = targetIds.length;
 		busy = true;
 		dialogError = '';
 		try {
 			const res = await api.bulkDigitalAssetAction({
-				assetIds: selectedList,
+				assetIds: targetIds,
 				action: 'set_visibility',
 				params: { visibility: chosenVisibility },
 			});
 			activeDialog = null;
 			onClearSelection();
-			await onActionComplete(summarizeBulkResult(res, 'Updated visibility for'));
+			await onActionComplete(summarizeBulkResult(res, 'Updated visibility for', requestedCount));
 		} catch (e: any) {
 			dialogError = e?.message ?? 'Unable to update visibility.';
 		} finally {
@@ -215,17 +226,19 @@
 			dialogError = 'Select at least one site grant.';
 			return;
 		}
+		const targetIds = selectedList;
+		const requestedCount = targetIds.length;
 		busy = true;
 		dialogError = '';
 		try {
 			const res = await api.bulkDigitalAssetAction({
-				assetIds: selectedList,
+				assetIds: targetIds,
 				action: 'set_site_grants',
 				params: { siteIds: chosenSiteIds },
 			});
 			activeDialog = null;
 			onClearSelection();
-			await onActionComplete(summarizeBulkResult(res, 'Updated site grants for'));
+			await onActionComplete(summarizeBulkResult(res, 'Updated site grants for', requestedCount));
 		} catch (e: any) {
 			dialogError = e?.message ?? 'Unable to update site grants.';
 		} finally {

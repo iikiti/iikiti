@@ -92,13 +92,18 @@
 	);
 	const expiringCount = $derived.by(() => {
 		const map = facets?.licenseStatus ?? facets?.licenseStatuses;
-		if (!map) return null;
-		if (typeof map.expiring_or_expired === 'number') {
-			return map.expiring_or_expired;
+		if (map) {
+			if (typeof map.expiring_or_expired === 'number') {
+				return map.expiring_or_expired;
+			}
+			const exp = Number(map.expiring_soon ?? map.expiring ?? 0);
+			const expired = Number(map.expired ?? 0);
+			return exp + expired;
 		}
-		const exp = Number(map.expiring_soon ?? map.expiring ?? 0);
-		const expired = Number(map.expired ?? 0);
-		return exp + expired;
+		if (typeof facets?.expiringCount === 'number' || typeof facets?.expiredCount === 'number') {
+			return Number(facets?.expiringCount ?? 0) + Number(facets?.expiredCount ?? 0);
+		}
+		return null;
 	});
 
 	function isExpanded(id: string): boolean {
@@ -273,14 +278,11 @@
 			</form>
 		{:else}
 			<div
-				class="group flex items-center gap-1 rounded-md px-1.5 py-1.5 text-sm transition-colors {isActive
+				class="group flex items-center gap-1 rounded-md px-1.5 py-1 text-sm transition-colors {isActive
 					? 'bg-accent-subtle text-accent font-medium'
 					: 'text-text hover:bg-surface-hover'} {isDropTarget ? 'ring-2 ring-accent bg-accent-subtle' : ''}"
 				style={`padding-left: ${depth * 14 + 6}px`}
 				draggable="true"
-				role="treeitem"
-				aria-selected={isActive}
-				tabindex="0"
 				ondragstart={(e) => {
 					draggedFolderId = idStr;
 					e.dataTransfer?.setData('application/x-iikiti-folder-id', idStr);
@@ -295,36 +297,33 @@
 					if (dragOverTarget === `folder:${idStr}`) dragOverTarget = null;
 				}}
 				ondrop={(e) => void handleFolderDrop(e, idStr)}
-				onclick={() => onSelectFolder(idStr)}
-				onkeydown={(e) => {
-					if (e.key === 'Enter' || e.key === ' ') {
-						e.preventDefault();
-						onSelectFolder(idStr);
-					}
-				}}
 			>
 				{#if hasChildren}
 					<button
 						type="button"
 						class="flex h-4 w-4 shrink-0 items-center justify-center rounded text-text-muted hover:text-text"
-						aria-label={isExpanded(idStr) ? 'Collapse folder' : 'Expand folder'}
-						onclick={(e) => {
-							e.stopPropagation();
-							toggleExpanded(idStr);
-						}}
+						aria-label={isExpanded(idStr) ? `Collapse ${node.name}` : `Expand ${node.name}`}
+						aria-expanded={isExpanded(idStr)}
+						onclick={() => toggleExpanded(idStr)}
 					>
 						<Icon name={isExpanded(idStr) ? 'chevron-down' : 'chevron-right'} size={13} />
 					</button>
 				{:else}
-					<span class="inline-block w-4 shrink-0"></span>
+					<span class="inline-block w-4 shrink-0" aria-hidden="true"></span>
 				{/if}
 
-				<Icon name="folder" size={14} class="shrink-0 opacity-80" />
-				<span class="flex-1 truncate text-left" title={node.name}>{node.name}</span>
-
-				{#if typeof node.assetCount === 'number'}
-					<span class="text-xs text-text-muted">{node.assetCount}</span>
-				{/if}
+				<button
+					type="button"
+					class="flex min-w-0 flex-1 items-center gap-1.5 py-0.5 text-left"
+					aria-current={isActive ? 'true' : undefined}
+					onclick={() => onSelectFolder(idStr)}
+				>
+					<Icon name="folder" size={14} class="shrink-0 opacity-80" />
+					<span class="flex-1 truncate" title={node.name}>{node.name}</span>
+					{#if typeof node.assetCount === 'number'}
+						<span class="text-xs text-text-muted">{node.assetCount}</span>
+					{/if}
+				</button>
 
 				<div class="hidden items-center gap-0.5 group-hover:flex group-focus-within:flex">
 					<button
@@ -332,8 +331,7 @@
 						class="rounded p-0.5 text-text-muted hover:bg-surface hover:text-text"
 						title="New subfolder"
 						aria-label={`Create subfolder in ${node.name}`}
-						onclick={(e) => {
-							e.stopPropagation();
+						onclick={() => {
 							creatingFolderParentId = idStr;
 							newFolderName = '';
 							expandedFolders = { ...expandedFolders, [idStr]: true };
@@ -346,8 +344,7 @@
 						class="rounded p-0.5 text-text-muted hover:bg-surface hover:text-text"
 						title="Rename folder"
 						aria-label={`Rename ${node.name}`}
-						onclick={(e) => {
-							e.stopPropagation();
+						onclick={() => {
 							renamingFolderId = idStr;
 							renameFolderValue = node.name;
 						}}
@@ -359,10 +356,7 @@
 						class="rounded p-0.5 text-text-muted hover:bg-danger-subtle hover:text-danger"
 						title="Delete folder"
 						aria-label={`Delete ${node.name}`}
-						onclick={(e) => {
-							e.stopPropagation();
-							void onDeleteFolder(node);
-						}}
+						onclick={() => void onDeleteFolder(node)}
 					>
 						<Icon name="trash-2" size={12} />
 					</button>
@@ -398,7 +392,7 @@
 		{/if}
 
 		{#if hasChildren && isExpanded(idStr)}
-			<div role="group">
+			<div>
 				{#each node.children as child (String(child.id))}
 					{@render folderNode(child, depth + 1)}
 				{/each}
@@ -523,7 +517,7 @@
 		{/if}
 
 		{#if folderTree.length > 0}
-			<div role="tree" aria-label="Asset folders" class="space-y-0.5">
+			<div aria-label="Asset folders" class="space-y-0.5">
 				{#each folderTree as node (String(node.id))}
 					{@render folderNode(node, 0)}
 				{/each}
@@ -592,45 +586,38 @@
 					{@const isActive = activeCollectionId === colId}
 					{@const isDrop = dragOverTarget === `col:${colId}`}
 					<div
-						class="group flex items-center justify-between gap-1 rounded-md px-2 py-1.5 text-sm transition-colors {isActive
+						class="group flex items-center justify-between gap-1 rounded-md px-2 py-1 text-sm transition-colors {isActive
 							? 'bg-accent-subtle text-accent font-medium'
 							: 'text-text hover:bg-surface-hover'} {isDrop ? 'ring-2 ring-accent bg-accent-subtle' : ''}"
-						role="button"
-						tabindex="0"
 						ondragover={(e) => handleCollectionDragOver(e, colId)}
 						ondragleave={() => {
 							if (dragOverTarget === `col:${colId}`) dragOverTarget = null;
 						}}
 						ondrop={(e) => void handleCollectionDrop(e, colId)}
-						onclick={() => onSelectCollection(isActive ? null : colId)}
-						onkeydown={(e) => {
-							if (e.key === 'Enter' || e.key === ' ') {
-								e.preventDefault();
-								onSelectCollection(isActive ? null : colId);
-							}
-						}}
 					>
-						<span class="flex min-w-0 items-center gap-2">
-							<Icon name="sparkles" size={13} class="shrink-0 opacity-80" />
-							<span class="truncate" title={col.name}>{col.name}</span>
-						</span>
-						<span class="flex items-center gap-1">
+						<button
+							type="button"
+							class="flex min-w-0 flex-1 items-center justify-between gap-2 py-0.5 text-left"
+							aria-pressed={isActive}
+							onclick={() => onSelectCollection(isActive ? null : colId)}
+						>
+							<span class="flex min-w-0 items-center gap-2">
+								<Icon name="sparkles" size={13} class="shrink-0 opacity-80" />
+								<span class="truncate" title={col.name}>{col.name}</span>
+							</span>
 							{#if typeof col.assetCount === 'number'}
 								<span class="text-xs text-text-muted">{col.assetCount}</span>
 							{/if}
-							<button
-								type="button"
-								class="hidden rounded p-0.5 text-text-muted hover:bg-danger-subtle hover:text-danger group-hover:inline-flex group-focus-within:inline-flex"
-								title="Delete collection"
-								aria-label={`Delete collection ${col.name}`}
-								onclick={(e) => {
-									e.stopPropagation();
-									void onDeleteCollection(col);
-								}}
-							>
-								<Icon name="trash-2" size={12} />
-							</button>
-						</span>
+						</button>
+						<button
+							type="button"
+							class="hidden shrink-0 rounded p-0.5 text-text-muted hover:bg-danger-subtle hover:text-danger group-hover:inline-flex group-focus-within:inline-flex"
+							title="Delete collection"
+							aria-label={`Delete collection ${col.name}`}
+							onclick={() => void onDeleteCollection(col)}
+						>
+							<Icon name="trash-2" size={12} />
+						</button>
 					</div>
 				{/each}
 			</div>

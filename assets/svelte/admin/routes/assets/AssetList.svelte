@@ -22,6 +22,7 @@
 		sites: DigitalAssetSiteOption[];
 		foldersById: Map<string, DigitalAssetFolder>;
 		tagsById: Map<string, DigitalAssetTag>;
+		expiryWarningDays?: number;
 		onToggleSelect: (id: string, shiftKey: boolean) => void;
 		onToggleSelectAll: () => void;
 		onInspect: (asset: DigitalAsset) => void;
@@ -35,6 +36,7 @@
 		sites,
 		foldersById,
 		tagsById,
+		expiryWarningDays = 14,
 		onToggleSelect,
 		onToggleSelectAll,
 		onInspect,
@@ -143,7 +145,7 @@
 				{@const src = previewSrc(asset)}
 				{@const folder = folderName(asset)}
 				{@const assetTags = resolveTags(asset)}
-				{@const expiryStatus = getExpiryStatus(asset.license)}
+				{@const expiryStatus = getExpiryStatus(asset.license, undefined, expiryWarningDays)}
 				{@const durationLabel = formatDuration(asset.durationMs)}
 
 				<tr

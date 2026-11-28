@@ -340,8 +340,8 @@ final class DigitalAssetOrganizationManager
 	 */
 	public function updateCollection(DigitalAssetCollection $collection, array $payload, User $user): DigitalAssetCollection
 	{
-		if (!$this->accessPolicy->isGlobalAdmin($user)) {
-			throw new AccessDeniedHttpException('Only global administrators can update global collections.');
+		if (!$this->canManageCollection($user, $collection)) {
+			throw new AccessDeniedHttpException('You cannot update collections you do not administer.');
 		}
 
 		$before = $this->serializeCollection($collection);
@@ -378,8 +378,8 @@ final class DigitalAssetOrganizationManager
 
 	public function deleteCollection(DigitalAssetCollection $collection, User $user): void
 	{
-		if (!$this->accessPolicy->isGlobalAdmin($user)) {
-			throw new AccessDeniedHttpException('Only global administrators can delete global collections.');
+		if (!$this->canManageCollection($user, $collection)) {
+			throw new AccessDeniedHttpException('You cannot delete collections you do not administer.');
 		}
 
 		$before = $this->serializeCollection($collection);

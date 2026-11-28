@@ -15,6 +15,7 @@
 		assets: DigitalAsset[];
 		selectedIds: Set<string>;
 		tagsById: Map<string, DigitalAssetTag>;
+		expiryWarningDays?: number;
 		onToggleSelect: (id: string, shiftKey: boolean) => void;
 		onToggleSelectAll: () => void;
 		onInspect: (asset: DigitalAsset) => void;
@@ -24,6 +25,7 @@
 		assets,
 		selectedIds,
 		tagsById,
+		expiryWarningDays = 14,
 		onToggleSelect,
 		onToggleSelectAll,
 		onInspect,
@@ -107,7 +109,7 @@
 			{@const src = previewSrc(asset)}
 			{@const formatBadge = shortMimeBadge(asset.mimeType, asset.variants)}
 			{@const durationLabel = formatDuration(asset.durationMs)}
-			{@const expiryStatus = getExpiryStatus(asset.license)}
+			{@const expiryStatus = getExpiryStatus(asset.license, undefined, expiryWarningDays)}
 			{@const assetTags = resolveTags(asset)}
 
 			<article

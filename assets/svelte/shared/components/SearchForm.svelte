@@ -10,19 +10,23 @@
 	let { value = '', placeholder = 'Search…', onSearch }: Props = $props();
 
 	let inputValue = $state('');
+	let lastEmitted = '';
 	let debounce: ReturnType<typeof setTimeout> | undefined;
 
 	$effect(() => {
-		inputValue = value ?? '';
+		const synced = value ?? '';
+		inputValue = synced;
+		lastEmitted = synced;
 	});
 
 	$effect(() => {
 		const current = inputValue;
 		clearTimeout(debounce);
-		if (current === (value ?? '')) {
+		if (current === lastEmitted) {
 			return () => clearTimeout(debounce);
 		}
 		debounce = setTimeout(() => {
+			lastEmitted = current;
 			onSearch?.(current);
 		}, 300);
 		return () => clearTimeout(debounce);

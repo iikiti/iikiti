@@ -474,11 +474,32 @@ final readonly class S3StorageConfig
 			return false;
 		}
 
-		// Handle IPv4-mapped IPv6 addresses (e.g. ::ffff:127.0.0.1 or ::ffff:169.254.169.254).
-		if (str_starts_with($normalized, '::ffff:')) {
-			$mapped = substr($normalized, 7);
-			if (false !== filter_var($mapped, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-				return false !== filter_var($mapped, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+		$packed = @inet_pton($normalized);
+		if (false === $packed) {
+			return false;
+		}
+
+		// Unpack any 16-byte IPv4-mapped IPv6 address (::ffff:0:0/96), including hex
+		// and expanded forms (e.g. ::ffff:7f00:1, ::ffff:a9fe:a9fe, 0:0:0:0:0:ffff:127.0.0.1).
+		if (16 === strlen($packed) && "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff" === substr($packed, 0, 12)) {
+			$ipv4Bytes = substr($packed, 12, 4);
+			$ipv4 = inet_ntop($ipv4Bytes);
+			if (false === $ipv4) {
+				return false;
+			}
+			$normalized = $ipv4;
+			$packed = $ipv4Bytes;
+		}
+
+		if (4 === strlen($packed)) {
+			// Explicitly reject RFC 6598 Carrier-Grade NAT (100.64.0.0/10).
+			$unpacked = unpack('N', $packed);
+			if (false === $unpacked || !isset($unpacked[1])) {
+				return false;
+			}
+			$ipLong = (int) $unpacked[1];
+			if (($ipLong & 0xFFC00000) === 0x64400000) {
+				return false;
 			}
 		}
 

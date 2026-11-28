@@ -117,7 +117,7 @@ final class FlysystemBridgeStorage implements AssetStorageInterface
 		if (!is_resource($stream)) {
 			throw new \InvalidArgumentException('Stream must be a valid readable resource.');
 		}
-		if (null !== $mimeType && !$this->mimeRegistry->isAllowed($mimeType)) {
+		if (null !== $mimeType && !$this->mimeRegistry->isAllowedForInternalStream($mimeType)) {
 			throw new \InvalidArgumentException('Unsupported asset file type.');
 		}
 
