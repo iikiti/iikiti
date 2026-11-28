@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { MediaPickerModal, PageHeader } from '@iikiti/ui';
+	import {
+		MediaPickerModal,
+		PageHeader,
+		normalizeMediaValue,
+		resolvePreviewUrl,
+	} from '@iikiti/ui';
 	import type { ApiClient } from '$lib/api';
 
 	interface Props {
@@ -52,7 +57,7 @@
 		seo: {
 			titleTemplate: string;
 			defaultDescription: string;
-			defaultSocialImage: string;
+			defaultSocialImage: string | Record<string, unknown> | null;
 			defaultRobots: {
 				index: 'index' | 'noindex';
 				follow: 'follow' | 'nofollow';
@@ -145,7 +150,20 @@
 	let notice = $state('');
 	let fieldErrors = $state<Record<string, string>>({});
 	let socialImagePickerOpen = $state(false);
+	let socialImagePreviewBroken = $state(false);
 	let loadSequence = 0;
+
+	const socialImageMedia = $derived(normalizeMediaValue(fieldValue('seo.defaultSocialImage')));
+	const socialImagePreviewUrl = $derived(resolvePreviewUrl(socialImageMedia));
+	const inheritedSocialImageMedia = $derived(
+		normalizeMediaValue(readPath(applicationDefaults, 'seo.defaultSocialImage')),
+	);
+	const inheritedSocialImagePreviewUrl = $derived(resolvePreviewUrl(inheritedSocialImageMedia));
+
+	$effect(() => {
+		void socialImagePreviewUrl;
+		socialImagePreviewBroken = false;
+	});
 
 	function socialImagePickerHeaders(): Record<string, string> {
 		return api.getHeaders(null, scope === 'site' ? selectedSiteHost() : null);
@@ -159,9 +177,17 @@
 	}
 
 	function handleSocialImageSelect(selected: Record<string, unknown>): void {
-		const url = typeof selected.url === 'string' ? selected.url : '';
-		updateField('seo.defaultSocialImage', url);
+		if (selected && selected.source === 'asset') {
+			updateField('seo.defaultSocialImage', selected);
+		} else {
+			const url = typeof selected?.url === 'string' ? selected.url : '';
+			updateField('seo.defaultSocialImage', url);
+		}
 		socialImagePickerOpen = false;
+	}
+
+	function clearSocialImage(): void {
+		updateField('seo.defaultSocialImage', '');
 	}
 
 	const hasScopeTarget = $derived(scope === 'application' ? applicationId !== '' : siteId !== '');
@@ -338,6 +364,18 @@
 	function displayValue(value: unknown, options?: ChoiceOption[] | Record<string, string>): string {
 		if (value === undefined || value === null) return 'Not set';
 		if (value === '') return 'Empty value';
+		if (typeof value === 'object' && !Array.isArray(value)) {
+			const media = normalizeMediaValue(value);
+			if (media.source === 'empty') return 'Not set';
+			if (media.source === 'asset') {
+				const rawTitle = typeof (value as Record<string, unknown>).title === 'string'
+					? String((value as Record<string, unknown>).title).trim()
+					: '';
+				const label = rawTitle || (media.assetId ? `DAM Asset #${media.assetId}` : 'DAM Asset');
+				return media.url ? `${label} (${media.url})` : label;
+			}
+			return media.url || 'Not set';
+		}
 		if (Array.isArray(options)) {
 			const match = options.find((option) => option.value === value || String(option.value) === String(value));
 			if (match) return match.label;
@@ -1155,18 +1193,122 @@
 			<div class="grid gap-5 md:grid-cols-2">
 				{@render textField('seo.titleTemplate', 'Title template', 'Use {pageTitle} for the content title and {siteName} for the site name.')}
 				{@render textField('seo.defaultDescription', 'Default description', 'Used when a page does not define a search description.')}
-				<div class="space-y-2">
-					{@render textField('seo.defaultSocialImage', 'Default social image URL', 'A site-hosted DAM asset URL or absolute HTTPS URL.')}
-					<div class="flex flex-wrap items-center gap-2">
-						<button
-							type="button"
-							class="admin-btn admin-btn-sm admin-btn-secondary"
-							onclick={openSocialImagePicker}
-							disabled={saving}
-						>
-							Choose from DAM
-						</button>
-					</div>
+				<div class="space-y-2 md:col-span-2">
+					{#if scope === 'site' && !hasOverride('seo.defaultSocialImage')}
+						<p id={`${fieldId('seo.defaultSocialImage')}-label`} class="block text-sm font-medium text-text">Default social image</p>
+					{:else}
+						<label for={fieldId('seo.defaultSocialImage')} class="block text-sm font-medium text-text">Default social image</label>
+					{/if}
+					{@render fieldStatus('seo.defaultSocialImage')}
+
+					{#if scope === 'site' && !hasOverride('seo.defaultSocialImage')}
+						<div class="flex flex-wrap items-center gap-3 rounded-md border border-border bg-surface-hover px-3 py-2 text-sm text-text">
+							{#if inheritedSocialImagePreviewUrl}
+								<img
+									src={inheritedSocialImagePreviewUrl}
+									alt="Inherited default social preview"
+									class="h-12 w-20 shrink-0 rounded border border-border object-cover"
+								/>
+							{/if}
+							<p class="min-w-0 flex-1 break-words">
+								<span class="font-medium">Application default:</span> {displayValue(readPath(applicationDefaults, 'seo.defaultSocialImage'))}
+							</p>
+						</div>
+						<div class="flex flex-wrap items-center gap-2">
+							<button
+								id={`override-${fieldId('seo.defaultSocialImage')}`}
+								type="button"
+								class="admin-btn admin-btn-sm admin-btn-secondary"
+								aria-label="Override Default social image"
+								aria-describedby={fieldErrors['seo.defaultSocialImage'] ? `${fieldId('seo.defaultSocialImage')}-error` : undefined}
+								onclick={() => beginOverride('seo.defaultSocialImage')}
+							>
+								Override Default social image
+							</button>
+							<button
+								type="button"
+								class="admin-btn admin-btn-sm admin-btn-secondary"
+								onclick={openSocialImagePicker}
+								disabled={saving}
+							>
+								Choose from DAM
+							</button>
+						</div>
+					{:else}
+						{#if socialImageMedia.source !== 'empty'}
+							<div class="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-surface-hover p-3">
+								{#if socialImagePreviewUrl && !socialImagePreviewBroken}
+									<img
+										src={socialImagePreviewUrl}
+										alt={socialImageMedia.defaultAlt || 'Default social image preview'}
+										class="h-16 w-28 shrink-0 rounded-md border border-border object-cover"
+										onerror={() => (socialImagePreviewBroken = true)}
+									/>
+								{/if}
+								<div class="min-w-0 flex-1 space-y-0.5 text-xs">
+									<div class="font-medium text-text">
+										{#if socialImageMedia.source === 'asset'}
+											{socialImageMedia.assetId ? `DAM Asset #${socialImageMedia.assetId}` : 'DAM Asset'}
+										{:else}
+											External HTTPS URL
+										{/if}
+										{#if socialImageMedia.width && socialImageMedia.height}
+											<span class="ml-1.5 text-text-muted">{socialImageMedia.width}×{socialImageMedia.height}</span>
+										{/if}
+									</div>
+									{#if socialImageMedia.url}
+										<p class="truncate text-text-muted" title={socialImageMedia.url}>{socialImageMedia.url}</p>
+									{/if}
+								</div>
+							</div>
+						{/if}
+
+						{#if socialImageMedia.source !== 'asset'}
+							<input
+								id={fieldId('seo.defaultSocialImage')}
+								name="seo.defaultSocialImage"
+								type="url"
+								class="admin-input w-full"
+								placeholder="https://example.com/social-card.webp"
+								value={socialImageMedia.source === 'url' ? socialImageMedia.url : ''}
+								aria-invalid={fieldErrors['seo.defaultSocialImage'] ? 'true' : undefined}
+								aria-describedby={fieldDescription('seo.defaultSocialImage', 'Choose an image from the Digital Asset Manager or enter an absolute HTTPS URL.')}
+								oninput={(event) => updateField('seo.defaultSocialImage', event.currentTarget.value)}
+							/>
+						{/if}
+
+						<div class="flex flex-wrap items-center gap-2">
+							<button
+								type="button"
+								class="admin-btn admin-btn-sm admin-btn-secondary"
+								onclick={openSocialImagePicker}
+								disabled={saving}
+							>
+								{socialImageMedia.source !== 'empty' ? 'Replace from DAM' : 'Choose from DAM'}
+							</button>
+							{#if socialImageMedia.source !== 'empty'}
+								<button
+									type="button"
+									class="admin-btn admin-btn-sm admin-btn-ghost"
+									onclick={clearSocialImage}
+									disabled={saving}
+								>
+									Clear
+								</button>
+							{/if}
+							{#if scope === 'site'}
+								<button type="button" class="admin-btn admin-btn-sm admin-btn-secondary" onclick={() => resetOverride('seo.defaultSocialImage')}>
+									Reset Default social image to inherited
+								</button>
+							{/if}
+						</div>
+					{/if}
+					<p id={`${fieldId('seo.defaultSocialImage')}-hint`} class="text-xs text-text-muted">
+						Choose an image from the Digital Asset Manager or enter an absolute HTTPS URL.
+					</p>
+					{#if fieldErrors['seo.defaultSocialImage']}
+						<p id={`${fieldId('seo.defaultSocialImage')}-error`} class="text-sm text-danger">{fieldErrors['seo.defaultSocialImage']}</p>
+					{/if}
 				</div>
 			</div>
 		</div>
@@ -1184,9 +1326,10 @@
 	open={socialImagePickerOpen}
 	onClose={() => (socialImagePickerOpen = false)}
 	onSelect={handleSocialImageSelect}
+	selectedAssetId={socialImageMedia.assetId}
 	accept="image/*"
 	allowExternalUrl={true}
-	initialUrl={String(fieldValue('seo.defaultSocialImage') ?? '')}
+	initialUrl={socialImageMedia.source === 'url' ? socialImageMedia.url : ''}
 	apiEndpoint="/api/admin/assets"
 	apiBase={api.baseUrl}
 	fetchHeaders={socialImagePickerHeaders}

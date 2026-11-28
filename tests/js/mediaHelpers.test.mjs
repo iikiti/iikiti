@@ -37,6 +37,9 @@ describe('normalizeMediaValue', () => {
 		expect(normalizeMediaValue({})).toEqual(expectedEmpty);
 		expect(normalizeMediaValue({ source: 'url', url: '' })).toEqual(expectedEmpty);
 		expect(normalizeMediaValue({ source: 'url', url: '   ' })).toEqual(expectedEmpty);
+		expect(normalizeMediaValue({ source: 'empty' })).toEqual(expectedEmpty);
+		expect(normalizeMediaValue({ source: 'empty', assetId: null, url: '' })).toEqual(expectedEmpty);
+		expect(normalizeMediaValue({ source: 'empty', url: 'https://example.com/stale.png' })).toEqual(expectedEmpty);
 		expect(normalizeMediaValue([])).toEqual(expectedEmpty);
 	});
 

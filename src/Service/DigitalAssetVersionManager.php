@@ -68,7 +68,7 @@ final class DigitalAssetVersionManager
 			height: $asset->getHeight(),
 			durationMs: $asset->getDurationMs(),
 			changeNote: null,
-			createdById: $creator?->getId() ?? $asset->getCreatorId(),
+			createdById: DigitalAssetVersion::normalizeCreatedById($creator?->getId() ?? $asset->getCreatorId()),
 			createdAt: new \DateTimeImmutable(),
 		);
 		$asset->setCurrentVersion(1);
@@ -152,7 +152,7 @@ final class DigitalAssetVersionManager
 				height: null,
 				durationMs: null,
 				changeNote: $changeNote,
-				createdById: $user->getId(),
+				createdById: DigitalAssetVersion::normalizeCreatedById($user->getId()),
 				createdAt: new \DateTimeImmutable(),
 			);
 
@@ -252,7 +252,7 @@ final class DigitalAssetVersionManager
 			height: $target->getHeight(),
 			durationMs: $target->getDurationMs(),
 			changeNote: $resolvedNote,
-			createdById: $user->getId(),
+			createdById: DigitalAssetVersion::normalizeCreatedById($user->getId()),
 			createdAt: new \DateTimeImmutable(),
 		);
 
@@ -444,7 +444,7 @@ final class DigitalAssetVersionManager
 				height: $asset->getHeight(),
 				durationMs: $asset->getDurationMs(),
 				changeNote: null,
-				createdById: $asset->getCreatorId(),
+				createdById: DigitalAssetVersion::normalizeCreatedById($asset->getCreatorId()),
 				createdAt: $asset->getCreatedDate() instanceof \DateTimeImmutable
 					? $asset->getCreatedDate()
 					: new \DateTimeImmutable(),

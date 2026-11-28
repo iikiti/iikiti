@@ -25,6 +25,34 @@ use Symfony\Component\Routing\Attribute\Route;
 final class DigitalAssetOrganizationController extends AppController
 {
 	// ------------------------------------------------------------------
+	// Combined Organization Tree (Admin MediaPickerModal)
+	// ------------------------------------------------------------------
+
+	#[Route('/organization', name: 'organization', methods: ['GET'])]
+	public function organization(DigitalAssetOrganizationManager $manager): JsonResponse
+	{
+		$user = $this->authenticatedAdmin();
+		if (null === $user) {
+			return $this->forbidden();
+		}
+
+		return $this->json([
+			'folders' => array_map(
+				static fn (DigitalAssetFolder $folder): array => $manager->serializeFolder($folder),
+				$manager->listManageableFolders($user),
+			),
+			'tags' => array_map(
+				static fn (DigitalAssetTag $tag): array => $manager->serializeTag($tag),
+				$manager->listTags(),
+			),
+			'collections' => array_map(
+				static fn (DigitalAssetCollection $collection): array => $manager->serializeCollection($collection, $user),
+				$manager->listCollections(),
+			),
+		]);
+	}
+
+	// ------------------------------------------------------------------
 	// Folders
 	// ------------------------------------------------------------------
 
@@ -151,7 +179,8 @@ final class DigitalAssetOrganizationController extends AppController
 	#[Route('/collections', name: 'collections_index', methods: ['GET'])]
 	public function listCollections(DigitalAssetOrganizationManager $manager): JsonResponse
 	{
-		if (null === $this->authenticatedAdmin()) {
+		$user = $this->authenticatedAdmin();
+		if (null === $user) {
 			return $this->forbidden();
 		}
 
@@ -159,7 +188,7 @@ final class DigitalAssetOrganizationController extends AppController
 
 		return $this->json([
 			'collections' => array_map(
-				static fn (DigitalAssetCollection $collection): array => $manager->serializeCollection($collection),
+				static fn (DigitalAssetCollection $collection): array => $manager->serializeCollection($collection, $user),
 				$collections,
 			),
 		]);
@@ -185,9 +214,11 @@ final class DigitalAssetOrganizationController extends AppController
 			);
 		} catch (\InvalidArgumentException $exception) {
 			return $this->json(['error' => $exception->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+		} catch (AccessDeniedHttpException $exception) {
+			return $this->json(['error' => $exception->getMessage()], Response::HTTP_FORBIDDEN);
 		}
 
-		return $this->json($manager->serializeCollection($collection), Response::HTTP_CREATED);
+		return $this->json($manager->serializeCollection($collection, $user), Response::HTTP_CREATED);
 	}
 
 	#[Route('/collections/{id}', name: 'collections_update', methods: ['PUT'], requirements: ['id' => '\\d+'])]
@@ -211,9 +242,11 @@ final class DigitalAssetOrganizationController extends AppController
 			$updated = $manager->updateCollection($collection, $this->payload($request), $user);
 		} catch (\InvalidArgumentException $exception) {
 			return $this->json(['error' => $exception->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+		} catch (AccessDeniedHttpException $exception) {
+			return $this->json(['error' => $exception->getMessage()], Response::HTTP_FORBIDDEN);
 		}
 
-		return $this->json($manager->serializeCollection($updated));
+		return $this->json($manager->serializeCollection($updated, $user));
 	}
 
 	#[Route('/collections/{id}', name: 'collections_delete', methods: ['DELETE'], requirements: ['id' => '\\d+'])]
@@ -232,7 +265,11 @@ final class DigitalAssetOrganizationController extends AppController
 			return $this->json(['error' => 'Not found'], Response::HTTP_NOT_FOUND);
 		}
 
-		$manager->deleteCollection($collection, $user);
+		try {
+			$manager->deleteCollection($collection, $user);
+		} catch (AccessDeniedHttpException $exception) {
+			return $this->json(['error' => $exception->getMessage()], Response::HTTP_FORBIDDEN);
+		}
 
 		return $this->json(['deleted' => true]);
 	}
@@ -268,7 +305,7 @@ final class DigitalAssetOrganizationController extends AppController
 			return $this->json(['error' => $exception->getMessage()], Response::HTTP_FORBIDDEN);
 		}
 
-		$response = $manager->serializeCollection($collection);
+		$response = $manager->serializeCollection($collection, $user);
 		$response['addedAssetIds'] = $added;
 
 		return $this->json($response);
@@ -303,7 +340,7 @@ final class DigitalAssetOrganizationController extends AppController
 			return $this->json(['error' => $exception->getMessage()], Response::HTTP_FORBIDDEN);
 		}
 
-		$response = $manager->serializeCollection($collection);
+		$response = $manager->serializeCollection($collection, $user);
 		$response['removed'] = true;
 
 		return $this->json($response);
@@ -390,6 +427,8 @@ final class DigitalAssetOrganizationController extends AppController
 			$updated = $manager->updateTag($tag, $this->payload($request), $user);
 		} catch (\InvalidArgumentException $exception) {
 			return $this->json(['error' => $exception->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+		} catch (AccessDeniedHttpException $exception) {
+			return $this->json(['error' => $exception->getMessage()], Response::HTTP_FORBIDDEN);
 		}
 
 		return $this->json($manager->serializeTag($updated));
@@ -411,7 +450,11 @@ final class DigitalAssetOrganizationController extends AppController
 			return $this->json(['error' => 'Not found'], Response::HTTP_NOT_FOUND);
 		}
 
-		$manager->deleteTag($tag, $user);
+		try {
+			$manager->deleteTag($tag, $user);
+		} catch (AccessDeniedHttpException $exception) {
+			return $this->json(['error' => $exception->getMessage()], Response::HTTP_FORBIDDEN);
+		}
 
 		return $this->json(['deleted' => true]);
 	}

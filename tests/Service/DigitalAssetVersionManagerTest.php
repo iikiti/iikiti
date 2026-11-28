@@ -224,6 +224,22 @@ final class DigitalAssetVersionManagerTest extends TestCase
 		self::assertTrue($manager->isStorageKeyReferenced('key/v1.png'));
 	}
 
+	public function testCreatedByIdNormalizationPreventsZeroForeignKeyViolations(): void
+	{
+		$asset = new UploadedDigitalAsset('Doc', 'application/pdf', str_repeat('a', 64));
+
+		foreach ([null, 0, -5, '0', '', '  ', '-1'] as $invalidCreator) {
+			$version = new DigitalAssetVersion($asset, 1, 'ab/key.pdf', 'doc.pdf', 'application/pdf', 10, str_repeat('b', 64), null, null, null, null, $invalidCreator);
+			self::assertNull($version->getCreatedById());
+		}
+
+		$validInt = new DigitalAssetVersion($asset, 2, 'ab/key2.pdf', 'doc.pdf', 'application/pdf', 10, str_repeat('b', 64), null, null, null, null, 42);
+		self::assertSame(42, $validInt->getCreatedById());
+
+		$validStr = new DigitalAssetVersion($asset, 3, 'ab/key3.pdf', 'doc.pdf', 'application/pdf', 10, str_repeat('b', 64), null, null, null, null, '99');
+		self::assertSame('99', $validStr->getCreatedById());
+	}
+
 	private function createMinimalPngTempFile(): string
 	{
 		$path = tempnam(sys_get_temp_dir(), 'iikiti_ver_test_');

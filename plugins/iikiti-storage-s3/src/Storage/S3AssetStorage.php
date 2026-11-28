@@ -25,6 +25,8 @@ final class S3AssetStorage implements AssetStorageInterface
 	private const KEY_PATTERN = '~^[a-f0-9]{2}/[a-f0-9]{64}\.[a-z0-9]{1,12}$~';
 	private const IN_MEMORY_BUFFER_BYTES = 2097152;
 	private const TEMP_SUBDIR = 'asset-storage-tmp';
+	private const REQUEST_TIMEOUT_SECONDS = 30.0;
+	private const MAX_REDIRECTS = 0;
 
 	private readonly string $tempDirectory;
 	private readonly AssetMimeTypeRegistry $mimeRegistry;
@@ -166,6 +168,8 @@ final class S3AssetStorage implements AssetStorageInterface
 			$response = $this->httpClient->request('PUT', $url, [
 				'headers' => $headers,
 				'body' => $body,
+				'max_redirects' => self::MAX_REDIRECTS,
+				'timeout' => self::REQUEST_TIMEOUT_SECONDS,
 			]);
 
 			$status = $response->getStatusCode();
@@ -195,6 +199,8 @@ final class S3AssetStorage implements AssetStorageInterface
 
 		$response = $this->httpClient->request('GET', $url, [
 			'headers' => $headers,
+			'max_redirects' => self::MAX_REDIRECTS,
+			'timeout' => self::REQUEST_TIMEOUT_SECONDS,
 		]);
 
 		$status = $response->getStatusCode();
@@ -244,6 +250,8 @@ final class S3AssetStorage implements AssetStorageInterface
 
 		$response = $this->httpClient->request('HEAD', $url, [
 			'headers' => $headers,
+			'max_redirects' => self::MAX_REDIRECTS,
+			'timeout' => self::REQUEST_TIMEOUT_SECONDS,
 		]);
 
 		$status = $response->getStatusCode();
@@ -272,6 +280,8 @@ final class S3AssetStorage implements AssetStorageInterface
 
 		$response = $this->httpClient->request('HEAD', $url, [
 			'headers' => $headers,
+			'max_redirects' => self::MAX_REDIRECTS,
+			'timeout' => self::REQUEST_TIMEOUT_SECONDS,
 		]);
 
 		$status = $response->getStatusCode();
@@ -303,6 +313,8 @@ final class S3AssetStorage implements AssetStorageInterface
 
 		$response = $this->httpClient->request('DELETE', $url, [
 			'headers' => $headers,
+			'max_redirects' => self::MAX_REDIRECTS,
+			'timeout' => self::REQUEST_TIMEOUT_SECONDS,
 		]);
 
 		$status = $response->getStatusCode();
@@ -436,6 +448,8 @@ final class S3AssetStorage implements AssetStorageInterface
 
 		$headResponse = $this->httpClient->request('HEAD', $bucketUrl, [
 			'headers' => $headHeaders,
+			'max_redirects' => self::MAX_REDIRECTS,
+			'timeout' => self::REQUEST_TIMEOUT_SECONDS,
 		]);
 		$headStatus = $headResponse->getStatusCode();
 		$headOk = $headStatus >= 200 && $headStatus < 300;

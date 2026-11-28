@@ -172,4 +172,78 @@ final class SeoMediaAssetTest extends TestCase
 		self::assertNull($metadata['openGraph']['imageHeight']);
 		self::assertSame('', $metadata['openGraph']['imageAlt']);
 	}
+
+	public function testSeoMetadataResolverHidesExpiredMakePrivateAssetAndRejectsNullSite(): void
+	{
+		$site = new Site();
+		(new \ReflectionProperty(DbObject::class, 'id'))->setValue($site, 3);
+
+		$expiredAsset = new UploadedDigitalAsset('Expired', 'image/jpeg', str_repeat('7', 64));
+		(new \ReflectionProperty(DbObject::class, 'id'))->setValue($expiredAsset, 100);
+		$expiredAsset->setVisibility('public')
+			->setExpiresAt(new \DateTimeImmutable('-1 hour'))
+			->setExpiryAction('make_private');
+
+		$assetRepo = $this->createMock(DigitalAssetRepository::class);
+		$assetRepo->method('findAccessibleToSite')->willReturn($expiredAsset);
+		$assetRepo->expects(self::never())->method('find');
+
+		$settings = new ContentOptimizationSettings();
+		$resolver = new SeoMetadataResolver($settings, new PageSeoSettingsNormalizer(), $assetRepo);
+
+		$expiredMetadata = $resolver->resolve(
+			$settings->defaults(),
+			[],
+			['iikiti_content_optimization_og_image' => ['source' => 'asset', 'assetId' => 100]],
+			'Expired Page',
+			'https://example.test/expired',
+			'Example Site',
+			$site,
+		);
+		self::assertSame('', $expiredMetadata['openGraph']['image']);
+
+		// Null site must never fall back to unscoped repository->find().
+		$nullSiteMetadata = $resolver->resolve(
+			$settings->defaults(),
+			[],
+			['iikiti_content_optimization_og_image' => ['source' => 'asset', 'assetId' => 100]],
+			'No Site Page',
+			'https://example.test/no-site',
+			'Example Site',
+			null,
+		);
+		self::assertSame('', $nullSiteMetadata['openGraph']['image']);
+	}
+
+	public function testNullAndEmptyMediaValuesNormalizeToEmptyString(): void
+	{
+		$normalizer = new PageSeoSettingsNormalizer();
+		$normalized = $normalizer->normalize([
+			'iikiti_content_optimization_og_image' => null,
+			'iikiti_content_optimization_twitter_image' => ['source' => 'empty'],
+		]);
+		self::assertSame('', $normalized['iikiti_content_optimization_og_image']);
+		self::assertSame('', $normalized['iikiti_content_optimization_twitter_image']);
+
+		$settings = new ContentOptimizationSettings();
+		$input = json_decode((string) json_encode([
+			'version' => 1,
+			'seo' => [
+				'titleTemplate' => '{pageTitle} | {siteName}',
+				'defaultDescription' => '',
+				'defaultSocialImage' => null,
+				'defaultRobots' => ['index' => 'index', 'follow' => 'follow'],
+			],
+			'sitemap' => ['enabled' => true],
+			'crawlers' => ['aiAccess' => 'allow'],
+			'analytics' => [
+				'ga4' => ['enabled' => false, 'measurementId' => ''],
+				'clarity' => ['enabled' => false, 'projectId' => ''],
+				'connectors' => new \stdClass(),
+			],
+		], JSON_THROW_ON_ERROR));
+
+		$validated = $settings->validateApplicationSettings($input);
+		self::assertSame('', $validated['seo']['defaultSocialImage']);
+	}
 }

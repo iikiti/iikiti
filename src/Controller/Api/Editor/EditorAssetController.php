@@ -60,7 +60,7 @@ final class EditorAssetController extends AppController
 
 		try {
 			$requestedLocale = $this->requestedLocale($request);
-			$criteria = DigitalAssetFilterCriteria::fromRequest($request, 24, 100);
+			$criteria = DigitalAssetFilterCriteria::fromRequest($request, 24, 100)->withoutFacet('siteId');
 		} catch (\InvalidArgumentException $exception) {
 			return $this->json(['error' => $exception->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
 		}
@@ -214,6 +214,7 @@ final class EditorAssetController extends AppController
 		if ('' === $duplicatePolicy) {
 			$duplicatePolicy = DigitalAssetManager::DUPLICATE_POLICY_ALLOW;
 		}
+		$requestParams = $request->request->all();
 
 		try {
 			$asset = $manager->createUploadForSite(
@@ -223,7 +224,7 @@ final class EditorAssetController extends AppController
 				$site,
 				$user,
 				$folderId,
-				$this->idList($request->request->get('tagIds', '')),
+				$this->idList($requestParams['tagIds'] ?? ''),
 				$duplicatePolicy,
 			);
 		} catch (DuplicateAssetException $exception) {

@@ -21,6 +21,9 @@ abstract class AbstractDigitalAsset extends DbObject
 {
 	public const SITE_SPECIFIC = false;
 
+	public const VISIBILITY_PUBLIC = 'public';
+	public const VISIBILITY_PRIVATE = 'private';
+
 	public const EXPIRY_ACTION_ALERT = 'alert';
 	public const EXPIRY_ACTION_MAKE_PRIVATE = 'make_private';
 

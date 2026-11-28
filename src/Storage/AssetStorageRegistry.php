@@ -6,12 +6,13 @@ namespace iikiti\CMS\Storage;
 
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Collects {@see AssetStorageProviderInterface} drivers and resolves the configured
  * active storage backend (`ASSET_STORAGE_DRIVER`, defaulting to `local`).
  */
-final class AssetStorageRegistry
+final class AssetStorageRegistry implements ResetInterface
 {
 	/** @var array<string,AssetStorageProviderInterface> */
 	private array $providers = [];
@@ -81,5 +82,10 @@ final class AssetStorageRegistry
 	public function getDrivers(): array
 	{
 		return array_values(array_keys($this->providers));
+	}
+
+	public function reset(): void
+	{
+		$this->instances = [];
 	}
 }

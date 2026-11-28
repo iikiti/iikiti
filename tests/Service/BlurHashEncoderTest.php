@@ -116,4 +116,21 @@ final class BlurHashEncoderTest extends TestCase
 		$this->expectException(\InvalidArgumentException::class);
 		$this->encoder->encode([[[0, 0, 0]]], 1, 1, 10, 3);
 	}
+
+	public function testRejectsOversizedImageDimensionsBeforeGdDecoding(): void
+	{
+		// Minimal valid PNG signature + IHDR chunk claiming 10000x10000 = 100M pixels (> MAX_PIXELS 50M).
+		$ihdrData = pack('NNCCCCC', 10000, 10000, 8, 2, 0, 0, 0);
+		$ihdrChunk = pack('N', strlen($ihdrData)).'IHDR'.$ihdrData.pack('N', crc32('IHDR'.$ihdrData));
+		$iendChunk = pack('N', 0).'IEND'.pack('N', crc32('IEND'));
+		$fakeBombPng = "\x89PNG\r\n\x1a\n".$ihdrChunk.$iendChunk;
+
+		$path = sys_get_temp_dir().'/iikiti-blurhash-bomb-'.bin2hex(random_bytes(6)).'.png';
+		try {
+			file_put_contents($path, $fakeBombPng);
+			self::assertNull($this->encoder->encodeFromImageFile($path));
+		} finally {
+			@unlink($path);
+		}
+	}
 }

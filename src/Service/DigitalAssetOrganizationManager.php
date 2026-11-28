@@ -193,14 +193,31 @@ final class DigitalAssetOrganizationManager
 			throw new AccessDeniedHttpException('You cannot manage folders shared with sites you do not administer.');
 		}
 
+		$folderPath = $folder->getPath();
+		$directChildren = $this->folders->findChildren($folder);
+		$descendants = $this->folders->findDescendantsByPathPrefix($folderPath);
+		foreach ([...$directChildren, ...$descendants] as $descendant) {
+			if ($this->isSameEntity($descendant, $folder)) {
+				continue;
+			}
+			if (!$this->canManageFolder($user, $descendant)) {
+				throw new AccessDeniedHttpException('You cannot delete a folder containing subfolders shared with sites you do not administer.');
+			}
+		}
+
 		$before = $this->serializeFolder($folder);
 		$folderId = $folder->getId();
 		$folderName = $folder->getName();
-		$folderPath = $folder->getPath();
 
-		// Promote direct children to root and cascade updated paths before deleting.
-		foreach ($this->folders->findChildren($folder) as $child) {
+		// Promote direct children to root (resolving any root slug collisions) and cascade updated paths before deleting.
+		$claimedRootSlugs = [];
+		foreach ($directChildren as $child) {
 			$childOldPath = $child->getPath();
+			$resolvedSlug = $this->resolveUniquePromotedRootSlug($child, $folder, $claimedRootSlugs);
+			$claimedRootSlugs[$resolvedSlug] = true;
+			if ($resolvedSlug !== $child->getSlug()) {
+				$child->setSlug($resolvedSlug);
+			}
 			$child->setParent(null);
 			$childNewPath = $child->getPath();
 			if ($childNewPath !== $childOldPath) {
@@ -300,11 +317,33 @@ final class DigitalAssetOrganizationManager
 		return $collection;
 	}
 
+	public function canManageCollection(User $user, DigitalAssetCollection $collection): bool
+	{
+		if ($this->accessPolicy->isGlobalAdmin($user)) {
+			return true;
+		}
+		$userId = $user->getId();
+		if (null === $userId || (string) $collection->getCreatorId() !== (string) $userId) {
+			return false;
+		}
+		foreach ($collection->getAssets() as $asset) {
+			if (!$this->accessPolicy->canManageAsset($user, $asset)) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
 	/**
 	 * @param array<string,mixed> $payload
 	 */
 	public function updateCollection(DigitalAssetCollection $collection, array $payload, User $user): DigitalAssetCollection
 	{
+		if (!$this->accessPolicy->isGlobalAdmin($user)) {
+			throw new AccessDeniedHttpException('Only global administrators can update global collections.');
+		}
+
 		$before = $this->serializeCollection($collection);
 
 		$nameProvided = array_key_exists('name', $payload);
@@ -339,6 +378,10 @@ final class DigitalAssetOrganizationManager
 
 	public function deleteCollection(DigitalAssetCollection $collection, User $user): void
 	{
+		if (!$this->accessPolicy->isGlobalAdmin($user)) {
+			throw new AccessDeniedHttpException('Only global administrators can delete global collections.');
+		}
+
 		$before = $this->serializeCollection($collection);
 		$id = $collection->getId();
 		$name = $collection->getName();
@@ -357,7 +400,8 @@ final class DigitalAssetOrganizationManager
 	}
 
 	/**
-	 * Adds one or more assets to `$collection`, enforcing `canManageAsset` on every asset.
+	 * Adds one or more assets to `$collection`, enforcing collection manageability
+	 * and `canManageAsset` on every asset.
 	 *
 	 * @param list<mixed> $assetIds
 	 *
@@ -365,6 +409,10 @@ final class DigitalAssetOrganizationManager
 	 */
 	public function addAssetsToCollection(DigitalAssetCollection $collection, array $assetIds, User $user): array
 	{
+		if (!$this->canManageCollection($user, $collection)) {
+			throw new AccessDeniedHttpException('You cannot modify collections you do not administer.');
+		}
+
 		$normalizedIds = $this->normalizePositiveIdList($assetIds, 'assetIds');
 		if ([] === $normalizedIds) {
 			throw new \InvalidArgumentException('At least one asset ID is required.');
@@ -405,6 +453,9 @@ final class DigitalAssetOrganizationManager
 
 	public function removeAssetFromCollection(DigitalAssetCollection $collection, AbstractDigitalAsset $asset, User $user): void
 	{
+		if (!$this->canManageCollection($user, $collection)) {
+			throw new AccessDeniedHttpException('You cannot modify collections you do not administer.');
+		}
 		if (!$this->accessPolicy->canManageAsset($user, $asset)) {
 			throw new AccessDeniedHttpException('You cannot manage assets shared with sites you do not administer.');
 		}
@@ -474,6 +525,10 @@ final class DigitalAssetOrganizationManager
 	 */
 	public function updateTag(DigitalAssetTag $tag, array $payload, User $user): DigitalAssetTag
 	{
+		if (!$this->accessPolicy->isGlobalAdmin($user)) {
+			throw new AccessDeniedHttpException('Only global administrators can update global tags.');
+		}
+
 		$before = $this->serializeTag($tag);
 
 		$nameProvided = array_key_exists('name', $payload);
@@ -512,6 +567,10 @@ final class DigitalAssetOrganizationManager
 
 	public function deleteTag(DigitalAssetTag $tag, User $user): void
 	{
+		if (!$this->accessPolicy->isGlobalAdmin($user)) {
+			throw new AccessDeniedHttpException('Only global administrators can delete global tags.');
+		}
+
 		$before = $this->serializeTag($tag);
 		$id = $tag->getId();
 		$label = $tag->getNamespace().':'.$tag->getSlug();
@@ -552,10 +611,14 @@ final class DigitalAssetOrganizationManager
 	}
 
 	/** @return array<string,mixed> */
-	public function serializeCollection(DigitalAssetCollection $collection): array
+	public function serializeCollection(DigitalAssetCollection $collection, ?User $viewer = null): array
 	{
+		$scopeToViewer = $viewer instanceof User && !$this->accessPolicy->isGlobalAdmin($viewer);
 		$assetIds = [];
 		foreach ($collection->getAssets() as $asset) {
+			if ($scopeToViewer && !$this->accessPolicy->canManageAsset($viewer, $asset)) {
+				continue;
+			}
 			$id = $asset->getId();
 			if (null !== $id) {
 				$assetIds[] = $id;
@@ -675,6 +738,34 @@ final class DigitalAssetOrganizationManager
 		if ($existing instanceof DigitalAssetFolder && (null === $ignore || !$this->isSameEntity($existing, $ignore))) {
 			throw new \InvalidArgumentException(sprintf('A folder with slug "%s" already exists in this parent folder.', $slug));
 		}
+	}
+
+	/**
+	 * @param array<string,bool> $claimedRootSlugs
+	 */
+	private function resolveUniquePromotedRootSlug(
+		DigitalAssetFolder $child,
+		DigitalAssetFolder $deletingParent,
+		array $claimedRootSlugs,
+	): string {
+		$baseSlug = $child->getSlug();
+		$candidate = $baseSlug;
+		for ($suffix = 2; $suffix <= 1002; ++$suffix) {
+			if (!isset($claimedRootSlugs[$candidate])) {
+				$existing = $this->folders->findByParentAndSlug(null, $candidate);
+				if (
+					!$existing instanceof DigitalAssetFolder
+					|| $this->isSameEntity($existing, $child)
+					|| $this->isSameEntity($existing, $deletingParent)
+				) {
+					return $candidate;
+				}
+			}
+			$suffixStr = '-'.$suffix;
+			$candidate = mb_substr($baseSlug, 0, max(1, 255 - strlen($suffixStr))).$suffixStr;
+		}
+
+		throw new \InvalidArgumentException(sprintf('Unable to allocate a unique root slug for promoted folder "%s".', $baseSlug));
 	}
 
 	private function assertUniqueCollectionSlug(string $slug, ?DigitalAssetCollection $ignore): void

@@ -173,6 +173,7 @@
   .admin-badge-primary { @apply bg-primary-subtle text-primary; }
   .admin-badge-accent { @apply bg-accent-subtle text-accent; }
   .admin-badge-info { @apply bg-info-subtle text-info; }
+  .admin-badge-success { @apply bg-success-subtle text-success; }
   .admin-badge-warning { @apply bg-warning-subtle text-warning; }
   .admin-badge-danger { @apply bg-danger-subtle text-danger; }
   .admin-badge-outline {

@@ -246,9 +246,19 @@ final class DigitalAssetManager
 		$asset->setStorageKey($storageKey);
 
 		try {
-			$this->entityManager->persist($asset);
-			$this->entityManager->flush();
-			$this->versionManager?->recordInitialVersion($asset, $creator);
+			$persistInitialUpload = function () use ($asset, $creator): void {
+				$this->entityManager->persist($asset);
+				$this->entityManager->flush();
+				$this->versionManager?->recordInitialVersion($asset, $creator);
+			};
+			$executedInTransaction = false;
+			$this->entityManager->wrapInTransaction(static function () use (&$executedInTransaction, $persistInitialUpload): void {
+				$executedInTransaction = true;
+				$persistInitialUpload();
+			});
+			if (!$executedInTransaction) {
+				$persistInitialUpload();
+			}
 		} catch (\Throwable $exception) {
 			$this->storage->delete($storageKey);
 			throw $exception;

@@ -12,7 +12,6 @@ use iikiti\CMS\Entity\DbObject;
 use iikiti\CMS\Entity\Object\Site;
 use iikiti\CMS\Entity\Object\UploadedDigitalAsset;
 use iikiti\CMS\Entity\Object\User;
-use iikiti\CMS\Entity\Workflow\WorkflowInstance;
 use iikiti\CMS\Exception\AssetInUseException;
 use iikiti\CMS\Exception\DuplicateAssetException;
 use iikiti\CMS\Registry\SiteRegistry;

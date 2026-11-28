@@ -98,9 +98,16 @@
 			});
 		}
 		if (filters.licenseStatus) {
+			const licenseLabels: Record<string, string> = {
+				valid: 'Valid license',
+				expiring_or_expired: 'Expiring / Expired',
+				expiring_soon: 'Expiring soon',
+				expired: 'Expired',
+				missing: 'No license',
+			};
 			chips.push({
 				key: 'license',
-				label: `License: ${filters.licenseStatus.replace(/_/g, ' ')}`,
+				label: `License: ${licenseLabels[filters.licenseStatus] ?? filters.licenseStatus.replace(/_/g, ' ')}`,
 				clear: () => onUpdateFilters({ licenseStatus: '' }),
 			});
 		}
@@ -269,6 +276,7 @@
 			>
 				<option value="">All rights</option>
 				<option value="valid">Valid license</option>
+				<option value="expiring_or_expired">Expiring / Expired</option>
 				<option value="expiring_soon">Expiring soon</option>
 				<option value="expired">Expired</option>
 				<option value="missing">No license</option>

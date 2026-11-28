@@ -7,11 +7,13 @@ namespace iikiti\Extension\StorageS3\Controller\Api\Admin;
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Audit\AuditRecorder;
 use iikiti\CMS\Entity\Object\Application;
+use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Plugin\Attribute\RequiresPlugin;
 use iikiti\CMS\Registry\ApplicationRegistry;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\Object\ApplicationRepository;
 use iikiti\CMS\Secrets\SecretsApi;
+use iikiti\CMS\Security\SiteAccessPolicy;
 use iikiti\CMS\Storage\AssetMimeTypeRegistry;
 use iikiti\CMS\Storage\AssetStorageRegistry;
 use iikiti\Extension\StorageS3\Service\AwsSigV4Signer;
@@ -62,6 +64,7 @@ final class StorageS3AdminController extends AbstractController
 		private readonly AwsSigV4Signer $signer,
 		#[Autowire('%kernel.cache_dir%')]
 		private readonly string $cacheDirectory,
+		private readonly SiteAccessPolicy $siteAccessPolicy,
 		private readonly ?AssetMimeTypeRegistry $mimeRegistry = null,
 		private readonly ?AuditRecorder $auditRecorder = null,
 	) {
@@ -70,7 +73,7 @@ final class StorageS3AdminController extends AbstractController
 	#[Route('/api/admin/plugins/iikiti-storage-s3/config', name: 'api_admin_plugin_storage_s3_config_get', methods: ['GET'])]
 	public function getConfig(): JsonResponse
 	{
-		$this->denyAccessUnlessGranted('ROLE_ADMIN');
+		$this->requireGlobalAdmin();
 
 		$application = $this->resolveApplication();
 		$config = $this->configResolver->resolveForApplication($application);
@@ -86,7 +89,7 @@ final class StorageS3AdminController extends AbstractController
 	#[Route('/api/admin/plugins/iikiti-storage-s3/config', name: 'api_admin_plugin_storage_s3_config_put', methods: ['PUT'])]
 	public function updateConfig(Request $request): JsonResponse
 	{
-		$this->denyAccessUnlessGranted('ROLE_ADMIN');
+		$this->requireGlobalAdmin();
 
 		$application = $this->resolveApplication();
 		$existing = $this->configResolver->resolveForApplication($application);
@@ -137,7 +140,7 @@ final class StorageS3AdminController extends AbstractController
 	#[Route('/api/admin/plugins/iikiti-storage-s3/test', name: 'api_admin_plugin_storage_s3_test', methods: ['POST'])]
 	public function testConnection(Request $request): JsonResponse
 	{
-		$this->denyAccessUnlessGranted('ROLE_ADMIN');
+		$this->requireGlobalAdmin();
 
 		$writeProbe = true;
 		$rawContent = trim($request->getContent());
@@ -169,6 +172,15 @@ final class StorageS3AdminController extends AbstractController
 			], JsonResponse::HTTP_BAD_REQUEST);
 		}
 
+		try {
+			S3StorageConfig::assertSafeEndpointUrl($config->resolvedEndpoint(), 'endpoint', resolveDns: true);
+		} catch (\InvalidArgumentException $exception) {
+			return new JsonResponse([
+				'ok' => false,
+				'error' => $exception->getMessage(),
+			], JsonResponse::HTTP_BAD_REQUEST);
+		}
+
 		$storage = new S3AssetStorage(
 			config: $config,
 			httpClient: $this->httpClient,
@@ -190,6 +202,15 @@ final class StorageS3AdminController extends AbstractController
 		}
 
 		return new JsonResponse($result, $result['ok'] ? JsonResponse::HTTP_OK : JsonResponse::HTTP_BAD_GATEWAY);
+	}
+
+	private function requireGlobalAdmin(): void
+	{
+		$this->denyAccessUnlessGranted('ROLE_ADMIN');
+		$user = $this->getUser();
+		if (!$user instanceof User || !$this->siteAccessPolicy->isGlobalAdmin($user)) {
+			throw $this->createAccessDeniedException('Global administrator privileges are required to manage object storage configuration.');
+		}
 	}
 
 	private function resolveApplication(): Application
@@ -364,15 +385,7 @@ final class StorageS3AdminController extends AbstractController
 		if ('' === $url) {
 			return '';
 		}
-		$parts = parse_url($url);
-		if (!is_array($parts) || array_key_exists('user', $parts) || array_key_exists('pass', $parts)) {
-			throw new \InvalidArgumentException(sprintf('Field "%s" must be a valid HTTP(S) URL without embedded credentials.', $field));
-		}
-		$scheme = strtolower((string) ($parts['scheme'] ?? ''));
-		if (!in_array($scheme, ['http', 'https'], true) || empty($parts['host'])) {
-			throw new \InvalidArgumentException(sprintf('Field "%s" must be a valid HTTP(S) URL.', $field));
-		}
 
-		return $url;
+		return S3StorageConfig::assertSafeEndpointUrl($url, $field, resolveDns: true);
 	}
 }

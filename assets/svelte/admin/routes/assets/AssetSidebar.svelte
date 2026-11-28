@@ -31,7 +31,7 @@
 		onDeleteFolder: (folder: DigitalAssetFolder) => Promise<void>;
 		onCreateCollection: (payload: { name: string; description?: string }) => Promise<void>;
 		onDeleteCollection: (collection: DigitalAssetCollection) => Promise<void>;
-		onCreateTag: (payload: { name: string; color?: string }) => Promise<void>;
+		onCreateTag: (payload: { name: string }) => Promise<void>;
 		onDeleteTag: (tag: DigitalAssetTag) => Promise<void>;
 		onMoveAssetsToFolder: (assetIds: string[], folderId: string | null) => Promise<void>;
 		onAddAssetsToCollection: (assetIds: string[], collectionId: string) => Promise<void>;
@@ -83,7 +83,6 @@
 	// Inline tag creation
 	let creatingTag = $state(false);
 	let newTagName = $state('');
-	let newTagColor = $state('#A6613C');
 	let busyTag = $state(false);
 
 	const folderTree = $derived(buildFolderTree(folders));
@@ -94,6 +93,9 @@
 	const expiringCount = $derived.by(() => {
 		const map = facets?.licenseStatus ?? facets?.licenseStatuses;
 		if (!map) return null;
+		if (typeof map.expiring_or_expired === 'number') {
+			return map.expiring_or_expired;
+		}
 		const exp = Number(map.expiring_soon ?? map.expiring ?? 0);
 		const expired = Number(map.expired ?? 0);
 		return exp + expired;
@@ -228,7 +230,7 @@
 		if (!name || busyTag) return;
 		busyTag = true;
 		try {
-			await onCreateTag({ name, color: newTagColor || undefined });
+			await onCreateTag({ name });
 			newTagName = '';
 			creatingTag = false;
 		} finally {
@@ -658,12 +660,6 @@
 		{#if creatingTag}
 			<form class="flex items-center gap-1 px-1" onsubmit={(e) => void submitNewTag(e)}>
 				<input
-					type="color"
-					class="h-7 w-7 shrink-0 cursor-pointer rounded border border-border bg-surface p-0.5"
-					bind:value={newTagColor}
-					aria-label="Tag color"
-				/>
-				<input
 					type="text"
 					class="admin-input admin-input-sm flex-1 py-1 text-xs"
 					placeholder="Tag name…"
@@ -699,16 +695,12 @@
 							class="inline-flex items-center gap-1"
 							onclick={() => onToggleTag(tagId)}
 						>
-							{#if tag.color}
-								<span class="h-2 w-2 rounded-full" style={`background-color: ${tag.color}`}></span>
-							{:else}
-								<Icon name="tag" size={10} />
-							{/if}
+							<Icon name="tag" size={10} />
 							<span>{tag.name}</span>
 						</button>
 						<button
 							type="button"
-							class="ml-0.5 hidden rounded-full text-text-muted hover:text-danger group-hover:inline-flex"
+							class="ml-0.5 hidden rounded-full text-text-muted hover:text-danger group-hover:inline-flex group-focus-within:inline-flex"
 							title={`Delete tag ${tag.name}`}
 							aria-label={`Delete tag ${tag.name}`}
 							onclick={() => void onDeleteTag(tag)}

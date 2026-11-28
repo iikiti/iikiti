@@ -102,7 +102,25 @@
 		},
 		onChange: (next) => {
 			snapshot = next;
+			if (!open && !next.isActive && completedInSession > 0) {
+				const count = completedInSession;
+				completedInSession = 0;
+				queue.clearCompleted();
+				onUploadsComplete(count);
+			}
 		},
+	});
+
+	// Abort any active uploads if the component unmounts
+	$effect(() => {
+		return () => {
+			const current = queue.getSnapshot();
+			for (const item of current.items) {
+				if (item.status === 'queued' || item.status === 'hashing' || item.status === 'uploading') {
+					queue.cancel(item.id);
+				}
+			}
+		};
 	});
 
 	// Initialize default target settings when modal opens
@@ -159,8 +177,10 @@
 	}
 
 	function handleClose() {
-		if (completedInSession > 0 || snapshot.counts.done > 0) {
-			onUploadsComplete(Math.max(completedInSession, snapshot.counts.done));
+		if (completedInSession > 0) {
+			const count = completedInSession;
+			completedInSession = 0;
+			onUploadsComplete(count);
 		}
 		queue.clearCompleted();
 		onClose();
@@ -253,9 +273,7 @@
 										: 'border-border bg-surface text-text-muted hover:text-text'}"
 									onclick={() => toggleTag(tagId)}
 								>
-									{#if tag.color}
-										<span class="h-2 w-2 rounded-full" style={`background-color: ${tag.color}`}></span>
-									{/if}
+									<Icon name="tag" size={10} />
 									<span>{tag.name}</span>
 								</button>
 							{/each}
@@ -265,6 +283,19 @@
 			</div>
 
 			<!-- Dropzone area -->
+			<input
+				bind:this={fileInputEl}
+				type="file"
+				multiple
+				class="sr-only"
+				onchange={(e) => {
+					const files = e.currentTarget.files;
+					if (files && files.length > 0) {
+						enqueueFiles(files);
+						e.currentTarget.value = '';
+					}
+				}}
+			/>
 			<div
 				class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 text-center transition-colors {dropHover
 					? 'border-accent bg-accent-subtle/60'
@@ -292,19 +323,6 @@
 					}
 				}}
 			>
-				<input
-					bind:this={fileInputEl}
-					type="file"
-					multiple
-					class="sr-only"
-					onchange={(e) => {
-						const files = e.currentTarget.files;
-						if (files && files.length > 0) {
-							enqueueFiles(files);
-							e.currentTarget.value = '';
-						}
-					}}
-				/>
 				<div class="rounded-full bg-accent-subtle p-3 text-accent">
 					<Icon name="upload" size={22} />
 				</div>

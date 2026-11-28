@@ -462,6 +462,9 @@ final class ContentOptimizationSettings
 	private function socialImageField(\stdClass $object, string $field): string|array
 	{
 		$raw = $object->{$field} ?? null;
+		if (null === $raw) {
+			return '';
+		}
 		if (is_string($raw)) {
 			return $this->urlField($object, $field);
 		}

@@ -219,7 +219,9 @@
 		} else if (filters.processingStatus === 'failed' && !filters.folderId && !filters.collectionId) {
 			activeSmartView = 'failed';
 		} else if (
-			(filters.licenseStatus === 'expiring_soon' || filters.licenseStatus === 'expired') &&
+			(filters.licenseStatus === 'expiring_or_expired' ||
+				filters.licenseStatus === 'expiring_soon' ||
+				filters.licenseStatus === 'expired') &&
 			!filters.folderId &&
 			!filters.collectionId
 		) {
@@ -266,7 +268,7 @@
 		} else if (view === 'failed') {
 			base.processingStatus = 'failed';
 		} else if (view === 'expiring') {
-			base.licenseStatus = 'expiring_soon';
+			base.licenseStatus = 'expiring_or_expired';
 		}
 		filters = { ...filters, ...base };
 		page = 1;
@@ -404,7 +406,7 @@
 		}
 	}
 
-	async function handleCreateTag(payload: { name: string; color?: string }) {
+	async function handleCreateTag(payload: { name: string }) {
 		try {
 			await api.createAssetTag(payload);
 			await loadOrganization();
@@ -544,6 +546,10 @@
 
 	function onWindowDragLeave(event: DragEvent) {
 		if (uploadOpen || !isExternalFileDrag(event)) return;
+		if (event.relatedTarget === null) {
+			windowFileDragDepth = 0;
+			return;
+		}
 		windowFileDragDepth = Math.max(0, windowFileDragDepth - 1);
 	}
 
@@ -564,6 +570,8 @@
 	ondragover={onWindowDragOver}
 	ondragleave={onWindowDragLeave}
 	ondrop={onWindowDrop}
+	ondragend={() => (windowFileDragDepth = 0)}
+	onblur={() => (windowFileDragDepth = 0)}
 />
 
 <!-- Full-window file drop overlay -->
@@ -726,6 +734,15 @@
 			onClearSelection={() => {
 				selectedIds = new Set();
 				lastSelectedId = null;
+			}}
+			onPartialDelete={async (succeededIds, msg) => {
+				const removed = new Set(succeededIds.map(String));
+				selectedIds = new Set(Array.from(selectedIds).filter((id) => !removed.has(id)));
+				if (lastSelectedId && removed.has(lastSelectedId)) {
+					lastSelectedId = null;
+				}
+				showNotice(msg);
+				await Promise.all([loadOrganization(), loadAssets(page)]);
 			}}
 			onActionComplete={async (msg) => {
 				showNotice(msg);

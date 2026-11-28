@@ -264,4 +264,29 @@ final class AssetRenderResolverTest extends TestCase
 		self::assertSame('Hero image', $prefetched[101]['defaultAlt']);
 		self::assertCount(1, $prefetched[101]['variants']);
 	}
+
+	public function testResolveForRenderSanitizesImageBlockLinkAndBlocksDangerousSchemes(): void
+	{
+		$resolver = new AssetRenderResolver();
+
+		$xss = $resolver->resolveForRender('/media/hero.jpg', ['link' => 'javascript:alert(1)']);
+		self::assertNotNull($xss);
+		self::assertSame('', $xss['link']);
+
+		$dataUri = $resolver->resolveForRender('/media/hero.jpg', ['link' => 'data:text/html,<script>alert(1)</script>']);
+		self::assertNotNull($dataUri);
+		self::assertSame('', $dataUri['link']);
+
+		$protocolRelative = $resolver->resolveForRender('/media/hero.jpg', ['link' => '//evil.example/phish']);
+		self::assertNotNull($protocolRelative);
+		self::assertSame('', $protocolRelative['link']);
+
+		$relative = $resolver->resolveForRender('/media/hero.jpg', ['link' => '/blog/launch']);
+		self::assertNotNull($relative);
+		self::assertSame('/blog/launch', $relative['link']);
+
+		$https = $resolver->resolveForRender('/media/hero.jpg', ['link' => 'https://example.test/docs']);
+		self::assertNotNull($https);
+		self::assertSame('https://example.test/docs', $https['link']);
+	}
 }

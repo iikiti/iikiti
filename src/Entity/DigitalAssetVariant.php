@@ -97,9 +97,23 @@ class DigitalAssetVariant
 		return $this->storageKey;
 	}
 
+	public function setStorageKey(string $storageKey): static
+	{
+		$this->storageKey = $storageKey;
+
+		return $this;
+	}
+
 	public function getMimeType(): string
 	{
 		return $this->mimeType;
+	}
+
+	public function setMimeType(string $mimeType): static
+	{
+		$this->mimeType = $mimeType;
+
+		return $this;
 	}
 
 	public function getWidth(): ?int
@@ -107,14 +121,35 @@ class DigitalAssetVariant
 		return $this->width;
 	}
 
+	public function setWidth(?int $width): static
+	{
+		$this->width = $width;
+
+		return $this;
+	}
+
 	public function getHeight(): ?int
 	{
 		return $this->height;
 	}
 
+	public function setHeight(?int $height): static
+	{
+		$this->height = $height;
+
+		return $this;
+	}
+
 	public function getSize(): int|string
 	{
 		return $this->size;
+	}
+
+	public function setSize(int|string $size): static
+	{
+		$this->size = $size;
+
+		return $this;
 	}
 
 	public function getChecksum(): ?string

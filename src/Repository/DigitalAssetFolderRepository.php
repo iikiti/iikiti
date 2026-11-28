@@ -59,11 +59,9 @@ class DigitalAssetFolderRepository extends ObjectRepository
 
 		/** @var list<DigitalAssetFolder> $results */
 		$results = $this->createQueryBuilder('folder')->
-			innerJoin('folder.accessSites', 'manageableSite')->
-			leftJoin('folder.accessSites', 'allSite')->
-			andWhere('manageableSite.id IN (:siteIds)')->
-			groupBy('folder.id')->
-			having('COUNT(DISTINCT allSite.id) = COUNT(DISTINCT manageableSite.id)')->
+			andWhere(
+				'folder.id IN (SELECT mf.id FROM '.DigitalAssetFolder::class.' mf INNER JOIN mf.accessSites ms LEFT JOIN mf.accessSites ma WHERE ms.id IN (:siteIds) GROUP BY mf.id HAVING COUNT(DISTINCT ma.id) = COUNT(DISTINCT ms.id))'
+			)->
 			setParameter('siteIds', $siteIds)->
 			orderBy('folder.path', 'ASC')->
 			addOrderBy('folder.id', 'ASC')->

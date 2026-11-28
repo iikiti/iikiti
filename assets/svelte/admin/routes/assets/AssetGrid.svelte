@@ -43,10 +43,10 @@
 	}
 
 	function canShowImage(asset: DigitalAsset): boolean {
-		const idKey = String(asset.id);
-		if (brokenPreviews[idKey]) return false;
 		const src = previewSrc(asset);
 		if (!src) return false;
+		const key = `${String(asset.id)}:${src}`;
+		if (brokenPreviews[key]) return false;
 		return isImageMimeType(asset.mimeType) || Boolean(asset.thumbnailUrl || asset.previewUrl);
 	}
 
@@ -117,148 +117,133 @@
 				draggable="true"
 				ondragstart={(e) => handleDragStart(e, asset)}
 			>
-				<!-- Thumbnail stage -->
+				<!-- Top-left: Selection checkbox (sibling outside inspect button for valid interactive nesting) -->
 				<div
-					class="relative aspect-[4/3] w-full cursor-pointer overflow-hidden bg-bg"
-					style={asset.dominantColor ? `background-color: ${asset.dominantColor}` : undefined}
-					role="button"
-					tabindex="0"
+					class="absolute top-2 left-2 z-10 rounded-md bg-surface/90 p-1 shadow-sm backdrop-blur-xs transition-opacity {isSelected
+						? 'opacity-100'
+						: 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'}"
+				>
+					<input
+						type="checkbox"
+						class="block h-4 w-4 cursor-pointer accent-[var(--accent)]"
+						checked={isSelected}
+						aria-label={`Select ${asset.title}`}
+						onclick={(e) => {
+							e.stopPropagation();
+							onToggleSelect(idStr, e.shiftKey);
+						}}
+					/>
+				</div>
+
+				<!-- Full card inspect button (thumbnail + footer) -->
+				<button
+					type="button"
+					class="flex flex-1 cursor-pointer flex-col text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
 					aria-label={`Inspect ${asset.title}`}
 					onclick={() => onInspect(asset)}
-					onkeydown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							e.preventDefault();
-							onInspect(asset);
-						}
-					}}
 				>
-					{#if canShowImage(asset)}
-						<img
-							{src}
-							alt={asset.defaultAlt || asset.title}
-							loading="lazy"
-							class="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
-							style={`object-position: ${formatObjectPosition(asset.focalPoint)}`}
-							onerror={() => {
-								brokenPreviews = { ...brokenPreviews, [idStr]: true };
-							}}
-						/>
-					{:else}
-						<div class="flex h-full w-full items-center justify-center text-text-muted">
-							<Icon name={fallbackIcon(asset.mimeType)} size={36} />
-						</div>
-					{/if}
-
-					<!-- Top-left: Selection checkbox -->
+					<!-- Thumbnail stage -->
 					<div
-						class="absolute top-2 left-2 z-10 rounded-md bg-surface/90 p-1 shadow-sm backdrop-blur-xs transition-opacity {isSelected
-							? 'opacity-100'
-							: 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'}"
-						onclick={(e) => e.stopPropagation()}
-						role="presentation"
+						class="relative aspect-[4/3] w-full overflow-hidden bg-bg"
+						style={asset.dominantColor ? `background-color: ${asset.dominantColor}` : undefined}
 					>
-						<input
-							type="checkbox"
-							class="block h-4 w-4 cursor-pointer accent-[var(--accent)]"
-							checked={isSelected}
-							aria-label={`Select ${asset.title}`}
-							onclick={(e) => {
-								e.stopPropagation();
-								onToggleSelect(idStr, e.shiftKey);
-							}}
-						/>
-					</div>
+						{#if canShowImage(asset)}
+							<img
+								{src}
+								alt={asset.defaultAlt || asset.title}
+								loading="lazy"
+								class="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
+								style={`object-position: ${formatObjectPosition(asset.focalPoint)}`}
+								onerror={() => {
+									brokenPreviews = { ...brokenPreviews, [`${idStr}:${src}`]: true };
+								}}
+							/>
+						{:else}
+							<div class="flex h-full w-full items-center justify-center text-text-muted">
+								<Icon name={fallbackIcon(asset.mimeType)} size={36} />
+							</div>
+						{/if}
 
-					<!-- Top-right: Visibility + Format badge -->
-					<div class="pointer-events-none absolute top-2 right-2 flex items-center gap-1">
-						<span
-							class="inline-flex items-center rounded bg-black/65 p-1 text-white backdrop-blur-xs"
-							title={asset.visibility === 'public' ? 'Public' : 'Private'}
-						>
-							<Icon name={asset.visibility === 'public' ? 'globe' : 'lock'} size={11} />
-						</span>
-						{#if formatBadge}
-							<span class="rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-white backdrop-blur-xs">
-								{formatBadge}
+						<!-- Top-right: Visibility + Format badge -->
+						<div class="pointer-events-none absolute top-2 right-2 flex items-center gap-1">
+							<span
+								class="inline-flex items-center rounded bg-black/65 p-1 text-white backdrop-blur-xs"
+								title={asset.visibility === 'public' ? 'Public' : 'Private'}
+							>
+								<Icon name={asset.visibility === 'public' ? 'globe' : 'lock'} size={11} />
+							</span>
+							{#if formatBadge}
+								<span class="rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-white backdrop-blur-xs">
+									{formatBadge}
+								</span>
+							{/if}
+						</div>
+
+						<!-- Bottom-left: Non-complete processing status -->
+						{#if asset.processingStatus && asset.processingStatus !== 'complete'}
+							<div class="pointer-events-none absolute bottom-2 left-2">
+								<Badge status={asset.processingStatus === 'failed' ? 'danger' : 'warning'}>
+									{asset.processingStatus}
+								</Badge>
+							</div>
+						{/if}
+
+						<!-- Bottom-right: Duration pill for video/audio -->
+						{#if durationLabel}
+							<span class="pointer-events-none absolute right-2 bottom-2 rounded bg-black/75 px-1.5 py-0.5 text-[11px] font-medium text-white">
+								{durationLabel}
 							</span>
 						{/if}
 					</div>
 
-					<!-- Bottom-left: Non-complete processing status -->
-					{#if asset.processingStatus && asset.processingStatus !== 'complete'}
-						<div class="pointer-events-none absolute bottom-2 left-2">
-							<Badge status={asset.processingStatus === 'failed' ? 'danger' : 'warning'}>
-								{asset.processingStatus}
-							</Badge>
+					<!-- Card Footer -->
+					<div class="flex w-full flex-1 flex-col gap-1.5 p-2.5">
+						<div class="truncate text-sm font-medium text-text" title={asset.title}>
+							{asset.title}
 						</div>
-					{/if}
 
-					<!-- Bottom-right: Duration pill for video/audio -->
-					{#if durationLabel}
-						<span class="pointer-events-none absolute right-2 bottom-2 rounded bg-black/75 px-1.5 py-0.5 text-[11px] font-medium text-white">
-							{durationLabel}
-						</span>
-					{/if}
-				</div>
+						<div class="flex flex-wrap items-center gap-x-1.5 text-[11px] text-text-muted">
+							{#if asset.width && asset.height}
+								<span>{asset.width}×{asset.height}</span>
+								<span>·</span>
+							{/if}
+							<span>{asset.size ? formatBytes(asset.size) : asset.type === 'external' ? 'External URL' : '—'}</span>
+						</div>
 
-				<!-- Card Footer -->
-				<div
-					class="flex flex-1 cursor-pointer flex-col gap-1.5 p-2.5"
-					role="button"
-					tabindex="-1"
-					onclick={() => onInspect(asset)}
-					onkeydown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							e.preventDefault();
-							onInspect(asset);
-						}
-					}}
-				>
-					<div class="truncate text-sm font-medium text-text" title={asset.title}>
-						{asset.title}
-					</div>
+						{#if (asset.usageCount && asset.usageCount > 0) || expiryStatus === 'expiring' || expiryStatus === 'expired' || assetTags.length > 0}
+							<div class="mt-auto flex flex-wrap items-center gap-1 pt-1">
+								{#if asset.usageCount && asset.usageCount > 0}
+									<span
+										class="inline-flex items-center gap-0.5 rounded bg-info-subtle px-1.5 py-0.5 text-[10px] font-medium text-info"
+										title={`Used in ${asset.usageCount} place${asset.usageCount === 1 ? '' : 's'}`}
+									>
+										<Icon name="link" size={10} />
+										{asset.usageCount}
+									</span>
+								{/if}
 
-					<div class="flex flex-wrap items-center gap-x-1.5 text-[11px] text-text-muted">
-						{#if asset.width && asset.height}
-							<span>{asset.width}×{asset.height}</span>
-							<span>·</span>
+								{#if expiryStatus === 'expired'}
+									<span class="rounded bg-danger-subtle px-1.5 py-0.5 text-[10px] font-medium text-danger">
+										Expired
+									</span>
+								{:else if expiryStatus === 'expiring'}
+									<span class="rounded bg-warning-subtle px-1.5 py-0.5 text-[10px] font-medium text-warning">
+										Expiring
+									</span>
+								{/if}
+
+								{#each assetTags.slice(0, 2) as tag (String(tag.id))}
+									<span class="max-w-20 truncate rounded bg-bg px-1.5 py-0.5 text-[10px] text-text-muted">
+										{tag.name}
+									</span>
+								{/each}
+								{#if assetTags.length > 2}
+									<span class="text-[10px] text-text-muted">+{assetTags.length - 2}</span>
+								{/if}
+							</div>
 						{/if}
-						<span>{asset.size ? formatBytes(asset.size) : asset.type === 'external' ? 'External URL' : '—'}</span>
 					</div>
-
-					{#if (asset.usageCount && asset.usageCount > 0) || expiryStatus === 'expiring' || expiryStatus === 'expired' || assetTags.length > 0}
-						<div class="mt-auto flex flex-wrap items-center gap-1 pt-1">
-							{#if asset.usageCount && asset.usageCount > 0}
-								<span
-									class="inline-flex items-center gap-0.5 rounded bg-info-subtle px-1.5 py-0.5 text-[10px] font-medium text-info"
-									title={`Used in ${asset.usageCount} place${asset.usageCount === 1 ? '' : 's'}`}
-								>
-									<Icon name="link" size={10} />
-									{asset.usageCount}
-								</span>
-							{/if}
-
-							{#if expiryStatus === 'expired'}
-								<span class="rounded bg-danger-subtle px-1.5 py-0.5 text-[10px] font-medium text-danger">
-									Expired
-								</span>
-							{:else if expiryStatus === 'expiring'}
-								<span class="rounded bg-warning-subtle px-1.5 py-0.5 text-[10px] font-medium text-warning">
-									Expiring
-								</span>
-							{/if}
-
-							{#each assetTags.slice(0, 2) as tag (String(tag.id))}
-								<span class="max-w-20 truncate rounded bg-bg px-1.5 py-0.5 text-[10px] text-text-muted">
-									{tag.name}
-								</span>
-							{/each}
-							{#if assetTags.length > 2}
-								<span class="text-[10px] text-text-muted">+{assetTags.length - 2}</span>
-							{/if}
-						</div>
-					{/if}
-				</div>
+				</button>
 			</article>
 		{/each}
 	</div>

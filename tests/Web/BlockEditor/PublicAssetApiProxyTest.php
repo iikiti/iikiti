@@ -217,6 +217,41 @@ final class PublicAssetApiProxyTest extends TestCase
 		self::assertSame('bytes', $unsatisfiable->headers->get('Accept-Ranges'));
 	}
 
+	public function testProxiesHlsPlaylistAndRejectsInvalidSegments(): void
+	{
+		$token = str_repeat('f', 64);
+		$requested = [];
+		$client = new MockHttpClient(static function (string $method, string $url) use (&$requested): MockResponse {
+			$requested[] = [$method, $url];
+
+			return new MockResponse("#EXTM3U\n", [
+				'http_code' => 200,
+				'response_headers' => [
+					'Content-Type: application/vnd.apple.mpegurl',
+					'Content-Disposition: inline; filename="master.m3u8"',
+				],
+			]);
+		});
+		$api = new BusinessApiClient($client, 'https://api.example.test', 'test');
+		$proxy = new PublicAssetApiProxy(
+			$api,
+			new ApiSessionTokenProvider($api),
+			new FiberTaskRunner($client),
+			new GuestApiTokenManager('test-secret'),
+		);
+
+		$request = Request::create('https://www.example.test/assets/'.$token.'/hls/master.m3u8');
+		self::assertSame(404, $proxy->hls($request, $token, '../evil.m3u8')->getStatusCode());
+		self::assertSame(404, $proxy->hls($request, 'not-a-token', 'master.m3u8')->getStatusCode());
+		self::assertSame([], $requested);
+
+		$ok = $proxy->hls($request, $token, 'master.m3u8');
+		self::assertSame(200, $ok->getStatusCode());
+		self::assertSame("#EXTM3U\n", $ok->getContent());
+		self::assertSame('application/vnd.apple.mpegurl', $ok->headers->get('Content-Type'));
+		self::assertSame([['GET', 'https://api.example.test/api/public/assets/'.$token.'/hls/master.m3u8']], $requested);
+	}
+
 	/** @param array<array-key,mixed> $headers */
 	private static function header(array $headers, string $name): ?string
 	{

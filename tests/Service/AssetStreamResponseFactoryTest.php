@@ -135,6 +135,54 @@ final class AssetStreamResponseFactoryTest extends TestCase
 		self::assertStringContainsString('no-store', (string) $privateRedirect->headers->get('Cache-Control'));
 	}
 
+	public function testForcedInlineDowngradesNonInlineTypesToAttachmentAndAllowsInternalHlsOptIn(): void
+	{
+		$xmlKey = 'ab/'.str_repeat('1', 64).'.xml';
+		$pdfKey = 'ab/'.str_repeat('2', 64).'.pdf';
+		$txtKey = 'ab/'.str_repeat('3', 64).'.txt';
+		$pngKey = 'ab/'.str_repeat('4', 64).'.png';
+		$hlsKey = 'ab/'.str_repeat('5', 64).'.m3u8';
+		$tsKey = 'ab/'.str_repeat('6', 64).'.ts';
+
+		$storage = $this->createInMemoryRemoteStorage([
+			$xmlKey => '<root/>',
+			$pdfKey => '%PDF-1.7',
+			$txtKey => 'hello',
+			$pngKey => 'pngdata',
+			$hlsKey => "#EXTM3U\n",
+			$tsKey => 'tsdata',
+		]);
+		$factory = new AssetStreamResponseFactory($storage);
+		$req = Request::create('/assets/signed/test/original');
+
+		// XML, PDF, and text must downgrade forced inline to attachment.
+		$xmlResp = $factory->createResponse($req, $xmlKey, 'application/xml', 'feed.xml', 'private', null, 7, 'inline', true);
+		self::assertStringStartsWith('attachment;', (string) $xmlResp->headers->get('Content-Disposition'));
+
+		$textXmlResp = $factory->createResponse($req, $xmlKey, 'text/xml', 'feed.xml', 'private', null, 7, 'inline', true);
+		self::assertStringStartsWith('attachment;', (string) $textXmlResp->headers->get('Content-Disposition'));
+
+		$pdfResp = $factory->createResponse($req, $pdfKey, 'application/pdf', 'doc.pdf', 'private', null, 8, 'inline', true);
+		self::assertStringStartsWith('attachment;', (string) $pdfResp->headers->get('Content-Disposition'));
+
+		$txtResp = $factory->createResponse($req, $txtKey, 'text/plain', 'note.txt', 'private', null, 5, 'inline', true);
+		self::assertStringStartsWith('attachment;', (string) $txtResp->headers->get('Content-Disposition'));
+
+		// Inline-safe images remain inline when forced inline.
+		$pngResp = $factory->createResponse($req, $pngKey, 'image/png', 'pic.png', 'private', null, 7, 'inline', true);
+		self::assertStringStartsWith('inline;', (string) $pngResp->headers->get('Content-Disposition'));
+
+		// HLS playlists & segments are attachment by default, inline only when explicitly flagged.
+		$hlsDefault = $factory->createResponse($req, $hlsKey, 'application/vnd.apple.mpegurl', 'master.m3u8', 'public', null, 8, 'inline', false, false);
+		self::assertStringStartsWith('attachment;', (string) $hlsDefault->headers->get('Content-Disposition'));
+
+		$hlsOptIn = $factory->createResponse($req, $hlsKey, 'application/vnd.apple.mpegurl', 'master.m3u8', 'public', null, 8, null, false, true);
+		self::assertStringStartsWith('inline;', (string) $hlsOptIn->headers->get('Content-Disposition'));
+
+		$tsOptIn = $factory->createResponse($req, $tsKey, 'video/mp2t', '480p_seg_0000.ts', 'public', null, 6, null, false, true);
+		self::assertStringStartsWith('inline;', (string) $tsOptIn->headers->get('Content-Disposition'));
+	}
+
 	/**
 	 * @param array<string,string> $objects
 	 */

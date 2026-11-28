@@ -6,11 +6,13 @@ namespace iikiti\CMS\Controller;
 
 use iikiti\CMS\Entity\AbstractDigitalAsset;
 use iikiti\CMS\Entity\DigitalAssetVariant;
+use iikiti\CMS\Entity\DigitalAssetVersion;
 use iikiti\CMS\Entity\Object\ExternalDigitalAsset;
 use iikiti\CMS\Entity\Object\User;
 use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\DigitalAssetRepository;
 use iikiti\CMS\Repository\DigitalAssetVariantRepository;
+use iikiti\CMS\Repository\DigitalAssetVersionRepository;
 use iikiti\CMS\Security\MfaAuthenticationGate;
 use iikiti\CMS\Service\AssetSignedUrlService;
 use iikiti\CMS\Service\AssetStreamResponseFactory;
@@ -33,6 +35,7 @@ final class DigitalAssetFileController extends AbstractController
 		private readonly string $applicationRole,
 		private readonly AssetStreamResponseFactory $responseFactory,
 		private readonly AssetSignedUrlService $signedUrls,
+		private readonly ?DigitalAssetVersionRepository $versions = null,
 	) {
 	}
 
@@ -62,7 +65,7 @@ final class DigitalAssetFileController extends AbstractController
 			throw $this->createAccessDeniedException();
 		}
 
-		return $this->deliverAsset($request, $asset, $variant, $variants, null, false);
+		return $this->deliverAsset($request, $asset, $variant, $variants, null, false, null);
 	}
 
 	#[Route('/assets/signed/{publicToken}/{variant}', name: 'digital_asset_signed_file', defaults: ['variant' => 'original'], requirements: ['publicToken' => '[a-f0-9]{64}', 'variant' => '[a-z][a-z0-9_-]{0,63}'], methods: ['GET', 'HEAD'])]
@@ -115,7 +118,11 @@ final class DigitalAssetFileController extends AbstractController
 			throw $this->createNotFoundException();
 		}
 
-		return $this->deliverAsset($request, $asset, $variant, $variants, $disposition, true);
+		if ($asset->isExpired() && AbstractDigitalAsset::EXPIRY_ACTION_MAKE_PRIVATE === $asset->getExpiryAction()) {
+			throw $this->createAccessDeniedException('This asset license has expired.');
+		}
+
+		return $this->deliverAsset($request, $asset, $variant, $variants, $disposition, true, $version);
 	}
 
 	private function deliverAsset(
@@ -125,19 +132,47 @@ final class DigitalAssetFileController extends AbstractController
 		DigitalAssetVariantRepository $variants,
 		?string $forcedDisposition,
 		bool $isSigned,
+		?int $version = null,
 	): Response {
-		$effectiveVisibility = $asset->isEffectivelyPrivate() ? 'private' : $asset->getVisibility();
+		$effectiveVisibility = $asset->isEffectivelyPrivate()
+			? AbstractDigitalAsset::VISIBILITY_PRIVATE
+			: $asset->getVisibility();
 
 		if ($asset instanceof ExternalDigitalAsset) {
 			if (null === $asset->getExternalUri()) {
 				throw $this->createNotFoundException();
 			}
 			$redirect = $this->redirect($asset->getExternalUri(), Response::HTTP_FOUND);
-			if ($isSigned || 'private' === $effectiveVisibility) {
+			if ($isSigned || AbstractDigitalAsset::VISIBILITY_PRIVATE === $effectiveVisibility) {
 				$redirect->headers->set('Cache-Control', 'private, no-store');
 			}
 
 			return $redirect;
+		}
+
+		if (null !== $version) {
+			if ('original' !== $variant && $version !== $asset->getCurrentVersion()) {
+				throw $this->createNotFoundException();
+			}
+
+			$versionRecord = $this->versions?->findByAssetAndVersion($asset, $version);
+			if (!$versionRecord instanceof DigitalAssetVersion) {
+				throw $this->createNotFoundException();
+			}
+
+			if ('original' === $variant) {
+				return $this->responseFactory->createResponse(
+					$request,
+					$versionRecord->getStorageKey(),
+					$versionRecord->getMimeType(),
+					$versionRecord->getOriginalName(),
+					$effectiveVisibility,
+					$versionRecord->getChecksum(),
+					(int) $versionRecord->getSize(),
+					$forcedDisposition,
+					$isSigned,
+				);
+			}
 		}
 
 		if ('original' === $variant) {

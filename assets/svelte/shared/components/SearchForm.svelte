@@ -10,17 +10,22 @@
 	let { value = '', placeholder = 'Search…', onSearch }: Props = $props();
 
 	let inputValue = $state('');
-	let debounce: ReturnType<typeof setTimeout>;
+	let debounce: ReturnType<typeof setTimeout> | undefined;
 
 	$effect(() => {
-		inputValue = value;
+		inputValue = value ?? '';
 	});
 
 	$effect(() => {
+		const current = inputValue;
 		clearTimeout(debounce);
+		if (current === (value ?? '')) {
+			return () => clearTimeout(debounce);
+		}
 		debounce = setTimeout(() => {
-			onSearch?.(inputValue);
+			onSearch?.(current);
 		}, 300);
+		return () => clearTimeout(debounce);
 	});
 </script>
 

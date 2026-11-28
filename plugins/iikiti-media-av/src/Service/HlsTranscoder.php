@@ -262,24 +262,49 @@ final class HlsTranscoder
 			];
 
 			$oldStorageKeysToDelete = [];
+			/** @var array<string, DigitalAssetVariant> $existingHlsVariants */
+			$existingHlsVariants = [];
 			foreach ($this->variants->findByAsset($asset) as $existingVariant) {
 				if (str_starts_with($existingVariant->getKey(), 'hls_')) {
-					$oldStorageKeysToDelete[] = $existingVariant->getStorageKey();
-					$this->entityManager->remove($existingVariant);
+					$existingHlsVariants[$existingVariant->getKey()] = $existingVariant;
 				}
 			}
 
 			foreach ($newVariants as $variantKey => $artifact) {
-				$this->entityManager->persist(new DigitalAssetVariant(
-					$asset,
-					$variantKey,
-					$artifact['storageKey'],
-					$artifact['mimeType'],
-					$artifact['size'],
-					$artifact['width'],
-					$artifact['height'],
-					$artifact['checksum'],
-				));
+				if (isset($existingHlsVariants[$variantKey])) {
+					$existing = $existingHlsVariants[$variantKey];
+					$previousKey = $existing->getStorageKey();
+					if ($previousKey !== $artifact['storageKey']) {
+						$oldStorageKeysToDelete[] = $previousKey;
+					}
+					$existing->
+						setStorageKey($artifact['storageKey'])->
+						setMimeType($artifact['mimeType'])->
+						setSize($artifact['size'])->
+						setWidth($artifact['width'])->
+						setHeight($artifact['height'])->
+						setChecksum($artifact['checksum'])->
+						setFormat(null)->
+						setQuality(null)->
+						setFocalCrop(false);
+					unset($existingHlsVariants[$variantKey]);
+				} else {
+					$this->entityManager->persist(new DigitalAssetVariant(
+						$asset,
+						$variantKey,
+						$artifact['storageKey'],
+						$artifact['mimeType'],
+						$artifact['size'],
+						$artifact['width'],
+						$artifact['height'],
+						$artifact['checksum'],
+					));
+				}
+			}
+
+			foreach ($existingHlsVariants as $obsoleteVariant) {
+				$oldStorageKeysToDelete[] = $obsoleteVariant->getStorageKey();
+				$this->entityManager->remove($obsoleteVariant);
 			}
 
 			$metadata['hls'] = [

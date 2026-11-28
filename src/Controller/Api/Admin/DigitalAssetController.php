@@ -20,6 +20,7 @@ use iikiti\CMS\Registry\SiteRegistry;
 use iikiti\CMS\Repository\DigitalAssetFilterCriteria;
 use iikiti\CMS\Repository\DigitalAssetRepository;
 use iikiti\CMS\Repository\DigitalAssetVariantRepository;
+use iikiti\CMS\Repository\DigitalAssetVersionRepository;
 use iikiti\CMS\Repository\Object\SiteRepository;
 use iikiti\CMS\Service\AssetSignedUrlService;
 use iikiti\CMS\Service\AssetStreamResponseFactory;
@@ -233,14 +234,15 @@ final class DigitalAssetController extends AppController
 				}
 				$license = $decodedLicense;
 			}
+			$requestParams = $request->request->all();
 			$asset = $manager->createUpload(
 				$file,
 				(string) $request->request->get('title', ''),
 				(string) $request->request->get('visibility', 'private'),
-				$this->siteIds($request->request->get('siteIds', '')),
+				$this->siteIds($requestParams['siteIds'] ?? ''),
 				$user,
 				$folderId,
-				$this->idList($request->request->get('tagIds', ''), 'tagIds'),
+				$this->idList($requestParams['tagIds'] ?? '', 'tagIds'),
 				$duplicatePolicy,
 				$license,
 			);
@@ -626,6 +628,7 @@ final class DigitalAssetController extends AppController
 		SiteRepository $sites,
 		SiteRegistry $siteRegistry,
 		AssetSignedUrlService $signedUrls,
+		DigitalAssetVersionRepository $versions,
 		?AuditRecorder $auditRecorder = null,
 	): JsonResponse {
 		$user = $this->getUser();
@@ -670,6 +673,15 @@ final class DigitalAssetController extends AppController
 
 		if (!$site instanceof Site || !$accessPolicy->canManageSite($user, $site) || !$asset->grantsAccessTo($site)) {
 			return $this->json(['error' => 'Asset is not granted to the requested site.'], Response::HTTP_FORBIDDEN);
+		}
+
+		if (null !== $version) {
+			if ('original' !== $variant && $version !== $asset->getCurrentVersion()) {
+				return $this->json(['error' => 'Only the "original" variant can be signed for historical asset versions.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+			}
+			if (!$versions->findByAssetAndVersion($asset, $version) instanceof DigitalAssetVersion) {
+				return $this->json(['error' => 'Asset version not found.'], Response::HTTP_NOT_FOUND);
+			}
 		}
 
 		if ('original' !== $variant && !$variants->findByAssetAndKey($asset, $variant) instanceof DigitalAssetVariant) {

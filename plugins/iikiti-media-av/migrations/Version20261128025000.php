@@ -150,7 +150,7 @@ final class Version20261128025000 extends AbstractMigration
 
 		$this->addSql(
 			sprintf(
-				"INSERT INTO %s (definition_id, version, graph, policy_key, source_hash, created_by_user_id, created_at) SELECT d.id, 1, :graph::json, 'core.asset_processor', :source_hash, NULL, CURRENT_TIMESTAMP FROM %s d WHERE d.owner_type = 'plugin' AND d.owner_key = 'iikiti-media-av' AND d.workflow_key = :workflow_key ON CONFLICT (definition_id, version) DO NOTHING",
+				"INSERT INTO %s (definition_id, version, graph, policy_key, source_hash, created_by_user_id, created_at) SELECT d.id, 1, CAST(:graph AS JSON), 'core.asset_processor', :source_hash, NULL, CURRENT_TIMESTAMP FROM %s d WHERE d.owner_type = 'plugin' AND d.owner_key = 'iikiti-media-av' AND d.workflow_key = :workflow_key ON CONFLICT (definition_id, version) DO NOTHING",
 				$versionsTable,
 				$definitionsTable,
 			),
@@ -164,8 +164,16 @@ final class Version20261128025000 extends AbstractMigration
 
 	private function table(string $name): string
 	{
+		$quotedName = $this->connection->quoteSingleIdentifier($name);
 		$schema = $_ENV['DB_SCHEMA'] ?? $_SERVER['DB_SCHEMA'] ?? getenv('DB_SCHEMA');
+		if (!is_string($schema) || '' === trim($schema)) {
+			return $quotedName;
+		}
+		$trimmedSchema = trim($schema);
+		if (1 !== preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $trimmedSchema)) {
+			throw new \InvalidArgumentException(sprintf('Invalid DB_SCHEMA identifier "%s".', $trimmedSchema));
+		}
 
-		return is_string($schema) && '' !== $schema ? $schema.'.'.$name : $name;
+		return $this->connection->quoteSingleIdentifier($trimmedSchema).'.'.$quotedName;
 	}
 }

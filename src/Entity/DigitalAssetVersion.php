@@ -88,8 +88,24 @@ class DigitalAssetVersion
 		$this->height = $height;
 		$this->durationMs = $durationMs;
 		$this->changeNote = null !== $changeNote && '' !== trim($changeNote) ? trim($changeNote) : null;
-		$this->createdById = $createdById;
+		$this->createdById = self::normalizeCreatedById($createdById);
 		$this->createdAt = $createdAt ?? new \DateTimeImmutable();
+	}
+
+	public static function normalizeCreatedById(int|string|null $createdById): int|string|null
+	{
+		if (null === $createdById) {
+			return null;
+		}
+		if (is_int($createdById)) {
+			return $createdById > 0 ? $createdById : null;
+		}
+		$trimmed = trim($createdById);
+		if ('' === $trimmed || !ctype_digit($trimmed) || (int) $trimmed <= 0) {
+			return null;
+		}
+
+		return $trimmed;
 	}
 
 	public function getId(): int|string|null

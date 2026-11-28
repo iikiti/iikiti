@@ -5,14 +5,18 @@ declare(strict_types=1);
 namespace iikiti\CMS\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ParameterType;
 use Doctrine\Persistence\ManagerRegistry;
+use iikiti\CMS\Doctrine\DatabaseTableNameResolver;
 use iikiti\CMS\Entity\DigitalAssetUsage;
 
 /** @extends ServiceEntityRepository<DigitalAssetUsage> */
 class DigitalAssetUsageRepository extends ServiceEntityRepository
 {
-	public function __construct(ManagerRegistry $registry)
-	{
+	public function __construct(
+		ManagerRegistry $registry,
+		private readonly ?DatabaseTableNameResolver $tableNames = null,
+	) {
 		parent::__construct($registry, DigitalAssetUsage::class);
 	}
 
@@ -83,6 +87,14 @@ class DigitalAssetUsageRepository extends ServiceEntityRepository
 			return;
 		}
 
+		$usagesTable = $this->resolveTableName('digital_asset_usages');
+		$objectLookupTable = $this->resolveTableName('object_lookup');
+		$sql = sprintf(
+			"INSERT INTO %s (asset_id, context_type, context_id, field_path, is_draft, site_id, updated_at) SELECT ol.id, CAST(:contextType AS VARCHAR(32)), CAST(:contextId AS BIGINT), CAST(:fieldPath AS VARCHAR(255)), CAST(:isDraft AS BOOLEAN), CAST(:siteId AS BIGINT), CAST(:updatedAt AS TIMESTAMP) FROM %s ol WHERE ol.id = :assetId AND LOWER(ol.type) IN ('uploadeddigitalasset', 'externaldigitalasset')",
+			$usagesTable,
+			$objectLookupTable,
+		);
+
 		$now = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
 		$seen = [];
 		foreach ($usages as $row) {
@@ -101,7 +113,7 @@ class DigitalAssetUsageRepository extends ServiceEntityRepository
 			$seen[$dedupeKey] = true;
 
 			$connection->executeStatement(
-				'INSERT INTO digital_asset_usages (asset_id, context_type, context_id, field_path, is_draft, site_id, updated_at) SELECT :assetId, :contextType, :contextId, :fieldPath, :isDraft, :siteId, :updatedAt WHERE EXISTS (SELECT 1 FROM object_identity WHERE id = :assetId)',
+				$sql,
 				[
 					'assetId' => $assetId,
 					'contextType' => $normalizedType,
@@ -112,7 +124,10 @@ class DigitalAssetUsageRepository extends ServiceEntityRepository
 					'updatedAt' => $now,
 				],
 				[
-					'isDraft' => \Doctrine\DBAL\ParameterType::BOOLEAN,
+					'assetId' => ParameterType::INTEGER,
+					'contextId' => ParameterType::INTEGER,
+					'isDraft' => ParameterType::BOOLEAN,
+					'siteId' => ParameterType::INTEGER,
 				],
 			);
 		}
@@ -122,16 +137,30 @@ class DigitalAssetUsageRepository extends ServiceEntityRepository
 	{
 		$connection = $this->getEntityManager()->getConnection();
 		$connection->executeStatement(
-			'DELETE FROM digital_asset_usages WHERE context_type = :contextType AND context_id = :contextId',
+			sprintf('DELETE FROM %s WHERE context_type = :contextType AND context_id = :contextId', $this->resolveTableName('digital_asset_usages')),
 			[
 				'contextType' => strtolower(trim($contextType)),
 				'contextId' => (int) $contextId,
+			],
+			[
+				'contextId' => ParameterType::INTEGER,
 			],
 		);
 	}
 
 	public function deleteAll(): void
 	{
-		$this->getEntityManager()->getConnection()->executeStatement('DELETE FROM digital_asset_usages');
+		$this->getEntityManager()->getConnection()->executeStatement(
+			sprintf('DELETE FROM %s', $this->resolveTableName('digital_asset_usages')),
+		);
+	}
+
+	private function resolveTableName(string $table): string
+	{
+		if (null !== $this->tableNames) {
+			return $this->tableNames->resolve($table);
+		}
+
+		return $this->getEntityManager()->getConnection()->quoteSingleIdentifier($table);
 	}
 }

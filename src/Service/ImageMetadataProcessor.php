@@ -65,10 +65,22 @@ final class ImageMetadataProcessor implements DigitalAssetProcessorInterface
 				$asset->setHeight($extracted['height']);
 			}
 
-			$visual = $this->blurHashEncoder->encodeFromImageFile($source);
-			if (null !== $visual) {
-				$asset->setDominantColor($visual['dominantColor']);
-				$asset->setBlurhash($visual['blurhash']);
+			$extractedW = $extracted['width'];
+			$extractedH = $extracted['height'];
+			$withinBlurHashCap = null !== $extractedW
+				&& null !== $extractedH
+				&& $extractedW > 0
+				&& $extractedH > 0
+				&& $extractedW <= BlurHashEncoder::MAX_DIMENSION
+				&& $extractedH <= BlurHashEncoder::MAX_DIMENSION
+				&& ($extractedW * $extractedH) <= BlurHashEncoder::MAX_PIXELS;
+
+			if ($withinBlurHashCap) {
+				$visual = $this->blurHashEncoder->encodeFromImageFile($source);
+				if (null !== $visual) {
+					$asset->setDominantColor($visual['dominantColor']);
+					$asset->setBlurhash($visual['blurhash']);
+				}
 			}
 
 			if (null === $asset->getDefaultAlt() && null !== $extracted['suggestedAlt']) {

@@ -52,6 +52,10 @@ final class PageSeoSettingsNormalizer
 			}
 
 			$value = $settings[$key];
+			if (($rule['media'] ?? false) === true && null === $value) {
+				$normalized[$key] = '';
+				continue;
+			}
 			if (($rule['media'] ?? false) === true && is_array($value)) {
 				$normalized[$key] = $this->normalizeMediaObject($key, $value, $rule['maximumLength']);
 				continue;

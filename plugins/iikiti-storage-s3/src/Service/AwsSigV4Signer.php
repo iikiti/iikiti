@@ -338,6 +338,9 @@ final class AwsSigV4Signer
 
 	private function normalizeHeaderValue(string $value): string
 	{
+		if (str_contains($value, "\r") || str_contains($value, "\n")) {
+			throw new \InvalidArgumentException('AWS SigV4 header values must not contain CR or LF characters.');
+		}
 		$collapsed = preg_replace('/[ \t]+/', ' ', trim($value));
 
 		return is_string($collapsed) ? $collapsed : trim($value);

@@ -7,8 +7,11 @@ namespace iikiti\Extension\StorageS3\Command;
 use Doctrine\ORM\EntityManagerInterface;
 use iikiti\CMS\Entity\Object\UploadedDigitalAsset;
 use iikiti\CMS\Repository\DigitalAssetVariantRepository;
+use iikiti\CMS\Repository\DigitalAssetVersionRepository;
+use iikiti\CMS\Storage\AssetMimeTypeRegistry;
 use iikiti\CMS\Storage\AssetStorageInterface;
 use iikiti\CMS\Storage\AssetStorageRegistry;
+use iikiti\CMS\Storage\CoreAssetMimeTypeProvider;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -17,22 +20,28 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
- * Migrates uploaded digital asset originals and generated variants between
- * configured {@see AssetStorageInterface} drivers in keyset-paginated batches.
+ * Migrates uploaded digital asset originals, historical versions, and generated
+ * variants between configured {@see AssetStorageInterface} drivers in
+ * keyset-paginated batches.
  */
 #[AsCommand(
 	name: 'iikiti:asset:migrate-storage',
-	description: 'Migrate uploaded digital asset originals and variants between storage backends.',
+	description: 'Migrate uploaded digital asset originals, versions, and variants between storage backends.',
 )]
 final class MigrateAssetStorageCommand extends Command
 {
 	private const IN_MEMORY_BUFFER_BYTES = 2097152;
 
+	private readonly AssetMimeTypeRegistry $mimeRegistry;
+
 	public function __construct(
 		private readonly AssetStorageRegistry $storageRegistry,
 		private readonly EntityManagerInterface $entityManager,
 		private readonly DigitalAssetVariantRepository $variantRepository,
+		private readonly ?DigitalAssetVersionRepository $versionRepository = null,
+		?AssetMimeTypeRegistry $mimeRegistry = null,
 	) {
+		$this->mimeRegistry = $mimeRegistry ?? new AssetMimeTypeRegistry([new CoreAssetMimeTypeProvider()]);
 		parent::__construct();
 	}
 
@@ -96,6 +105,8 @@ final class MigrateAssetStorageCommand extends Command
 			'failed' => 0,
 		];
 
+		/** @var array<string,bool> $seenKeys */
+		$seenKeys = [];
 		$lastId = 0;
 		while (true) {
 			/** @var list<UploadedDigitalAsset> $assets */
@@ -120,10 +131,11 @@ final class MigrateAssetStorageCommand extends Command
 					$lastId = (int) $assetId;
 				}
 
-				/** @var list<array{label:string,key:string,mimeType:string,checksum:?string}> $objects */
+				/** @var list<array{label:string,key:string,mimeType:?string,checksum:?string}> $objects */
 				$objects = [];
 				$originalKey = $asset->getStorageKey();
-				if (null !== $originalKey && '' !== $originalKey) {
+				if (null !== $originalKey && '' !== $originalKey && !isset($seenKeys[$originalKey])) {
+					$seenKeys[$originalKey] = true;
 					$objects[] = [
 						'label' => sprintf('asset#%s (original)', (string) ($assetId ?? '?')),
 						'key' => $originalKey,
@@ -132,10 +144,31 @@ final class MigrateAssetStorageCommand extends Command
 					];
 				}
 
+				if (null !== $this->versionRepository) {
+					foreach ($this->versionRepository->findByAsset($asset) as $version) {
+						$versionKey = $version->getStorageKey();
+						if ('' === $versionKey || isset($seenKeys[$versionKey])) {
+							continue;
+						}
+						$seenKeys[$versionKey] = true;
+						$objects[] = [
+							'label' => sprintf('asset#%s (version:v%d)', (string) ($assetId ?? '?'), $version->getVersionNumber()),
+							'key' => $versionKey,
+							'mimeType' => $version->getMimeType(),
+							'checksum' => $version->getChecksum(),
+						];
+					}
+				}
+
 				foreach ($this->variantRepository->findByAsset($asset) as $variant) {
+					$variantKey = $variant->getStorageKey();
+					if ('' === $variantKey || isset($seenKeys[$variantKey])) {
+						continue;
+					}
+					$seenKeys[$variantKey] = true;
 					$objects[] = [
 						'label' => sprintf('asset#%s (variant:%s)', (string) ($assetId ?? '?'), $variant->getKey()),
-						'key' => $variant->getStorageKey(),
+						'key' => $variantKey,
 						'mimeType' => $variant->getMimeType(),
 						'checksum' => $variant->getChecksum(),
 					];
@@ -188,7 +221,7 @@ final class MigrateAssetStorageCommand extends Command
 	private function migrateObject(
 		string $label,
 		string $key,
-		string $mimeType,
+		?string $mimeType,
 		?string $storedChecksum,
 		AssetStorageInterface $sourceStorage,
 		AssetStorageInterface $targetStorage,
@@ -223,6 +256,10 @@ final class MigrateAssetStorageCommand extends Command
 				return;
 			}
 
+			$writeMimeType = (null !== $mimeType && '' !== trim($mimeType) && $this->mimeRegistry->isAllowed($mimeType))
+				? $mimeType
+				: null;
+
 			$computedSourceHash = null;
 			if (!$targetExists) {
 				$sourceStream = $sourceStorage->readStream($key);
@@ -230,12 +267,12 @@ final class MigrateAssetStorageCommand extends Command
 					if ($verifyChecksum) {
 						[$buffer, $computedSourceHash] = $this->bufferAndHashStream($sourceStream);
 						try {
-							$targetStorage->writeStream($key, $buffer, $mimeType);
+							$targetStorage->writeStream($key, $buffer, $writeMimeType);
 						} finally {
 							fclose($buffer);
 						}
 					} else {
-						$targetStorage->writeStream($key, $sourceStream, $mimeType);
+						$targetStorage->writeStream($key, $sourceStream, $writeMimeType);
 					}
 				} finally {
 					fclose($sourceStream);

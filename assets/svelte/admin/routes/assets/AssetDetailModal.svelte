@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import ModalDialog from '$components/ModalDialog.svelte';
 	import Tabs from '$components/Tabs.svelte';
 	import Icon from '$components/Icon.svelte';
@@ -85,6 +86,8 @@
 	let notice = $state('');
 	let error = $state('');
 	let copiedKey = $state('');
+	let detailSeq = 0;
+	let formDirty = $state(false);
 
 	// Overview form state
 	let title = $state('');
@@ -96,6 +99,7 @@
 	let focalX = $state(0.5);
 	let focalY = $state(0.5);
 	let focalCleared = $state(false);
+	let focalDirty = $state(false);
 
 	// Localization form state
 	let activeLocale = $state('en');
@@ -124,10 +128,12 @@
 	let currentVersionNumber = $state<number | null>(null);
 	let versions = $state<DigitalAssetVersion[]>([]);
 	let versionsError = $state('');
+	let replaceFileInput = $state<HTMLInputElement | null>(null);
 	let replaceFile = $state<File | null>(null);
 	let replaceChangeNote = $state('');
 	let replaceAllowMimeChange = $state(false);
 	let replacing = $state(false);
+	let downloadingVersion = $state<number | null>(null);
 	let rollingBackVersion = $state<number | null>(null);
 
 	// Rights & Licensing state
@@ -203,6 +209,7 @@
 
 	function hydrateFromAsset(next: DigitalAsset) {
 		currentAsset = next;
+		formDirty = false;
 		title = next.title ?? '';
 		visibility = next.visibility === 'public' ? 'public' : 'private';
 		externalUri = next.uri ?? '';
@@ -216,6 +223,7 @@
 		focalX = clampUnit(next.focalPoint?.x ?? 0.5);
 		focalY = clampUnit(next.focalPoint?.y ?? 0.5);
 		focalCleared = false;
+		focalDirty = false;
 
 		// Hydrate localized maps
 		const fallbackLoc = defaultLocale || supportedContentLocales[0] || 'en';
@@ -256,25 +264,33 @@
 	$effect(() => {
 		if (!open || !asset) {
 			lastHydratedId = '';
+			detailSeq += 1;
+			formDirty = false;
+			if (replaceFileInput) replaceFileInput.value = '';
 			return;
 		}
 		const idKey = String(asset.id);
 		if (idKey !== lastHydratedId) {
 			lastHydratedId = idKey;
-			activeTab = 'overview';
-			notice = '';
-			error = '';
-			signedResult = null;
-			usageLoadedForId = null;
-			versionsLoadedForId = null;
-			usages = [];
-			versions = [];
-			replaceFile = null;
-			replaceChangeNote = '';
-			replaceAllowMimeChange = false;
-			hydrateFromAsset(asset);
-			// Fetch freshest detail payload in background
-			void refreshAssetDetail(asset.id);
+			untrack(() => {
+				activeTab = 'overview';
+				notice = '';
+				error = '';
+				signedResult = null;
+				usageLoadedForId = null;
+				versionsLoadedForId = null;
+				usageError = '';
+				versionsError = '';
+				usages = [];
+				versions = [];
+				replaceFile = null;
+				replaceChangeNote = '';
+				replaceAllowMimeChange = false;
+				if (replaceFileInput) replaceFileInput.value = '';
+				hydrateFromAsset(asset);
+				// Fetch freshest detail payload in background
+				void refreshAssetDetail(asset.id);
+			});
 		}
 	});
 
@@ -282,18 +298,37 @@
 	$effect(() => {
 		if (!open || !currentAsset) return;
 		const idStr = String(currentAsset.id);
-		if (activeTab === 'usage' && usageLoadedForId !== idStr && !loadingUsage) {
-			void loadUsage(currentAsset.id);
-		} else if (activeTab === 'versions' && versionsLoadedForId !== idStr && !loadingVersions) {
-			void loadVersions(currentAsset.id);
+		const tab = activeTab;
+		if (tab === 'usage' && usageLoadedForId !== idStr && !loadingUsage) {
+			untrack(() => void loadUsage(currentAsset!.id));
+		} else if (tab === 'versions' && versionsLoadedForId !== idStr && !loadingVersions) {
+			untrack(() => void loadVersions(currentAsset!.id));
 		}
 	});
 
 	async function refreshAssetDetail(id: string | number) {
+		const seq = ++detailSeq;
 		try {
 			const fresh = await api.getDigitalAsset(id);
+			if (seq !== detailSeq || !open || String(asset?.id ?? '') !== String(id)) {
+				return;
+			}
 			if (fresh && String(fresh.id) === String(id)) {
-				hydrateFromAsset(fresh);
+				if (formDirty && currentAsset) {
+					currentAsset = {
+						...currentAsset,
+						variants: fresh.variants ?? currentAsset.variants,
+						mediaMetadata: fresh.mediaMetadata ?? currentAsset.mediaMetadata,
+						workflowInstances: fresh.workflowInstances ?? currentAsset.workflowInstances,
+						usageCount: fresh.usageCount ?? currentAsset.usageCount,
+						currentVersion: fresh.currentVersion ?? currentAsset.currentVersion,
+						processingStatus: fresh.processingStatus ?? currentAsset.processingStatus,
+						dominantColor: fresh.dominantColor ?? currentAsset.dominantColor,
+						blurhash: fresh.blurhash ?? currentAsset.blurhash,
+					};
+				} else {
+					hydrateFromAsset(fresh);
+				}
 			}
 		} catch {
 			// Keep already-loaded list record if detail fetch fails
@@ -309,12 +344,16 @@
 		focalX = Number(x.toFixed(3));
 		focalY = Number(y.toFixed(3));
 		focalCleared = false;
+		focalDirty = true;
+		formDirty = true;
 	}
 
 	function resetFocalPoint() {
 		focalX = 0.5;
 		focalY = 0.5;
 		focalCleared = true;
+		focalDirty = true;
+		formDirty = true;
 	}
 
 	async function saveOverview(event: SubmitEvent) {
@@ -334,10 +373,11 @@
 			if (currentAsset.type === 'external') {
 				payload.uri = externalUri.trim();
 			}
-			if (isImage) {
+			if (isImage && focalDirty) {
 				payload.focalPoint = focalCleared ? null : { x: focalX, y: focalY };
 			}
 			const updated = await api.updateDigitalAsset(currentAsset.id, payload);
+			detailSeq += 1;
 			hydrateFromAsset(updated);
 			onAssetUpdated(updated);
 			notice = 'Overview saved.';
@@ -360,6 +400,7 @@
 				defaultCaption: captionMap,
 				description: descMap,
 			});
+			detailSeq += 1;
 			hydrateFromAsset(updated);
 			onAssetUpdated(updated);
 			notice = 'Localized metadata saved.';
@@ -395,7 +436,7 @@
 		try {
 			const payload: Record<string, any> = {
 				variant: signedVariant || 'original',
-				ttlSeconds: Math.max(60, Number(signedTtl) || 3600),
+				ttlSeconds: Math.min(86400, Math.max(60, Number(signedTtl) || 3600)),
 				disposition: signedDisposition,
 			};
 			if (signedSiteId) payload.siteId = signedSiteId;
@@ -420,13 +461,13 @@
 	}
 
 	async function loadUsage(id: string | number) {
+		usageLoadedForId = String(id);
 		loadingUsage = true;
 		usageError = '';
 		try {
 			const data = await api.getDigitalAssetUsage(id);
 			usageCount = Number(data?.usageCount ?? (Array.isArray(data?.usages) ? data.usages.length : 0));
 			usages = Array.isArray(data?.usages) ? data.usages : [];
-			usageLoadedForId = String(id);
 		} catch (e: any) {
 			usageError = e?.message ?? 'Unable to load asset usage references.';
 		} finally {
@@ -435,17 +476,53 @@
 	}
 
 	async function loadVersions(id: string | number) {
+		versionsLoadedForId = String(id);
 		loadingVersions = true;
 		versionsError = '';
 		try {
 			const data = await api.getDigitalAssetVersions(id);
 			currentVersionNumber = data?.currentVersion ?? null;
 			versions = Array.isArray(data?.versions) ? data.versions : [];
-			versionsLoadedForId = String(id);
 		} catch (e: any) {
 			versionsError = e?.message ?? 'Unable to load asset versions.';
 		} finally {
 			loadingVersions = false;
+		}
+	}
+
+	async function downloadVersion(ver: DigitalAssetVersion) {
+		const targetUrl = ver.downloadUrl || ver.url;
+		if (!targetUrl || downloadingVersion !== null) return;
+		downloadingVersion = ver.versionNumber;
+		versionsError = '';
+		try {
+			const headers = api.getHeaders();
+			delete headers['Content-Type'];
+			const response = await fetch(targetUrl, {
+				method: 'GET',
+				credentials: 'same-origin',
+				headers,
+			});
+			if (!response.ok) {
+				const body = await response.json().catch(() => ({}));
+				throw new Error(body.error ?? body.title ?? `Download failed (${response.status})`);
+			}
+			const blob = await response.blob();
+			const objectUrl = URL.createObjectURL(blob);
+			try {
+				const link = document.createElement('a');
+				link.href = objectUrl;
+				link.download = ver.originalName || `${currentAsset?.title || 'asset'}-v${ver.versionNumber}`;
+				document.body.appendChild(link);
+				link.click();
+				link.remove();
+			} finally {
+				URL.revokeObjectURL(objectUrl);
+			}
+		} catch (e: any) {
+			versionsError = e?.message ?? 'Unable to download asset version.';
+		} finally {
+			downloadingVersion = null;
 		}
 	}
 
@@ -468,7 +545,9 @@
 			replaceFile = null;
 			replaceChangeNote = '';
 			replaceAllowMimeChange = false;
+			if (replaceFileInput) replaceFileInput.value = '';
 			if (updated?.id) {
+				detailSeq += 1;
 				hydrateFromAsset(updated);
 				onAssetUpdated(updated);
 			}
@@ -492,6 +571,7 @@
 				changeNote: `Rolled back to v${versionNumber}`,
 			});
 			if (updated?.id) {
+				detailSeq += 1;
 				hydrateFromAsset(updated);
 				onAssetUpdated(updated);
 			}
@@ -520,6 +600,7 @@
 				expiryAction: licenseExpiryAction,
 			};
 			const updated = await api.updateDigitalAsset(currentAsset.id, { license });
+			detailSeq += 1;
 			hydrateFromAsset(updated);
 			onAssetUpdated(updated);
 			notice = 'Rights & licensing saved.';
@@ -573,37 +654,62 @@
 								</div>
 
 								<div
-									class="relative cursor-crosshair overflow-hidden rounded-xl border border-border bg-bg select-none"
+									class="flex justify-center overflow-hidden rounded-xl border border-border bg-bg"
 									style={currentAsset.dominantColor ? `background-color: ${currentAsset.dominantColor}` : undefined}
-									role="button"
-									tabindex="0"
-									aria-label="Set image focal point"
-									onclick={handleFocalClick}
-									onkeydown={(e) => {
-										if (e.key === 'ArrowLeft') focalX = clampUnit(Number((focalX - 0.05).toFixed(3)));
-										if (e.key === 'ArrowRight') focalX = clampUnit(Number((focalX + 0.05).toFixed(3)));
-										if (e.key === 'ArrowUp') focalY = clampUnit(Number((focalY - 0.05).toFixed(3)));
-										if (e.key === 'ArrowDown') focalY = clampUnit(Number((focalY + 0.05).toFixed(3)));
-									}}
 								>
-									<img
-										src={previewUrl}
-										alt={currentAsset.defaultAlt || currentAsset.title}
-										class="block max-h-80 w-full object-contain"
-									/>
-									<!-- Crosshair lines & marker -->
 									<div
-										class="pointer-events-none absolute top-0 bottom-0 w-px bg-white/70 shadow"
-										style={`left: ${(focalX * 100).toFixed(1)}%`}
-									></div>
-									<div
-										class="pointer-events-none absolute right-0 left-0 h-px bg-white/70 shadow"
-										style={`top: ${(focalY * 100).toFixed(1)}%`}
-									></div>
-									<div
-										class="pointer-events-none absolute h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-accent/80 shadow-md ring-2 ring-black/40"
-										style={`left: ${(focalX * 100).toFixed(1)}%; top: ${(focalY * 100).toFixed(1)}%`}
-									></div>
+										class="relative mx-auto inline-block cursor-crosshair select-none"
+										role="button"
+										tabindex="0"
+										aria-label="Set image focal point"
+										onclick={handleFocalClick}
+										onkeydown={(e) => {
+											if (e.key === 'ArrowLeft') {
+												e.preventDefault();
+												focalX = clampUnit(Number((focalX - 0.05).toFixed(3)));
+												focalDirty = true;
+												focalCleared = false;
+												formDirty = true;
+											} else if (e.key === 'ArrowRight') {
+												e.preventDefault();
+												focalX = clampUnit(Number((focalX + 0.05).toFixed(3)));
+												focalDirty = true;
+												focalCleared = false;
+												formDirty = true;
+											} else if (e.key === 'ArrowUp') {
+												e.preventDefault();
+												focalY = clampUnit(Number((focalY - 0.05).toFixed(3)));
+												focalDirty = true;
+												focalCleared = false;
+												formDirty = true;
+											} else if (e.key === 'ArrowDown') {
+												e.preventDefault();
+												focalY = clampUnit(Number((focalY + 0.05).toFixed(3)));
+												focalDirty = true;
+												focalCleared = false;
+												formDirty = true;
+											}
+										}}
+									>
+										<img
+											src={previewUrl}
+											alt={currentAsset.defaultAlt || currentAsset.title}
+											class="block max-h-80 max-w-full"
+										/>
+										<!-- Crosshair lines & marker -->
+										<div
+											class="pointer-events-none absolute top-0 bottom-0 w-px bg-white/70 shadow"
+											style={`left: ${(focalX * 100).toFixed(1)}%`}
+										></div>
+										<div
+											class="pointer-events-none absolute right-0 left-0 h-px bg-white/70 shadow"
+											style={`top: ${(focalY * 100).toFixed(1)}%`}
+										></div>
+										<div
+											class="pointer-events-none absolute h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-accent/80 shadow-md ring-2 ring-black/40"
+											style={`left: ${(focalX * 100).toFixed(1)}%; top: ${(focalY * 100).toFixed(1)}%`}
+										></div>
+									</div>
 								</div>
 
 								<div class="flex items-center justify-between text-xs text-text-muted">
@@ -704,20 +810,36 @@
 					<form class="space-y-3 lg:col-span-6" onsubmit={saveOverview}>
 						<label class="block space-y-1 text-sm">
 							<span class="text-text-muted">Title</span>
-							<input class="admin-input admin-input-md" bind:value={title} maxlength="255" required />
+							<input
+								class="admin-input admin-input-md"
+								bind:value={title}
+								oninput={() => (formDirty = true)}
+								maxlength="255"
+								required
+							/>
 						</label>
 
 						{#if currentAsset.type === 'external'}
 							<label class="block space-y-1 text-sm">
 								<span class="text-text-muted">External HTTPS URI</span>
-								<input class="admin-input admin-input-md" type="url" bind:value={externalUri} required />
+								<input
+									class="admin-input admin-input-md"
+									type="url"
+									bind:value={externalUri}
+									oninput={() => (formDirty = true)}
+									required
+								/>
 							</label>
 						{/if}
 
 						<div class="grid gap-3 sm:grid-cols-2">
 							<label class="block space-y-1 text-sm">
 								<span class="text-text-muted">Visibility</span>
-								<select class="admin-input admin-input-md" bind:value={visibility}>
+								<select
+									class="admin-input admin-input-md"
+									bind:value={visibility}
+									onchange={() => (formDirty = true)}
+								>
 									<option value="private">Private</option>
 									<option value="public">Public</option>
 								</select>
@@ -725,7 +847,11 @@
 
 							<label class="block space-y-1 text-sm">
 								<span class="text-text-muted">Folder</span>
-								<select class="admin-input admin-input-md" bind:value={folderId}>
+								<select
+									class="admin-input admin-input-md"
+									bind:value={folderId}
+									onchange={() => (formDirty = true)}
+								>
 									<option value="">Unfiled</option>
 									{#each flatFolders as folder (String(folder.id))}
 										<option value={String(folder.id)}>
@@ -751,6 +877,7 @@
 											type="checkbox"
 											{checked}
 											onchange={() => {
+												formDirty = true;
 												selectedSiteIds = checked
 													? selectedSiteIds.filter((s) => s !== id)
 													: [...selectedSiteIds, id];
@@ -775,14 +902,13 @@
 												? 'border-accent bg-accent-subtle text-accent font-medium'
 												: 'border-border bg-bg text-text-muted hover:text-text'}"
 											onclick={() => {
+												formDirty = true;
 												selectedTagIds = active
 													? selectedTagIds.filter((t) => t !== id)
 													: [...selectedTagIds, id];
 											}}
 										>
-											{#if tag.color}
-												<span class="h-2 w-2 rounded-full" style={`background-color: ${tag.color}`}></span>
-											{/if}
+											<Icon name="tag" size={10} />
 											<span>{tag.name}</span>
 										</button>
 									{/each}
@@ -829,6 +955,7 @@
 									class="admin-input admin-input-md"
 									value={altMap[activeLocale] ?? ''}
 									oninput={(e) => {
+										formDirty = true;
 										altMap = { ...altMap, [activeLocale]: e.currentTarget.value };
 									}}
 									placeholder="Concise accessible description"
@@ -841,6 +968,7 @@
 									class="admin-input admin-input-md"
 									value={captionMap[activeLocale] ?? ''}
 									oninput={(e) => {
+										formDirty = true;
 										captionMap = { ...captionMap, [activeLocale]: e.currentTarget.value };
 									}}
 									placeholder="Optional photo credit or caption"
@@ -855,6 +983,7 @@
 								class="admin-input admin-input-md"
 								value={descMap[activeLocale] ?? ''}
 								oninput={(e) => {
+									formDirty = true;
 									descMap = { ...descMap, [activeLocale]: e.currentTarget.value };
 								}}
 								placeholder="Internal notes or extended asset description…"
@@ -1055,8 +1184,8 @@
 									<option value={300}>5 minutes (300s)</option>
 									<option value={900}>15 minutes (900s)</option>
 									<option value={3600}>1 hour (3600s)</option>
+									<option value={21600}>6 hours (21600s)</option>
 									<option value={86400}>24 hours (86400s)</option>
-									<option value={604800}>7 days (604800s)</option>
 								</select>
 							</label>
 
@@ -1213,6 +1342,7 @@
 								<label class="block space-y-1 text-xs">
 									<span class="text-text-muted">Replacement File</span>
 									<input
+										bind:this={replaceFileInput}
 										type="file"
 										class="admin-input admin-input-sm text-xs"
 										required
@@ -1263,14 +1393,18 @@
 							</button>
 						</div>
 
+						{#if versionsError}
+							<p class="rounded-lg border border-danger/40 bg-danger-subtle p-3 text-sm text-danger" role="alert">{versionsError}</p>
+						{/if}
+
 						{#if loadingVersions}
 							<LoadingState label="Loading version history…" />
-						{:else if versionsError}
-							<p class="rounded-lg border border-danger/40 bg-danger-subtle p-3 text-sm text-danger">{versionsError}</p>
 						{:else if versions.length === 0}
-							<p class="rounded-lg border border-border bg-bg p-4 text-center text-xs text-text-muted">
-								No archived versions recorded yet.
-							</p>
+							{#if !versionsError}
+								<p class="rounded-lg border border-border bg-bg p-4 text-center text-xs text-text-muted">
+									No archived versions recorded yet.
+								</p>
+							{/if}
 						{:else}
 							<div class="overflow-x-auto rounded-lg border border-border">
 								<table class="admin-table">
@@ -1307,15 +1441,15 @@
 												<td class="text-right">
 													<div class="inline-flex items-center justify-end gap-1.5">
 														{#if ver.downloadUrl || ver.url}
-															<a
-																href={ver.downloadUrl || ver.url || '#'}
-																target="_blank"
-																rel="noopener noreferrer"
+															<button
+																type="button"
 																class="admin-btn admin-btn-secondary admin-btn-sm gap-1"
+																disabled={downloadingVersion !== null}
+																onclick={() => void downloadVersion(ver)}
 															>
 																<Icon name="download" size={12} />
-																<span>Download</span>
-															</a>
+																<span>{downloadingVersion === ver.versionNumber ? 'Downloading…' : 'Download'}</span>
+															</button>
 														{/if}
 														{#if !isCurrent}
 															<button
@@ -1362,6 +1496,7 @@
 								class="admin-input admin-input-md"
 								list="dam-license-presets"
 								bind:value={licenseType}
+								oninput={() => (formDirty = true)}
 								placeholder="e.g. CC BY 4.0, Royalty-Free, All Rights Reserved"
 							/>
 							<datalist id="dam-license-presets">
@@ -1373,23 +1508,43 @@
 
 						<label class="block space-y-1 text-sm">
 							<span class="text-text-muted">Copyright / Rights Holder</span>
-							<input class="admin-input admin-input-md" bind:value={licenseHolder} placeholder="Photographer, agency, or organization" />
+							<input
+								class="admin-input admin-input-md"
+								bind:value={licenseHolder}
+								oninput={() => (formDirty = true)}
+								placeholder="Photographer, agency, or organization"
+							/>
 						</label>
 
 						<label class="block space-y-1 text-sm">
 							<span class="text-text-muted">License / Attribution URL</span>
-							<input class="admin-input admin-input-md" type="url" bind:value={licenseUrl} placeholder="https://creativecommons.org/licenses/by/4.0/" />
+							<input
+								class="admin-input admin-input-md"
+								type="url"
+								bind:value={licenseUrl}
+								oninput={() => (formDirty = true)}
+								placeholder="https://creativecommons.org/licenses/by/4.0/"
+							/>
 						</label>
 
 						<div class="grid grid-cols-2 gap-2">
 							<label class="block space-y-1 text-sm">
 								<span class="text-text-muted">Expires On</span>
-								<input class="admin-input admin-input-md" type="date" bind:value={licenseExpiresAt} />
+								<input
+									class="admin-input admin-input-md"
+									type="date"
+									bind:value={licenseExpiresAt}
+									oninput={() => (formDirty = true)}
+								/>
 							</label>
 
 							<label class="block space-y-1 text-sm">
 								<span class="text-text-muted">On Expiration</span>
-								<select class="admin-input admin-input-md" bind:value={licenseExpiryAction}>
+								<select
+									class="admin-input admin-input-md"
+									bind:value={licenseExpiryAction}
+									onchange={() => (formDirty = true)}
+								>
 									<option value="alert">Alert admins</option>
 									<option value="make_private">Auto-make private</option>
 								</select>
@@ -1403,6 +1558,7 @@
 							rows="3"
 							class="admin-input admin-input-md"
 							bind:value={licenseNotes}
+							oninput={() => (formDirty = true)}
 							placeholder="Territory restrictions, model release IDs, renewal contact…"
 						></textarea>
 					</label>

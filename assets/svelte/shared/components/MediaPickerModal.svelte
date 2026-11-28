@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import ModalDialog from './ModalDialog.svelte';
 	import Icon from './Icon.svelte';
 	import {
@@ -17,6 +18,11 @@
 
 	type TabId = 'library' | 'upload' | 'url';
 	type MimeCategory = 'all' | 'image' | 'video' | 'audio' | 'document';
+
+	interface UploadHttpError extends Error {
+		status?: number;
+		body?: Record<string, any>;
+	}
 
 	const CATEGORY_ACCEPT_MAP: Record<MimeCategory, string> = {
 		all: '*/*',
@@ -84,6 +90,7 @@
 	let uploading = $state(false);
 	let uploadProgress = $state(0);
 	let uploadError = $state('');
+	let uploadDuplicateMatches = $state<Record<string, any>[]>([]);
 
 	// External URL state
 	let urlInput = $state('');
@@ -151,26 +158,29 @@
 		return 'file-text';
 	}
 
+	function extractCollectionList(payload: unknown, key: string): any[] {
+		if (Array.isArray(payload)) return payload;
+		if (!payload || typeof payload !== 'object') return [];
+		const record = payload as Record<string, unknown>;
+		if (Array.isArray(record[key])) return record[key] as any[];
+		if (Array.isArray(record.items)) return record.items as any[];
+		if (Array.isArray(record['hydra:member'])) return record['hydra:member'] as any[];
+		if (Array.isArray(record.member)) return record.member as any[];
+		return [];
+	}
+
 	async function loadOrganization(): Promise<void> {
-		try {
-			const orgUrl = resolveAssetEndpoint(apiBase, apiEndpoint, '/organization');
-			const response = await fetch(orgUrl, {
-				method: 'GET',
-				credentials: 'same-origin',
-				headers: {
-					Accept: 'application/json',
-					...resolveHeaders(false),
-				},
-			});
-			if (!response.ok) return;
-			const data = await response.json().catch(() => null);
-			if (!data || typeof data !== 'object') return;
-			if (Array.isArray(data.folders)) {
-				folders = flattenFolderTree(buildFolderTree(data.folders));
+		const headers = {
+			Accept: 'application/json',
+			...resolveHeaders(false),
+		};
+		const applyOrganization = (rawFolders: unknown, rawTags: unknown) => {
+			if (Array.isArray(rawFolders)) {
+				folders = flattenFolderTree(buildFolderTree(rawFolders));
 				orgLoaded = true;
 			}
-			if (Array.isArray(data.tags)) {
-				tags = data.tags
+			if (Array.isArray(rawTags)) {
+				tags = rawTags
 					.filter((t: any) => t && typeof t === 'object' && (t.name || t.slug))
 					.map((t: any) => ({
 						id: t.id,
@@ -179,6 +189,49 @@
 					}));
 				orgLoaded = true;
 			}
+		};
+
+		try {
+			const orgUrl = resolveAssetEndpoint(apiBase, apiEndpoint, '/organization');
+			const response = await fetch(orgUrl, {
+				method: 'GET',
+				credentials: 'same-origin',
+				headers,
+			});
+			if (response.ok) {
+				const data = await response.json().catch(() => null);
+				if (data && typeof data === 'object') {
+					applyOrganization(data.folders, data.tags);
+				}
+				return;
+			}
+			if (response.status !== 404) return;
+
+			// Graceful fallback when endpoint exposes /folders and /tags separately.
+			const [foldersRes, tagsRes] = await Promise.allSettled([
+				fetch(resolveAssetEndpoint(apiBase, apiEndpoint, '/folders'), {
+					method: 'GET',
+					credentials: 'same-origin',
+					headers,
+				}),
+				fetch(resolveAssetEndpoint(apiBase, apiEndpoint, '/tags'), {
+					method: 'GET',
+					credentials: 'same-origin',
+					headers,
+				}),
+			]);
+
+			let fallbackFolders: any[] | undefined;
+			let fallbackTags: any[] | undefined;
+			if (foldersRes.status === 'fulfilled' && foldersRes.value.ok) {
+				const fData = await foldersRes.value.json().catch(() => null);
+				fallbackFolders = extractCollectionList(fData, 'folders');
+			}
+			if (tagsRes.status === 'fulfilled' && tagsRes.value.ok) {
+				const tData = await tagsRes.value.json().catch(() => null);
+				fallbackTags = extractCollectionList(tData, 'tags');
+			}
+			applyOrganization(fallbackFolders, fallbackTags);
 		} catch {
 			// Organization endpoint is optional; fall back to list facets when unavailable.
 		}
@@ -223,10 +276,10 @@
 				const matchedTag = tags.find(
 					(t) => (t.id !== undefined && String(t.id) === selectedTag) || (t.slug ?? t.name) === selectedTag,
 				);
-				if (matchedTag?.id !== undefined && matchedTag.id !== null) {
-					params.set('tagIds', String(matchedTag.id));
-				} else {
-					params.set('tag', selectedTag);
+				const numericTagId =
+					matchedTag?.id !== undefined && matchedTag.id !== null ? String(matchedTag.id) : selectedTag;
+				if (/^\d+$/.test(numericTagId)) {
+					params.set('tagIds', numericTagId);
 				}
 			}
 
@@ -283,6 +336,7 @@
 		uploadFile = file;
 		uploadError = '';
 		uploadProgress = 0;
+		uploadDuplicateMatches = [];
 		if (file && !uploadTitle.trim()) {
 			uploadTitle = file.name.replace(/\.[^.]+$/, '');
 		}
@@ -298,7 +352,10 @@
 	function handleFileInputChange(event: Event) {
 		const input = event.currentTarget as HTMLInputElement;
 		const file = input.files?.[0] ?? null;
-		if (file) setSelectedUploadFile(file);
+		if (file) {
+			setSelectedUploadFile(file);
+			input.value = '';
+		}
 	}
 
 	function uploadViaXhr(endpoint: string, formData: FormData, headers: Record<string, string>): Promise<Record<string, any>> {
@@ -325,7 +382,10 @@
 					uploadProgress = 100;
 					resolve(parsed);
 				} else {
-					reject(new Error(parsed.error ?? parsed.title ?? `Upload failed (${xhr.status})`));
+					const err: UploadHttpError = new Error(parsed.error ?? parsed.title ?? `Upload failed (${xhr.status})`);
+					err.status = xhr.status;
+					err.body = parsed;
+					reject(err);
 				}
 			};
 			xhr.onerror = () => reject(new Error('Network error while uploading file.'));
@@ -334,8 +394,7 @@
 		});
 	}
 
-	async function handleUploadSubmit(event: SubmitEvent) {
-		event.preventDefault();
+	async function performUpload(duplicatePolicy?: 'allow') {
 		if (!uploadFile || uploading) return;
 		if (!uploadMimeAccepted) {
 			uploadError = `Selected file type (${uploadFile.type || 'unknown'}) is not accepted here (${accept}).`;
@@ -345,12 +404,18 @@
 		uploading = true;
 		uploadError = '';
 		uploadProgress = 0;
+		if (duplicatePolicy === 'allow') {
+			uploadDuplicateMatches = [];
+		}
 
 		try {
 			const formData = new FormData();
 			formData.set('file', uploadFile);
 			formData.set('title', uploadTitle.trim() || uploadFile.name.replace(/\.[^.]+$/, ''));
 			formData.set('visibility', uploadVisibility);
+			if (duplicatePolicy === 'allow') {
+				formData.set('duplicatePolicy', 'allow');
+			}
 
 			const endpoint = resolveAssetEndpoint(apiBase, apiEndpoint, '/upload');
 			const headers = {
@@ -370,19 +435,43 @@
 				});
 				payload = await response.json().catch(() => ({}));
 				if (!response.ok) {
-					throw new Error(payload.error ?? payload.title ?? `Upload failed (${response.status})`);
+					const err: UploadHttpError = new Error(payload.error ?? payload.title ?? `Upload failed (${response.status})`);
+					err.status = response.status;
+					err.body = payload;
+					throw err;
 				}
 				uploadProgress = 100;
 			}
 
+			uploadDuplicateMatches = [];
 			const createdAsset = (payload.asset && typeof payload.asset === 'object' ? payload.asset : payload) as Record<string, any>;
 			onSelect?.(buildAssetMediaValue(createdAsset));
 			onClose?.();
 		} catch (cause) {
+			const httpErr = cause as UploadHttpError;
+			if (httpErr?.status === 409 && httpErr.body && typeof httpErr.body === 'object') {
+				const body = httpErr.body;
+				const matches = Array.isArray(body.matches)
+					? body.matches
+					: body.asset && typeof body.asset === 'object'
+						? [body.asset]
+						: [];
+				if (body.duplicate || matches.length > 0) {
+					uploadDuplicateMatches = matches;
+					uploadError = body.error ?? 'A matching asset already exists in the media library.';
+					return;
+				}
+			}
+			uploadDuplicateMatches = [];
 			uploadError = cause instanceof Error ? cause.message : 'Unable to upload file.';
 		} finally {
 			uploading = false;
 		}
+	}
+
+	async function handleUploadSubmit(event: SubmitEvent) {
+		event.preventDefault();
+		await performUpload();
 	}
 
 	function handleExternalUrlSubmit(event: SubmitEvent) {
@@ -400,26 +489,38 @@
 		onClose?.();
 	}
 
-	// Reset and load when modal opens.
+	// Reset and load only on the false -> true open transition.
+	let wasOpen = false;
 	$effect(() => {
-		if (!open) return;
-		activeTab = 'library';
-		page = 1;
-		searchQuery = '';
-		mimeCategory = 'all';
-		selectedFolder = '';
-		selectedTag = '';
-		uploadFile = null;
-		uploadTitle = '';
-		uploadVisibility = 'public';
-		uploadError = '';
-		uploadProgress = 0;
-		urlInput = initialUrl || '';
-		urlError = '';
-		urlPreviewBroken = false;
-		orgLoaded = false;
-		void loadOrganization();
-		void loadAssets(1);
+		if (open && !wasOpen) {
+			wasOpen = true;
+			untrack(() => {
+				activeTab = 'library';
+				page = 1;
+				searchQuery = '';
+				mimeCategory = 'all';
+				selectedFolder = '';
+				selectedTag = '';
+				uploadFile = null;
+				uploadTitle = '';
+				uploadVisibility = 'public';
+				uploadError = '';
+				uploadProgress = 0;
+				uploadDuplicateMatches = [];
+				urlInput = initialUrl || '';
+				urlError = '';
+				urlPreviewBroken = false;
+				orgLoaded = false;
+				void loadOrganization();
+				void loadAssets(1);
+			});
+		} else if (!open) {
+			wasOpen = false;
+			clearTimeout(searchTimer);
+		}
+		return () => {
+			clearTimeout(searchTimer);
+		};
 	});
 
 	// Maintain local preview object URL for the staged upload file.
@@ -678,6 +779,13 @@
 				</div>
 			{:else if activeTab === 'upload'}
 				<form class="mp-panel mp-form" onsubmit={handleUploadSubmit}>
+					<input
+						bind:this={fileInputEl}
+						type="file"
+						class="mp-sr-only"
+						accept={accept === '*/*' ? undefined : accept}
+						onchange={handleFileInputChange}
+					/>
 					<div
 						class="mp-dropzone"
 						class:mp-dropzone--active={dragActive}
@@ -698,13 +806,6 @@
 							}
 						}}
 					>
-						<input
-							bind:this={fileInputEl}
-							type="file"
-							class="mp-sr-only"
-							accept={accept === '*/*' ? undefined : accept}
-							onchange={handleFileInputChange}
-						/>
 						{#if uploadFile}
 							<div class="mp-dropzone__selected">
 								{#if uploadPreviewUrl}
@@ -761,7 +862,39 @@
 						</div>
 					{/if}
 
-					{#if uploadError}
+					{#if uploadDuplicateMatches.length > 0}
+						{@const existingMatch = uploadDuplicateMatches[0]}
+						<div class="mp-alert mp-alert--warning mp-duplicate" role="alert">
+							<div class="mp-duplicate__info">
+								<Icon name="alert-triangle" size={15} />
+								<span>
+									{uploadError || 'Duplicate detected:'}
+									<strong>{existingMatch.title || existingMatch.originalName || `Asset #${existingMatch.id ?? ''}`}</strong>
+									{#if uploadDuplicateMatches.length > 1}
+										(+{uploadDuplicateMatches.length - 1} more)
+									{/if}
+								</span>
+							</div>
+							<div class="mp-duplicate__actions">
+								<button
+									type="button"
+									class="mp-btn mp-btn--primary mp-btn--sm"
+									disabled={uploading}
+									onclick={() => handleSelectAsset(existingMatch)}
+								>
+									Use Existing Asset
+								</button>
+								<button
+									type="button"
+									class="mp-btn mp-btn--sm"
+									disabled={uploading}
+									onclick={() => void performUpload('allow')}
+								>
+									Upload Anyway
+								</button>
+							</div>
+						</div>
+					{:else if uploadError}
 						<div class="mp-alert mp-alert--error" role="alert">
 							<Icon name="alert-triangle" size={15} />
 							<span>{uploadError}</span>
@@ -1232,6 +1365,31 @@
 		border: 1px solid color-mix(in srgb, var(--danger, #dc2626) 40%, transparent);
 		background: var(--danger-subtle, #fee2e2);
 		color: var(--danger, #dc2626);
+	}
+
+	.mp-alert--warning {
+		border: 1px solid color-mix(in srgb, var(--warning, #d97706) 40%, transparent);
+		background: var(--warning-subtle, #fef3c7);
+		color: var(--ik-panel-text, var(--text, #3a3830));
+	}
+
+	.mp-duplicate {
+		flex-direction: column;
+		align-items: stretch;
+		gap: 8px;
+	}
+
+	.mp-duplicate__info {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.mp-duplicate__actions {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		gap: 6px;
 	}
 
 	.mp-actions {

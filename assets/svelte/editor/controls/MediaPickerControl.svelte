@@ -57,7 +57,13 @@
 
 	function handleClear() {
 		editingFocalPoint = false;
-		onChange(valueFormat === 'url' ? '' : null);
+		onChange(
+			field.emptyValue !== undefined
+				? field.emptyValue
+				: valueFormat === 'url'
+					? ''
+					: { source: 'empty', assetId: null, url: '' },
+		);
 	}
 
 	function emitFocalPoint(x: number, y: number) {

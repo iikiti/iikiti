@@ -14,6 +14,8 @@ final class BlurHashEncoder
 {
 	private const BASE83_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz#$%*+,-.:;=?@[]^_{|}~';
 	private const MAX_SAMPLE_DIMENSION = 32;
+	public const MAX_DIMENSION = 20000;
+	public const MAX_PIXELS = 50_000_000;
 
 	/**
 	 * Encodes an RGB pixel matrix into a BlurHash string.
@@ -167,6 +169,22 @@ final class BlurHashEncoder
 			!function_exists('imagecreatefromstring') ||
 			!function_exists('imagecreatetruecolor') ||
 			!function_exists('imagecopyresampled')
+		) {
+			return null;
+		}
+
+		$dimensions = @getimagesize($path);
+		if (!is_array($dimensions) || !isset($dimensions[0], $dimensions[1])) {
+			return null;
+		}
+		$imgWidth = (int) $dimensions[0];
+		$imgHeight = (int) $dimensions[1];
+		if (
+			$imgWidth < 1
+			|| $imgHeight < 1
+			|| $imgWidth > self::MAX_DIMENSION
+			|| $imgHeight > self::MAX_DIMENSION
+			|| ($imgWidth * $imgHeight) > self::MAX_PIXELS
 		) {
 			return null;
 		}

@@ -20,6 +20,7 @@
 		sites: DigitalAssetSiteOption[];
 		onClearSelection: () => void;
 		onActionComplete: (notice: string) => Promise<void>;
+		onPartialDelete?: (succeededIds: string[], notice: string) => Promise<void>;
 		onError: (message: string) => void;
 	}
 
@@ -32,6 +33,7 @@
 		sites,
 		onClearSelection,
 		onActionComplete,
+		onPartialDelete,
 		onError,
 	}: Props = $props();
 
@@ -59,10 +61,12 @@
 
 	// Delete dialog state (with 409 in-use conflict override)
 	let deleteConflicts = $state<Array<{ id?: string | number; title?: string; reason?: string; error?: string; usageCount?: number; usages?: any[] }>>([]);
+	let retryDeleteIds = $state<string[] | null>(null);
 	let forceDeleteConfirmed = $state(false);
 
 	const selectedCount = $derived(selectedIds.size);
 	const selectedList = $derived(Array.from(selectedIds));
+	const deleteTargetCount = $derived(retryDeleteIds ? retryDeleteIds.length : selectedCount);
 	const flatFolders = $derived(flattenFolderTree(buildFolderTree(folders)));
 
 	function openDialog(dialog: ActiveDialog) {
@@ -81,6 +85,7 @@
 			chosenSiteIds = [];
 		} else if (dialog === 'delete') {
 			deleteConflicts = [];
+			retryDeleteIds = null;
 			forceDeleteConfirmed = false;
 		}
 	}
@@ -90,11 +95,12 @@
 		activeDialog = null;
 		dialogError = '';
 		deleteConflicts = [];
+		retryDeleteIds = null;
 		forceDeleteConfirmed = false;
 	}
 
-	function summarizeBulkResult(result: any, verb: string): string {
-		const succeeded = Array.isArray(result?.succeeded) ? result.succeeded.length : selectedCount;
+	function summarizeBulkResult(result: any, verb: string, fallbackCount = selectedCount): string {
+		const succeeded = Array.isArray(result?.succeeded) ? result.succeeded.length : fallbackCount;
 		const failed = Array.isArray(result?.failed) ? result.failed.length : 0;
 		if (failed > 0) {
 			return `${verb} ${succeeded} asset${succeeded === 1 ? '' : 's'} (${failed} failed).`;
@@ -229,15 +235,21 @@
 
 	async function submitDelete(event: SubmitEvent) {
 		event.preventDefault();
+		const targetIds = retryDeleteIds && retryDeleteIds.length > 0 ? retryDeleteIds : selectedList;
+		if (targetIds.length === 0) {
+			closeDialog();
+			return;
+		}
 		busy = true;
 		dialogError = '';
 		try {
 			const res = await api.bulkDigitalAssetAction({
-				assetIds: selectedList,
+				assetIds: targetIds,
 				action: 'delete',
 				force: forceDeleteConfirmed,
 			});
 
+			const succeededIds = Array.isArray(res?.succeeded) ? res.succeeded.map(String) : [];
 			const failedList = Array.isArray(res?.failed) ? res.failed : [];
 			const inUseFailures = failedList.filter(
 				(f: any) => f?.status === 409 || Number(f?.usageCount ?? 0) > 0 || (Array.isArray(f?.usages) && f.usages.length > 0),
@@ -245,19 +257,42 @@
 
 			if (!forceDeleteConfirmed && inUseFailures.length > 0) {
 				deleteConflicts = inUseFailures;
-				dialogError = `${inUseFailures.length} asset${inUseFailures.length === 1 ? ' is' : 's are'} currently in use. Review references below or enable Force Delete.`;
+				const conflictIds = inUseFailures
+					.map((f: any) => (f?.id !== undefined && f?.id !== null ? String(f.id) : ''))
+					.filter(Boolean);
+				retryDeleteIds = conflictIds.length > 0 ? conflictIds : null;
+
+				if (succeededIds.length > 0) {
+					await onPartialDelete?.(
+						succeededIds,
+						`Deleted ${succeededIds.length} unused asset${succeededIds.length === 1 ? '' : 's'}.`,
+					);
+				}
+
+				dialogError = `${inUseFailures.length} asset${inUseFailures.length === 1 ? ' is' : 's are'} currently in use.${
+					succeededIds.length > 0
+						? ` ${succeededIds.length} unused asset${succeededIds.length === 1 ? ' was' : 's were'} already deleted.`
+						: ''
+				} Review references below or enable Force Delete.`;
 				return;
 			}
 
 			activeDialog = null;
 			deleteConflicts = [];
+			retryDeleteIds = null;
 			forceDeleteConfirmed = false;
 			onClearSelection();
-			await onActionComplete(summarizeBulkResult(res, 'Deleted'));
+			await onActionComplete(summarizeBulkResult(res, 'Deleted', targetIds.length));
 		} catch (e: any) {
 			if (e?.status === 409 && e?.body) {
 				if (Array.isArray(e.body.failed) && e.body.failed.length > 0) {
 					deleteConflicts = e.body.failed;
+					const conflictIds = e.body.failed
+						.map((f: any) => (f?.id !== undefined && f?.id !== null ? String(f.id) : ''))
+						.filter(Boolean);
+					if (conflictIds.length > 0) {
+						retryDeleteIds = conflictIds;
+					}
 				} else {
 					deleteConflicts = [
 						{
@@ -366,9 +401,7 @@
 								chosenTagIds = active ? chosenTagIds.filter((t) => t !== id) : [...chosenTagIds, id];
 							}}
 						>
-							{#if tag.color}
-								<span class="h-2 w-2 rounded-full" style={`background-color: ${tag.color}`}></span>
-							{/if}
+							<Icon name="tag" size={10} />
 							<span>{tag.name}</span>
 						</button>
 					{/each}
@@ -488,10 +521,10 @@
 		</form>
 	</ModalDialog>
 {:else if activeDialog === 'delete'}
-	<ModalDialog title={`Delete ${selectedCount} Asset${selectedCount === 1 ? '' : 's'}`} open={true} onClose={closeDialog} width={540}>
+	<ModalDialog title={`Delete ${deleteTargetCount} Asset${deleteTargetCount === 1 ? '' : 's'}`} open={true} onClose={closeDialog} width={540}>
 		<form class="space-y-4 p-2" onsubmit={submitDelete}>
 			<p class="text-sm text-text">
-				This permanently removes the selected {selectedCount} digital asset{selectedCount === 1 ? '' : 's'} and their stored variants.
+				This permanently removes the selected {deleteTargetCount} digital asset{deleteTargetCount === 1 ? '' : 's'} and their stored variants.
 			</p>
 
 			{#if dialogError}

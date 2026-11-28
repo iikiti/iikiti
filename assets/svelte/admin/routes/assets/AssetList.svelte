@@ -56,10 +56,10 @@
 	}
 
 	function canShowImage(asset: DigitalAsset): boolean {
-		const idKey = String(asset.id);
-		if (brokenPreviews[idKey]) return false;
 		const src = previewSrc(asset);
 		if (!src) return false;
+		const key = `${String(asset.id)}:${src}`;
+		if (brokenPreviews[key]) return false;
 		return isImageMimeType(asset.mimeType) || Boolean(asset.thumbnailUrl || asset.previewUrl);
 	}
 
@@ -176,7 +176,7 @@
 										class="h-full w-full object-cover"
 										style={`object-position: ${formatObjectPosition(asset.focalPoint)}`}
 										onerror={() => {
-											brokenPreviews = { ...brokenPreviews, [idStr]: true };
+											brokenPreviews = { ...brokenPreviews, [`${idStr}:${src}`]: true };
 										}}
 									/>
 								{:else}
@@ -225,9 +225,7 @@
 							{/if}
 							{#each assetTags.slice(0, 3) as tag (String(tag.id))}
 								<span class="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-text-muted">
-									{#if tag.color}
-										<span class="h-1.5 w-1.5 rounded-full" style={`background-color: ${tag.color}`}></span>
-									{/if}
+									<Icon name="tag" size={10} />
 									{tag.name}
 								</span>
 							{/each}

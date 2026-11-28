@@ -160,6 +160,110 @@ final class DigitalAssetOrganizationManagerTest extends TestCase
 		$manager->addAssetsToCollection($collection, ['100'], $siteAdmin);
 	}
 
+	public function testSiteAdminCannotUpdateOrDeleteGlobalCollectionsOrTagsAndSerializeCollectionScopesAssets(): void
+	{
+		$siteA = $this->site(10);
+		$siteB = $this->site(20);
+
+		$assetA = new UploadedDigitalAsset('Site A', 'image/png', str_repeat('a', 64));
+		$this->assignId($assetA, 101);
+		$assetA->setAccessSites([$siteA]);
+
+		$assetB = new UploadedDigitalAsset('Site B', 'image/png', str_repeat('b', 64));
+		$this->assignId($assetB, 102);
+		$assetB->setAccessSites([$siteB]);
+
+		$collection = new DigitalAssetCollection('Global Showcase');
+		$this->assignId($collection, 1);
+		$collection->addAsset($assetA);
+		$collection->addAsset($assetB);
+
+		$tag = new DigitalAssetTag('Featured');
+		$this->assignId($tag, 5);
+
+		$manager = $this->createManager($this->createStub(EntityManagerInterface::class));
+		$siteAdmin = $this->user(['10' => ['ROLE_ADMIN']], 5);
+		$globalAdmin = $this->user([0 => ['ROLE_SYSTEM']], 99);
+
+		// Viewer-scoped collection serialization hides Site B asset from Site A admin.
+		$scoped = $manager->serializeCollection($collection, $siteAdmin);
+		self::assertSame([101], $scoped['assetIds']);
+		self::assertSame(1, $scoped['assetCount']);
+
+		// Global admin sees both.
+		$full = $manager->serializeCollection($collection, $globalAdmin);
+		self::assertSame([101, 102], $full['assetIds']);
+		self::assertSame(2, $full['assetCount']);
+
+		// Site admin cannot update/delete global collections or tags.
+		foreach ([
+			static fn () => $manager->updateCollection($collection, ['name' => 'Hijacked'], $siteAdmin),
+			static fn () => $manager->deleteCollection($collection, $siteAdmin),
+			static fn () => $manager->updateTag($tag, ['name' => 'Hijacked'], $siteAdmin),
+			static fn () => $manager->deleteTag($tag, $siteAdmin),
+		] as $attempt) {
+			try {
+				$attempt();
+				self::fail('Expected AccessDeniedHttpException for non-global admin mutation.');
+			} catch (AccessDeniedHttpException) {
+				$this->addToAssertionCount(1);
+			}
+		}
+	}
+
+	public function testDeleteFolderEnforcesDescendantPermissionsAndDeduplicatesPromotedRootSlug(): void
+	{
+		$siteA = $this->site(10);
+		$siteB = $this->site(20);
+
+		$parent = new DigitalAssetFolder('Campaign');
+		$this->assignId($parent, 1);
+		$parent->setAccessSites([$siteA]);
+
+		$restrictedChild = new DigitalAssetFolder('Shared', $parent);
+		$this->assignId($restrictedChild, 2);
+		$restrictedChild->setAccessSites([$siteA, $siteB]);
+
+		$foldersBlocked = $this->createStub(DigitalAssetFolderRepository::class);
+		$foldersBlocked->method('findChildren')->willReturn([$restrictedChild]);
+		$foldersBlocked->method('findDescendantsByPathPrefix')->willReturn([$restrictedChild]);
+
+		$managerBlocked = $this->createManager($this->createStub(EntityManagerInterface::class), folders: $foldersBlocked);
+		$siteAdmin = $this->user(['10' => ['ROLE_ADMIN']], 5);
+
+		try {
+			$managerBlocked->deleteFolder($parent, $siteAdmin);
+			self::fail('Expected AccessDeniedHttpException when descendant folder is shared with another site.');
+		} catch (AccessDeniedHttpException) {
+			$this->addToAssertionCount(1);
+		}
+
+		// When all descendants are manageable, root slug collision is automatically deduplicated.
+		$child = new DigitalAssetFolder('Hero', $parent);
+		$this->assignId($child, 3);
+		$child->setAccessSites([$siteA]);
+		$existingRootHero = new DigitalAssetFolder('Hero');
+		$this->assignId($existingRootHero, 4);
+
+		$foldersOk = $this->createStub(DigitalAssetFolderRepository::class);
+		$foldersOk->method('findChildren')->willReturn([$child]);
+		$foldersOk->method('findDescendantsByPathPrefix')->willReturn([]);
+		$foldersOk->method('findByParentAndSlug')->willReturnCallback(
+			static fn (?DigitalAssetFolder $p, string $slug): ?DigitalAssetFolder => (null === $p && 'hero' === $slug) ? $existingRootHero : null,
+		);
+
+		$em = $this->createMock(EntityManagerInterface::class);
+		$em->expects(self::once())->method('remove')->with($parent);
+		$em->expects(self::once())->method('flush');
+
+		$managerOk = $this->createManager($em, folders: $foldersOk);
+		$managerOk->deleteFolder($parent, $siteAdmin);
+
+		self::assertNull($child->getParent());
+		self::assertSame('hero-2', $child->getSlug());
+		self::assertSame('/hero-2', $child->getPath());
+	}
+
 	private function createManager(
 		EntityManagerInterface $em,
 		?DigitalAssetFolderRepository $folders = null,

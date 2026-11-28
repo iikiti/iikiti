@@ -217,12 +217,14 @@ final class SeoMetadataResolver
 			return $empty;
 		}
 
-		$asset = null !== $site
-			? $this->digitalAssets->findAccessibleToSite($assetId, $site)
-			: $this->digitalAssets->find($assetId);
+		if (null === $site) {
+			return $empty;
+		}
 
-		// Never expose private or ungranted assets to unauthenticated social crawlers.
-		if (!$asset instanceof AbstractDigitalAsset || 'public' !== $asset->getVisibility()) {
+		$asset = $this->digitalAssets->findAccessibleToSite($assetId, $site);
+
+		// Never expose private, expired-private, or ungranted assets to unauthenticated social crawlers.
+		if (!$asset instanceof AbstractDigitalAsset || $asset->isEffectivelyPrivate()) {
 			return $empty;
 		}
 

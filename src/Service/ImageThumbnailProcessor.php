@@ -247,30 +247,42 @@ final class ImageThumbnailProcessor implements DigitalAssetProcessorInterface
 					$variantChecksum = hash_file('sha256', $temporaryPath);
 					$storageKey = $this->storage->storeTemporaryFile($temporaryPath, $job['mimeType']);
 					$existing = $this->variants->findByAssetAndKey($asset, $job['name']);
+					$previousStorageKey = null;
 					if (null !== $existing) {
-						$this->entityManager->remove($existing);
+						$previousStorageKey = $existing->getStorageKey();
+						$existing->
+							setStorageKey($storageKey)->
+							setMimeType($job['mimeType'])->
+							setSize($variantSize)->
+							setWidth($outW)->
+							setHeight($outH)->
+							setChecksum(is_string($variantChecksum) ? $variantChecksum : null)->
+							setFormat($job['format'])->
+							setQuality($job['quality'])->
+							setFocalCrop($job['focalCrop']);
+					} else {
+						$this->entityManager->persist(new DigitalAssetVariant(
+							$asset,
+							$job['name'],
+							$storageKey,
+							$job['mimeType'],
+							$variantSize,
+							$outW,
+							$outH,
+							is_string($variantChecksum) ? $variantChecksum : null,
+							$job['format'],
+							$job['quality'],
+							$job['focalCrop'],
+						));
 					}
-					$this->entityManager->persist(new DigitalAssetVariant(
-						$asset,
-						$job['name'],
-						$storageKey,
-						$job['mimeType'],
-						$variantSize,
-						$outW,
-						$outH,
-						is_string($variantChecksum) ? $variantChecksum : null,
-						$job['format'],
-						$job['quality'],
-						$job['focalCrop'],
-					));
 					try {
 						$this->entityManager->flush();
 					} catch (\Throwable $exception) {
 						$this->storage->delete($storageKey);
 						throw $exception;
 					}
-					if (null !== $existing) {
-						$this->storage->delete($existing->getStorageKey());
+					if (null !== $previousStorageKey && $previousStorageKey !== $storageKey) {
+						$this->storage->delete($previousStorageKey);
 					}
 				} finally {
 					$this->filesystem->remove($temporaryPath);

@@ -57,17 +57,26 @@ final class EditorAssetControllerTest extends TestCase
 
 		$assets = $this->createMock(DigitalAssetRepository::class);
 		$assets->expects(self::once())
-			->method('findAccessibleToSiteFiltered')
-			->with($site, 'banner', 'image', 'image/jpeg', 24, 0)
+			->method('findAccessibleToSiteByCriteria')
+			->with(
+				$site,
+				self::callback(static fn ($criteria): bool => 'banner' === $criteria->query
+					&& 'image' === $criteria->mimeCategory
+					&& 'image/jpeg' === $criteria->mimeType
+					&& null === $criteria->siteId),
+			)
 			->willReturn([$asset]);
 		$assets->expects(self::once())
-			->method('countAccessibleToSiteFiltered')
-			->with($site, 'banner', 'image', 'image/jpeg')
+			->method('countAccessibleToSiteByCriteria')
+			->with(
+				$site,
+				self::callback(static fn ($criteria): bool => null === $criteria->siteId),
+			)
 			->willReturn(1);
 
 		$checker = $this->permissionChecker(static fn (string $type, string $action): bool => 'Page' === $type && 'write' === $action);
 		$response = $this->controller(new User())->index(
-			Request::create('/api/editor/assets?q=banner&mimeCategory=image&mimeType=image/jpeg', 'GET'),
+			Request::create('/api/editor/assets?q=banner&mimeCategory=image&mimeType=image/jpeg&siteId=999', 'GET'),
 			$checker,
 			$assets,
 			new DigitalAssetSerializer(),
@@ -122,11 +131,11 @@ final class EditorAssetControllerTest extends TestCase
 			$manager = $this->createMock(DigitalAssetManager::class);
 			$manager->expects(self::once())
 				->method('createUploadForSite')
-				->with($file, 'Hero Photo', 'public', $site, $user)
+				->with($file, 'Hero Photo', 'public', $site, $user, null, ['3', '4'], DigitalAssetManager::DUPLICATE_POLICY_ALLOW)
 				->willReturn($uploadedAsset);
 
 			$checker = $this->permissionChecker(static fn (string $type, string $action): bool => 'Page' === $type && 'write' === $action);
-			$request = Request::create('/api/editor/assets/upload', 'POST', ['title' => 'Hero Photo'], [], ['file' => $file]);
+			$request = Request::create('/api/editor/assets/upload', 'POST', ['title' => 'Hero Photo', 'tagIds' => ['3', '4']], [], ['file' => $file]);
 
 			$response = $this->controller($user)->upload($request, $checker, $manager, new DigitalAssetSerializer());
 		} finally {

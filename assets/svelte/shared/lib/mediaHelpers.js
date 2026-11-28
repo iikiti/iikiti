@@ -185,6 +185,9 @@ export function normalizeMediaValue(value) {
 
 	const raw = /** @type {Record<string, unknown>} */ (value);
 	const declaredSource = cleanString(raw.source).toLowerCase();
+	if (declaredSource === 'empty') {
+		return empty();
+	}
 	const assetId = toPositiveInt(
 		raw.assetId ?? raw.asset_id ?? (declaredSource === 'asset' ? raw.id : null),
 	);

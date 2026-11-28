@@ -277,19 +277,28 @@ final class FfmpegMediaProcessor implements DigitalAssetProcessorInterface
 		$previousKey = null;
 		if (null !== $existing) {
 			$previousKey = $existing->getStorageKey();
-			$this->entityManager->remove($existing);
+			$existing->
+				setStorageKey($storageKey)->
+				setMimeType($mimeType)->
+				setSize($variantSize)->
+				setWidth($width)->
+				setHeight($height)->
+				setChecksum(is_string($variantChecksum) ? $variantChecksum : null)->
+				setFormat(null)->
+				setQuality(null)->
+				setFocalCrop(false);
+		} else {
+			$this->entityManager->persist(new DigitalAssetVariant(
+				$asset,
+				$variantKey,
+				$storageKey,
+				$mimeType,
+				$variantSize,
+				$width,
+				$height,
+				is_string($variantChecksum) ? $variantChecksum : null,
+			));
 		}
-
-		$this->entityManager->persist(new DigitalAssetVariant(
-			$asset,
-			$variantKey,
-			$storageKey,
-			$mimeType,
-			$variantSize,
-			$width,
-			$height,
-			is_string($variantChecksum) ? $variantChecksum : null,
-		));
 
 		try {
 			$this->entityManager->flush();
@@ -298,7 +307,7 @@ final class FfmpegMediaProcessor implements DigitalAssetProcessorInterface
 			throw $exception;
 		}
 
-		if (null !== $previousKey) {
+		if (null !== $previousKey && $previousKey !== $storageKey) {
 			$this->storage->delete($previousKey);
 		}
 	}

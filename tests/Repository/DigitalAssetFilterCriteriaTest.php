@@ -100,4 +100,14 @@ final class DigitalAssetFilterCriteriaTest extends TestCase
 		self::assertSame('text', DigitalAssetRepository::classifyMimeCategory('text/plain'));
 		self::assertSame('other', DigitalAssetRepository::classifyMimeCategory('application/octet-stream'));
 	}
+
+	public function testAcceptsExpiringOrExpiredLicenseStatus(): void
+	{
+		$criteria = DigitalAssetFilterCriteria::fromQueryArray([
+			'licenseStatus' => 'expiring_or_expired',
+		]);
+
+		self::assertSame('expiring_or_expired', $criteria->licenseStatus);
+		self::assertContains('expiring_or_expired', DigitalAssetFilterCriteria::ALLOWED_LICENSE_STATUSES);
+	}
 }

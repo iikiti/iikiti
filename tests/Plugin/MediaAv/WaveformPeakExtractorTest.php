@@ -71,4 +71,15 @@ final class WaveformPeakExtractorTest extends TestCase
 		$this->expectException(\InvalidArgumentException::class);
 		$extractor->extractFromAudioFile('/nonexistent/path/audio.mp3');
 	}
+
+	public function testReduceBlockAmplitudesNormalizesAndBoundsPeaks(): void
+	{
+		$extractor = new WaveformPeakExtractor();
+
+		self::assertSame([], $extractor->reduceBlockAmplitudes([], 4));
+		self::assertSame(
+			[0.0, 0.5, 1.0, 0.25],
+			$extractor->reduceBlockAmplitudes([0, 16384, 32768, 8192], 4),
+		);
+	}
 }

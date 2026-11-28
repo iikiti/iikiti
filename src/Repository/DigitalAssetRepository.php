@@ -445,7 +445,7 @@ class DigitalAssetRepository extends ObjectRepository
 			)->
 			setParameter('accessibleSiteId', $site->getId());
 
-		$this->applyFilterCriteria($qb, $criteria);
+		$this->applyFilterCriteria($qb, $criteria->withoutFacet('siteId'));
 
 		return $qb;
 	}
@@ -659,6 +659,7 @@ class DigitalAssetRepository extends ObjectRepository
 	{
 		$now = new \DateTimeImmutable();
 		$soon = $now->modify('+30 days');
+		$expiringWindow = $now->modify('+14 days');
 
 		match ($licenseStatus) {
 			'missing' => $qb->andWhere(
@@ -671,6 +672,8 @@ class DigitalAssetRepository extends ObjectRepository
 			)->
 				setParameter('licenseNow', $now)->
 				setParameter('licenseSoon', $soon),
+			'expiring_or_expired' => $qb->andWhere('asset.expiresAt IS NOT NULL AND asset.expiresAt <= :licenseExpiringWindow')->
+				setParameter('licenseExpiringWindow', $expiringWindow),
 			'valid', 'licensed' => $qb->andWhere(
 				'(asset.licenseType IS NOT NULL OR asset.licenseHolder IS NOT NULL OR asset.licenseUrl IS NOT NULL OR asset.licenseNotes IS NOT NULL OR asset.expiresAt IS NOT NULL) AND (asset.expiresAt IS NULL OR asset.expiresAt > :licenseNow)'
 			)->setParameter('licenseNow', $now),

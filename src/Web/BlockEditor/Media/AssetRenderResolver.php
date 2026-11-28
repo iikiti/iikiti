@@ -272,7 +272,8 @@ final class AssetRenderResolver
 	 *     objectPosition: string,
 	 *     dominantColor: ?string,
 	 *     blurhash: ?string,
-	 *     isExternal: bool
+	 *     isExternal: bool,
+	 *     link: string
 	 * }|null
 	 */
 	public function resolveForRender(
@@ -291,6 +292,7 @@ final class AssetRenderResolver
 		$decorative = true === ($options['decorative'] ?? false);
 		$blockAlt = is_string($options['alt'] ?? null) ? trim($options['alt']) : '';
 		$blockCaption = is_string($options['caption'] ?? null) ? trim($options['caption']) : '';
+		$link = is_string($options['link'] ?? null) ? self::sanitizeUrl($options['link']) : '';
 		$sizes = is_string($options['sizes'] ?? null) && '' !== trim($options['sizes']) ? trim($options['sizes']) : '100vw';
 		$loadingRaw = is_string($options['loading'] ?? null) ? strtolower(trim($options['loading'])) : 'lazy';
 		$loading = in_array($loadingRaw, self::ALLOWED_LOADING, true) ? $loadingRaw : 'lazy';
@@ -320,6 +322,7 @@ final class AssetRenderResolver
 				'dominantColor' => null,
 				'blurhash' => null,
 				'isExternal' => $isExternal,
+				'link' => $link,
 			];
 		}
 
@@ -383,6 +386,7 @@ final class AssetRenderResolver
 			'dominantColor' => is_string($record['dominantColor'] ?? null) ? $record['dominantColor'] : null,
 			'blurhash' => is_string($record['blurhash'] ?? null) ? $record['blurhash'] : null,
 			'isExternal' => true === ($record['isExternal'] ?? false),
+			'link' => $link,
 		];
 	}
 
@@ -683,7 +687,7 @@ final class AssetRenderResolver
 		];
 	}
 
-	private static function sanitizeUrl(string $url): string
+	public static function sanitizeUrl(string $url): string
 	{
 		$trimmed = trim($url);
 		if ('' === $trimmed || 1 === preg_match('/[\x00-\x1f\x7f]/', $trimmed)) {

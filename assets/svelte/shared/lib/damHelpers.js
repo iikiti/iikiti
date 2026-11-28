@@ -247,10 +247,11 @@ export function buildAssetQueryParams(filters) {
 		params.set('processingStatus', processingStatus);
 	}
 
-	const folderId = normalizeId(filters.folderId);
-	if (folderId !== null && folderId !== 'all') {
+	const rawFolderId = normalizeId(filters.folderId);
+	if (rawFolderId !== null && rawFolderId !== 'all') {
+		const folderId = rawFolderId === 'none' ? 'unfiled' : rawFolderId;
 		params.set('folderId', folderId);
-		if (filters.includeSubfolders && folderId !== 'unfiled' && folderId !== 'none') {
+		if (filters.includeSubfolders && folderId !== 'unfiled') {
 			params.set('includeSubfolders', '1');
 		}
 	}

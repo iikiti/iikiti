@@ -44,6 +44,8 @@ final class S3AssetStorageTest extends TestCase
 				'method' => $method,
 				'url' => $url,
 				'headers' => is_array($options['headers'] ?? null) ? $options['headers'] : [],
+				'max_redirects' => $options['max_redirects'] ?? null,
+				'timeout' => $options['timeout'] ?? null,
 			];
 
 			if ('PUT' === $method) {
@@ -94,6 +96,7 @@ final class S3AssetStorageTest extends TestCase
 			prefix: 'tenant-a',
 			pathStyle: true,
 			cdnUrl: 'https://cdn.example.test/assets',
+			allowPrivateEndpoints: true,
 		);
 
 		$storage = new S3AssetStorage(
@@ -151,11 +154,39 @@ final class S3AssetStorageTest extends TestCase
 		$storage->delete($key);
 		self::assertFalse($storage->exists($key));
 
-		// Verify Authorization header was signed on PUT request.
+		// Verify Authorization header was signed and every request disabled redirects with explicit timeout.
+		foreach ($recorded as $call) {
+			self::assertSame(0, $call['max_redirects']);
+			self::assertSame(30.0, $call['timeout']);
+		}
 		$putCalls = array_values(array_filter($recorded, static fn (array $call): bool => 'PUT' === $call['method']));
 		self::assertCount(1, $putCalls);
 		self::assertTrue(self::hasHeaderPrefix($putCalls[0]['headers'], 'Authorization', 'AWS4-HMAC-SHA256 '));
 		self::assertTrue(self::hasHeaderPrefix($putCalls[0]['headers'], 'X-Amz-Content-Sha256', hash('sha256', 'remote s3 payload')));
+	}
+
+	public function testRejectsPrivateLoopbackAndInternalEndpointsByDefault(): void
+	{
+		foreach ([
+			'http://127.0.0.1:9000',
+			'http://169.254.169.254/latest/meta-data',
+			'http://10.0.0.5:9000',
+			'http://[::1]:9000',
+			'http://localhost:9000',
+			'http://minio.local:9000',
+			'http://metadata.google.internal',
+		] as $blocked) {
+			try {
+				new S3StorageConfig(endpoint: $blocked, allowPrivateEndpoints: false);
+				self::fail(sprintf('Expected SSRF validation error for endpoint "%s".', $blocked));
+			} catch (\InvalidArgumentException) {
+				$this->addToAssertionCount(1);
+			}
+		}
+
+		// Public endpoint succeeds.
+		$public = new S3StorageConfig(endpoint: 'https://s3.us-east-1.amazonaws.com', allowPrivateEndpoints: false);
+		self::assertSame('https://s3.us-east-1.amazonaws.com', $public->endpoint);
 	}
 
 	public function testPathForThrowsLogicExceptionAndRejectsInvalidKeys(): void

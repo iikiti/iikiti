@@ -56,6 +56,18 @@ final readonly class PublicAssetApiProxy
 		return $this->proxyPath($request, '/api/public/assets/signed/'.$publicToken.'/'.$variant);
 	}
 
+	public function hls(Request $request, string $publicToken, string $segment): Response
+	{
+		if (
+			1 !== preg_match('/^[a-f0-9]{64}$/', $publicToken)
+			|| 1 !== preg_match('/^[a-z0-9][a-z0-9_-]{0,55}\.(?:m3u8|ts)$/', $segment)
+		) {
+			return new Response('', Response::HTTP_NOT_FOUND);
+		}
+
+		return $this->proxyPath($request, '/api/public/assets/'.$publicToken.'/hls/'.$segment);
+	}
+
 	public function pluginAsset(Request $request, string $slug, string $path): Response
 	{
 		if (1 !== preg_match('/^[a-z0-9][a-z0-9-]{0,63}$/D', $slug)) {

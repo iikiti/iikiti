@@ -161,12 +161,25 @@ describe('buildAssetQueryParams', () => {
 		expect(parsed.get('locale')).toBe('en-US');
 	});
 
-	test('does not include includeSubfolders for unfiled folder view', () => {
+	test('does not include includeSubfolders for unfiled folder view and maps none to unfiled', () => {
 		const query = buildAssetQueryParams({
 			folderId: 'unfiled',
 			includeSubfolders: true,
 		});
 		expect(query).toBe('folderId=unfiled');
+
+		const legacyNoneQuery = buildAssetQueryParams({
+			folderId: 'none',
+			includeSubfolders: true,
+		});
+		expect(legacyNoneQuery).toBe('folderId=unfiled');
+	});
+
+	test('preserves expiring_or_expired licenseStatus filter', () => {
+		const query = buildAssetQueryParams({
+			licenseStatus: 'expiring_or_expired',
+		});
+		expect(query).toBe('licenseStatus=expiring_or_expired');
 	});
 });
 

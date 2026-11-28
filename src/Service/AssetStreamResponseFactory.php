@@ -26,6 +26,12 @@ final readonly class AssetStreamResponseFactory
 	public const DELIVERY_MODE_PROXY = 'proxy';
 	public const DELIVERY_MODE_REDIRECT = 'redirect';
 
+	/** @var list<string> */
+	private const INTERNAL_HLS_INLINE_MIMES = [
+		'application/vnd.apple.mpegurl',
+		'video/mp2t',
+	];
+
 	private AssetMimeTypeRegistry $mimeRegistry;
 
 	public function __construct(
@@ -51,9 +57,10 @@ final readonly class AssetStreamResponseFactory
 		?int $knownSize = null,
 		?string $forcedDisposition = null,
 		bool $isSigned = false,
+		bool $allowInternalHlsInline = false,
 	): Response {
 		$safeFilename = $this->sanitizeFilename($filename);
-		$disposition = $this->resolveDisposition($mimeType, $forcedDisposition);
+		$disposition = $this->resolveDisposition($mimeType, $forcedDisposition, $allowInternalHlsInline);
 		$cacheControl = $this->resolveCacheControl($request, $visibility, $checksum, $isSigned);
 
 		if (self::DELIVERY_MODE_REDIRECT === strtolower(trim($this->deliveryMode))) {
@@ -353,17 +360,21 @@ final readonly class AssetStreamResponseFactory
 		return 'public, max-age=3600, stale-while-revalidate=86400';
 	}
 
-	private function resolveDisposition(string $mimeType, ?string $forcedDisposition): string
+	private function resolveDisposition(string $mimeType, ?string $forcedDisposition, bool $allowInternalHlsInline = false): string
 	{
+		$normalizedMime = strtolower(trim($mimeType));
+		$isInlineSafe = $this->mimeRegistry->isInlineDeliverable($normalizedMime)
+			|| ($allowInternalHlsInline && in_array($normalizedMime, self::INTERNAL_HLS_INLINE_MIMES, true));
+
 		if (null !== $forcedDisposition) {
-			if (ResponseHeaderBag::DISPOSITION_INLINE === $forcedDisposition && $this->mimeRegistry->isAllowed($mimeType)) {
+			if (ResponseHeaderBag::DISPOSITION_INLINE === $forcedDisposition && $isInlineSafe) {
 				return ResponseHeaderBag::DISPOSITION_INLINE;
 			}
 
 			return ResponseHeaderBag::DISPOSITION_ATTACHMENT;
 		}
 
-		return $this->mimeRegistry->isInlineDeliverable($mimeType) ?
+		return $isInlineSafe ?
 			ResponseHeaderBag::DISPOSITION_INLINE :
 			ResponseHeaderBag::DISPOSITION_ATTACHMENT;
 	}

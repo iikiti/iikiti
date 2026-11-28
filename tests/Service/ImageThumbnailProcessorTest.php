@@ -270,4 +270,66 @@ TXT;
 		self::assertArrayNotHasKey('w1280_avif', $persisted);
 		self::assertNotEmpty($commandsExecuted);
 	}
+
+	public function testProcessUpdatesExistingVariantInPlaceWithoutRemoveOrPersist(): void
+	{
+		if (!function_exists('imagecreatetruecolor') || !function_exists('imagepng')) {
+			self::markTestSkipped('GD PNG support is required.');
+		}
+
+		$storage = new LocalAssetStorage($this->directory, $this->filesystem);
+		$sourceKey = 'ab/'.str_repeat('6', 64).'.png';
+		$sourcePath = $storage->pathFor($sourceKey);
+		$this->filesystem->mkdir(dirname($sourcePath), 0700);
+		$sourceImg = imagecreatetruecolor(640, 480);
+		self::assertInstanceOf(\GdImage::class, $sourceImg);
+		imagepng($sourceImg, $sourcePath);
+
+		$oldVariantKey = 'cd/'.str_repeat('7', 64).'.png';
+		$oldVariantPath = $storage->pathFor($oldVariantKey);
+		$this->filesystem->mkdir(dirname($oldVariantPath), 0700);
+		file_put_contents($oldVariantPath, 'old-variant-bytes');
+
+		$asset = new UploadedDigitalAsset('Banner', 'image/png', str_repeat('e', 64));
+		$asset->setStorageKey($sourceKey);
+
+		$existingVariant = new DigitalAssetVariant($asset, 'thumbnail', $oldVariantKey, 'image/png', 17, 100, 100, str_repeat('0', 64), 'png', null, false);
+
+		$variantsRepo = $this->createMock(DigitalAssetVariantRepository::class);
+		$variantsRepo->method('findByAssetAndKey')->willReturn($existingVariant);
+
+		$entityManager = $this->createMock(EntityManagerInterface::class);
+		$entityManager->expects(self::never())->method('remove');
+		$entityManager->expects(self::never())->method('persist');
+		$entityManager->expects(self::once())->method('flush');
+
+		$processor = new ImageThumbnailProcessor(
+			$storage,
+			$variantsRepo,
+			$entityManager,
+			$this->filesystem,
+			formatDetector: static fn (): array => ['png'],
+			commandRunner: static function (array $command): void {
+				$outputPath = $command[count($command) - 1];
+				$out = imagecreatetruecolor(320, 240);
+				self::assertInstanceOf(\GdImage::class, $out);
+				imagepng($out, $outputPath);
+			},
+		);
+
+		$workflow = new AssetWorkflowDefinition('image-thumbnails', 'Thumbnails', 'image_thumbnail', 'image/*', [], [
+			'variants' => [
+				['name' => 'thumbnail', 'width' => 320, 'height' => 320],
+			],
+			'responsive_widths' => [],
+		]);
+
+		$processor->process($asset, $workflow);
+
+		self::assertNotSame($oldVariantKey, $existingVariant->getStorageKey());
+		self::assertSame(320, $existingVariant->getWidth());
+		self::assertSame(240, $existingVariant->getHeight());
+		self::assertFalse($storage->exists($oldVariantKey));
+		self::assertTrue($storage->exists($existingVariant->getStorageKey()));
+	}
 }

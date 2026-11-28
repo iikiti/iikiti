@@ -30,6 +30,7 @@ final readonly class S3StorageConfig
 	];
 
 	public const GCS_INTEROP_ENDPOINT = 'https://storage.googleapis.com';
+	public const ALLOW_PRIVATE_ENDPOINTS_ENV = 'ASSET_S3_ALLOW_PRIVATE_ENDPOINTS';
 
 	public string $provider;
 	public string $endpoint;
@@ -51,21 +52,32 @@ final readonly class S3StorageConfig
 		string $prefix = '',
 		bool $pathStyle = false,
 		string $cdnUrl = '',
+		?bool $allowPrivateEndpoints = null,
 	) {
 		$normalizedProvider = strtolower(trim($provider));
 		if (!in_array($normalizedProvider, self::ALLOWED_PROVIDERS, true)) {
 			throw new \InvalidArgumentException(sprintf('Unsupported object storage provider "%s".', $provider));
 		}
 
+		$normalizedEndpoint = rtrim(trim($endpoint), '/');
+		if ('' !== $normalizedEndpoint) {
+			self::assertSafeEndpointUrl($normalizedEndpoint, 'endpoint', $allowPrivateEndpoints, false);
+		}
+
+		$normalizedCdnUrl = rtrim(trim($cdnUrl), '/');
+		if ('' !== $normalizedCdnUrl) {
+			self::assertSafeEndpointUrl($normalizedCdnUrl, 'cdnUrl', $allowPrivateEndpoints, false);
+		}
+
 		$this->provider = $normalizedProvider;
-		$this->endpoint = rtrim(trim($endpoint), '/');
+		$this->endpoint = $normalizedEndpoint;
 		$this->region = trim($region);
 		$this->bucket = trim($bucket);
 		$this->accessKey = trim($accessKey);
 		$this->secretKey = trim($secretKey);
 		$this->prefix = trim(str_replace('\\', '/', trim($prefix)), '/');
 		$this->pathStyle = $pathStyle;
-		$this->cdnUrl = rtrim(trim($cdnUrl), '/');
+		$this->cdnUrl = $normalizedCdnUrl;
 	}
 
 	/**
@@ -342,6 +354,135 @@ final readonly class S3StorageConfig
 		$segments = explode('/', ltrim($path, '/'));
 
 		return implode('/', array_map('rawurlencode', $segments));
+	}
+
+	public static function allowsPrivateEndpoints(): bool
+	{
+		$raw = $_ENV[self::ALLOW_PRIVATE_ENDPOINTS_ENV]
+			?? $_SERVER[self::ALLOW_PRIVATE_ENDPOINTS_ENV]
+			?? getenv(self::ALLOW_PRIVATE_ENDPOINTS_ENV);
+
+		if (is_bool($raw)) {
+			return $raw;
+		}
+		if (!is_string($raw)) {
+			return false;
+		}
+
+		return in_array(strtolower(trim($raw)), ['1', 'true', 'yes', 'on'], true);
+	}
+
+	/**
+	 * Validates that an HTTP(S) S3 endpoint or CDN URL does not target loopback,
+	 * link-local, private, or reserved IP addresses or internal hostnames unless
+	 * explicitly permitted via `ASSET_S3_ALLOW_PRIVATE_ENDPOINTS=true`.
+	 */
+	public static function assertSafeEndpointUrl(
+		string $url,
+		string $field = 'endpoint',
+		?bool $allowPrivateEndpoints = null,
+		bool $resolveDns = true,
+	): string {
+		$trimmed = rtrim(trim($url), '/');
+		if ('' === $trimmed || 1 === preg_match('/[\x00-\x1f\x7f]/', $trimmed)) {
+			throw new \InvalidArgumentException(sprintf('Field "%s" must be a valid HTTP(S) URL.', $field));
+		}
+
+		$parts = parse_url($trimmed);
+		if (!is_array($parts) || array_key_exists('user', $parts) || array_key_exists('pass', $parts)) {
+			throw new \InvalidArgumentException(sprintf('Field "%s" must be a valid HTTP(S) URL without embedded credentials.', $field));
+		}
+
+		$scheme = strtolower((string) ($parts['scheme'] ?? ''));
+		$rawHost = strtolower(rtrim(trim((string) ($parts['host'] ?? '')), '.'));
+		if (!in_array($scheme, ['http', 'https'], true) || '' === $rawHost) {
+			throw new \InvalidArgumentException(sprintf('Field "%s" must be a valid HTTP(S) URL.', $field));
+		}
+
+		$allowPrivate = $allowPrivateEndpoints ?? self::allowsPrivateEndpoints();
+		if ($allowPrivate) {
+			return $trimmed;
+		}
+
+		$host = str_starts_with($rawHost, '[') && str_ends_with($rawHost, ']')
+			? substr($rawHost, 1, -1)
+			: $rawHost;
+
+		if (
+			'localhost' === $host
+			|| str_ends_with($host, '.localhost')
+			|| str_ends_with($host, '.local')
+			|| str_ends_with($host, '.internal')
+			|| str_ends_with($host, '.localdomain')
+			|| str_ends_with($host, '.home.arpa')
+		) {
+			throw new \InvalidArgumentException(sprintf(
+				'Field "%s" cannot target localhost or internal hostnames unless %s=true is set.',
+				$field,
+				self::ALLOW_PRIVATE_ENDPOINTS_ENV,
+			));
+		}
+
+		if (false !== filter_var($host, FILTER_VALIDATE_IP)) {
+			if (!self::isPublicIp($host)) {
+				throw new \InvalidArgumentException(sprintf(
+					'Field "%s" cannot target private, loopback, link-local, or reserved IP addresses unless %s=true is set.',
+					$field,
+					self::ALLOW_PRIVATE_ENDPOINTS_ENV,
+				));
+			}
+
+			return $trimmed;
+		}
+
+		if ($resolveDns) {
+			$resolvedIps = [];
+			$records = @dns_get_record($host, DNS_A | DNS_AAAA);
+			if (is_array($records)) {
+				foreach ($records as $record) {
+					if (isset($record['ip']) && is_string($record['ip'])) {
+						$resolvedIps[] = $record['ip'];
+					}
+					if (isset($record['ipv6']) && is_string($record['ipv6'])) {
+						$resolvedIps[] = $record['ipv6'];
+					}
+				}
+			}
+			if ([] === $resolvedIps) {
+				$ipv4List = @gethostbynamel($host);
+				if (is_array($ipv4List)) {
+					$resolvedIps = $ipv4List;
+				}
+			}
+			foreach ($resolvedIps as $ip) {
+				if (!self::isPublicIp($ip)) {
+					throw new \InvalidArgumentException(sprintf(
+						'Field "%s" resolves to a private, loopback, link-local, or reserved IP address.',
+						$field,
+					));
+				}
+			}
+		}
+
+		return $trimmed;
+	}
+
+	private static function isPublicIp(string $ip): bool
+	{
+		$normalized = strtolower(trim($ip));
+		if ('' === $normalized) {
+			return false;
+		}
+
+		// Handle IPv4-mapped IPv6 addresses (e.g. ::ffff:127.0.0.1 or ::ffff:169.254.169.254).
+		if (str_starts_with($normalized, '::ffff:')) {
+			$mapped = substr($normalized, 7);
+			if (false !== filter_var($mapped, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+				return false !== filter_var($mapped, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+			}
+		}
+
+		return false !== filter_var($normalized, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
 	}
 
 	private static function nonEmptyString(mixed $value): ?string

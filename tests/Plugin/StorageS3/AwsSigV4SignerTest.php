@@ -156,4 +156,19 @@ final class AwsSigV4SignerTest extends TestCase
 			expiresInSeconds: AwsSigV4Signer::MAX_PRESIGN_EXPIRES + 1,
 		);
 	}
+
+	public function testSignRequestRejectsCrlfInHeaderValues(): void
+	{
+		$signer = new AwsSigV4Signer();
+
+		$this->expectException(\InvalidArgumentException::class);
+		$signer->signRequest(
+			'PUT',
+			'https://s3.example.test/bucket/key',
+			'AKIAEXAMPLE',
+			'SECRETEXAMPLE',
+			'us-east-1',
+			['Content-Type' => "image/png\r\nX-Injected: evil"],
+		);
+	}
 }

@@ -46,7 +46,7 @@ final readonly class DigitalAssetFilterCriteria
 	public const ALLOWED_PROCESSING_STATUSES = ['pending', 'processing', 'complete', 'failed'];
 
 	/** @var list<string> */
-	public const ALLOWED_LICENSE_STATUSES = ['valid', 'expiring_soon', 'expired', 'missing'];
+	public const ALLOWED_LICENSE_STATUSES = ['valid', 'expiring_soon', 'expired', 'expiring_or_expired', 'missing'];
 
 	/**
 	 * @param list<int|string> $tagIds

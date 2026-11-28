@@ -18,7 +18,6 @@ use iikiti\CMS\Repository\DigitalAssetRepository;
 use iikiti\CMS\Repository\Object\SiteRepository;
 use iikiti\CMS\Service\DigitalAssetAccessPolicy;
 use iikiti\CMS\Storage\AssetStorageInterface;
-use iikiti\CMS\Transfer\RemoteSiteClient;
 use iikiti\CMS\Transfer\SiteTransferCatalog;
 use iikiti\CMS\Transfer\SiteTransferExportService;
 use iikiti\CMS\Transfer\SiteTransferImportService;
